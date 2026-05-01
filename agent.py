@@ -604,7 +604,27 @@ class AgentLoop:
         if not isinstance(payload, dict):
             raise ValueError("payload must be an object")
         await self._send(message_type, **payload)
+        if message_type == "plan_ready":
+            print("[AGENT] plan_ready sent; waiting for user confirmation")
+            confirmation = await self._wait_for_plan_confirmation()
+            print(
+                "[AGENT] confirmation received: "
+                f"{self._summarize(confirmation, limit=100)}"
+            )
+            return confirmation
         return {"sent": True}
+
+    async def _wait_for_plan_confirmation(self) -> dict[str, Any]:
+        response = await self._tool_ask_user(
+            {"question": "Please confirm the plan or provide correction.", "options": []}
+        )
+        event_type = str(response.get("event_type") or "")
+        answer = str(response.get("answer") or "").strip()
+        if event_type == "correction":
+            return {"confirmed": False, "correction": answer}
+        if event_type == "option_selected":
+            return {"confirmed": True, "answer": answer}
+        return {"confirmed": True, "answer": "confirmed"}
 
     async def _tool_ask_user(self, args: dict[str, Any]) -> dict[str, Any]:
         question = str(args.get("question") or "").strip()
@@ -623,11 +643,14 @@ class AgentLoop:
             event_type = str(event.get("type") or "")
             if event_type == "option_selected":
                 answer = str(event.get("answer") or event.get("message") or "").strip()
-                return {"answer": answer}
+                return {"answer": answer, "event_type": "option_selected"}
             if event_type == "correction":
-                return {"answer": str(event.get("message") or "").strip()}
+                return {
+                    "answer": str(event.get("message") or "").strip(),
+                    "event_type": "correction",
+                }
             if event_type == "confirmed":
-                return {"answer": "confirmed"}
+                return {"answer": "confirmed", "event_type": "confirmed"}
 
     def _build_locator_from_strategy(self, strategy: str, element_data: dict[str, Any]) -> str:
         tag = str(element_data.get("tag") or "*").strip() or "*"

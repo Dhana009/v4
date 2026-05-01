@@ -233,6 +233,8 @@ async def inject_panel(page: Page) -> None:
       <div class="ac-body">
         <div class="ac-section-title">Step Queue</div>
         <div class="ac-steps"></div>
+        <div class="ac-section-title" style="margin-top:10px;">Recorded Steps</div>
+        <div class="ac-recorded-steps"></div>
         <div class="ac-row">
           <button type="button" class="ac-add">Add Step</button>
         </div>
@@ -251,6 +253,7 @@ async def inject_panel(page: Page) -> None:
     document.documentElement.appendChild(root);
 
     const stepsEl = root.querySelector(".ac-steps");
+    const recordedStepsEl = root.querySelector(".ac-recorded-steps");
     const addBtn = root.querySelector(".ac-add");
     const runBtn = root.querySelector(".ac-run");
     const confirmBtn = root.querySelector(".ac-confirm");
@@ -310,16 +313,19 @@ async def inject_panel(page: Page) -> None:
 
     function renderSteps() {{
       stepsEl.innerHTML = "";
-      state.steps.forEach((step, idx) => {{
+      recordedStepsEl.innerHTML = "";
+      const pendingSteps = state.steps.filter((step) => !step.recorded);
+      const recordedSteps = state.steps.filter((step) => step.recorded);
+
+      pendingSteps.forEach((step, idx) => {{
         const card = document.createElement("div");
         card.className = "ac-step";
         const badge = step.element_info
           ? step.element_info.tag + (step.element_info.id ? ("#" + step.element_info.id) : "")
           : "No element attached";
-        const statusMark = step.recorded ? " ✅" : "";
         card.innerHTML = `
           <div class="ac-step-head">
-            <span>Step ${{idx + 1}}${{statusMark}}</span>
+            <span>Step ${{idx + 1}}</span>
             <button type="button" data-del="${{step.id}}">Delete</button>
           </div>
           <textarea data-intent="${{step.id}}" placeholder="Describe intent...">${{step.intent || ""}}</textarea>
@@ -329,6 +335,27 @@ async def inject_panel(page: Page) -> None:
           </div>
         `;
         stepsEl.appendChild(card);
+      }});
+
+      recordedSteps.forEach((step, idx) => {{
+        const card = document.createElement("div");
+        card.className = "ac-step";
+        const meta = step.recordedMeta || {{}};
+        const action = meta.action || step.intent || `Step ${{idx + 1}}`;
+        const elementName = meta.element_name || "";
+        const locator = meta.locator || "";
+        card.innerHTML = `
+          <div class="ac-step-head">
+            <span>✅ ${{action}}</span>
+            <button type="button" data-del-rec="${{step.id}}">Delete</button>
+          </div>
+          ${{elementName ? `<div class="ac-pill">${{elementName}}</div>` : ""}}
+          ${{locator ? `<div class="ac-pill">${{locator}}</div>` : ""}}
+          <div class="ac-row">
+            <button type="button" data-replay="${{step.id}}" disabled>Replay</button>
+          </div>
+        `;
+        recordedStepsEl.appendChild(card);
       }});
 
       stepsEl.querySelectorAll("[data-del]").forEach((btn) => {{
@@ -352,6 +379,20 @@ async def inject_panel(page: Page) -> None:
           const id = btn.getAttribute("data-pick");
           appendLog("Picker armed for step " + id + ". Click target element.");
           send({{ type: "arm_picker", step_id: id }});
+        }});
+      }});
+
+      recordedStepsEl.querySelectorAll("[data-del-rec]").forEach((btn) => {{
+        btn.addEventListener("click", () => {{
+          const id = btn.getAttribute("data-del-rec");
+          state.steps = state.steps.filter((s) => s.id !== id);
+          renderSteps();
+        }});
+      }});
+
+      recordedStepsEl.querySelectorAll("[data-replay]").forEach((btn) => {{
+        btn.addEventListener("click", () => {{
+          appendLog("Replay not implemented yet.");
         }});
       }});
     }}
@@ -403,7 +444,9 @@ async def inject_panel(page: Page) -> None:
           }}
           if (msg.instruction) parts.push("\\n" + msg.instruction);
           understandingEl.value = parts.join("\\n").trim();
-          appendLog("⏳ Plan ready.");
+          state.pendingMode = "confirm";
+          optionsEl.innerHTML = "";
+          appendLog("Plan ready. Awaiting confirmation.");
           return;
         }}
         if (msg.type === "clarification_needed") {{
@@ -416,10 +459,27 @@ async def inject_panel(page: Page) -> None:
           return;
         }}
         if (msg.type === "step_recorded") {{
+          let step = null;
+          if (msg.step_id) {{
+            step = state.steps.find((s) => s.id === msg.step_id) || null;
+          }}
           const stepNumber = Number(msg.step_number || 0);
-          if (stepNumber > 0 && state.steps[stepNumber - 1]) {{
-            state.steps[stepNumber - 1].recorded = true;
-            renderSteps();
+          if (!step && stepNumber > 0) {{
+            step = state.steps[stepNumber - 1] || null;
+          }}
+          if (step) {{
+            step.recorded = true;
+            step.recordedMeta = {{
+              action: msg.action || "step",
+              element_name: msg.element_name || "",
+              locator: msg.locator || "",
+              generated_line: msg.generated_line || "",
+            }};
+            if (!state.steps.some((s) => !s.recorded)) {{
+              createStep();
+            }} else {{
+              renderSteps();
+            }}
           }}
           const action = msg.action || "step";
           const elementName = msg.element_name || "";
@@ -456,12 +516,12 @@ async def inject_panel(page: Page) -> None:
     addBtn.addEventListener("click", createStep);
     runBtn.addEventListener("click", () => {{
       const readySteps = state.steps
-        .map((s, i) => ({{
-          id: String(i + 1),
+        .filter((s) => (s.intent || "").trim() && !s.recorded)
+        .map((s) => ({{
+          id: s.id,
           intent: (s.intent || "").trim(),
           element_info: s.element_info || null,
-        }}))
-        .filter((s) => s.intent);
+        }}));
       if (!readySteps.length) {{
         appendLog("Add at least one step intent before running.", true);
         return;
