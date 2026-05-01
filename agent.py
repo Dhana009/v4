@@ -1,19 +1,49 @@
 from __future__ import annotations
 
 import json
+import re
 from typing import Any
 
 from browser import get_page
-from executor import execute_action
 from llm import LLMClient
-from locator import find_best_locator
 
 
 class AgentLoop:
     def __init__(self, ws: Any, control_queue: Any) -> None:
         self.ws = ws
         self.control_queue = control_queue
-        self.llm = LLMClient()
+        self.system_prompt = (
+            "You are a browser automation agent with access to tools.\n"
+            "When given steps, first call dom_snapshot to understand what is currently on the page, "
+            "then explain in plain English what you see and what you plan to do for each step.\n"
+            "Always use your tools. Never guess."
+        )
+        self.llm = LLMClient(system_prompt=self.system_prompt)
+        self.tools = [
+            {
+                "type": "function",
+                "function": {
+                    "name": "dom_snapshot",
+                    "description": "Get the current page DOM to understand what is on the page",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "scope": {
+                                "type": "string",
+                                "enum": ["element", "page"],
+                                "description": "Choose page for the full document or element for the picked element.",
+                            },
+                            "element_data": {
+                                "type": ["object", "null"],
+                                "description": "Picked element info if available.",
+                            },
+                        },
+                        "required": ["scope", "element_data"],
+                        "additionalProperties": False,
+                    },
+                },
+            }
+        ]
 
     async def _send(self, msg_type: str, **kwargs: Any) -> None:
         payload = {"type": msg_type}
@@ -22,133 +52,136 @@ class AgentLoop:
 
     async def run(self, steps: list[dict]) -> None:
         try:
-            planned_actions = await self._phase_understand_confirm(steps)
-            await self._phase_execute_with_heal(steps, planned_actions)
-            await self._send("status", message="Run completed.")
+            self.llm.reset()
+            print("[AGENT] Starting tool-calling loop")
+
+            step_text = self._format_steps(steps)
+            self.llm.messages.append({"role": "user", "content": step_text})
+
+            while True:
+                resp = await self.llm.client.chat.completions.create(
+                    model="gpt-4.1-mini",
+                    messages=self.llm.messages,
+                    tools=self.tools,
+                    tool_choice="auto",
+                )
+                message = resp.choices[0].message
+
+                assistant_entry: dict[str, Any] = {
+                    "role": "assistant",
+                    "content": message.content or "",
+                }
+                if message.tool_calls:
+                    assistant_entry["tool_calls"] = [
+                        {
+                            "id": tool_call.id,
+                            "type": tool_call.type,
+                            "function": {
+                                "name": tool_call.function.name,
+                                "arguments": tool_call.function.arguments,
+                            },
+                        }
+                        for tool_call in message.tool_calls
+                    ]
+                self.llm.messages.append(assistant_entry)
+
+                if not message.tool_calls:
+                    final_text = (message.content or "").strip()
+                    print("[AGENT] LLM final response received")
+                    await self._send("confirm", message=final_text)
+                    return
+
+                for tool_call in message.tool_calls:
+                    if tool_call.function.name != "dom_snapshot":
+                        raise RuntimeError(f"Unsupported tool requested: {tool_call.function.name}")
+
+                    raw_args = tool_call.function.arguments or "{}"
+                    print(f"[TOOL CALL] dom_snapshot({raw_args})")
+                    args = json.loads(raw_args)
+                    result = await self._dom_snapshot(
+                        scope=str(args.get("scope") or "").strip(),
+                        element_data=args.get("element_data"),
+                    )
+                    result_json = json.dumps(result, ensure_ascii=True)
+                    preview = result_json[:200]
+                    print(f"[TOOL RESULT] {preview}")
+                    self.llm.messages.append(
+                        {
+                            "role": "tool",
+                            "tool_call_id": tool_call.id,
+                            "content": result_json,
+                        }
+                    )
         except Exception as e:  # noqa: BLE001
             await self._send("error", message=f"Agent failed: {type(e).__name__}: {e}")
 
-    async def _phase_understand_confirm(self, steps: list[dict]) -> list[dict]:
-        current_steps = steps
-        while True:
-            await self._send("status", message="Phase 1: understanding requested steps...")
-            schema_hint = (
-                '[{"step_id":"1","action_type":"click|fill|navigate","locator_hint":"string","value":"string or null"}]'
-            )
-            prompt = (
-                "Here are the automation steps the user wants.\n"
-                "For each step, return STRICT JSON only (no markdown, no extra text) as an array with schema:\n"
-                f"{schema_hint}\n"
-                "Rules:\n"
-                "- action_type must be one of click, fill, navigate\n"
-                "- locator_hint must be natural-language element hint string\n"
-                "- value must be string or null\n"
-                "- step_id must match input step id\n\n"
-                f"INPUT STEPS JSON:\n{json.dumps(current_steps, ensure_ascii=True)}"
-            )
-            llm_response = await self.llm.chat(prompt)
-            actions = self._parse_action_json(llm_response)
-
-            await self._send("confirm", message=llm_response)
-            await self._send("status", message="Phase 2: waiting for confirmation/correction...")
-
-            while True:
-                event = await self.control_queue.get()
-                event_type = event.get("type")
-                if event_type == "confirmed":
-                    await self._send("status", message="Confirmed. Starting execution.")
-                    return actions
-                if event_type == "correction":
-                    correction = (event.get("message") or "").strip()
-                    self.llm.messages.append(
-                        {
-                            "role": "user",
-                            "content": (
-                                "User correction received. Re-plan with STRICT JSON output only.\n"
-                                f"Correction: {correction}\n"
-                                f"Original steps: {json.dumps(current_steps, ensure_ascii=True)}"
-                            ),
-                        }
-                    )
-                    await self._send("status", message="Correction received. Re-understanding...")
-                    break
-
-    async def _phase_execute_with_heal(self, steps: list[dict], actions: list[dict]) -> None:
-        step_by_id = {str(s.get("id")): s for s in steps}
-        page = get_page()
-
-        for idx, action in enumerate(actions, start=1):
-            step_id = str(action.get("step_id", ""))
-            step = step_by_id.get(step_id, {})
-            action_type = str(action.get("action_type") or "").strip()
-            value = action.get("value")
-            locator_hint = str(action.get("locator_hint") or "").strip()
+    def _format_steps(self, steps: list[dict]) -> str:
+        lines = ["User steps:"]
+        for idx, step in enumerate(steps, start=1):
+            step_id = str(step.get("id") or idx)
+            intent = str(step.get("intent") or "").strip()
             element_info = step.get("element_info")
+            lines.append(f"Step {step_id}: {intent}")
+            lines.append(f"Picked element: {json.dumps(element_info, ensure_ascii=True)}")
+        return "\n".join(lines)
 
-            locator = find_best_locator(element_info, locator_hint)
-            run_action = {"locator": locator, "action_type": action_type, "value": value}
-
-            await self._send("status", message=f"Step {idx}: executing ({action_type})...")
-            result = await execute_action(page, run_action)
-            if result.get("success"):
-                await self._send("status", message=f"Step {idx}: done")
-                continue
-
-            await self._send("status", message=f"Step {idx}: failed, entering heal loop...")
-            healed = await self._heal_and_retry(idx, step, run_action, str(result.get("error") or ""))
-            if not healed:
-                await self._send("error", message=f"Step {idx} failed after 3 attempts.")
-                return
-
-    async def _heal_and_retry(
-        self, step_index: int, step: dict, action: dict, error_text: str
-    ) -> bool:
+    async def _dom_snapshot(self, scope: str, element_data: dict[str, Any] | None) -> dict[str, str]:
         page = get_page()
-        for attempt in range(1, 4):
-            await self._send("status", message=f"Step {step_index}: heal attempt {attempt}/3")
-            try:
-                url = page.url
-                dom = (await page.content())[:3000]
-            except Exception as e:  # noqa: BLE001
-                url = ""
-                dom = f"DOM capture failed: {type(e).__name__}: {e}"
+        dom = ""
 
-            prompt = (
-                "This step failed. Return STRICT JSON only with this exact schema as a one-item array:\n"
-                '[{"step_id":"1","action_type":"click|fill|navigate","locator_hint":"string","value":"string or null"}]\n'
-                f"Failed step JSON: {json.dumps(step, ensure_ascii=True)}\n"
-                f"Failed action JSON: {json.dumps(action, ensure_ascii=True)}\n"
-                f"Error: {error_text}\n"
-                f"Current URL: {url}\n"
-                f"DOM snippet (first 3000 chars): {dom}"
+        if scope == "page":
+            dom = await page.content()
+        elif scope == "element" and element_data:
+            dom = await page.evaluate(
+                """
+                ({ elementData }) => {
+                  const normalize = (value) => (value || "").replace(/\\s+/g, " ").trim();
+                  const tag = normalize(elementData?.tag).toLowerCase();
+                  const id = normalize(elementData?.id);
+                  const text = normalize(elementData?.text);
+                  const candidates = Array.from(document.querySelectorAll(tag || "*"));
+
+                  const exact = candidates.find((node) => {
+                    const nodeId = normalize(node.id);
+                    const nodeText = normalize(node.innerText || node.textContent || "");
+                    if (id && nodeId !== id) return false;
+                    if (text && nodeText !== text) return false;
+                    return true;
+                  });
+                  if (exact) return exact.outerHTML;
+
+                  const fuzzy = candidates.find((node) => {
+                    const nodeId = normalize(node.id);
+                    const nodeText = normalize(node.innerText || node.textContent || "");
+                    if (id && nodeId !== id) return false;
+                    if (!text) return true;
+                    return nodeText.includes(text) || text.includes(nodeText);
+                  });
+                  if (fuzzy) return fuzzy.outerHTML;
+
+                  if (candidates.length === 1) return candidates[0].outerHTML;
+
+                  return "";
+                }
+                """,
+                {"elementData": element_data},
             )
-            llm_response = await self.llm.chat(prompt)
-            corrected = self._parse_action_json(llm_response)[0]
+            if not dom:
+                dom = await page.content()
+        else:
+            dom = await page.content()
 
-            locator = find_best_locator(step.get("element_info"), corrected.get("locator_hint"))
-            retry_action = {
-                "locator": locator,
-                "action_type": corrected.get("action_type"),
-                "value": corrected.get("value"),
-            }
-            result = await execute_action(page, retry_action)
-            if result.get("success"):
-                await self._send("status", message=f"Step {step_index}: heal successful")
-                return True
-            error_text = str(result.get("error") or "unknown error")
+        cleaned = self._clean_dom(dom)[:3000]
+        return {"dom": cleaned, "url": page.url}
 
-        return False
-
-    def _parse_action_json(self, content: str) -> list[dict]:
-        text = (content or "").strip()
-        start = text.find("[")
-        end = text.rfind("]")
-        if start != -1 and end != -1 and end > start:
-            text = text[start : end + 1]
-        parsed = json.loads(text)
-        if not isinstance(parsed, list):
-            raise ValueError("LLM output is not a JSON list")
-        if not parsed:
-            raise ValueError("LLM output JSON list is empty")
-        return parsed
-
+    def _clean_dom(self, dom: str) -> str:
+        cleaned = dom or ""
+        for tag in ("style", "script", "svg"):
+            cleaned = re.sub(
+                rf"<{tag}\b[^>]*>.*?</{tag}>",
+                "",
+                cleaned,
+                flags=re.IGNORECASE | re.DOTALL,
+            )
+        cleaned = re.sub(r"\s+", " ", cleaned).strip()
+        return cleaned

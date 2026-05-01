@@ -1,13 +1,13 @@
 <claude-mem-context>
 # Memory Context
 
-# [agent v4] recent context, 2026-05-01 1:46pm GMT+5:30
+# [agent v4] recent context, 2026-05-01 2:10pm GMT+5:30
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 34 obs (11,111t read) | 156,656t work | 93% savings
+Stats: 39 obs (12,566t read) | 168,680t work | 93% savings
 
 ### May 1, 2026
 296 1:01p ⚖️ V1 Browser Automation Agent Architecture Finalized
@@ -49,6 +49,11 @@ S91 Fix OPENAI_API_KEY loading order bug: load_dotenv() before imports, defer en
 327 " 🔵 load_dotenv() raises AssertionError when called from stdin heredoc in Python 3.13
 328 " 🔵 OPENAI_API_KEY loads correctly (sk-proj-) but OpenAI API call fails with APIConnectionError
 329 " 🔵 OPENAI_API_KEY in .env is invalid — OpenAI returns 401 AuthenticationError
+330 1:46p 🔵 Root cause identified: shell environment OPENAI_API_KEY overrides .env file value
+331 " 🔵 API key fix confirmed working; server fails at Playwright browser launch (SIGABRT/EPERM)
+332 " 🔴 server.py: load_dotenv() changed to load_dotenv(override=True)
+333 " 🔴 browser.py: all load_dotenv() calls updated to load_dotenv(override=True)
+334 2:08p ⚖️ dom_snapshot Tool Chosen as First Build Target for LLM Browser Vision
 
-Access 157k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 169k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>
