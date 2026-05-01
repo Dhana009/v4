@@ -41,6 +41,11 @@ class AgentLoop:
         self.skills_root = Path("/Users/apple/personal/agent v4/skills/playwright-automation")
         self.llm = LLMClient()
         self.tools = self._build_tool_definitions()
+        self._recording_steps: list[dict[str, Any]] = []
+        self._recording_step_index = 0
+        self._recorded_step_ids: set[str] = set()
+        self._last_action_context: dict[str, Any] | None = None
+        self._awaiting_step_record = False
 
     async def _send(self, msg_type: str, **kwargs: Any) -> None:
         payload = {"type": msg_type}
@@ -49,6 +54,7 @@ class AgentLoop:
 
     async def run(self, steps: list[dict]) -> None:
         try:
+            self._prepare_recording_steps(steps)
             loaded_skill_names, system_prompt = self._load_skills_for_steps(steps)
             self.llm.system_prompt = system_prompt
             self.llm.reset()
@@ -83,6 +89,11 @@ class AgentLoop:
                     )
                     result = await self._dispatch_tool(tool_call.function.name, args)
                     print(f"[TOOL RESULT] {self._summarize(result, limit=100)}")
+                    if (
+                        result.get("success") is True
+                        and tool_call.function.name in {"action_click", "action_fill", "action_assert", "page_navigate"}
+                    ):
+                        self._capture_action_context(tool_call.function.name, args, result)
                     self.llm.messages.append(
                         {
                             "role": "tool",
@@ -123,10 +134,309 @@ class AgentLoop:
             "- Use browser_get_state or dom_extract before deciding what is on the page.",
             "- If a step includes suggested_scope for a picked element, call dom_extract with that suggested_scope first.",
             "- Validate locators before using them for actions or assertions.",
-            '- After a successful recorded step, call send_to_overlay with message_type "step_recorded".',
+            '- After a successful recorded step, call send_to_overlay with message_type "step_recorded" and include step_id, step_number, action, element_name, locator, generated_line, and status.',
             '- When finished, report the outcome clearly through send_to_overlay or the final assistant response.',
         ]
         return "\n".join(lines)
+
+    def _prepare_recording_steps(self, steps: list[dict]) -> None:
+        self._recording_steps = []
+        self._recording_step_index = 0
+        self._recorded_step_ids = set()
+        self._last_action_context = None
+        self._awaiting_step_record = False
+
+        for idx, step in enumerate(steps, start=1):
+            raw_element_info = step.get("element_info") if isinstance(step.get("element_info"), dict) else {}
+            step_id = str(step.get("id") or "").strip() or None
+            self._recording_steps.append(
+                {
+                    "step_id": step_id,
+                    "step_number": idx,
+                    "intent": str(step.get("intent") or "").strip(),
+                    "element_info": raw_element_info,
+                    "recorded": False,
+                }
+            )
+
+    def _coerce_step_number(self, value: Any) -> int | None:
+        try:
+            number = int(value)
+        except (TypeError, ValueError):
+            return None
+        return number if number > 0 else None
+
+    def _capture_action_context(self, tool_name: str, args: dict[str, Any], result: dict[str, Any]) -> None:
+        action = self._action_name_for_tool(tool_name)
+        if not action:
+            return
+
+        context: dict[str, Any] = {
+            "action": action,
+            "locator": str(args.get("locator") or "").strip(),
+        }
+        if "value" in args:
+            context["value"] = args.get("value")
+        if "assertion" in args:
+            context["assertion"] = str(args.get("assertion") or "").strip()
+        if "expected_value" in args:
+            context["expected_value"] = args.get("expected_value")
+        if "url" in args:
+            context["url"] = str(args.get("url") or "").strip()
+        if result.get("url") and not context.get("url"):
+            context["url"] = str(result.get("url") or "").strip()
+
+        self._last_action_context = context
+        self._awaiting_step_record = True
+
+    def _action_name_for_tool(self, tool_name: str) -> str:
+        if tool_name == "page_navigate":
+            return "navigate"
+        if tool_name.startswith("action_"):
+            return tool_name.removeprefix("action_")
+        return ""
+
+    def _current_pending_step(self) -> dict[str, Any] | None:
+        self._advance_recording_cursor()
+        if self._recording_step_index >= len(self._recording_steps):
+            return None
+        step = self._recording_steps[self._recording_step_index]
+        if step.get("recorded"):
+            return None
+        step_id = str(step.get("step_id") or "").strip()
+        if step_id and step_id in self._recorded_step_ids:
+            return None
+        return step
+
+    def _find_step_for_recording(
+        self,
+        step_id: str | None = None,
+        step_number: int | None = None,
+    ) -> dict[str, Any] | None:
+        if step_id:
+            for step in self._recording_steps:
+                if str(step.get("step_id") or "").strip() == step_id and not step.get("recorded"):
+                    return step
+            return None
+
+        if step_number is not None:
+            for step in self._recording_steps:
+                if int(step.get("step_number") or 0) == step_number and not step.get("recorded"):
+                    return step
+            return None
+
+        return self._current_pending_step()
+
+    def _advance_recording_cursor(self) -> None:
+        while self._recording_step_index < len(self._recording_steps):
+            step = self._recording_steps[self._recording_step_index]
+            if step.get("recorded"):
+                self._recording_step_index += 1
+                continue
+            step_id = str(step.get("step_id") or "").strip()
+            if step_id and step_id in self._recorded_step_ids:
+                self._recording_step_index += 1
+                continue
+            break
+
+    def _mark_step_recorded(self, step: dict[str, Any]) -> None:
+        step["recorded"] = True
+        step_id = str(step.get("step_id") or "").strip()
+        if step_id:
+            self._recorded_step_ids.add(step_id)
+        self._advance_recording_cursor()
+
+    def _derive_element_name(
+        self,
+        step: dict[str, Any],
+        action_context: dict[str, Any],
+        locator: str,
+    ) -> str:
+        element_info = step.get("element_info") or {}
+        attrs = element_info.get("attributes") or {}
+        candidates = [
+            str(element_info.get("text") or "").strip(),
+            str(attrs.get("aria-label") or "").strip(),
+            str(attrs.get("placeholder") or "").strip(),
+            str(attrs.get("data-testid") or "").strip(),
+            str(step.get("intent") or "").strip(),
+            self._locator_label_hint(locator),
+            str(action_context.get("locator") or "").strip(),
+        ]
+        for candidate in candidates:
+            if candidate:
+                return candidate[:160]
+        return "step"
+
+    def _locator_label_hint(self, locator: str) -> str:
+        locator = str(locator or "").strip()
+        if not locator:
+            return ""
+
+        match = re.fullmatch(r'get_by_test_id\("((?:\\.|[^"])*)"\)', locator)
+        if match:
+            return self._tool_string_unescape(match.group(1))
+
+        match = re.fullmatch(r'get_by_label\("((?:\\.|[^"])*)"\)', locator)
+        if match:
+            return self._tool_string_unescape(match.group(1))
+
+        match = re.fullmatch(r'get_by_placeholder\("((?:\\.|[^"])*)"\)', locator)
+        if match:
+            return self._tool_string_unescape(match.group(1))
+
+        match = re.fullmatch(r'get_by_text\("((?:\\.|[^"])*)", exact=(True|False)\)', locator)
+        if match:
+            return self._tool_string_unescape(match.group(1))
+
+        match = re.fullmatch(r'get_by_role\("((?:\\.|[^"])*)", name="((?:\\.|[^"])*)"\)', locator)
+        if match:
+            return self._tool_string_unescape(match.group(2))
+
+        if locator.startswith("#"):
+            return locator[1:]
+        return ""
+
+    def _build_generated_line(
+        self,
+        action: str,
+        locator: str,
+        action_context: dict[str, Any],
+    ) -> str:
+        action = str(action or "").strip().lower()
+        locator_expr = self._locator_to_playwright_expression(locator)
+        if not locator_expr:
+            locator_expr = "page.locator(\"\")"
+
+        if action == "click":
+            return f"await {locator_expr}.click();"
+        if action == "fill":
+            return f"await {locator_expr}.fill({json.dumps(str(action_context.get('value') or ''), ensure_ascii=True)});"
+        if action == "navigate":
+            url = str(action_context.get("url") or "").strip()
+            return f"await page.goto({json.dumps(url, ensure_ascii=True)});"
+        if action == "assert":
+            assertion = str(action_context.get("assertion") or "").strip()
+            if assertion == "visible":
+                return f"await expect({locator_expr}).toBeVisible();"
+            if assertion == "hidden":
+                return f"await expect({locator_expr}).toBeHidden();"
+            if assertion == "enabled":
+                return f"await expect({locator_expr}).toBeEnabled();"
+            if assertion == "disabled":
+                return f"await expect({locator_expr}).toBeDisabled();"
+            if assertion == "checked":
+                return f"await expect({locator_expr}).toBeChecked();"
+            if assertion == "has_value":
+                return (
+                    f"await expect({locator_expr}).toHaveValue("
+                    f"{json.dumps(str(action_context.get('expected_value') or ''), ensure_ascii=True)});"
+                )
+            if assertion == "has_text":
+                return (
+                    f"await expect({locator_expr}).toContainText("
+                    f"{json.dumps(str(action_context.get('expected_value') or ''), ensure_ascii=True)});"
+                )
+            return f"await expect({locator_expr}).toBeVisible();"
+        return f"await {locator_expr}.{action}();"
+
+    def _locator_to_playwright_expression(self, locator: str) -> str:
+        locator = str(locator or "").strip()
+        if not locator:
+            return ""
+
+        if match := re.fullmatch(r'get_by_test_id\("((?:\\.|[^"])*)"\)', locator):
+            return f'page.getByTestId({json.dumps(self._tool_string_unescape(match.group(1)), ensure_ascii=True)})'
+
+        if match := re.fullmatch(r'get_by_label\("((?:\\.|[^"])*)"\)', locator):
+            return f'page.getByLabel({json.dumps(self._tool_string_unescape(match.group(1)), ensure_ascii=True)})'
+
+        if match := re.fullmatch(r'get_by_placeholder\("((?:\\.|[^"])*)"\)', locator):
+            return f'page.getByPlaceholder({json.dumps(self._tool_string_unescape(match.group(1)), ensure_ascii=True)})'
+
+        if match := re.fullmatch(
+            r'get_by_text\("((?:\\.|[^"])*)", exact=(True|False)\)', locator
+        ):
+            text = self._tool_string_unescape(match.group(1))
+            exact = match.group(2) == "True"
+            return f'page.getByText({json.dumps(text, ensure_ascii=True)}, {{ exact: {str(exact).lower()} }})'
+
+        if match := re.fullmatch(
+            r'get_by_role\("((?:\\.|[^"])*)", name="((?:\\.|[^"])*)"\)', locator
+        ):
+            role = self._tool_string_unescape(match.group(1))
+            name = self._tool_string_unescape(match.group(2))
+            return (
+                f'page.getByRole({json.dumps(role, ensure_ascii=True)}, '
+                f'{{ name: {json.dumps(name, ensure_ascii=True)} }})'
+            )
+
+        return f'page.locator({json.dumps(locator, ensure_ascii=True)})'
+
+    def _build_step_record_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
+        clean_payload = {
+            key: value
+            for key, value in payload.items()
+            if value not in (None, "", [], {})
+        }
+        explicit_step_id = str(clean_payload.get("step_id") or "").strip() or None
+        explicit_step_number = self._coerce_step_number(clean_payload.get("step_number"))
+
+        step = self._find_step_for_recording(explicit_step_id, explicit_step_number)
+        if step is None and not explicit_step_id and explicit_step_number is None:
+            step = self._current_pending_step()
+
+        action_context = self._last_action_context or {}
+        if step is None:
+            return {}
+
+        if not action_context and not all(
+            str(clean_payload.get(key) or "").strip()
+            for key in ("action", "locator", "generated_line")
+        ):
+            return {}
+
+        action = str(clean_payload.get("action") or action_context.get("action") or "").strip()
+        locator = str(clean_payload.get("locator") or action_context.get("locator") or "").strip()
+        element_name = str(
+            clean_payload.get("element_name")
+            or self._derive_element_name(step, action_context, locator)
+            or ""
+        ).strip()
+        generated_line = str(
+            clean_payload.get("generated_line")
+            or self._build_generated_line(action, locator, action_context)
+            or ""
+        ).strip()
+        status = str(clean_payload.get("status") or "recorded").strip() or "recorded"
+
+        if not action:
+            action = "step"
+        if not element_name:
+            element_name = locator or action
+        if not locator:
+            locator = str(step.get("intent") or "").strip()
+        if not generated_line:
+            generated_line = self._build_generated_line(action, locator, action_context)
+
+        merged: dict[str, Any] = dict(clean_payload)
+        step_id = str(step.get("step_id") or "").strip()
+        if step_id:
+            merged["step_id"] = step_id
+        else:
+            merged.pop("step_id", None)
+        merged["step_number"] = int(step.get("step_number") or explicit_step_number or 0)
+        merged["action"] = action
+        merged["element_name"] = element_name
+        merged["locator"] = locator
+        merged["generated_line"] = generated_line
+        merged["status"] = status
+
+        required = ("action", "element_name", "locator", "generated_line")
+        if not all(str(merged.get(key) or "").strip() for key in required):
+            return {}
+
+        return merged
 
     def _normalize_steps(self, steps: list[dict]) -> list[dict[str, Any]]:
         normalized: list[dict[str, Any]] = []
@@ -603,6 +913,29 @@ class AgentLoop:
         payload = args.get("payload") or {}
         if not isinstance(payload, dict):
             raise ValueError("payload must be an object")
+        extra_payload = {
+            key: value for key, value in args.items() if key not in {"message_type", "payload"}
+        }
+        if extra_payload:
+            payload = {**extra_payload, **payload}
+        if message_type == "step_recorded":
+            payload = self._build_step_record_payload(payload)
+            if not payload:
+                print("[AGENT] step_recorded skipped; no step context available")
+                return {"sent": False, "skipped": True, "reason": "No step context"}
+            print(f"[AGENT] recording step: {json.dumps(payload, ensure_ascii=True)}")
+            await self._send(message_type, **payload)
+            target_step = self._find_step_for_recording(
+                str(payload.get("step_id") or "").strip() or None,
+                self._coerce_step_number(payload.get("step_number")),
+            )
+            if target_step is None:
+                target_step = self._current_pending_step()
+            if target_step is not None:
+                self._mark_step_recorded(target_step)
+            self._awaiting_step_record = False
+            self._last_action_context = None
+            return {"sent": True, "payload": payload}
         await self._send(message_type, **payload)
         if message_type == "plan_ready":
             print("[AGENT] plan_ready sent; waiting for user confirmation")

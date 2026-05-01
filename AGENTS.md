@@ -1,13 +1,13 @@
 <claude-mem-context>
 # Memory Context
 
-# [agent v4] recent context, 2026-05-01 3:57pm GMT+5:30
+# [agent v4] recent context, 2026-05-01 4:06pm GMT+5:30
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (21,956t read) | 326,161t work | 93% savings
+Stats: 50 obs (21,700t read) | 331,981t work | 93% savings
 
 ### May 1, 2026
 S88 Pre-implementation clarification Q&A — 7 design questions answered before building all 7 files (May 1 at 1:01 PM)
@@ -15,10 +15,7 @@ S87 V1 Browser Automation Agent — Full Architecture Blueprint Defined (7 files
 S89 Build all 7 files — 5 of 7 Python modules now written (browser.py, locator.py, executor.py, llm.py, agent.py) (May 1 at 1:08 PM)
 S90 V1 Browser Automation Co-pilot — All 7 files built, refined, and verified; ready to launch (May 1 at 1:11 PM)
 S91 Fix OPENAI_API_KEY loading order bug: load_dotenv() before imports, defer env var read to __init__, add startup validation (May 1 at 1:26 PM)
-370 2:42p 🟣 agent.py: suggested_scope Added to Step Normalization for Targeted DOM Extraction
-371 " 🔵 Playwright Driver Future Exception on Server Shutdown Is Benign
-372 2:43p 🟣 suggested_scope Working: LLM Uses CSS Locator via Class-Based Scope Instead of Full-Page Text Match
-373 " 🔵 suggested_scope Scopes dom_extract But LLM Still Falls Back to Text Locator Strategy
+S92 Fix page_navigate URL validation in agent.py to prevent invalid navigation errors (May 1 at 1:38 PM)
 374 2:44p 🔵 core/SKILL.md Tool Names Match agent.py Exactly — But Lists browser_launch Not Registered
 375 " 🔴 core/SKILL.md Tool List Corrected: browser_launch Removed, send_to_overlay and ask_user Added
 376 " 🔴 core/SKILL.md Execution Flow Has Garbled plan_ready Call — _ready" Typo
@@ -44,7 +41,7 @@ S91 Fix OPENAI_API_KEY loading order bug: load_dotenv() before imports, defer en
 396 3:21p 🔴 agent.py has_text Normalization and Locator Waterfall Both Confirmed in Final git diff
 397 3:22p 🔴 page_navigate Hardened Against Invalid URLs and Redundant Navigation
 398 3:40p 🔴 page_navigate URL validation added to prevent invalid navigation errors
-S92 Fix page_navigate URL validation in agent.py to prevent invalid navigation errors (May 1 at 3:41 PM)
+S93 Fix agent.py so that after send_to_overlay(plan_ready), the agent blocks for user confirmation before continuing the LLM tool-calling loop (May 1 at 3:41 PM)
 399 3:42p 🟣 Browser Panel State Management Overhaul in browser.py
 400 " 🔵 browser.py Panel State: Requested Changes Not Yet Applied
 401 " 🔴 browser.py Panel: All Six State Management Fixes Applied
@@ -66,6 +63,11 @@ S92 Fix page_navigate URL validation in agent.py to prevent invalid navigation e
 417 " ✅ Confirmation Gate Fix Committed to Git on main Branch
 418 " 🔵 Git History Shows Incremental Build of agent v4 Confirmation Flow
 419 " 🔵 Project Has No requirements.txt or pyproject.toml — Dependencies Managed via .venv Only
+420 3:56p 🔵 Integration Test Passes Using .venv Python 3.12 with Real Playwright Import
+421 3:57p 🔵 Server Running with Two python3.12 Processes — Second Instance Owns Port 8765
+422 3:58p 🔵 browser.py Has Two Uncommitted Changes: user_data_dir Path and inject_panel Debug Print
+S94 Fix agent.py confirmation gate after send_to_overlay(plan_ready) — verify fix works in live server run (May 1 at 3:58 PM)
+423 4:05p 🟣 step_recorded Payload Contract Fix — Task Initiated
 
-Access 326k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 332k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

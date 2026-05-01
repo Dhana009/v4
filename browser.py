@@ -201,6 +201,19 @@ async def inject_panel(page: Page) -> None:
           text-overflow: ellipsis;
           white-space: nowrap;
         }}
+        #${{ROOT_ID}} .ac-code {{
+          margin-top: 6px;
+          padding: 7px 8px;
+          border-radius: 8px;
+          border: 1px solid rgba(148,163,184,.12);
+          background: rgba(2,6,23,.55);
+          color: #d7e3f2;
+          font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+          font-size: 10px;
+          line-height: 1.4;
+          white-space: pre-wrap;
+          word-break: break-word;
+        }}
         #${{ROOT_ID}} .ac-understanding,
         #${{ROOT_ID}} .ac-correction {{
           min-height: 88px;
@@ -344,6 +357,7 @@ async def inject_panel(page: Page) -> None:
         const action = meta.action || step.intent || `Step ${{idx + 1}}`;
         const elementName = meta.element_name || "";
         const locator = meta.locator || "";
+        const generatedLine = meta.generated_line || "";
         card.innerHTML = `
           <div class="ac-step-head">
             <span>✅ ${{action}}</span>
@@ -351,10 +365,15 @@ async def inject_panel(page: Page) -> None:
           </div>
           ${{elementName ? `<div class="ac-pill">${{elementName}}</div>` : ""}}
           ${{locator ? `<div class="ac-pill">${{locator}}</div>` : ""}}
+          ${{generatedLine ? `<div class="ac-code"></div>` : ""}}
           <div class="ac-row">
             <button type="button" data-replay="${{step.id}}" disabled>Replay</button>
           </div>
         `;
+        if (generatedLine) {{
+          const codeEl = card.querySelector(".ac-code");
+          if (codeEl) codeEl.textContent = generatedLine;
+        }}
         recordedStepsEl.appendChild(card);
       }});
 
@@ -459,30 +478,35 @@ async def inject_panel(page: Page) -> None:
           return;
         }}
         if (msg.type === "step_recorded") {{
+          const payload = msg.payload && typeof msg.payload === "object" && Object.keys(msg.payload).length ? msg.payload : msg;
           let step = null;
-          if (msg.step_id) {{
-            step = state.steps.find((s) => s.id === msg.step_id) || null;
+          if (payload.step_id) {{
+            step = state.steps.find((s) => s.id === payload.step_id && s.recorded !== true) || null;
           }}
-          const stepNumber = Number(msg.step_number || 0);
+          const stepNumber = Number(payload.step_number || 0);
           if (!step && stepNumber > 0) {{
-            step = state.steps[stepNumber - 1] || null;
+            step = state.steps.find((s, index) => index === stepNumber - 1 && s.recorded !== true) || null;
           }}
           if (step) {{
             step.recorded = true;
             step.recordedMeta = {{
-              action: msg.action || "step",
-              element_name: msg.element_name || "",
-              locator: msg.locator || "",
-              generated_line: msg.generated_line || "",
+              action: payload.action || "step",
+              element_name: payload.element_name || "",
+              locator: payload.locator || "",
+              generated_line: payload.generated_line || "",
+              status: payload.status || "recorded",
             }};
             if (!state.steps.some((s) => !s.recorded)) {{
               createStep();
             }} else {{
               renderSteps();
             }}
+          }} else {{
+            appendLog("step_recorded received but no matching pending step was found.", true);
+            return;
           }}
-          const action = msg.action || "step";
-          const elementName = msg.element_name || "";
+          const action = payload.action || "step";
+          const elementName = payload.element_name || "";
           appendLog("✅ Recorded: " + action + (elementName ? " — " + elementName : ""));
           return;
         }}
@@ -516,7 +540,7 @@ async def inject_panel(page: Page) -> None:
     addBtn.addEventListener("click", createStep);
     runBtn.addEventListener("click", () => {{
       const readySteps = state.steps
-        .filter((s) => (s.intent || "").trim() && !s.recorded)
+        .filter((s) => (s.intent || "").trim() && s.recorded !== true)
         .map((s) => ({{
           id: s.id,
           intent: (s.intent || "").trim(),
