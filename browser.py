@@ -1,12 +1,27 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
+from pathlib import Path
 from typing import Any, Awaitable, Callable, Optional
 
 from dotenv import load_dotenv
 from playwright.async_api import BrowserContext, Page, async_playwright
 
+
+USE_AUTOWORKBENCH_UI = True
+AUTOWORKBENCH_ROOT_ID = "autoworkbench-root"
+AUTOWORKBENCH_STYLE_ID = "autoworkbench-style"
+AUTOWORKBENCH_DEFAULT_CONFIG: dict[str, Any] = {
+    "state": "planning",
+    "tab": "workbench",
+    "panelWidth": 460,
+    "density": "compact",
+}
+AUTOWORKBENCH_ASSETS_MISSING_MESSAGE = (
+    "AutoWorkbench assets not found. Run npm run build in frontend/."
+)
 
 _lock = asyncio.Lock()
 _pw: Any | None = None
@@ -18,6 +33,117 @@ _start_url: str | None = None
 # Picker state: armed for exactly one click, then disarmed.
 _picker_step_id: str | None = None
 _picker_send: Optional[Callable[[dict], Awaitable[None]]] = None
+
+
+def _repo_root() -> Path:
+    return Path(__file__).resolve().parent
+
+
+def _read_frontend_asset(relative_path: str) -> str | None:
+    asset_path = _repo_root() / relative_path
+    try:
+        return asset_path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return None
+
+
+def _build_missing_assets_injection_script(message: str) -> str:
+    return f"""
+(() => {{
+  if (window.top !== window) return;
+  const ROOT_ID = {json.dumps(AUTOWORKBENCH_ROOT_ID)};
+  const MESSAGE = {json.dumps(message)};
+
+  function ensure() {{
+    let root = document.getElementById(ROOT_ID);
+    if (!root) {{
+      root = document.createElement("div");
+      root.id = ROOT_ID;
+      (document.body || document.documentElement).appendChild(root);
+    }}
+    root.style.cssText = [
+      "position:fixed",
+      "top:16px",
+      "right:16px",
+      "z-index:2147483647",
+      "width:320px",
+      "padding:14px 16px",
+      "border-radius:12px",
+      "border:1px solid rgba(148,163,184,.28)",
+      "background:rgba(15,23,42,.96)",
+      "color:#e5eef9",
+      "box-shadow:0 20px 60px rgba(0,0,0,.4)",
+      "font:12px/1.5 ui-sans-serif,-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif"
+    ].join(";");
+    root.innerHTML = `
+      <div style="font-weight:700;margin-bottom:6px;">AutoWorkbench</div>
+      <div>${{MESSAGE}}</div>
+    `;
+  }}
+
+  if (document.readyState === "loading") {{
+    document.addEventListener("DOMContentLoaded", ensure, {{ once: true }});
+  }} else {{
+    ensure();
+  }}
+}})();
+"""
+
+
+def _build_autoworkbench_injection_script() -> str:
+    css_text = _read_frontend_asset("frontend/dist/autoworkbench.css")
+    if css_text is None:
+        return _build_missing_assets_injection_script(AUTOWORKBENCH_ASSETS_MISSING_MESSAGE)
+
+    return f"""
+(() => {{
+  if (window.top !== window) return;
+  const ROOT_ID = {json.dumps(AUTOWORKBENCH_ROOT_ID)};
+  const STYLE_ID = {json.dumps(AUTOWORKBENCH_STYLE_ID)};
+  const CSS_TEXT = {json.dumps(css_text)};
+  const CONFIG = {json.dumps(AUTOWORKBENCH_DEFAULT_CONFIG)};
+
+  function ensureRoot() {{
+    let root = document.getElementById(ROOT_ID);
+    if (!root) {{
+      root = document.createElement("div");
+      root.id = ROOT_ID;
+      (document.body || document.documentElement).appendChild(root);
+    }}
+    return root;
+  }}
+
+  function ensureStyles() {{
+    if (document.getElementById(STYLE_ID)) return;
+    const style = document.createElement("style");
+    style.id = STYLE_ID;
+    style.textContent = CSS_TEXT;
+    (document.head || document.documentElement).appendChild(style);
+  }}
+
+  function mountIfReady() {{
+    if (!window.AutoWorkbench || typeof window.AutoWorkbench.mount !== "function") {{
+      return false;
+    }}
+    window.AutoWorkbench.mount(ensureRoot(), CONFIG);
+    return true;
+  }}
+
+  function boot(retries = 40) {{
+    ensureStyles();
+    if (mountIfReady()) return;
+    if (retries > 0) {{
+      window.setTimeout(() => boot(retries - 1), 25);
+    }}
+  }}
+
+  if (document.readyState === "loading") {{
+    document.addEventListener("DOMContentLoaded", () => boot(), {{ once: true }});
+  }} else {{
+    boot();
+  }}
+}})();
+"""
 
 
 def _read_port() -> int:
@@ -85,9 +211,33 @@ async def launch_browser() -> Page:
 
 async def inject_panel(page: Page) -> None:
     """
-    Injects a floating in-page overlay with the full panel UI and a WebSocket client.
-    Uses add_init_script so it survives navigations.
+    Injects the built AutoWorkbench bundle into the page and keeps it alive across navigations.
+    The legacy raw overlay remains available behind USE_AUTOWORKBENCH_UI = False.
     """
+    if USE_AUTOWORKBENCH_UI:
+        js_bundle = _read_frontend_asset("frontend/dist/autoworkbench.js")
+        if js_bundle is None:
+            script = _build_missing_assets_injection_script(AUTOWORKBENCH_ASSETS_MISSING_MESSAGE)
+            await page.add_init_script(script)
+            try:
+                await page.evaluate(script)
+            except Exception:
+                pass
+            return
+
+        bootstrap_script = _build_autoworkbench_injection_script()
+        await page.add_init_script(js_bundle)
+        await page.add_init_script(bootstrap_script)
+        try:
+            await page.evaluate(js_bundle)
+        except Exception:
+            pass
+        try:
+            await page.evaluate(bootstrap_script)
+        except Exception:
+            pass
+        return
+
     port = _read_port()
     ws_url = f"ws://localhost:{port}/ws"
 

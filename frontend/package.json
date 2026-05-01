@@ -1,0 +1,13 @@
+{
+  "name": "autoworkbench-frontend",
+  "private": true,
+  "scripts": {
+    "clean": "rm -rf dist",
+    "build": "npm run clean && esbuild src/main.jsx --bundle --platform=browser --format=iife --outfile=dist/autoworkbench.js --loader:.css=css --jsx=automatic"
+  },
+  "dependencies": {
+    "esbuild": "^0.24.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  }
+}
