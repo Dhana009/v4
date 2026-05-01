@@ -24,7 +24,7 @@ class LLMClient:
         self.messages.append({"role": "user", "content": user_message})
 
         resp = await self.client.chat.completions.create(
-            model="gpt-4.1-mini",
+            model="gpt-4o-mini",
             messages=self.messages,
         )
 

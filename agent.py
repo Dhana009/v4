@@ -46,6 +46,7 @@ class AgentLoop:
         self._recorded_step_ids: set[str] = set()
         self._last_action_context: dict[str, Any] | None = None
         self._awaiting_step_record = False
+        self._pending_failure_followup = False
 
     async def _send(self, msg_type: str, **kwargs: Any) -> None:
         payload = {"type": msg_type}
@@ -58,6 +59,7 @@ class AgentLoop:
             loaded_skill_names, system_prompt = self._load_skills_for_steps(steps)
             self.llm.system_prompt = system_prompt
             self.llm.reset()
+            self._pending_failure_followup = False
 
             print(f"[SKILLS LOADED] {' + '.join(loaded_skill_names)}")
             print("[AGENT] Starting tool-calling loop")
@@ -67,7 +69,7 @@ class AgentLoop:
             while True:
                 print("[AGENT] Requesting LLM response")
                 response = await self.llm.client.chat.completions.create(
-                    model="gpt-4.1-mini",
+                    model="gpt-4o-mini",
                     messages=self.llm.messages,
                     tools=self.tools,
                     tool_choice="auto",
@@ -77,23 +79,71 @@ class AgentLoop:
 
                 if not message.tool_calls:
                     final_text = (message.content or "").strip()
+                    if self._should_request_user_followup(final_text, self._pending_failure_followup):
+                        print("[AGENT] LLM requested user input; waiting for clarification")
+                        answer = await self._tool_ask_user({"question": final_text or "I need your input to continue."})
+                        followup_note = self._format_user_followup_message(
+                            str(answer.get("answer") or "").strip(),
+                            str(answer.get("event_type") or "").strip(),
+                        )
+                        self.llm.messages.append({"role": "user", "content": followup_note})
+                        self._pending_failure_followup = False
+                        print(f"[AGENT] user follow-up received: {self._summarize(followup_note, limit=140)}")
+                        continue
+
                     print("[AGENT] LLM final response received")
                     await self._send("llm_result", success=True, message=final_text)
+                    self._pending_failure_followup = False
                     return
 
                 print(f"[AGENT] Executing {len(message.tool_calls)} tool call(s)")
-                for tool_call in message.tool_calls:
+                had_tool_failure = False
+                pause_for_fresh_page = False
+                tool_calls = list(message.tool_calls)
+                page_changing_tools = {
+                    "action_click",
+                    "page_navigate",
+                    "page_go_back",
+                    "page_go_forward",
+                    "page_reload",
+                }
+                stale_skip_reason = (
+                    "Skipped because a previous browser action changed page state. "
+                    "Re-query browser state before retrying."
+                )
+                batch_stop_reason = (
+                    "Skipped because the batch was stopped early. Replan before retrying."
+                )
+                for index, tool_call in enumerate(tool_calls):
+                    tool_name = tool_call.function.name
+                    if pause_for_fresh_page and self._is_browser_state_tool(tool_name):
+                        print(
+                            "[AGENT] Pausing batch before stale browser tool "
+                            f"{tool_name}; marking remaining tool calls skipped"
+                        )
+                        self._append_skipped_tool_responses(tool_calls, index, stale_skip_reason)
+                        break
+
                     args = self._parse_tool_args(tool_call.function.arguments or "{}")
                     print(
-                        f"[TOOL CALL] {tool_call.function.name}({self._summarize(args, limit=100)})"
+                        f"[TOOL CALL] {tool_name}({self._summarize(args, limit=100)})"
                     )
-                    result = await self._dispatch_tool(tool_call.function.name, args)
+                    result = await self._dispatch_tool(tool_name, args)
                     print(f"[TOOL RESULT] {self._summarize(result, limit=100)}")
+                    tool_failed = result.get("success") is False and not result.get("skipped") and (
+                        self._is_browser_state_tool(tool_name) or tool_name == "ask_user"
+                    )
+                    had_tool_failure = had_tool_failure or tool_failed
+                    is_plan_rejected = (
+                        tool_name == "send_to_overlay"
+                        and str(args.get("message_type") or "") == "plan_ready"
+                        and result.get("confirmed") is False
+                    )
                     if (
                         result.get("success") is True
-                        and tool_call.function.name in {"action_click", "action_fill", "action_assert", "page_navigate"}
+                        and tool_name in {"action_click", "action_fill", "action_assert", "page_navigate"}
                     ):
-                        self._capture_action_context(tool_call.function.name, args, result)
+                        self._capture_action_context(tool_name, args, result)
                     self.llm.messages.append(
                         {
                             "role": "tool",
@@ -101,9 +151,161 @@ class AgentLoop:
                             "content": json.dumps(result, ensure_ascii=True),
                         }
                     )
+                    if is_plan_rejected:
+                        correction = str(result.get("correction") or "").strip() or "the user requested a correction"
+                        note = (
+                            f"User corrected the plan: {correction}. "
+                            "Revise the plan and ask for confirmation again before executing."
+                        )
+                        self.llm.messages.append({"role": "user", "content": note})
+                        print(f"[AGENT] plan corrected: {self._summarize(note, limit=140)}")
+                        self._append_skipped_tool_responses(tool_calls, index + 1, batch_stop_reason)
+                        break
+                    if tool_name in page_changing_tools and tool_failed:
+                        print(f"[AGENT] {tool_name} failed; stopping batch for LLM recovery")
+                        self._append_skipped_tool_responses(tool_calls, index + 1, batch_stop_reason)
+                        break
+                    if tool_name in page_changing_tools and result.get("success") is True:
+                        pause_for_fresh_page = True
+                    if tool_failed and self._is_browser_state_tool(tool_name):
+                        print(f"[AGENT] {tool_name} failed; stopping batch for LLM recovery")
+                        self._append_skipped_tool_responses(tool_calls, index + 1, batch_stop_reason)
+                        break
+
+                if had_tool_failure:
+                    self._pending_failure_followup = True
+                    print("[AGENT] Tool failure observed in batch; awaiting LLM recovery")
+                    continue
         except Exception as exc:  # noqa: BLE001
             print(f"[AGENT] Failed: {type(exc).__name__}: {exc}")
             await self._send("error", message=f"Agent failed: {type(exc).__name__}: {exc}")
+
+    def _should_request_user_followup(self, final_text: str, had_tool_failure: bool) -> bool:
+        text = self._normalize_space(final_text).lower()
+        if not text:
+            return had_tool_failure
+
+        request_phrases = (
+            "please advise",
+            "how would you like to proceed",
+            "await your instruction",
+            "please confirm",
+            "which option",
+            "i need your input",
+            "need your input",
+            "i need your guidance",
+            "can you clarify",
+            "what should i do next",
+            "please let me know how you would like to proceed",
+            "please tell me how you would like to proceed",
+            "what would you like me to do",
+            "what would you like to do",
+            "do you want me to",
+            "would you like me to",
+            "should i",
+        )
+        if any(phrase in text for phrase in request_phrases):
+            return True
+
+        blocked_phrases = (
+            "cannot continue",
+            "can't continue",
+            "unable to continue",
+            "unable to proceed",
+            "i am blocked",
+            "blocked",
+            "stuck",
+            "need guidance",
+            "need correction",
+            "need clarification",
+            "need help",
+            "i can't proceed",
+            "i cannot proceed",
+            "i am unable",
+        )
+        if any(phrase in text for phrase in blocked_phrases):
+            return True
+
+        if had_tool_failure and not self._looks_like_completion_message(text):
+            return True
+
+        return False
+
+    def _looks_like_completion_message(self, text: str) -> bool:
+        normalized = self._normalize_space(text).lower()
+        if not normalized:
+            return False
+
+        word_patterns = (
+            r"\bdone\b",
+            r"\bfinished\b",
+            r"\bcompleted\b",
+            r"\bsuccessfully\b",
+        )
+        if any(re.search(pattern, normalized) for pattern in word_patterns):
+            return True
+
+        multi_word_phrases = (
+            "task complete",
+            "task is complete",
+            "completed successfully",
+            "all set",
+            "wrapped up",
+            "run is complete",
+            "run complete",
+        )
+        return any(phrase in normalized for phrase in multi_word_phrases)
+
+    def _format_user_followup_message(self, answer: str, event_type: str) -> str:
+        answer_text = self._normalize_space(answer)
+        if self._is_correction_followup(answer_text, event_type):
+            details = answer_text or "the user requested a correction"
+            return f"User correction: {details}. Revise the plan and continue safely."
+
+        details = answer_text or "confirmed"
+        return f"User confirmed: {details}. Continue safely from the current browser state."
+
+    def _is_correction_followup(self, answer: str, event_type: str) -> bool:
+        if event_type == "correction":
+            return True
+        if event_type != "option_selected":
+            return False
+
+        normalized = self._normalize_space(answer).lower()
+        correction_markers = (
+            "instead",
+            "first",
+            "then",
+            "before",
+            "after",
+            "revise",
+            "change",
+            "fix",
+            "retry",
+            "go back",
+            "navigate back",
+            "assert",
+            "click",
+            "fill",
+        )
+        return any(marker in normalized for marker in correction_markers)
+
+    def _is_browser_state_tool(self, tool_name: str) -> bool:
+        return tool_name in {
+            "dom_extract",
+            "locator_find",
+            "locator_validate",
+            "action_click",
+            "action_fill",
+            "action_assert",
+            "page_navigate",
+            "page_go_back",
+            "page_go_forward",
+            "page_reload",
+            "scroll_into_view",
+            "browser_get_state",
+            "screenshot_take",
+        }
 
     def _load_skills_for_steps(self, steps: list[dict]) -> tuple[list[str], str]:
         intents = " ".join(str(step.get("intent") or "") for step in steps).lower()
@@ -134,7 +336,10 @@ class AgentLoop:
             "- Use browser_get_state or dom_extract before deciding what is on the page.",
             "- If a step includes suggested_scope for a picked element, call dom_extract with that suggested_scope first.",
             "- Validate locators before using them for actions or assertions.",
+            "- Use page_go_back, page_go_forward, and page_reload for browser history or refresh actions.",
+            "- Use action_fill only on editable fields. Never use it on body to simulate navigation.",
             '- After a successful recorded step, call send_to_overlay with message_type "step_recorded" and include step_id, step_number, action, element_name, locator, generated_line, and status.',
+            "- If the user corrects the plan, revise it before any action and ask for confirmation again.",
             '- When finished, report the outcome clearly through send_to_overlay or the final assistant response.',
         ]
         return "\n".join(lines)
@@ -554,7 +759,7 @@ class AgentLoop:
                 "type": "function",
                 "function": {
                     "name": "action_click",
-                    "description": "Click an element on the live page",
+                    "description": "Click an interactive element on the live page. Use real UI controls only; do not use body clicks or clicks to simulate navigation.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -570,7 +775,7 @@ class AgentLoop:
                 "type": "function",
                 "function": {
                     "name": "action_fill",
-                    "description": "Fill an input field with a value",
+                    "description": "Fill an editable field only (input, textarea, select, or contenteditable). Never use this on body or to simulate navigation.",
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -616,11 +821,81 @@ class AgentLoop:
                 "type": "function",
                 "function": {
                     "name": "page_navigate",
-                    "description": "Navigate browser to a URL",
+                    "description": "Navigate browser to a URL. Use for direct URL changes only; use page_go_back, page_go_forward, or page_reload for history and refresh actions.",
                     "parameters": {
                         "type": "object",
                         "properties": {"url": {"type": "string"}},
                         "required": ["url"],
+                        "additionalProperties": False,
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "page_go_back",
+                    "description": "Go back in browser history. Use when user says go back, previous page, return to previous page, or navigate back.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "wait_until": {
+                                "type": "string",
+                                "enum": ["load", "domcontentloaded", "networkidle"],
+                                "default": "domcontentloaded",
+                            }
+                        },
+                        "additionalProperties": False,
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "page_go_forward",
+                    "description": "Go forward in browser history. Use when user says go forward or next page in history.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "wait_until": {
+                                "type": "string",
+                                "enum": ["load", "domcontentloaded", "networkidle"],
+                                "default": "domcontentloaded",
+                            }
+                        },
+                        "additionalProperties": False,
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "page_reload",
+                    "description": "Reload or refresh the current page. Use when user says reload, refresh, or reload current page.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "wait_until": {
+                                "type": "string",
+                                "enum": ["load", "domcontentloaded", "networkidle"],
+                                "default": "domcontentloaded",
+                            }
+                        },
+                        "additionalProperties": False,
+                    },
+                },
+            },
+            {
+                "type": "function",
+                "function": {
+                    "name": "scroll_into_view",
+                    "description": "Scroll an element into view before interacting or asserting.",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "locator": {"type": "string"},
+                            "timeout": {"type": "integer", "default": 5000},
+                        },
+                        "required": ["locator"],
                         "additionalProperties": False,
                     },
                 },
@@ -705,6 +980,10 @@ class AgentLoop:
             "action_fill": self._tool_action_fill,
             "action_assert": self._tool_action_assert,
             "page_navigate": self._tool_page_navigate,
+            "page_go_back": self._tool_page_go_back,
+            "page_go_forward": self._tool_page_go_forward,
+            "page_reload": self._tool_page_reload,
+            "scroll_into_view": self._tool_scroll_into_view,
             "browser_get_state": self._tool_browser_get_state,
             "screenshot_take": self._tool_screenshot_take,
             "send_to_overlay": self._tool_send_to_overlay,
@@ -813,7 +1092,16 @@ class AgentLoop:
         value = str(args.get("value") or "")
         timeout = int(args.get("timeout") or 30000)
         try:
-            await self._resolve_locator(page, locator_string).first.fill(value, timeout=timeout)
+            locator = self._resolve_locator(page, locator_string).first
+            tag = str(await locator.evaluate("(el) => el.tagName.toLowerCase()"))
+            contenteditable = bool(await locator.evaluate("(el) => el.isContentEditable"))
+            if tag not in {"input", "textarea", "select"} and not contenteditable:
+                return {
+                    "success": False,
+                    "error": "Cannot fill non-editable element",
+                    "tag": tag,
+                }
+            await locator.fill(value, timeout=timeout)
             return {"success": True, "error": None}
         except Exception as exc:  # noqa: BLE001
             return {"success": False, "error": str(exc)}
@@ -895,6 +1183,54 @@ class AgentLoop:
         await page.goto(url, wait_until="domcontentloaded")
         return {"success": True, "url": page.url}
 
+    async def _tool_page_go_back(self, args: dict[str, Any]) -> dict[str, Any]:
+        page = get_page()
+        wait_until = self._normalize_wait_until(args.get("wait_until"))
+        try:
+            response = await page.go_back(wait_until=wait_until)
+            return {
+                "success": True,
+                "url": page.url,
+                "title": await page.title(),
+                "navigated": response is not None,
+            }
+        except Exception as exc:  # noqa: BLE001
+            return {"success": False, "error": str(exc), "url": page.url}
+
+    async def _tool_page_go_forward(self, args: dict[str, Any]) -> dict[str, Any]:
+        page = get_page()
+        wait_until = self._normalize_wait_until(args.get("wait_until"))
+        try:
+            response = await page.go_forward(wait_until=wait_until)
+            return {
+                "success": True,
+                "url": page.url,
+                "title": await page.title(),
+                "navigated": response is not None,
+            }
+        except Exception as exc:  # noqa: BLE001
+            return {"success": False, "error": str(exc), "url": page.url}
+
+    async def _tool_page_reload(self, args: dict[str, Any]) -> dict[str, Any]:
+        page = get_page()
+        wait_until = self._normalize_wait_until(args.get("wait_until"))
+        try:
+            await page.reload(wait_until=wait_until)
+            return {"success": True, "url": page.url, "title": await page.title()}
+        except Exception as exc:  # noqa: BLE001
+            return {"success": False, "error": str(exc), "url": page.url}
+
+    async def _tool_scroll_into_view(self, args: dict[str, Any]) -> dict[str, Any]:
+        page = get_page()
+        locator_string = str(args.get("locator") or "").strip()
+        timeout = int(args.get("timeout") or 5000)
+        try:
+            locator = self._resolve_locator(page, locator_string).first
+            await locator.scroll_into_view_if_needed(timeout=timeout)
+            return {"success": True, "locator": locator_string}
+        except Exception as exc:  # noqa: BLE001
+            return {"success": False, "error": str(exc), "locator": locator_string}
+
     async def _tool_browser_get_state(self, args: dict[str, Any]) -> dict[str, Any]:  # noqa: ARG002
         page = get_page()
         return {"url": page.url, "title": await page.title()}
@@ -947,17 +1283,47 @@ class AgentLoop:
             return confirmation
         return {"sent": True}
 
-    async def _wait_for_plan_confirmation(self) -> dict[str, Any]:
-        response = await self._tool_ask_user(
-            {"question": "Please confirm the plan or provide correction.", "options": []}
+    def _normalize_wait_until(self, value: Any) -> str:
+        wait_until = str(value or "domcontentloaded").strip() or "domcontentloaded"
+        if wait_until not in {"load", "domcontentloaded", "networkidle"}:
+            return "domcontentloaded"
+        return wait_until
+
+    def _append_tool_response(self, tool_call_id: str, result: dict[str, Any]) -> None:
+        self.llm.messages.append(
+            {
+                "role": "tool",
+                "tool_call_id": tool_call_id,
+                "content": json.dumps(result, ensure_ascii=True),
+            }
         )
-        event_type = str(response.get("event_type") or "")
-        answer = str(response.get("answer") or "").strip()
-        if event_type == "correction":
-            return {"confirmed": False, "correction": answer}
-        if event_type == "option_selected":
-            return {"confirmed": True, "answer": answer}
-        return {"confirmed": True, "answer": "confirmed"}
+
+    def _append_skipped_tool_response(self, tool_call_id: str, reason: str) -> None:
+        self._append_tool_response(
+            tool_call_id,
+            {
+                "success": False,
+                "skipped": True,
+                "reason": reason,
+                "requires_replan": True,
+            },
+        )
+
+    def _append_skipped_tool_responses(self, tool_calls: list[Any], start_index: int, reason: str) -> None:
+        for skipped_call in tool_calls[start_index:]:
+            self._append_skipped_tool_response(skipped_call.id, reason)
+
+    async def _wait_for_plan_confirmation(self) -> dict[str, Any]:
+        while True:
+            event = await self.control_queue.get()
+            event_type = str(event.get("type") or "")
+            answer = str(event.get("message") or event.get("answer") or "").strip()
+            if event_type == "correction":
+                return {"confirmed": False, "correction": answer}
+            if event_type == "confirmed":
+                return {"confirmed": True, "answer": "confirmed"}
+            if event_type == "option_selected":
+                return {"confirmed": True, "answer": answer}
 
     async def _tool_ask_user(self, args: dict[str, Any]) -> dict[str, Any]:
         question = str(args.get("question") or "").strip()

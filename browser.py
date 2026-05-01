@@ -140,6 +140,12 @@ async def inject_panel(page: Page) -> None:
           overflow: auto;
           margin-bottom: 10px;
         }}
+        #${{ROOT_ID}} .ac-recorded-steps {{
+          max-height: 180px;
+          overflow-y: auto;
+          margin-bottom: 10px;
+          padding-right: 2px;
+        }}
         #${{ROOT_ID}} .ac-step {{
           border: 1px solid rgba(148,163,184,.16);
           border-radius: 10px;
@@ -228,7 +234,7 @@ async def inject_panel(page: Page) -> None:
           margin-top: 10px;
           border-top: 1px solid rgba(148,163,184,.16);
           padding-top: 8px;
-          max-height: 130px;
+          max-height: 90px;
           overflow: auto;
           font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
           font-size: 11px;
@@ -462,7 +468,12 @@ async def inject_panel(page: Page) -> None:
             }}).join("\\n"));
           }}
           if (msg.instruction) parts.push("\\n" + msg.instruction);
-          understandingEl.value = parts.join("\\n").trim();
+          understandingEl.value = [
+            "Here is what I understood. Confirm if correct, or type a correction and click Correct.",
+            "",
+            ...parts,
+          ].join("\\n").trim();
+          correctionEl.value = "";
           state.pendingMode = "confirm";
           optionsEl.innerHTML = "";
           appendLog("Plan ready. Awaiting confirmation.");

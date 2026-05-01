@@ -1,13 +1,13 @@
 <claude-mem-context>
 # Memory Context
 
-# [agent v4] recent context, 2026-05-01 4:06pm GMT+5:30
+# [agent v4] recent context, 2026-05-01 5:14pm GMT+5:30
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (21,700t read) | 331,981t work | 93% savings
+Stats: 50 obs (22,638t read) | 533,546t work | 96% savings
 
 ### May 1, 2026
 S88 Pre-implementation clarification Q&A — 7 design questions answered before building all 7 files (May 1 at 1:01 PM)
@@ -16,58 +16,59 @@ S89 Build all 7 files — 5 of 7 Python modules now written (browser.py, locator
 S90 V1 Browser Automation Co-pilot — All 7 files built, refined, and verified; ready to launch (May 1 at 1:11 PM)
 S91 Fix OPENAI_API_KEY loading order bug: load_dotenv() before imports, defer env var read to __init__, add startup validation (May 1 at 1:26 PM)
 S92 Fix page_navigate URL validation in agent.py to prevent invalid navigation errors (May 1 at 1:38 PM)
-374 2:44p 🔵 core/SKILL.md Tool Names Match agent.py Exactly — But Lists browser_launch Not Registered
-375 " 🔴 core/SKILL.md Tool List Corrected: browser_launch Removed, send_to_overlay and ask_user Added
-376 " 🔴 core/SKILL.md Execution Flow Has Garbled plan_ready Call — _ready" Typo
-377 2:45p 🔴 core/SKILL.md plan_ready Typo Fixed But send_to_overlay() Call Wrapper Still Missing
-378 " 🔴 locator_find Rewritten to Use Playwright Native APIs Instead of Raw CSS Strings
-379 2:49p 🔵 locator_find Still Uses Old CSS String Implementation — Playwright Native API Fix Not Yet Applied
-380 " 🔴 locator_find Rewritten With Playwright Native APIs — 10-Strategy Waterfall Implemented
-381 2:50p 🔴 locator_find Native API Patch Applied and Compiles Clean
-382 2:58p 🔵 User Concerned Skill Files May Be Missing From Repo
-383 " 🔵 core/SKILL.md and Several Expected Skill Files Are Missing From Repo
-384 " 🔵 skills/ Directory Was Never Git-Tracked — core and 7 Other Expected Subdirectories Never Existed
-385 3:00p 🔴 core/SKILL.md Recreated and Patched — File Now Exists With Correct Tool List and plan_ready Syntax
-386 3:05p 🟣 locator_find Refactored to Internal Waterfall Strategy
-387 " 🔵 locator_find in agent.py Has a Critical Logic Bug: strategy_name Short-Circuit
-388 " 🔵 locator_validate Uses page.locator() Only — Cannot Parse get_by_* Strings
-389 3:06p 🔴 locator_find Fully Refactored to Internal Waterfall — locator_validate and Action Tools Now Support get_by_* Strings
-390 3:07p 🔵 agent.py Patch Applied Successfully — Python Syntax Valid
-391 " 🔴 _tool_action_assert: _resolve_locator Call Moved Inside try Block
-392 " 🟣 locator_find Waterfall Refactor Verified by Automated Tests — All Assertions Pass
-393 " 🟣 has_text Assertion Hardened with Unicode/Whitespace Normalization
-394 3:20p 🔵 has_text Normalization NOT Yet Implemented — agent.py Still Uses to_contain_text()
-395 " 🔴 has_text Assertion Now Normalizes Unicode/Whitespace Before Comparing
-396 3:21p 🔴 agent.py has_text Normalization and Locator Waterfall Both Confirmed in Final git diff
-397 3:22p 🔴 page_navigate Hardened Against Invalid URLs and Redundant Navigation
-398 3:40p 🔴 page_navigate URL validation added to prevent invalid navigation errors
 S93 Fix agent.py so that after send_to_overlay(plan_ready), the agent blocks for user confirmation before continuing the LLM tool-calling loop (May 1 at 3:41 PM)
-399 3:42p 🟣 Browser Panel State Management Overhaul in browser.py
-400 " 🔵 browser.py Panel State: Requested Changes Not Yet Applied
-401 " 🔴 browser.py Panel: All Six State Management Fixes Applied
-402 3:43p ✅ browser.py Patch Confirmed Applied and Passes Python Syntax Validation
-403 3:48p 🟣 agent.py: Confirmation Gate After plan_ready
-404 " 🔵 agent.py Architecture: LLM Loop, Tool Dispatch, and ask_user Queue Mechanics
-405 3:49p 🔴 agent.py: Confirmation Gate Injected After plan_ready Tool Call
-406 " ✅ agent.py Patch Confirmed Applied and Passes Python Syntax Validation
-407 3:51p 🔴 Confirmation Gate Added to agent.py After plan_ready Overlay
-408 " 🔵 agent.py Confirmation Gate Implementation Details Confirmed via Code Inspection
-409 " 🔵 Full System Architecture of agent v4: WebSocket Message Flow and Queue Routing
-410 " 🔄 Confirmation Gate Logic Moved Into _tool_send_to_overlay Instead of Agent Loop
-411 3:52p 🔵 git diff Confirms Final State of agent.py After Refactor
-412 3:53p 🔴 agent.py Plan Confirmation Gate: Final Verified State
-413 " ✅ AGENTS.md Updated with 2026-05-01 Session Observations for Confirmation Gate
-414 3:54p 🔵 Project Structure of agent v4: All Source Files Catalogued
-415 " 🔵 Project Uses .venv/bin/python3.12, Not System python3 (3.9)
-416 3:55p 🔴 Confirmation Gate Integration Test PASSED: Full Flow Verified End-to-End
-417 " ✅ Confirmation Gate Fix Committed to Git on main Branch
-418 " 🔵 Git History Shows Incremental Build of agent v4 Confirmation Flow
-419 " 🔵 Project Has No requirements.txt or pyproject.toml — Dependencies Managed via .venv Only
-420 3:56p 🔵 Integration Test Passes Using .venv Python 3.12 with Real Playwright Import
-421 3:57p 🔵 Server Running with Two python3.12 Processes — Second Instance Owns Port 8765
-422 3:58p 🔵 browser.py Has Two Uncommitted Changes: user_data_dir Path and inject_panel Debug Print
-S94 Fix agent.py confirmation gate after send_to_overlay(plan_ready) — verify fix works in live server run (May 1 at 3:58 PM)
-423 4:05p 🟣 step_recorded Payload Contract Fix — Task Initiated
+S94 Fix agent.py confirmation gate after send_to_overlay(plan_ready) — verify fix works in live server run (May 1 at 3:57 PM)
+S95 Fix step_recorded payload contract in agent.py so browser overlay panel receives usable data (May 1 at 4:06 PM)
+424 4:06p 🔵 Root Cause of step_recorded Payload Bug Traced in agent.py and browser.py
+425 4:07p 🔵 Full agent v4 Architecture Mapped — send_to_overlay Tool Schema Missing step_recorded Fields
+426 " 🔴 agent.py Fixed: send_to_overlay Tool Schema Now Includes All step_recorded Payload Fields
+427 " 🟣 agent.py: Server-Side step_recorded Payload Enrichment Layer Added
+428 4:11p 🔵 _tool_send_to_overlay Does Not Call _build_step_record_payload — Enrichment Layer Not Wired
+429 " 🔴 _tool_send_to_overlay Wired to Enrichment Layer; _coerce_step_number Added; Step Marking Fixed
+430 4:12p 🔵 browser.py Patch Failed — File Uses Double-Brace Escaping, Patch Had Wrong Context
+431 " 🔴 Fix step_recorded payload contract in Playwright Automation Co-pilot
+432 4:13p 🔴 browser.py step_recorded handler upgraded with payload fallback and generated_line display
+433 " 🔴 Run button filter fixed to use strict recorded !== true check
+434 " 🔴 agent.py step_recorded guard logic fixed from any-empty to all-core-fields-present
+435 " 🔵 browser.py final state verified after all patches — all changes confirmed in place
+436 " 🔵 agent v4 project uses system Python 3.9.6, no .venv/python3.12 present
+437 " 🔵 agent v4 runtime Python is 3.13.9 via `python` command, not python3
+438 4:14p 🟣 agent.py step_recorded payload system fully implemented with auto-derivation engine
+439 " 🔵 agent.py step_recorded payload generation verified correct end-to-end with unit test
+440 " ✅ AGENTS.md also modified as part of step_recorded fix session
+441 4:29p 🟣 Playwright Co-pilot stability and UI improvements — scroll, correction flow, plan wording
+442 " 🔵 browser.py and agent.py current state audit before stability fixes
+443 " 🔵 Detailed CSS and confirmation flow audit reveals specific gaps to fix
+444 4:30p 🔵 agent.py run() loop does not handle correction return from plan_ready — correction silently ignored
+445 " 🔴 browser.py: Recorded Steps scroll, log height, and plan_ready wording fixed
+446 " 🔴 agent.py system prompt updated with correction instruction; tool loop patch failed due to indentation mismatch
+447 " 🔴 agent.py correction loop and _wait_for_plan_confirmation fully fixed
+448 4:31p 🔴 agent.py correction message fallback added for empty correction text
+449 " ✅ Full diff verified — all stability fixes confirmed in agent.py and browser.py
+450 " 🔵 Correction flow and browser.py changes unit-tested and confirmed correct
+451 4:40p 🔴 Agent Loop Failure Recovery via ask_user Instead of Silent Termination
+452 " 🔵 agent.py Current State: No Failure-Recovery ask_user Logic Yet Present
+453 " 🔵 _tool_ask_user Implementation: Sends clarification_needed and Blocks on control_queue
+454 4:41p 🔴 agent.py: Failure-Recovery Gate and Sequential Execution Guard Implemented
+455 4:42p 🔵 browser.py Overlay: clarification_needed Handler Sets pendingMode="clarification" and Renders Options
+456 " 🔴 agent.py Rewrite Truncated: Only 243 Lines Written, Helper Methods Missing
+457 4:43p 🔵 agent.py Helper Methods Confirmed Present: File Is Complete Beyond 243 Lines
+458 " 🔴 agent.py Failure Recovery Refactored: Richer Phrase Detection, Tool Failure Tracking, Batch Pause Logic
+459 " 🔴 agent.py Failure-Recovery Patch Successfully Applied via apply_patch
+460 4:44p 🔴 agent.py: _pending_failure_followup State Flag Added to Bridge Tool-Failure Across LLM Turns
+461 " 🔵 py_compile Fails with PermissionError on macOS System Python 3.9 — Not a Code Syntax Error
+462 " 🔵 agent.py Confirmed Syntactically Valid via py_compile with /tmp Output
+463 " 🔴 git diff Confirms Complete agent.py Change Set: Failure Recovery + _wait_for_plan_confirmation Refactor
+464 " 🔴 _should_request_user_followup Phrase List Expanded with 4 Additional Patterns
+465 4:56p 🟣 Nine New Browser Tools Planned for agent.py: Navigation, Scroll, and Fill Guard
+466 " 🔵 skills/actions/SKILL.md Points Go Back/Forward/Reload/Scroll to terminal_tool — Must Be Updated
+467 " 🔵 agent.py Tool Registry Confirmed Missing page_go_back, page_go_forward, page_reload, scroll_into_view; action_fill Has No Editability Guard
+468 4:57p 🟣 agent.py: Four New Browser Tools Added Plus action_fill Editability Guard
+469 4:58p 🔴 agent.py and SKILL.md Updated: New Navigation Tools Added to page_changing_tools and _is_browser_state_tool; Skill File Corrected
+470 " 🟣 agent.py and SKILL.md Changes Verified: 146 Lines Net Addition, Syntax Clean
+471 " 🟣 Final State Confirmed: agent.py and SKILL.md Fully Updated with All New Browser Tools
+472 4:59p 🔵 server.py Startup Fails: Playwright Chromium Crashes with SIGABRT Due to macOS SIP Permission Denial
+473 " 🔵 agent.py Has Duplicate Method Definitions: Lines Doubled from nl -ba Output Artifact or Real Duplication
 
-Access 332k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 534k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>
