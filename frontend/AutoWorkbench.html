@@ -1,0 +1,233 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>AutoWorkbench — Playwright Co-pilot</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="stylesheet" href="styles.css" />
+<link rel="stylesheet" href="style-ide.css" />
+<link rel="stylesheet" href="style-vercel.css" />
+<style>
+  html, body { margin: 0; padding: 0; height: 100%; }
+  body { overflow: hidden; background: #f0eee9; }
+
+  /* ── shared artboard shell ── */
+  .aw-artboard {
+    position: relative;
+    width: 100%; height: 100%;
+    overflow: hidden;
+    display: flex;
+  }
+  .aw-artboard .pagewrap {
+    flex: 1; min-width: 0; height: 100%;
+    overflow: hidden; position: relative;
+  }
+  .aw-artboard .panelwrap {
+    flex: 0 0 auto; height: 100%;
+    box-shadow: -12px 0 36px rgba(0,0,0,0.28);
+    position: relative;
+  }
+
+  /* original variant — dark panel over light page */
+  .aw-artboard.v-orig .panelwrap { border-left: 1px solid rgba(255,255,255,0.10); }
+  .aw-artboard.v-orig.s-recover .panelwrap { box-shadow: -12px 0 36px rgba(0,0,0,0.35), inset 0 0 0 1px rgba(240,107,107,0.12); }
+
+  /* IDE variant — cream panel over the same light page */
+  .aw-artboard.v-ide .panelwrap { border-left: 3px solid #1e2030; box-shadow: -8px 0 32px rgba(30,32,48,0.18); }
+
+  /* Vercel variant — true-black panel over light page */
+  .aw-artboard.v-vrc .panelwrap { border-left: 1px solid #222; box-shadow: -12px 0 40px rgba(0,0,0,0.45); }
+
+  /* page scrim — so the panel pops at the seam */
+  .page-scrim {
+    position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(90deg, transparent 60%, rgba(0,0,0,0.18) 100%);
+  }
+  .v-ide .page-scrim  { background: linear-gradient(90deg, transparent 60%, rgba(30,32,48,0.1) 100%); }
+  .v-vrc .page-scrim  { background: linear-gradient(90deg, transparent 60%, rgba(0,0,0,0.32) 100%); }
+</style>
+</head>
+<body>
+  <div id="root"></div>
+
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <!-- canvas + tweaks -->
+  <script type="text/babel" src="design-canvas.jsx"></script>
+  <script type="text/babel" src="tweaks-panel.jsx"></script>
+  <!-- shared icons -->
+  <script type="text/babel" src="icons.jsx"></script>
+  <!-- original variant components -->
+  <script type="text/babel" src="aw-bits.jsx"></script>
+  <script type="text/babel" src="aw-header.jsx"></script>
+  <script type="text/babel" src="aw-workbench.jsx"></script>
+  <script type="text/babel" src="aw-tabs.jsx"></script>
+  <!-- page mock (shared) -->
+  <script type="text/babel" src="aw-pagemock.jsx"></script>
+  <!-- variation panels -->
+  <script type="text/babel" src="aw-ide-panel.jsx"></script>
+  <script type="text/babel" src="aw-vercel-panel.jsx"></script>
+
+  <script type="text/babel">
+  /* global React, ReactDOM,
+     DesignCanvas, DCSection, DCArtboard,
+     AW, PlaywrightMock, IDEPanel, VRCPanel,
+     useTweaks, TweaksPanel, TweakSection, TweakSlider, TweakColor, TweakRadio */
+
+  const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
+    "accent":     "#3b82f6",
+    "panelWidth": 460,
+    "density":    "compact"
+  }/*EDITMODE-END*/;
+
+  /* ── Original panel (dark slate) ───────────────────────────────── */
+  function OrigPanel({ state, tab, counts }) {
+    const labels = {
+      idle:"Idle", planning:"Planning…", await:"Awaiting confirmation",
+      exec:"Executing", recover:"Recovery needed", done:"Completed"
+    };
+    return (
+      <div className="aw-panel">
+        <AW.PanelHeader stateKind={state} stateLabel={labels[state]} />
+        <AW.Tabs active={tab} counts={counts} />
+        <div className="aw-body">
+          {tab === "workbench" && <AW.WorkbenchTab state={state} />}
+          {tab === "steps"     && <AW.StepsTab />}
+          {tab === "code"      && <AW.CodeTab />}
+          {tab === "debug"     && <AW.DebugTab />}
+        </div>
+      </div>
+    );
+  }
+
+  /* ── Shared artboard shell ─────────────────────────────────────── */
+  function Artboard({ variant, state, panelWidth, accent, density, children }) {
+    return (
+      <div
+        className={`aw-artboard v-${variant} s-${state}`}
+        style={{ "--aw-accent": accent, "--aw-accent-soft": accent+"26", "--aw-accent-line": accent+"73" }}
+      >
+        <div className="pagewrap">
+          <PlaywrightMock />
+          <div className="page-scrim" />
+        </div>
+        <div className={`panelwrap aw-density-${density}`} style={{ width: panelWidth }}>
+          {children}
+        </div>
+      </div>
+    );
+  }
+
+  /* ── App ───────────────────────────────────────────────────────── */
+  function App() {
+    const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
+    const W  = t.panelWidth;
+    const AW = 1080;
+    const AH = 760;
+
+    const states = [
+      { id:"idle",     label:"01 · Idle" },
+      { id:"planning", label:"02 · Planning" },
+      { id:"await",    label:"03 · Awaiting Confirmation" },
+      { id:"exec",     label:"04 · Executing" },
+      { id:"recover",  label:"05 · Recovery Needed" },
+      { id:"done",     label:"06 · Completed" },
+    ];
+    const stepCount = s => ["planning","await","exec","recover","done"].includes(s) ? 2 : 0;
+
+    return (
+      <>
+        <DesignCanvas>
+
+          {/* ── Row A: Original (slate) ── */}
+          <DCSection
+            id="orig"
+            title="A · Original — Warm slate dark panel"
+            subtitle="Dark blue-grey surfaces, accent rails on cards, high-contrast badge system, light Playwright page behind."
+          >
+            {states.map(s => (
+              <DCArtboard key={s.id} id={`orig-${s.id}`} label={s.label} width={AW} height={AH}>
+                <Artboard variant="orig" state={s.id} panelWidth={W} accent={t.accent} density={t.density}>
+                  <OrigPanel state={s.id} tab="workbench" counts={{ steps: stepCount(s.id) }} />
+                </Artboard>
+              </DCArtboard>
+            ))}
+          </DCSection>
+
+          {/* ── Row B: Editorial / IDE ── */}
+          <DCSection
+            id="ide"
+            title="B · Editorial / IDE — Cream monospace"
+            subtitle="Warm off-white background, monospace type throughout, dark terminal header, ink-black border rail. File-tab chrome."
+          >
+            {states.map(s => (
+              <DCArtboard key={s.id} id={`ide-${s.id}`} label={s.label} width={AW} height={AH}>
+                <Artboard variant="ide" state={s.id} panelWidth={W} accent={t.accent} density={t.density}>
+                  <IDEPanel state={s.id} tab="workbench" />
+                </Artboard>
+              </DCArtboard>
+            ))}
+          </DCSection>
+
+          {/* ── Row C: Bold / Vercel ── */}
+          <DCSection
+            id="vrc"
+            title="C · Bold / Vercel — True black, high contrast"
+            subtitle="Pure black surfaces, white primary CTA, vivid color-coded state blocks, geometric logo mark. Maximum contrast."
+          >
+            {states.map(s => (
+              <DCArtboard key={s.id} id={`vrc-${s.id}`} label={s.label} width={AW} height={AH}>
+                <Artboard variant="vrc" state={s.id} panelWidth={W} accent={t.accent} density={t.density}>
+                  <VRCPanel state={s.id} tab="workbench" />
+                </Artboard>
+              </DCArtboard>
+            ))}
+          </DCSection>
+
+          {/* ── Supporting tabs (original) ── */}
+          <DCSection
+            id="tabs"
+            title="Steps · Code · Debug tabs"
+            subtitle="Supporting tabs shown in the original variant (applicable to all three)."
+          >
+            <DCArtboard id="tab-steps" label="Steps tab" width={AW} height={AH}>
+              <Artboard variant="orig" state="recover" panelWidth={W} accent={t.accent} density={t.density}>
+                <OrigPanel state="recover" tab="steps" counts={{ steps: 2 }} />
+              </Artboard>
+            </DCArtboard>
+            <DCArtboard id="tab-code" label="Code tab" width={AW} height={AH}>
+              <Artboard variant="orig" state="done" panelWidth={W} accent={t.accent} density={t.density}>
+                <OrigPanel state="done" tab="code" counts={{ steps: 0 }} />
+              </Artboard>
+            </DCArtboard>
+            <DCArtboard id="tab-debug" label="Debug tab" width={AW} height={AH}>
+              <Artboard variant="orig" state="recover" panelWidth={W} accent={t.accent} density={t.density}>
+                <OrigPanel state="recover" tab="debug" counts={{ steps: 2 }} />
+              </Artboard>
+            </DCArtboard>
+          </DCSection>
+
+        </DesignCanvas>
+
+        <TweaksPanel title="AutoWorkbench">
+          <TweakSection label="Accent (Original)" />
+          <TweakColor  label="Primary color"  value={t.accent}
+                       onChange={v => setTweak("accent", v)} />
+          <TweakSection label="Panel" />
+          <TweakSlider label="Panel width" value={t.panelWidth}
+                       min={380} max={560} step={10} unit="px"
+                       onChange={v => setTweak("panelWidth", v)} />
+          <TweakRadio  label="Density" value={t.density}
+                       options={["compact","regular","comfy"]}
+                       onChange={v => setTweak("density", v)} />
+        </TweaksPanel>
+      </>
+    );
+  }
+
+  ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
