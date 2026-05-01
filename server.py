@@ -54,7 +54,7 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 run_task = asyncio.create_task(agent.run(steps))
                 continue
 
-            if msg_type in {"confirmed", "correction"}:
+            if msg_type in {"confirmed", "correction", "option_selected"}:
                 await control_queue.put(msg)
                 continue
 

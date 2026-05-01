@@ -205,6 +205,12 @@ async def inject_panel(page: Page) -> None:
         #${{ROOT_ID}} .ac-correction {{
           min-height: 88px;
         }}
+        #${{ROOT_ID}} .ac-options {{
+          display: flex;
+          flex-wrap: wrap;
+          gap: 6px;
+          margin-top: 8px;
+        }}
         #${{ROOT_ID}} .ac-log {{
           margin-top: 10px;
           border-top: 1px solid rgba(148,163,184,.16);
@@ -234,6 +240,7 @@ async def inject_panel(page: Page) -> None:
         <div class="ac-section-title" style="margin-top:10px;">LLM Understanding</div>
         <textarea class="ac-understanding" readonly></textarea>
         <textarea class="ac-correction" placeholder="Type correction if needed..."></textarea>
+        <div class="ac-options"></div>
         <div class="ac-row">
           <button type="button" class="ac-confirm">Confirm</button>
           <button type="button" class="ac-correct">Correct</button>
@@ -250,12 +257,13 @@ async def inject_panel(page: Page) -> None:
     const correctBtn = root.querySelector(".ac-correct");
     const understandingEl = root.querySelector(".ac-understanding");
     const correctionEl = root.querySelector(".ac-correction");
+    const optionsEl = root.querySelector(".ac-options");
     const logEl = root.querySelector(".ac-log");
 
     const state = {{
       ws: null,
       steps: [],
-      pendingConfirm: false,
+      pendingMode: null,
     }};
 
     function uid() {{
@@ -278,8 +286,25 @@ async def inject_panel(page: Page) -> None:
       state.ws.send(JSON.stringify(msg));
     }}
 
+    function renderOptions(options) {{
+      optionsEl.innerHTML = "";
+      (options || []).forEach((option) => {{
+        const button = document.createElement("button");
+        button.type = "button";
+        button.textContent = option;
+        button.addEventListener("click", () => {{
+          send({{ type: "option_selected", answer: option }});
+          state.pendingMode = null;
+          correctionEl.value = "";
+          optionsEl.innerHTML = "";
+          appendLog("Clarification answer sent: " + option);
+        }});
+        optionsEl.appendChild(button);
+      }});
+    }}
+
     function createStep() {{
-      state.steps.push({{ id: uid(), intent: "", element_info: null }});
+      state.steps.push({{ id: uid(), intent: "", element_info: null, recorded: false }});
       renderSteps();
     }}
 
@@ -291,9 +316,10 @@ async def inject_panel(page: Page) -> None:
         const badge = step.element_info
           ? step.element_info.tag + (step.element_info.id ? ("#" + step.element_info.id) : "")
           : "No element attached";
+        const statusMark = step.recorded ? " ✅" : "";
         card.innerHTML = `
           <div class="ac-step-head">
-            <span>Step ${{idx + 1}}</span>
+            <span>Step ${{idx + 1}}${{statusMark}}</span>
             <button type="button" data-del="${{step.id}}">Delete</button>
           </div>
           <textarea data-intent="${{step.id}}" placeholder="Describe intent...">${{step.intent || ""}}</textarea>
@@ -354,8 +380,58 @@ async def inject_panel(page: Page) -> None:
         }}
         if (msg.type === "confirm") {{
           understandingEl.value = msg.message || "";
-          state.pendingConfirm = true;
+          state.pendingMode = "confirm";
+          optionsEl.innerHTML = "";
           appendLog("LLM understanding received.");
+          return;
+        }}
+        if (msg.type === "llm_thinking") {{
+          appendLog("⏳ " + (msg.message || msg.summary || "LLM is thinking..."));
+          return;
+        }}
+        if (msg.type === "plan_ready") {{
+          const parts = [];
+          if (msg.summary) parts.push(msg.summary);
+          if (Array.isArray(msg.steps) && msg.steps.length) {{
+            parts.push("");
+            parts.push(msg.steps.map((step) => {{
+              const number = step.number ?? "?";
+              const action = step.action ?? "step";
+              const name = step.element_name ?? "";
+              return number + ". " + action + (name ? " — " + name : "");
+            }}).join("\\n"));
+          }}
+          if (msg.instruction) parts.push("\\n" + msg.instruction);
+          understandingEl.value = parts.join("\\n").trim();
+          appendLog("⏳ Plan ready.");
+          return;
+        }}
+        if (msg.type === "clarification_needed") {{
+          const question = msg.question || "Clarification needed.";
+          const options = Array.isArray(msg.options) ? msg.options : [];
+          understandingEl.value = question + (options.length ? "\\n\\nOptions:\\n- " + options.join("\\n- ") : "");
+          state.pendingMode = "clarification";
+          renderOptions(options);
+          appendLog("⏳ Clarification requested.");
+          return;
+        }}
+        if (msg.type === "step_recorded") {{
+          const stepNumber = Number(msg.step_number || 0);
+          if (stepNumber > 0 && state.steps[stepNumber - 1]) {{
+            state.steps[stepNumber - 1].recorded = true;
+            renderSteps();
+          }}
+          const action = msg.action || "step";
+          const elementName = msg.element_name || "";
+          appendLog("✅ Recorded: " + action + (elementName ? " — " + elementName : ""));
+          return;
+        }}
+        if (msg.type === "code_update") {{
+          return;
+        }}
+        if (msg.type === "llm_result") {{
+          if (msg.message) understandingEl.value = msg.message;
+          appendLog((msg.success === false ? "❌ " : "✅ ") + (msg.message || "Run finished."), msg.success === false);
           return;
         }}
         if (msg.type === "status") {{
@@ -363,7 +439,7 @@ async def inject_panel(page: Page) -> None:
           return;
         }}
         if (msg.type === "error") {{
-          appendLog(msg.message || "Unknown error", true);
+          appendLog("❌ " + (msg.message || "Unknown error"), true);
           return;
         }}
         if (msg.type === "element_picked") {{
@@ -395,18 +471,31 @@ async def inject_panel(page: Page) -> None:
     }});
 
     confirmBtn.addEventListener("click", () => {{
-      if (!state.pendingConfirm) {{
-        appendLog("No pending confirmation.", true);
+      if (state.pendingMode === "confirm") {{
+        send({{ type: "confirmed" }});
+        state.pendingMode = null;
+        appendLog("Confirmation sent.");
         return;
       }}
-      send({{ type: "confirmed" }});
-      state.pendingConfirm = false;
-      appendLog("Confirmation sent.");
+      if (state.pendingMode === "clarification") {{
+        const answer = correctionEl.value.trim();
+        if (!answer) {{
+          appendLog("Type an answer or click an option.", true);
+          return;
+        }}
+        send({{ type: "option_selected", answer }});
+        state.pendingMode = null;
+        correctionEl.value = "";
+        optionsEl.innerHTML = "";
+        appendLog("Clarification answer sent.");
+        return;
+      }}
+      appendLog("No pending confirmation.", true);
     }});
 
     correctBtn.addEventListener("click", () => {{
-      if (!state.pendingConfirm) {{
-        appendLog("No pending confirmation.", true);
+      if (state.pendingMode !== "confirm") {{
+        appendLog("No pending correction.", true);
         return;
       }}
       const message = correctionEl.value.trim();
@@ -415,7 +504,7 @@ async def inject_panel(page: Page) -> None:
         return;
       }}
       send({{ type: "correction", message }});
-      state.pendingConfirm = false;
+      state.pendingMode = null;
       correctionEl.value = "";
       appendLog("Correction sent.");
     }});
