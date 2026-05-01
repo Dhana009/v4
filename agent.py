@@ -74,6 +74,7 @@ class AgentLoop:
         self.skipped_step_ids: set[str] = set()
         self.current_step_index = 0
         self.last_successful_action: dict[str, Any] | None = None
+        self.successful_action_by_step_id: dict[str, dict[str, Any]] = {}
         self._recording_steps: list[dict[str, Any]] = []
         self._recording_step_index = 0
         self._recorded_step_ids: set[str] = set()
@@ -95,6 +96,7 @@ class AgentLoop:
         self.skipped_step_ids = set()
         self.current_step_index = 0
         self.last_successful_action = None
+        self.successful_action_by_step_id = {}
         self._recording_steps = []
         self._recording_step_index = 0
         self._recorded_step_ids = set()
@@ -564,11 +566,25 @@ class AgentLoop:
 
     def _resolve_recording_target_step(self, payload: dict[str, Any] | None = None) -> dict[str, Any] | None:
         payload = payload or {}
-        explicit_step_id = str(payload.get("step_id") or "").strip()
+        explicit_step_id = str(payload.get("step_id") or payload.get("id") or payload.get("stepId") or "").strip()
         if explicit_step_id:
             step = self.step_state_by_id.get(explicit_step_id)
             if step and str(step.get("status") or "") not in {"recorded", "skipped"}:
                 return step
+
+        explicit_step_number = self._coerce_step_number(payload.get("step_number"))
+        if explicit_step_number is not None:
+            return self._find_step_for_recording(None, explicit_step_number)
+
+        unresolved_steps = [
+            step
+            for step in self._recording_steps
+            if str(step.get("status") or "") not in {"recorded", "skipped"}
+        ]
+        if len(self.successful_action_by_step_id) > 1:
+            if len(unresolved_steps) == 1:
+                return unresolved_steps[0]
+            return None
 
         for candidate_step_id in (self.active_step_id, self.active_failed_step_id):
             if not candidate_step_id:
@@ -583,10 +599,6 @@ class AgentLoop:
             step = self.step_state_by_id.get(last_action_step_id)
             if step and str(step.get("status") or "") not in {"recorded", "skipped"}:
                 return step
-
-        explicit_step_number = self._coerce_step_number(payload.get("step_number"))
-        if explicit_step_number is not None:
-            return self._find_step_for_recording(None, explicit_step_number)
 
         return self._find_step_for_recording()
 
@@ -907,12 +919,77 @@ class AgentLoop:
 
         return None
 
-    def _has_successful_action_to_record(self) -> bool:
-        action = self.last_successful_action or {}
+    def _has_successful_action_to_record(
+        self,
+        step_context: dict[str, Any] | None = None,
+        payload: dict[str, Any] | None = None,
+    ) -> bool:
+        action = self._get_successful_action_for_step(step_context, payload)
         if not action:
             return False
         result = action.get("result") or {}
         return result.get("success") is True and not result.get("skipped")
+
+    def _get_successful_action_for_step(
+        self,
+        step_context: dict[str, Any] | None = None,
+        payload: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
+        payload = payload or {}
+        step_context = step_context or {}
+
+        candidate_step_ids: list[str] = []
+        for source in (step_context, payload):
+            if not isinstance(source, dict):
+                continue
+            for key in ("step_id", "id", "stepId"):
+                candidate_step_id = str(source.get(key) or "").strip()
+                if candidate_step_id and candidate_step_id not in candidate_step_ids:
+                    candidate_step_ids.append(candidate_step_id)
+
+        for candidate_step_id in candidate_step_ids:
+            action_record = self.successful_action_by_step_id.get(candidate_step_id)
+            if action_record is not None:
+                return action_record
+
+        candidate_step_number = self._coerce_step_number(
+            step_context.get("step_number") if isinstance(step_context, dict) else None
+        )
+        if candidate_step_number is None:
+            candidate_step_number = self._coerce_step_number(payload.get("step_number"))
+        if candidate_step_number is not None:
+            matching_records = [
+                action_record
+                for action_record in self.successful_action_by_step_id.values()
+                if self._coerce_step_number((action_record.get("step_context") or {}).get("step_number"))
+                == candidate_step_number
+            ]
+            if len(matching_records) == 1:
+                return matching_records[0]
+            if len(matching_records) > 1:
+                return None
+
+        if not candidate_step_ids and candidate_step_number is None:
+            if len(self.successful_action_by_step_id) == 1:
+                return next(iter(self.successful_action_by_step_id.values()))
+            if len(self.successful_action_by_step_id) == 0:
+                last_action = self.last_successful_action or {}
+                if last_action:
+                    return last_action
+            return None
+
+        last_action = self.last_successful_action or {}
+        if not last_action:
+            return None
+
+        last_step_context = last_action.get("step_context") or {}
+        last_step_id = str(last_step_context.get("step_id") or last_action.get("step_id") or "").strip()
+        last_step_number = self._coerce_step_number(last_step_context.get("step_number") or last_action.get("step_number"))
+        if candidate_step_ids and last_step_id and last_step_id in candidate_step_ids:
+            return last_action
+        if candidate_step_number is not None and last_step_number == candidate_step_number:
+            return last_action
+        return None
 
     def _coerce_step_number(self, value: Any) -> int | None:
         try:
@@ -954,7 +1031,12 @@ class AgentLoop:
             "result": dict(result),
             "step_context": dict(step_context) if step_context is not None else None,
             "action_context": action_context,
+            "tool_args": dict(args),
         }
+        step_id = str((step_context or {}).get("step_id") or "").strip()
+        if step_id:
+            captured["step_id"] = step_id
+            captured["step_number"] = self._coerce_step_number((step_context or {}).get("step_number"))
         if "value" in args:
             captured["value"] = args.get("value")
         if "assertion" in args:
@@ -967,6 +1049,11 @@ class AgentLoop:
             captured["filename"] = str(args.get("filename") or "").strip()
 
         self.last_successful_action = captured
+        if step_id:
+            self.successful_action_by_step_id[step_id] = captured
+            print(f"[AGENT] stored successful action for step: {step_id}")
+        else:
+            print("[AGENT] stored successful action without step id")
         self._last_action_context = action_context
         self._awaiting_step_record = True
 
@@ -1226,14 +1313,27 @@ class AgentLoop:
 
         return f'page.locator({json.dumps(locator, ensure_ascii=True)})'
 
-    def _build_step_record_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
+    def _build_step_record_payload(
+        self,
+        payload: dict[str, Any],
+        step_context: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         clean_payload = {
             key: value
             for key, value in payload.items()
             if value not in (None, "", [], {})
         }
-        action_record = self.last_successful_action or {}
+        step_context = step_context or self._resolve_recording_target_step(clean_payload)
+        action_record = self._get_successful_action_for_step(step_context, clean_payload)
         if not action_record:
+            step_ref = str(
+                (step_context or {}).get("step_id")
+                or clean_payload.get("step_id")
+                or clean_payload.get("id")
+                or clean_payload.get("stepId")
+                or "unknown"
+            ).strip() or "unknown"
+            print(f"[AGENT] no successful action context for recorded step: {step_ref}")
             return {}
         result = action_record.get("result") or {}
         if result.get("success") is not True or result.get("skipped"):
@@ -1241,41 +1341,47 @@ class AgentLoop:
 
         action_context = dict(action_record.get("action_context") or {})
         recorded_step_context = action_record.get("step_context") or {}
-        step_context = self._resolve_recording_target_step(clean_payload)
-        if step_context is None and recorded_step_context:
+        if recorded_step_context:
             step_context = recorded_step_context
 
         step_id = str(
             clean_payload.get("step_id")
-            or (step_context.get("step_id") if step_context else "")
             or (recorded_step_context.get("step_id") if recorded_step_context else "")
+            or (step_context.get("step_id") if step_context else "")
+            or action_record.get("step_id")
             or ""
         ).strip()
         step_number = (
             self._coerce_step_number(clean_payload.get("step_number"))
-            or self._coerce_step_number(step_context.get("step_number") if step_context else None)
             or self._coerce_step_number(recorded_step_context.get("step_number") if recorded_step_context else None)
+            or self._coerce_step_number(step_context.get("step_number") if step_context else None)
+            or self._coerce_step_number(action_record.get("step_number"))
         )
 
         action = str(
-            clean_payload.get("action")
-            or action_record.get("action")
+            action_record.get("action")
+            or clean_payload.get("action")
             or self._action_name_for_tool(str(action_record.get("tool") or ""))
             or ""
         ).strip()
-        locator = str(clean_payload.get("locator") or action_context.get("locator") or action_record.get("locator") or "").strip()
+        locator = str(
+            action_context.get("locator")
+            or action_record.get("locator")
+            or clean_payload.get("locator")
+            or ""
+        ).strip()
         if not locator and step_context is not None:
             locator = self._derive_locator_from_step_context(step_context)
         element_name = str(
-            clean_payload.get("element_name")
-            or (step_context.get("element_name") if step_context else "")
+            (step_context.get("element_name") if step_context else "")
             or (recorded_step_context.get("element_name") if recorded_step_context else "")
+            or clean_payload.get("element_name")
             or self._derive_element_name(step_context or {}, action_context, locator)
             or ""
         ).strip()
         generated_line = str(
-            clean_payload.get("generated_line")
-            or self._build_generated_line(action, locator, action_context)
+            self._build_generated_line(action, locator, action_context)
+            or clean_payload.get("generated_line")
             or ""
         ).strip()
         status = str(clean_payload.get("status") or "recorded").strip() or "recorded"
@@ -1942,7 +2048,16 @@ class AgentLoop:
                     "requires_confirmation": True,
                     "reason": "step_recorded blocked before confirmed execution.",
                 }
-            if not self._has_successful_action_to_record():
+            target_step = self._resolve_recording_target_step(payload)
+            if not self._has_successful_action_to_record(target_step, payload):
+                step_ref = str(
+                    (target_step or {}).get("step_id")
+                    or payload.get("step_id")
+                    or payload.get("id")
+                    or payload.get("stepId")
+                    or "unknown"
+                ).strip() or "unknown"
+                print(f"[AGENT] no successful action context for recorded step: {step_ref}")
                 return {
                     "sent": False,
                     "skipped": True,
@@ -1953,31 +2068,59 @@ class AgentLoop:
                 not str(payload.get(key) or "").strip()
                 for key in ("step_id", "action", "locator")
             )
-            payload = self._build_step_record_payload(payload)
+            payload = self._build_step_record_payload(payload, target_step)
             if not payload:
                 return {
                     "sent": False,
                     "skipped": True,
                     "reason": "No successful confirmed action to record.",
                 }
+            step_id = str(payload.get("step_id") or (target_step or {}).get("step_id") or "").strip()
+            if step_id:
+                print(f"[AGENT] using successful action for recorded step: {step_id}")
             if recovered_context:
                 print(f"[AGENT] recording step with recovered context: {json.dumps(payload, ensure_ascii=True)}")
             else:
                 print(f"[AGENT] recording step: {json.dumps(payload, ensure_ascii=True)}")
             await self._send(message_type, **payload)
-            target_step = self._resolve_recording_target_step(payload)
-            if target_step is None:
-                target_step = self._find_step_for_recording(
-                    str(payload.get("step_id") or "").strip() or None,
-                    self._coerce_step_number(payload.get("step_number")),
+            recorded_target_step = self.step_state_by_id.get(step_id) if step_id else None
+            if recorded_target_step is not None and str(recorded_target_step.get("status") or "") in {"recorded", "skipped"}:
+                recorded_target_step = None
+            if recorded_target_step is None and target_step is not None:
+                target_step_id = str(target_step.get("step_id") or "").strip()
+                if not step_id or target_step_id == step_id:
+                    recorded_target_step = target_step
+            step_number = self._coerce_step_number(payload.get("step_number"))
+            if recorded_target_step is None and (step_id or step_number is not None):
+                recorded_target_step = self._find_step_for_recording(
+                    step_id or None,
+                    step_number,
                 )
-            if target_step is None:
-                target_step = self._current_pending_step()
-            if target_step is not None:
-                self._mark_step_recorded(target_step, payload)
+            if recorded_target_step is None:
+                unresolved_steps = [
+                    step
+                    for step in self._recording_steps
+                    if str(step.get("status") or "") not in {"recorded", "skipped"}
+                ]
+                if len(unresolved_steps) == 1:
+                    recorded_target_step = unresolved_steps[0]
+            if recorded_target_step is not None:
+                self._mark_step_recorded(recorded_target_step, payload)
+            if step_id:
+                self.successful_action_by_step_id.pop(step_id, None)
+            last_action = self.last_successful_action or {}
+            last_action_step = last_action.get("step_context") or {}
+            last_action_step_id = str(last_action_step.get("step_id") or last_action.get("step_id") or "").strip()
+            last_action_step_number = self._coerce_step_number(last_action_step.get("step_number") or last_action.get("step_number"))
+            recorded_step_number = self._coerce_step_number(payload.get("step_number"))
+            if step_id and last_action_step_id == step_id:
+                self.last_successful_action = None
+            elif step_id and recorded_step_number is not None and last_action_step_number == recorded_step_number:
+                self.last_successful_action = None
+            elif not step_id and recorded_step_number is not None and last_action_step_number == recorded_step_number:
+                self.last_successful_action = None
             self._awaiting_step_record = False
             self._last_action_context = None
-            self.last_successful_action = None
             return {"sent": True, "payload": payload}
         await self._send(message_type, **payload)
         if message_type == "plan_ready":

@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { createRoot } from "react-dom/client";
 
 import "../styles.css";
@@ -33,10 +33,35 @@ const RUN_STATE_ALIASES = {
   completed: "completed",
 };
 
+const INTERACTION_MODE_ALIASES = {
+  idle: "idle",
+  planning: "planning",
+  plan_review: "plan_review",
+  "plan review": "plan_review",
+  await: "plan_review",
+  awaiting_confirmation: "plan_review",
+  "awaiting confirmation": "plan_review",
+  clarification: "clarification",
+  "clarification needed": "clarification",
+  recovery: "recovery",
+  recover: "recovery",
+  "recovery needed": "recovery",
+  executing: "executing",
+  exec: "executing",
+  completed: "completed",
+  done: "completed",
+};
+
 function normalizeRunState(value) {
   if (value == null || value === "") return null;
   const key = String(value).trim().toLowerCase().replace(/[\s-]+/g, "_");
   return RUN_STATE_ALIASES[key] || null;
+}
+
+function normalizeInteractionMode(value) {
+  if (value == null || value === "") return null;
+  const key = String(value).trim().toLowerCase().replace(/[\s-]+/g, "_");
+  return INTERACTION_MODE_ALIASES[key] || null;
 }
 
 function toPanelState(runState) {
@@ -65,10 +90,12 @@ function normalizeConfig(config = {}) {
   const density = ["compact", "regular", "comfy"].includes(config.density)
     ? config.density
     : DEFAULT_CONFIG.density;
+  const interactionMode = normalizeInteractionMode(config.interactionMode ?? config.mode ?? config.runState ?? config.state) || "planning";
 
   return {
     ...config,
     runState,
+    interactionMode,
     panelState: toPanelState(runState),
     tab,
     panelWidth,
@@ -171,7 +198,7 @@ function formatTimestamp(date = new Date()) {
   });
 }
 
-function extractText(value, keys = ["text", "message", "content", "summary", "title", "detail", "error", "reason", "label"]) {
+function extractText(value, keys = ["text", "message", "content", "summary", "title", "detail", "error", "reason", "label", "question"]) {
   if (value == null) return "";
   if (typeof value === "string") return value;
   if (typeof value === "number" || typeof value === "boolean") return String(value);
@@ -232,27 +259,28 @@ function normalizePlanStep(step, index) {
     return null;
   }
 
-  if (typeof step === "string") {
-    return {
-      kind: "step",
-      text: step,
-      status: index === 0 ? "active" : "ok",
-    };
-  }
+  const source = typeof step === "object" ? step : { text: step };
+  const status = String(source.status || source.state || (source.done ? "done" : "")).toLowerCase();
+  const text = extractText(source, ["text", "label", "title", "message", "content"]) || `Step ${index + 1}`;
+  const normalizedStatus = ["done", "completed", "recorded", "passed", "active", "warn", "err", "ok"].includes(status)
+    ? status
+    : index === 0
+      ? "active"
+      : "ok";
 
-  if (typeof step !== "object") {
-    return {
-      kind: "step",
-      text: String(step),
-      status: index === 0 ? "active" : "ok",
-    };
-  }
-
-  const status = String(step.status || step.state || (step.done ? "done" : "")).toLowerCase();
   return {
-    kind: String(step.kind || step.type || step.action || step.name || "step"),
-    text: extractText(step, ["text", "label", "title", "message", "content"]) || `Step ${index + 1}`,
-    status: ["done", "active", "warn", "err", "ok"].includes(status) ? status : index === 0 ? "active" : "ok",
+    id: firstNonEmptyText(source.id, source.step_id, source.stepId) || `plan-step-${index + 1}`,
+    step_id: firstNonEmptyText(source.step_id),
+    stepId: firstNonEmptyText(source.stepId),
+    kind: String(source.kind || source.type || source.action || source.name || "step"),
+    text,
+    label: firstNonEmptyText(source.label, text),
+    title: firstNonEmptyText(source.title, text),
+    cls: firstNonEmptyText(source.cls),
+    status: normalizedStatus,
+    recorded: ["done", "completed", "recorded", "passed"].includes(normalizedStatus),
+    completed: ["done", "completed", "recorded", "passed"].includes(normalizedStatus),
+    raw: source,
   };
 }
 
@@ -307,6 +335,111 @@ function firstNonEmptyText(...values) {
   return "";
 }
 
+function collectStepReferenceValues(...sources) {
+  const values = [];
+  const seen = new Set();
+  const push = (value) => {
+    const text = firstNonEmptyText(value);
+    if (!text || seen.has(text)) {
+      return;
+    }
+    seen.add(text);
+    values.push(text);
+  };
+
+  for (const source of sources) {
+    if (source == null) {
+      continue;
+    }
+
+    if (Array.isArray(source)) {
+      source.forEach(push);
+      continue;
+    }
+
+    if (typeof source === "object") {
+      push(source.step_id);
+      push(source.stepId);
+      push(source.id);
+      push(source.step?.id);
+      push(source.step?.step_id);
+      push(source.step?.stepId);
+      continue;
+    }
+
+    push(source);
+  }
+
+  return values;
+}
+
+function normalizeMatchText(value) {
+  return firstNonEmptyText(value).replace(/\s+/g, " ").trim().toLowerCase();
+}
+
+function isTechnicalRecordedLabel(value) {
+  const text = firstNonEmptyText(value);
+  if (!text) {
+    return false;
+  }
+
+  const trimmed = text.trim();
+  return (
+    /^(css|xpath|text|role|id|name|label)=/i.test(trimmed) ||
+    /^\/{1,2}/.test(trimmed) ||
+    /[.#\[\]()>]/.test(trimmed) ||
+    /^[a-z][\w-]*(?:[.#][\w-]+)+$/i.test(trimmed)
+  );
+}
+
+function pickFriendlyText(...values) {
+  for (const value of values) {
+    const text = firstNonEmptyText(value);
+    if (text && !isTechnicalRecordedLabel(text)) {
+      return text;
+    }
+  }
+  return firstNonEmptyText(...values);
+}
+
+function describeElementSubject(info) {
+  if (!info || typeof info !== "object") {
+    return "";
+  }
+
+  const friendlyText = pickFriendlyText(info.text, info.innerText, info.content, info.title, info.label, info.value, info.name);
+  if (friendlyText) {
+    return friendlyText;
+  }
+
+  const tag = firstNonEmptyText(info.tag, info.tagName, info.nodeName).toLowerCase();
+  switch (tag) {
+    case "h1":
+    case "h2":
+    case "h3":
+    case "h4":
+    case "h5":
+    case "h6":
+      return "heading";
+    case "a":
+      return "link";
+    case "button":
+      return "button";
+    case "input":
+    case "textarea":
+    case "select":
+      return "input";
+    case "img":
+      return "image";
+    case "li":
+      return "list item";
+    case "form":
+      return "form";
+    default:
+      return tag || "";
+  }
+}
+
 function normalizeElementInfo(info) {
   if (!info || typeof info !== "object") {
     return null;
@@ -330,14 +463,7 @@ function normalizeElementInfo(info) {
 
 function normalizePickedElementMessage(message) {
   const payload = message?.payload && typeof message.payload === "object" ? message.payload : message;
-  const stepId = firstNonEmptyText(
-    payload?.step_id,
-    payload?.stepId,
-    payload?.step?.id,
-    message?.step_id,
-    message?.stepId,
-    message?.step?.id
-  );
+  const stepIds = collectStepReferenceValues(payload, message);
 
   const rawElementInfo =
     payload?.element_info ??
@@ -349,7 +475,8 @@ function normalizePickedElementMessage(message) {
     payload;
 
   return {
-    stepId,
+    stepId: stepIds[0] || "",
+    stepIds,
     elementInfo: normalizeElementInfo(rawElementInfo),
   };
 }
@@ -360,10 +487,19 @@ function normalizePendingStep(step) {
   }
 
   return {
+    ...step,
     id: typeof step.id === "string" && step.id.trim() ? step.id : createPendingStep().id,
-    intent: typeof step.intent === "string" ? step.intent : "",
-    element_info: step.element_info ?? null,
+    intent:
+      typeof step.intent === "string"
+        ? step.intent
+        : typeof step.text === "string"
+          ? step.text
+          : typeof step.label === "string"
+            ? step.label
+            : "",
+    element_info: step.element_info ?? step.elementInfo ?? null,
     recorded: step.recorded === true,
+    status: typeof step.status === "string" ? step.status : "",
   };
 }
 
@@ -375,6 +511,372 @@ function normalizePendingSteps(steps) {
   return [createPendingStep("")];
 }
 
+function resolveFiniteNumber(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number : null;
+}
+
+function inferActionKindFromText(...values) {
+  const text = values.map((value) => firstNonEmptyText(value)).filter(Boolean).join(" ").toLowerCase();
+  if (!text) return "step";
+
+  if (/(^|\b)(click|tap|press|select|choose|open)\b/.test(text)) return "click";
+  if (/(^|\b)(fill|type|enter|input|paste|set)\b/.test(text)) return "fill";
+  if (/(^|\b)(assert|verify|check|expect|confirm|validate)\b/.test(text)) return "assert";
+  if (/(^|\b)(navigate|goto|go to|go back|back|forward|reload|refresh)\b/.test(text)) return "navigate";
+  if (/(^|\b)(hover)\b/.test(text)) return "hover";
+  return "step";
+}
+
+function stripActionPrefix(text, action) {
+  const value = firstNonEmptyText(text);
+  if (!value) return "";
+
+  const map = {
+    click: /^(click|tap|press|select|choose|open)\s+/i,
+    fill: /^(fill|type|enter|input|paste|set)\s+/i,
+    assert: /^(assert|verify|check|expect|confirm|validate)\s+/i,
+    navigate: /^(navigate|go to|goto|go back|back|forward|reload|refresh)\s+/i,
+    hover: /^(hover)\s+/i,
+  };
+
+  const stripped = value.replace(map[action] || /^recorded\s+/i, "").trim();
+  return stripped || value;
+}
+
+function summarizeElementName(info) {
+  if (!info || typeof info !== "object") {
+    return "";
+  }
+
+  return pickFriendlyText(
+    info.text,
+    info.label,
+    info.title,
+    info.name,
+    describeElementSubject(info),
+    info.id ? `#${info.id}` : "",
+    info.tag
+  );
+}
+
+function summarizeLocator(source, matchedStep) {
+  const raw = firstNonEmptyText(
+    source?.locator,
+    source?.selector,
+    source?.css,
+    source?.xpath,
+    source?.path,
+    source?.target,
+    matchedStep?.locator,
+    matchedStep?.element_info?.locator
+  );
+  if (raw) return raw;
+
+  const elementInfo = matchedStep?.element_info;
+  if (!elementInfo) return "";
+  if (elementInfo.id) return `#${elementInfo.id}`;
+  if (elementInfo.className) {
+    const classes = elementInfo.className.split(/\s+/).filter(Boolean);
+    if (classes.length) {
+      return `.${classes.join(".")}`;
+    }
+  }
+  if (elementInfo.tag) return elementInfo.tag;
+  return "";
+}
+
+function buildRecordedDisplayTitle(action, elementName, stepNumber) {
+  const target = stripActionPrefix(elementName, action);
+  const fallback = Number.isFinite(stepNumber) && stepNumber > 0 ? `Step ${stepNumber}` : "Recorded step";
+
+  switch (action) {
+    case "click":
+      return target ? `Clicked ${target}` : fallback;
+    case "fill":
+      return target ? `Filled ${target}` : fallback;
+    case "assert":
+      return target ? `Asserted ${target}` : fallback;
+    case "navigate":
+      return target ? `Navigated ${target}` : "Navigated";
+    case "hover":
+      return target ? `Hovered ${target}` : fallback;
+    case "step":
+    default:
+      return target ? `Recorded ${target}` : fallback;
+  }
+}
+
+function normalizeRecordedStep(step, index) {
+  if (!step || typeof step !== "object") {
+    const rawText = firstNonEmptyText(step) || `Recorded step ${index + 1}`;
+    const action = inferActionKindFromText(rawText);
+    const target = stripActionPrefix(rawText, action);
+    return {
+      id: `recorded-step-${Date.now().toString(36)}-${index + 1}`,
+      step_number: index + 1,
+      action,
+      element_name: target || rawText,
+      locator: "",
+      generated_line: "",
+      status: "recorded",
+      display_title: buildRecordedDisplayTitle(action, target || rawText, index + 1),
+      action_label: action,
+      target_label: target || rawText,
+    };
+  }
+
+  const action = inferActionKindFromText(
+    step.action,
+    step.action_label,
+    step.kind,
+    step.type,
+    step.intent,
+    step.display_title,
+    step.title,
+    step.element_name,
+    step.locator
+  );
+  const stepNumberValue = resolveFiniteNumber(step.step_number ?? step.stepNumber ?? step.number ?? step.index);
+  const stepNumber = Number.isFinite(stepNumberValue) ? (stepNumberValue > 0 ? stepNumberValue : stepNumberValue + 1) : index + 1;
+  const matchedElementInfo = step.element_info && typeof step.element_info === "object" ? step.element_info : null;
+  const elementName = stripActionPrefix(
+    pickFriendlyText(
+      step.element_name,
+      step.elementName,
+      step.target_name,
+      step.targetName,
+      step.target,
+      step.name,
+      step.label,
+      step.intent,
+      summarizeElementName(matchedElementInfo),
+      describeElementSubject(matchedElementInfo)
+    ),
+    action
+  );
+  const status = firstNonEmptyText(step.status, step.result, step.state, step.outcome).toLowerCase();
+  const normalizedStatus = status === "passed" || status === "failed" ? status : "recorded";
+  const displayTitle =
+    pickFriendlyText(step.display_title, step.displayTitle, step.title, step.label, buildRecordedDisplayTitle(action, elementName, stepNumber)) ||
+    buildRecordedDisplayTitle(action, elementName, stepNumber);
+
+  return {
+    ...step,
+    id: firstNonEmptyText(step.id, step.step_id, step.stepId) || `recorded-step-${Date.now().toString(36)}-${index + 1}`,
+    step_number: stepNumber,
+    action,
+    element_name: elementName || firstNonEmptyText(step.element_name, step.target, step.label) || `Step ${stepNumber}`,
+    locator: firstNonEmptyText(step.locator, step.selector, step.xpath, step.css, step.path) || "",
+    generated_line: firstNonEmptyText(step.generated_line, step.generatedLine, step.code_line, step.codeLine, step.line, step.code, step.snippet) || "",
+    status: normalizedStatus,
+    display_title: displayTitle,
+    action_label: action,
+    target_label: elementName || firstNonEmptyText(step.target, step.label) || "",
+  };
+}
+
+function normalizeRecordedSteps(steps) {
+  if (!Array.isArray(steps) || steps.length === 0) {
+    return [];
+  }
+
+  return steps.map(normalizeRecordedStep).filter(Boolean);
+}
+
+function findPendingStepMatch(steps, stepIds, recordedStepNumber, recordedStepIndex) {
+  if (!Array.isArray(steps) || steps.length === 0) {
+    return { index: -1, step: null, reason: "empty" };
+  }
+
+  const candidateIds = collectStepReferenceValues(stepIds);
+  if (candidateIds.length > 0) {
+    const index = steps.findIndex((step) =>
+      candidateIds.some((candidateId) => {
+        const stepCandidateIds = collectStepReferenceValues(step);
+        return stepCandidateIds.includes(candidateId);
+      })
+    );
+    if (index !== -1) {
+      return { index, step: steps[index], reason: "id" };
+    }
+  }
+
+  if (Number.isFinite(recordedStepNumber) && recordedStepNumber > 0) {
+    const index = recordedStepNumber - 1;
+    if (index >= 0 && index < steps.length) {
+      return { index, step: steps[index], reason: "number" };
+    }
+  }
+
+  if (Number.isFinite(recordedStepIndex) && recordedStepIndex >= 0 && recordedStepIndex < steps.length) {
+    return { index: recordedStepIndex, step: steps[recordedStepIndex], reason: "index" };
+  }
+
+  if (steps.length === 1) {
+    return { index: 0, step: steps[0], reason: "single" };
+  }
+
+  return { index: -1, step: null, reason: "unmatched" };
+}
+
+function buildRecordedStepFromPayload(payload, matchedStep, matchIndex, recordedStepId, recordedStepNumber, recordedStepIndex) {
+  const source = payload && typeof payload === "object" ? payload : {};
+  const action = inferActionKindFromText(
+    source.action,
+    source.step_action,
+    source.kind,
+    source.type,
+    source.intent,
+    matchedStep?.intent,
+    source.generated_line,
+    source.locator,
+    matchedStep?.element_info?.text
+  );
+  const stepNumber = Number.isFinite(recordedStepNumber)
+    ? recordedStepNumber
+    : Number.isFinite(recordedStepIndex)
+      ? recordedStepIndex + 1
+      : matchIndex >= 0
+        ? matchIndex + 1
+        : resolveFiniteNumber(source.step_number ?? source.stepNumber ?? source.number ?? source.index) ?? null;
+  const matchedElementName = matchedStep?.element_info ? summarizeElementName(matchedStep.element_info) : "";
+  const elementName = stripActionPrefix(
+    pickFriendlyText(
+      source.element_name,
+      source.elementName,
+      source.target_name,
+      source.targetName,
+      source.target,
+      source.name,
+      source.label,
+      matchedElementName,
+      matchedStep?.intent,
+      matchedStep?.element_info?.text,
+      describeElementSubject(matchedStep?.element_info),
+      stepNumber ? `Step ${stepNumber}` : ""
+    ),
+    action
+  );
+  const locator = summarizeLocator(source, matchedStep);
+  const generatedLine = firstNonEmptyText(
+    source.generated_line,
+    source.generatedLine,
+    source.code_line,
+    source.codeLine,
+    source.line,
+    source.script,
+    source.code,
+    source.snippet
+  );
+  const rawStatus = firstNonEmptyText(source.status, source.result, source.state, source.outcome).toLowerCase();
+  const status = rawStatus === "passed" || rawStatus === "failed" ? rawStatus : "recorded";
+  const friendlyTitle = pickFriendlyText(
+    source.display_title,
+    source.displayTitle,
+    source.title,
+    source.label,
+    buildRecordedDisplayTitle(action, elementName || matchedElementName, stepNumber ?? undefined)
+  );
+  const fallbackTitle = buildRecordedDisplayTitle(action, elementName || matchedElementName, stepNumber ?? undefined);
+
+  return normalizeRecordedStep(
+    {
+      id: firstNonEmptyText(source.id, source.step_id, source.stepId, recordedStepId),
+      step_number: stepNumber,
+      action,
+      element_name: elementName || matchedElementName || (stepNumber ? `Step ${stepNumber}` : "Recorded step"),
+      locator,
+      generated_line: generatedLine,
+      status,
+      display_title: friendlyTitle || fallbackTitle,
+      action_label: action,
+      target_label: elementName || matchedElementName || "",
+    },
+    Number.isFinite(matchIndex) && matchIndex >= 0 ? matchIndex : 0
+  );
+}
+
+function isPlanStepCompleted(step) {
+  if (!step || typeof step !== "object") {
+    return false;
+  }
+
+  const status = firstNonEmptyText(step.status, step.state, step.cls).toLowerCase();
+  return step.recorded === true || step.completed === true || ["done", "completed", "recorded", "passed"].includes(status);
+}
+
+function updatePlanAfterRecordedStep(currentPlan, matchInfo, nextRecordedStep) {
+  if (!currentPlan || typeof currentPlan !== "object") {
+    return currentPlan;
+  }
+
+  const currentSteps = Array.isArray(currentPlan.steps) ? currentPlan.steps : [];
+  if (!currentSteps.length) {
+    return currentPlan;
+  }
+
+  const { stepIds = [], recordedStepNumber, recordedStepIndex, matchedStep, matchIndex } = matchInfo || {};
+  const candidateIds = collectStepReferenceValues(stepIds, nextRecordedStep?.id, matchedStep?.id);
+  const resolvedMatch = findPendingStepMatch(
+    currentSteps,
+    candidateIds,
+    Number.isFinite(recordedStepNumber) ? recordedStepNumber : Number.NaN,
+    Number.isFinite(recordedStepIndex) ? recordedStepIndex : Number.isNaN(matchIndex) ? Number.NaN : matchIndex
+  );
+
+  if (resolvedMatch.index < 0) {
+    return currentPlan;
+  }
+
+  const nextSteps = currentSteps.slice();
+  const existingStep = nextSteps[resolvedMatch.index] || {};
+  nextSteps[resolvedMatch.index] = {
+    ...existingStep,
+    status: "done",
+    state: "done",
+    recorded: true,
+    completed: true,
+    cls: "done",
+  };
+
+  const allDone = nextSteps.length > 0 && nextSteps.every(isPlanStepCompleted);
+  const nextPlan = {
+    ...currentPlan,
+    steps: nextSteps,
+  };
+
+  if (allDone) {
+    nextPlan.summary = "All plan steps recorded";
+    nextPlan.status = "completed";
+    nextPlan.state = "completed";
+    nextPlan.completed = true;
+  }
+
+  return nextPlan;
+}
+
+function mergeRecordedStepList(current, nextStep) {
+  const list = Array.isArray(current) ? current : [];
+  const index = list.findIndex((step) => {
+    if (step.id && nextStep.id && step.id === nextStep.id) {
+      return true;
+    }
+    return Number.isFinite(step.step_number) && Number.isFinite(nextStep.step_number) && step.step_number === nextStep.step_number;
+  });
+
+  if (index === -1) {
+    return [...list, nextStep];
+  }
+
+  const next = list.slice();
+  next[index] = {
+    ...next[index],
+    ...nextStep,
+  };
+  return next;
+}
+
 function isSocketOpen(socket) {
   return Boolean(socket && socket.readyState === WebSocket.OPEN);
 }
@@ -384,6 +886,77 @@ function normalizeTimelineEntry(label, level = "ok") {
     d: level,
     t: formatTimestamp(),
     txt: label,
+  };
+}
+
+function normalizeClarificationOption(option, index) {
+  if (option == null) {
+    return null;
+  }
+
+  if (typeof option === "string" || typeof option === "number" || typeof option === "boolean") {
+    const text = firstNonEmptyText(option);
+    if (!text) {
+      return null;
+    }
+
+    return {
+      id: `clarification-option-${index + 1}`,
+      label: text,
+      value: text,
+      raw: option,
+    };
+  }
+
+  if (typeof option !== "object") {
+    return null;
+  }
+
+  const label = firstNonEmptyText(option.label, option.text, option.message, option.title, option.option, option.answer, option.value, option.name);
+  const value = firstNonEmptyText(option.value, option.answer, option.option, option.text, option.label, option.message, option.title, option.name);
+  const resolvedLabel = label || value;
+  const resolvedValue = value || resolvedLabel;
+
+  if (!resolvedLabel && !resolvedValue) {
+    return null;
+  }
+
+  return {
+    id: firstNonEmptyText(option.id, option.key, option.value, option.answer) || `clarification-option-${index + 1}`,
+    label: resolvedLabel || resolvedValue,
+    value: resolvedValue || resolvedLabel,
+    raw: option,
+  };
+}
+
+function normalizeClarificationOptions(options) {
+  const list = Array.isArray(options) ? options : options != null ? [options] : [];
+  return list.map((option, index) => normalizeClarificationOption(option, index)).filter(Boolean);
+}
+
+function normalizeClarificationMessage(message) {
+  const raw = message && typeof message.raw === "object" ? message.raw : {};
+  const payload = message && typeof message.payload === "object" ? message.payload : {};
+  const question = firstNonEmptyText(
+    payload.question,
+    payload.prompt,
+    payload.message,
+    payload.text,
+    raw.question,
+    raw.prompt,
+    raw.message,
+    raw.text,
+    extractText(payload),
+    extractText(raw),
+    "Clarification needed"
+  );
+  const options = normalizeClarificationOptions(
+    payload.options ?? raw.options ?? payload.choices ?? raw.choices ?? payload.suggestions ?? raw.suggestions ?? []
+  );
+
+  return {
+    question,
+    options,
   };
 }
 
@@ -418,23 +991,48 @@ function useAutoWorkbenchTransport(config) {
   const [conversation, setConversation] = useState([]);
   const [timeline, setTimeline] = useState([]);
   const [plan, setPlan] = useState(null);
-  const [recordedCount, setRecordedCount] = useState(0);
   const [codePreview, setCodePreview] = useState("");
   const [lastError, setLastError] = useState("");
   const [lastEvent, setLastEvent] = useState(null);
   const [pendingSteps, setPendingSteps] = useState(() => normalizePendingSteps(config.pendingSteps));
-  const [correctionText, setCorrectionText] = useState("");
+  const [recordedSteps, setRecordedSteps] = useState(() => normalizeRecordedSteps(config.recordedSteps));
+  const [interactionMode, setInteractionMode] = useState(
+    () => normalizeInteractionMode(config.interactionMode ?? config.mode ?? config.runState ?? config.state) || "planning"
+  );
+  const [planCorrectionText, setPlanCorrectionText] = useState("");
+  const [clarificationQuestion, setClarificationQuestion] = useState("");
+  const [clarificationOptions, setClarificationOptions] = useState([]);
+  const [clarificationAnswerText, setClarificationAnswerText] = useState("");
+  const [recoveryText, setRecoveryText] = useState("");
   const [activePickerStepId, setActivePickerStepId] = useState("");
 
   const socketRef = useRef(null);
   const retryRef = useRef(null);
   const attemptRef = useRef(0);
   const mountedRef = useRef(true);
+  const planRef = useRef(null);
   const activePickerStepIdRef = useRef("");
+  const pendingStepsRef = useRef([]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     activePickerStepIdRef.current = activePickerStepId;
   }, [activePickerStepId]);
+
+  useLayoutEffect(() => {
+    pendingStepsRef.current = pendingSteps;
+  }, [pendingSteps]);
+
+  useLayoutEffect(() => {
+    planRef.current = plan;
+  }, [plan]);
+
+  const updatePendingSteps = useCallback((updater) => {
+    setPendingSteps((current) => {
+      const next = typeof updater === "function" ? updater(current) : updater;
+      pendingStepsRef.current = next;
+      return next;
+    });
+  }, []);
 
   const appendTimeline = useCallback((label, level = "ok") => {
     const entry = normalizeTimelineEntry(label, level);
@@ -472,15 +1070,81 @@ function useAutoWorkbenchTransport(config) {
   );
 
   const updatePendingStepIntent = useCallback((stepId, intent) => {
-    setPendingSteps((current) =>
-      current.map((step) => (step.id === stepId ? { ...step, intent, recorded: false, element_info: step.element_info ?? null } : step))
+    updatePendingSteps((current) =>
+      current.map((step) => {
+        if (step.id !== stepId) {
+          return step;
+        }
+
+        const nextIntent = typeof intent === "string" ? intent : "";
+        return {
+          ...step,
+          intent: nextIntent,
+          status: nextIntent.trim() ? "ready" : "draft",
+          recorded: false,
+          element_info: step.element_info ?? step.elementInfo ?? null,
+        };
+      })
     );
-  }, []);
+  }, [updatePendingSteps]);
+
+  const removePendingStep = useCallback(
+    (stepId) => {
+      if (!stepId) {
+        return;
+      }
+
+      const currentSteps = pendingStepsRef.current;
+      const removedStep = currentSteps.find((step) => step.id === stepId) || null;
+      updatePendingSteps((current) => current.filter((step) => step.id !== stepId));
+
+      if (activePickerStepIdRef.current === stepId) {
+        setActivePickerStepId("");
+      }
+
+      if (removedStep) {
+        const stepLabel = firstNonEmptyText(removedStep.intent, removedStep.element_info?.text, removedStep.element_info?.id, `step ${stepId}`);
+        appendTimeline(`Removed pending step ${stepLabel}`, "ok");
+      } else {
+        appendTimeline("Pending step removed.", "ok");
+      }
+    },
+    [appendTimeline, updatePendingSteps]
+  );
 
   const addPendingStep = useCallback(() => {
-    setPendingSteps((current) => [...current, createPendingStep("")]);
+    updatePendingSteps((current) => [...current, createPendingStep("")]);
     appendTimeline("Step added.", "ok");
-  }, [appendTimeline]);
+  }, [appendTimeline, updatePendingSteps]);
+
+  const handleReplayRecordedStep = useCallback(
+    (step) => {
+      const title = firstNonEmptyText(step?.display_title, step?.element_name, step?.action, "Recorded step");
+      appendTimeline(`Replay not implemented yet. ${title ? `(${title})` : ""}`.trim(), "warn");
+    },
+    [appendTimeline]
+  );
+
+  const handleCopyRecordedStep = useCallback(
+    (step) => {
+      const line = firstNonEmptyText(step?.generated_line);
+      if (!line) {
+        appendTimeline("No generated line to copy.", "warn");
+        return;
+      }
+
+      if (navigator?.clipboard?.writeText) {
+        navigator.clipboard
+          .writeText(line)
+          .then(() => appendTimeline("Copied generated line.", "ok"))
+          .catch(() => appendTimeline("Copy not available.", "warn"));
+        return;
+      }
+
+      appendTimeline("Copy not available.", "warn");
+    },
+    [appendTimeline]
+  );
 
   const handleAttachElement = useCallback(
     (stepId) => {
@@ -539,12 +1203,16 @@ function useAutoWorkbenchTransport(config) {
     );
 
     if (sent) {
+      appendConversation("user", "Confirmed.");
+      setRunState("executing");
+      setInteractionMode("executing");
+      setPlanCorrectionText("");
       appendTimeline("Confirmation sent.", "ok");
     }
-  }, [appendTimeline, sendPayload]);
+  }, [appendConversation, appendTimeline, sendPayload]);
 
-  const handleSendCorrection = useCallback(() => {
-    const correction = correctionText.trim();
+  const handleSendPlanCorrection = useCallback(() => {
+    const correction = planCorrectionText.trim();
     if (!correction) {
       appendTimeline("Correction is empty.", "warn");
       return;
@@ -559,10 +1227,68 @@ function useAutoWorkbenchTransport(config) {
     );
 
     if (sent) {
-      setCorrectionText("");
+      appendConversation("user", correction);
+      setRunState("planning");
+      setInteractionMode("planning");
+      setPlanCorrectionText("");
       appendTimeline("Correction sent.", "ok");
     }
-  }, [appendTimeline, correctionText, sendPayload]);
+  }, [appendConversation, appendTimeline, planCorrectionText, sendPayload]);
+
+  const handleSendClarificationAnswer = useCallback(
+    (answerOverride = "") => {
+      const answer = firstNonEmptyText(answerOverride, clarificationAnswerText).trim();
+      if (!answer) {
+        appendTimeline("Clarification answer is empty.", "warn");
+        return;
+      }
+
+      const sent = sendPayload(
+        {
+          type: "option_selected",
+          value: answer,
+          answer,
+          message: answer,
+        },
+        "WebSocket not connected."
+      );
+
+      if (sent) {
+        appendConversation("user", answer);
+        appendTimeline("Clarification answer sent.", "ok");
+        setRunState("executing");
+        setInteractionMode("executing");
+        setClarificationQuestion("");
+        setClarificationOptions([]);
+        setClarificationAnswerText("");
+      }
+    },
+    [appendConversation, appendTimeline, clarificationAnswerText, sendPayload]
+  );
+
+  const handleSendRecoveryInstruction = useCallback(() => {
+    const instruction = recoveryText.trim();
+    if (!instruction) {
+      appendTimeline("Recovery instruction is empty.", "warn");
+      return;
+    }
+
+    const sent = sendPayload(
+      {
+        type: "correction",
+        message: instruction,
+      },
+      "WebSocket not connected."
+    );
+
+    if (sent) {
+      appendConversation("user", instruction);
+      appendTimeline("Recovery instruction sent.", "ok");
+      setRunState("recovery");
+      setInteractionMode("recovery");
+      setRecoveryText("");
+    }
+  }, [appendConversation, appendTimeline, recoveryText, sendPayload]);
 
   const handleBackendMessage = useCallback(
     (message) => {
@@ -584,17 +1310,27 @@ function useAutoWorkbenchTransport(config) {
           );
           if (nextState) {
             setRunState(nextState);
+            if (nextState === "idle" || nextState === "planning" || nextState === "executing" || nextState === "recovery" || nextState === "completed") {
+              setInteractionMode(nextState);
+            }
           }
           appendTimeline(text || "Status update", "ok");
           break;
         }
         case "llm_thinking":
           setRunState("planning");
+          setInteractionMode("planning");
           appendTimeline(text || "LLM thinking", "active");
           appendConversation("agent", text || "Thinking…");
           break;
         case "plan_ready": {
           setRunState("awaiting_confirmation");
+          setInteractionMode("plan_review");
+          setPlanCorrectionText("");
+          setClarificationQuestion("");
+          setClarificationOptions([]);
+          setClarificationAnswerText("");
+          setRecoveryText("");
           const nextPlan = normalizePlanPayload(payload);
           setPlan(nextPlan);
           appendTimeline(nextPlan?.summary ? `Plan ready · ${nextPlan.summary}` : "Plan ready", "warn");
@@ -603,14 +1339,28 @@ function useAutoWorkbenchTransport(config) {
           }
           break;
         }
-        case "clarification_needed":
+        case "clarification_needed": {
+          const clarification = normalizeClarificationMessage(message);
           setRunState("awaiting_confirmation");
-          appendConversation("system", text || "Clarification needed");
-          appendTimeline(text || "Clarification needed", "warn");
+          setInteractionMode("clarification");
+          setClarificationQuestion(clarification.question);
+          setClarificationOptions(clarification.options);
+          setClarificationAnswerText("");
+          setPlanCorrectionText("");
+          setRecoveryText("");
+          appendConversation("agent", clarification.question || "Clarification needed");
+          appendTimeline("Clarification needed", "warn");
           break;
+        }
         case "error":
           setRunState("recovery");
+          setInteractionMode("recovery");
           setLastError(text || "Unknown error");
+          setClarificationQuestion("");
+          setClarificationOptions([]);
+          setClarificationAnswerText("");
+          setPlanCorrectionText("");
+          setRecoveryText("");
           appendConversation("system", text || "Error");
           appendTimeline(text || "Error", "err");
           break;
@@ -625,44 +1375,75 @@ function useAutoWorkbenchTransport(config) {
           }
           break;
         case "step_recorded": {
-          const recordedStepId = firstNonEmptyText(
-            payload && typeof payload === "object" ? payload.step_id : "",
-            payload && typeof payload === "object" ? payload.stepId : "",
-            payload && typeof payload === "object" ? payload.id : ""
-          );
-          const recordedStepNumber = Number(
+          const recordedStepIds = collectStepReferenceValues(payload);
+          const recordedStepNumber = resolveFiniteNumber(
             payload && typeof payload === "object"
-              ? payload.step_number ?? payload.stepNumber ?? payload.number ?? payload.index
+              ? payload.step_number ?? payload.stepNumber ?? payload.number
               : Number.NaN
           );
-          if (recordedStepId || Number.isFinite(recordedStepNumber)) {
-            setPendingSteps((current) =>
-              current.map((step, index) => {
-                const matchesId = recordedStepId && step.id === recordedStepId;
-                const matchesNumber = Number.isFinite(recordedStepNumber) && recordedStepNumber > 0 && index === recordedStepNumber - 1;
-                if (!matchesId && !matchesNumber) {
-                  return step;
+          const recordedStepIndex = resolveFiniteNumber(
+            payload && typeof payload === "object"
+              ? payload.index ?? payload.step_index ?? payload.stepIndex
+              : Number.NaN
+          );
+          const { index: matchedIndex, step: matchedStep } = findPendingStepMatch(
+            pendingStepsRef.current,
+            recordedStepIds,
+            recordedStepNumber,
+            recordedStepIndex
+          );
+          const nextRecordedStep = buildRecordedStepFromPayload(
+            payload,
+            matchedStep,
+            matchedIndex,
+            recordedStepIds[0] || "",
+            recordedStepNumber,
+            recordedStepIndex
+          );
+
+          if (matchedStep || Number.isFinite(recordedStepNumber) || Number.isFinite(recordedStepIndex)) {
+            const removalIds = matchedStep ? collectStepReferenceValues(matchedStep) : [];
+            updatePendingSteps((current) =>
+              current.filter((step, index) => {
+                if (removalIds.length > 0) {
+                  const stepIds = collectStepReferenceValues(step);
+                  if (stepIds.some((stepId) => removalIds.includes(stepId))) {
+                    return false;
+                  }
                 }
-                return {
-                  ...step,
-                  recorded: true,
-                  element_info: step.element_info ?? normalizeElementInfo(payload?.element_info ?? payload?.elementInfo ?? null),
-                };
+
+                if (removalIds.length === 0 && matchedIndex >= 0 && index === matchedIndex) {
+                  return false;
+                }
+
+                return true;
               })
             );
           }
-          const countFromPayload = Number(
-            payload && typeof payload === "object"
-              ? payload.recordedCount ?? payload.count ?? payload.total ?? payload.stepCount
-              : Number.NaN
-          );
-          if (Number.isFinite(countFromPayload)) {
-            setRecordedCount(countFromPayload);
-          } else {
-            setRecordedCount((current) => current + 1);
+
+          const nextPlan = updatePlanAfterRecordedStep(planRef.current, {
+            stepIds: recordedStepIds,
+            recordedStepNumber,
+            recordedStepIndex,
+            matchedStep,
+            matchIndex: matchedIndex,
+          }, nextRecordedStep);
+          if (nextPlan && nextPlan !== planRef.current) {
+            setPlan(nextPlan);
           }
-          setRunState((current) => (current === "completed" ? current : "executing"));
-          appendTimeline(text || "Step recorded", "ok");
+
+          setRecordedSteps((current) => mergeRecordedStepList(current, nextRecordedStep));
+          const planCompleted = Boolean(nextPlan && Array.isArray(nextPlan.steps) && nextPlan.steps.length > 0 && nextPlan.steps.every(isPlanStepCompleted));
+          setRunState((current) => (current === "completed" ? current : planCompleted ? "completed" : "executing"));
+          setInteractionMode(planCompleted ? "completed" : "executing");
+          appendTimeline(
+            `Recorded: ${firstNonEmptyText(nextRecordedStep.action, "recorded")} — ${firstNonEmptyText(
+              nextRecordedStep.element_name,
+              nextRecordedStep.display_title,
+              "step"
+            )}`,
+            "ok"
+          );
           break;
         }
         case "code_update": {
@@ -674,32 +1455,37 @@ function useAutoWorkbenchTransport(config) {
           break;
         }
         case "element_picked": {
-          const { stepId, elementInfo } = normalizePickedElementMessage(message);
-          const resolvedStepId = stepId || activePickerStepIdRef.current;
-          if (resolvedStepId) {
-            let matched = false;
-            setPendingSteps((current) =>
-              current.map((step) => {
-                if (step.id !== resolvedStepId) {
+          const { stepId, stepIds, elementInfo } = normalizePickedElementMessage(message);
+          const referenceIds = collectStepReferenceValues(stepIds, stepId, activePickerStepIdRef.current);
+          const match = findPendingStepMatch(pendingStepsRef.current, referenceIds, Number.NaN, Number.NaN);
+          if (match.step) {
+            updatePendingSteps((current) =>
+              current.map((step, index) => {
+                if (index !== match.index) {
                   return step;
                 }
-                matched = true;
+                const nextIntent = typeof step.intent === "string" ? step.intent : "";
                 return {
                   ...step,
                   element_info: elementInfo,
                   recorded: false,
+                  status: nextIntent.trim() ? "ready" : "draft",
                 };
               })
             );
             setActivePickerStepId("");
-            if (matched) {
-              appendTimeline(`Element attached to step ${resolvedStepId}`, "ok");
-            } else {
-              appendTimeline(`Element picked but no matching step found for ${resolvedStepId}`, "warn");
-            }
+            const stepNumber = resolveFiniteNumber(match.step.step_number ?? match.step.stepNumber ?? match.step.number ?? match.index + 1);
+            const stepLabel = Number.isFinite(stepNumber) && stepNumber > 0 ? `step ${stepNumber}` : `step ${match.step.id || match.index + 1}`;
+            appendTimeline(`Element attached to ${stepLabel}`, "ok");
           } else {
+            const availableIds = pendingStepsRef.current.map((step) => step.id).filter(Boolean);
             setActivePickerStepId("");
-            appendTimeline(text || "Element picked", "ok");
+            appendTimeline(
+              `Element picked but no matching step found for ${referenceIds.join(", ") || "unknown"}${
+                availableIds.length > 0 ? ` · pending: ${availableIds.join(", ")}` : ""
+              }`,
+              "warn"
+            );
           }
           break;
         }
@@ -822,31 +1608,57 @@ function useAutoWorkbenchTransport(config) {
   return {
     connectionStatus,
     runState,
+    interactionMode,
     conversation,
     timeline,
     plan,
     pendingSteps,
-    correctionText,
-    recordedCount,
+    recordedSteps,
+    planCorrectionText,
+    clarificationQuestion,
+    clarificationOptions,
+    clarificationAnswerText,
+    recoveryText,
+    recordedCount: recordedSteps.length,
     codePreview,
     lastError,
     lastEvent,
     wsUrl,
     activePickerStepId,
-    onCorrectionTextChange: setCorrectionText,
+    onCorrectionTextChange: setPlanCorrectionText,
+    onPlanCorrectionTextChange: setPlanCorrectionText,
+    onClarificationAnswerTextChange: setClarificationAnswerText,
+    onRecoveryTextChange: setRecoveryText,
     onPendingStepIntentChange: updatePendingStepIntent,
     onAddPendingStep: addPendingStep,
+    onDeletePendingStep: removePendingStep,
     onAttachElement: handleAttachElement,
     onRunPendingSteps: handleRunPendingSteps,
     onConfirmPlan: handleConfirmPlan,
-    onSendCorrection: handleSendCorrection,
-    setCorrectionText,
+    onSendCorrection: handleSendPlanCorrection,
+    onSendPlanCorrection: handleSendPlanCorrection,
+    onSendClarificationAnswer: handleSendClarificationAnswer,
+    onSendOptionSelected: handleSendClarificationAnswer,
+    onSendRecoveryInstruction: handleSendRecoveryInstruction,
+    onReplayRecordedStep: handleReplayRecordedStep,
+    onCopyRecordedStep: handleCopyRecordedStep,
+    setPlanCorrectionText,
+    setClarificationQuestion,
+    setClarificationOptions,
+    setClarificationAnswerText,
+    setRecoveryText,
     setPendingSteps,
+    setRecordedSteps,
     updatePendingStepIntent,
     addPendingStep,
+    removePendingStep,
     handleRunPendingSteps,
     handleConfirmPlan,
-    handleSendCorrection,
+    handleSendPlanCorrection,
+    handleSendClarificationAnswer,
+    handleSendRecoveryInstruction,
+    handleReplayRecordedStep,
+    handleCopyRecordedStep,
   };
 }
 

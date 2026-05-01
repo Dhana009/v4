@@ -1104,7 +1104,7 @@
             var dispatcher = resolveDispatcher();
             return dispatcher.useInsertionEffect(create, deps);
           }
-          function useLayoutEffect(create, deps) {
+          function useLayoutEffect2(create, deps) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useLayoutEffect(create, deps);
           }
@@ -1883,7 +1883,7 @@
           exports.useId = useId;
           exports.useImperativeHandle = useImperativeHandle;
           exports.useInsertionEffect = useInsertionEffect;
-          exports.useLayoutEffect = useLayoutEffect;
+          exports.useLayoutEffect = useLayoutEffect2;
           exports.useMemo = useMemo2;
           exports.useReducer = useReducer;
           exports.useRef = useRef2;
@@ -2383,9 +2383,9 @@
           if (typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ !== "undefined" && typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart === "function") {
             __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart(new Error());
           }
-          var React2 = require_react();
+          var React3 = require_react();
           var Scheduler = require_scheduler();
-          var ReactSharedInternals = React2.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+          var ReactSharedInternals = React3.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
           var suppressWarning = false;
           function setSuppressWarning(newSuppressWarning) {
             {
@@ -3992,7 +3992,7 @@
             {
               if (props.value == null) {
                 if (typeof props.children === "object" && props.children !== null) {
-                  React2.Children.forEach(props.children, function(child) {
+                  React3.Children.forEach(props.children, function(child) {
                     if (child == null) {
                       return;
                     }
@@ -23588,7 +23588,7 @@
       if (true) {
         (function() {
           "use strict";
-          var React2 = require_react();
+          var React3 = require_react();
           var REACT_ELEMENT_TYPE = Symbol.for("react.element");
           var REACT_PORTAL_TYPE = Symbol.for("react.portal");
           var REACT_FRAGMENT_TYPE = Symbol.for("react.fragment");
@@ -23614,7 +23614,7 @@
             }
             return null;
           }
-          var ReactSharedInternals = React2.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+          var ReactSharedInternals = React3.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
           function error(format) {
             {
               {
@@ -24487,7 +24487,7 @@
   });
 
   // src/main.jsx
-  var import_react = __toESM(require_react());
+  var import_react2 = __toESM(require_react());
   var import_client = __toESM(require_client());
 
   // icons.jsx
@@ -24580,16 +24580,14 @@
   window.Icons = Icons;
 
   // aw-ide-panel.jsx
+  var import_react = __toESM(require_react());
   var import_jsx_runtime2 = __toESM(require_jsx_runtime());
   var IDEIcons = window.Icons;
-  function IDECodeLine({ tokens }) {
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: tokens.map(
-      (t, i) => typeof t === "string" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: t }, i) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: `tk-${t[0]}`, children: t[1] }, i)
-    ) });
-  }
   function IDEPlanTag({ kind }) {
+    const normalized = String(kind || "step").toLowerCase();
     const map = { click: "click", fill: "fill", assert: "assert", navigate: "nav", nav: "nav" };
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: `ide-plan-tag t-${map[kind] || kind}`, children: kind });
+    const label = normalized === "nav" ? "navigate" : normalized;
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: `ide-plan-tag t-${map[normalized] || normalized}`, children: label });
   }
   function IDEBadge({ kind, children }) {
     return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: `ide-badge b-${kind}`, children });
@@ -24660,6 +24658,7 @@
     }
   }
   function IDEConversation({ state, messages = [], live = false }) {
+    const scrollRef = import_react.default.useRef(null);
     const fallback = {
       idle: [{ w: "user", t: "10:41", txt: "Open playwright.dev, assert hero text exists, then click Get started." }],
       planning: [
@@ -24673,9 +24672,13 @@
           ] })
         }
       ],
-      await: [
+      plan_review: [
         { w: "user", t: "10:41", txt: "Open playwright.dev, assert hero text exists, then click Get started." },
-        { w: "agent", t: "10:41", txt: "Understood. Detected 2 actions \u2014 plan ready for your review." }
+        { w: "agent", t: "10:41", txt: "Plan ready for your review." }
+      ],
+      clarification: [
+        { w: "user", t: "10:41", txt: "Open playwright.dev, assert hero text exists, then click Get started." },
+        { w: "agent", t: "10:41", txt: "I need a clarification before I can continue." }
       ],
       exec: [
         { w: "user", t: "10:41", txt: "Open playwright.dev, assert hero text, then click Get started." },
@@ -24688,10 +24691,26 @@
           ] })
         }
       ],
+      executing: [
+        { w: "user", t: "10:41", txt: "Open playwright.dev, assert hero text, then click Get started." },
+        {
+          w: "agent",
+          t: "10:42",
+          txt: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ide-spinner", style: { color: "#4a9eff" } }),
+            "Executing the current step\u2026"
+          ] })
+        }
+      ],
       recover: [
         { w: "user", t: "10:41", txt: "Open playwright.dev, assert hero text, then click Get started." },
         { w: "system", t: "10:42", txt: "Step failed: page navigated before assertion ran. Hero element no longer in DOM." },
         { w: "agent", t: "10:42", txt: "Recovery suggestion: go back \u2192 assert first \u2192 re-click." }
+      ],
+      recovery: [
+        { w: "user", t: "10:41", txt: "Open playwright.dev, assert hero text, then click Get started." },
+        { w: "system", t: "10:42", txt: "Step failed: page navigated before assertion ran. Hero element no longer in DOM." },
+        { w: "agent", t: "10:42", txt: "Recovery guidance needed." }
       ],
       done: [
         { w: "user", t: "10:41", txt: "Open playwright.dev, assert hero text exists, then click Get started." },
@@ -24703,10 +24722,28 @@
             " Generated 4 lines of Playwright TS \u2014 see Code tab."
           ] })
         }
+      ],
+      completed: [
+        { w: "user", t: "10:41", txt: "Open playwright.dev, assert hero text exists, then click Get started." },
+        {
+          w: "agent",
+          t: "10:42",
+          txt: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("b", { style: { color: "#1f9d6a" }, children: "All steps recorded." }),
+            " Generated 4 lines of Playwright TS \u2014 see Code tab."
+          ] })
+        }
       ]
     }[state] || [];
     const rows = live ? messages.length > 0 ? messages : [{ w: "system", t: "--:--:--", txt: "Waiting for backend messages\u2026" }] : fallback;
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECard, { color: "violet", title: "// conversation", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { marginInline: -10 }, children: rows.map((m, i) => {
+    import_react.default.useEffect(() => {
+      const node = scrollRef.current;
+      if (!node) {
+        return;
+      }
+      node.scrollTop = node.scrollHeight;
+    }, [rows.length]);
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECard, { color: "violet", title: "// conversation", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { ref: scrollRef, className: "ide-scrollbox ide-scrollbox-conversation", style: { maxHeight: 228 }, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { marginInline: -10 }, children: rows.map((m, i) => {
       const who = m.role || m.w || "agent";
       const time = m.time || m.t || "--:--:--";
       const text = m.text !== void 0 ? m.text : m.txt;
@@ -24717,10 +24754,9 @@
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-msg-text", children: text })
         ] })
       ] }, i);
-    }) }) });
+    }) }) }) });
   }
-  function IDEPlan({
-    state,
+  function IDEPlanReview({
     plan,
     live = false,
     correctionText = "",
@@ -24729,22 +24765,23 @@
     onSendCorrection
   }) {
     const hasRuntimePlan = live && plan && Array.isArray(plan.steps);
-    const fallbackItems = state === "exec" || state === "done" ? [
-      { type: "assert", text: "Assert hero heading is visible", cls: state === "done" ? "done" : "done" },
-      { type: "click", text: 'Click "Get started" link', cls: state === "done" ? "done" : "active" }
-    ] : [
+    const fallbackItems = [
       { type: "assert", text: "Assert hero heading is visible", cls: "" },
       { type: "click", text: 'Click "Get started" link', cls: "" }
     ];
     const items = live ? hasRuntimePlan ? plan.steps : [] : fallbackItems;
-    const summary = hasRuntimePlan ? plan.summary || "Plan ready" : live ? state === "recover" ? "Recovery needed" : "Waiting for plan_ready\u2026" : state === "recover" ? "Order risk \u2014 click before assert caused navigation. Reorder steps." : "2 actions \xB7 ~3s";
+    const planIsCompleted = hasRuntimePlan && items.length > 0 && items.every((step) => {
+      const status = firstText(step.status, step.state, step.cls).toLowerCase();
+      return step.recorded === true || step.completed === true || ["done", "completed", "recorded", "passed"].includes(status);
+    });
+    const summary = hasRuntimePlan ? planIsCompleted ? plan.summary || "All plan steps recorded" : plan.summary || "Plan ready" : live ? "Waiting for plan_ready\u2026" : "2 actions \xB7 ~3s";
     const showPlaceholder = live && (!plan || !Array.isArray(plan.steps) || plan.steps.length === 0);
-    const isRecover = state === "recover";
+    const planBadge = planIsCompleted ? "Completed" : "Awaiting confirmation";
     return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
       IDECard,
       {
         color: "blue",
-        title: "// plan",
+        title: "// plan review",
         footer: [
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
             "button",
@@ -24771,18 +24808,15 @@
         ],
         children: [
           /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }, children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEBadge, { kind: "await", children: hasRuntimePlan ? "Awaiting confirmation" : state === "recover" ? "Recovery needed" : "Awaiting confirmation" }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEBadge, { kind: planIsCompleted ? "recorded" : "await", children: planBadge }),
             /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { style: { fontSize: 10.5, color: "#9e9890" }, children: summary })
           ] }),
           showPlaceholder && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { marginBottom: 8, fontSize: 11.5, color: "#8f8a82" }, children: "Waiting for plan_ready\u2026" }),
-          isRecover && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-err-strip", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEIcons.Warn, { size: 13 }),
-            " Order risk \u2014 click before assert caused navigation. Reorder steps."
-          ] }),
-          items.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("ol", { className: "ide-plan", children: items.map((it, i) => {
+          items.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-scrollbox ide-scrollbox-plan", style: { maxHeight: 180 }, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("ol", { className: "ide-plan", children: items.map((it, i) => {
             const kind = it.kind || it.type || "step";
             const text = it.text || it.label || it.title || `Step ${i + 1}`;
-            const cls = it.cls || (it.status === "done" ? "done" : it.status === "active" ? "active" : "");
+            const status = firstText(it.status, it.state, it.cls).toLowerCase();
+            const cls = it.cls || (it.recorded === true || it.completed === true || ["done", "completed", "recorded", "passed"].includes(status) ? "done" : status === "active" ? "active" : "");
             return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("li", { className: cls, children: [
               /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "ide-plan-num", children: [
                 i + 1,
@@ -24791,7 +24825,7 @@
               /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ide-plan-text", children: text }),
               /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEPlanTag, { kind })
             ] }, i);
-          }) }) : null,
+          }) }) }) : null,
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
             "textarea",
             {
@@ -24807,7 +24841,108 @@
       }
     );
   }
+  function IDEClarificationCard({
+    question = "",
+    options = [],
+    answerText = "",
+    onAnswerTextChange,
+    onSendAnswer
+  }) {
+    const hasOptions = Array.isArray(options) && options.length > 0;
+    const text = question || "The agent needs a clarification before it can continue.";
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+      IDECard,
+      {
+        color: "violet",
+        title: "// clarification needed",
+        footer: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+            "button",
+            {
+              className: "ide-btn primary",
+              type: "button",
+              style: { flex: 1, justifyContent: "center" },
+              onClick: () => onSendAnswer?.(),
+              children: "Send Answer"
+            },
+            "s"
+          )
+        ],
+        children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-clarification-question", children: text }),
+          hasOptions && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-clarification-options", children: options.map((option, index) => {
+            const label = option?.label || option?.value || String(option);
+            const value = option?.value || option?.label || label;
+            return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+              "button",
+              {
+                className: "ide-btn sm ide-clarification-option",
+                type: "button",
+                onClick: () => onSendAnswer?.(value),
+                children: label
+              },
+              option?.id || `${index}`
+            );
+          }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+            "textarea",
+            {
+              className: "ide-input",
+              rows: 3,
+              placeholder: "Answer clarification\u2026",
+              value: answerText,
+              onChange: (event) => onAnswerTextChange?.(event.target.value)
+            }
+          )
+        ]
+      }
+    );
+  }
+  function IDERecovery({ message, currentUrl, recoveryText = "", onRecoveryTextChange, onSendRecoveryInstruction }) {
+    const issue = message || "Action failed. The agent needs recovery guidance.";
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+      IDECard,
+      {
+        color: "red",
+        title: "// recovery needed",
+        footer: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+            "button",
+            {
+              className: "ide-btn primary",
+              type: "button",
+              style: { flex: 1, justifyContent: "center" },
+              onClick: () => onSendRecoveryInstruction?.(),
+              children: "Send Recovery Instruction"
+            },
+            "s"
+          )
+        ],
+        children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-err-strip", style: { marginBottom: 10 }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEIcons.Warn, { size: 12 }),
+            issue
+          ] }),
+          currentUrl && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-recovery-url", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-recovery-url-label", children: "Current URL" }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "ide-recovery-url-code", children: currentUrl })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+            "textarea",
+            {
+              className: "ide-input",
+              rows: 3,
+              placeholder: "Tell the agent how to recover...",
+              value: recoveryText,
+              onChange: (event) => onRecoveryTextChange?.(event.target.value)
+            }
+          )
+        ]
+      }
+    );
+  }
   function IDETimeline({ state, events = [], live = false }) {
+    const scrollRef = import_react.default.useRef(null);
     const fallback = {
       idle: [],
       planning: [
@@ -24822,11 +24957,20 @@
         { d: "ok", t: "10:41:31", txt: "Locators ranked \xB7 2 / 2" },
         { d: "warn", t: "10:41:32", txt: "Plan ready \xB7 awaiting confirmation" }
       ],
+      plan_review: [
+        { d: "ok", t: "10:41:30", txt: "Task parsed \xB7 2 actions" },
+        { d: "ok", t: "10:41:31", txt: "Locators ranked \xB7 2 / 2" },
+        { d: "warn", t: "10:41:32", txt: "Plan ready \xB7 awaiting confirmation" }
+      ],
       exec: [
         { d: "ok", t: "10:42:00", txt: "Plan confirmed" },
         { d: "ok", t: "10:42:01", txt: "DOM snapshot \xB7 1.2 MB" },
         { d: "ok", t: "10:42:02", txt: "Assertion passed \xB7 hero visible" },
         { d: "active", t: "10:42:02", txt: 'Clicking "Get started"\u2026' }
+      ],
+      executing: [
+        { d: "ok", t: "10:42:00", txt: "Action acknowledged" },
+        { d: "active", t: "10:42:01", txt: "Executing the next step\u2026" }
       ],
       recover: [
         { d: "ok", t: "10:42:00", txt: "Plan confirmed" },
@@ -24834,106 +24978,40 @@
         { d: "warn", t: "10:42:14", txt: "Page navigated \u2192 /docs/intro" },
         { d: "err", t: "10:42:14", txt: "Assertion failed \xB7 hero not in DOM" }
       ],
+      recovery: [
+        { d: "ok", t: "10:42:00", txt: "Recovery needed" },
+        { d: "err", t: "10:42:14", txt: "Failure reason captured" }
+      ],
       done: [
         { d: "ok", t: "10:42:00", txt: "Plan confirmed" },
         { d: "ok", t: "10:42:02", txt: "Assertion passed" },
         { d: "ok", t: "10:42:04", txt: "Click executed \xB7 /docs/intro" },
         { d: "ok", t: "10:42:05", txt: "Code generated \xB7 4 lines" }
+      ],
+      completed: [
+        { d: "ok", t: "10:42:00", txt: "Plan confirmed" },
+        { d: "ok", t: "10:42:02", txt: "All recorded steps complete" },
+        { d: "ok", t: "10:42:05", txt: "Code generated \xB7 4 lines" }
+      ],
+      clarification: [
+        { d: "warn", t: "10:41:32", txt: "Clarification needed" },
+        { d: "active", t: "10:41:33", txt: "Waiting for user answer\u2026" }
       ]
     }[state] || [];
     const rows = live ? events : fallback;
+    import_react.default.useEffect(() => {
+      const node = scrollRef.current;
+      if (!node) {
+        return;
+      }
+      node.scrollTop = node.scrollHeight;
+    }, [rows.length]);
     if (!rows.length) return null;
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECard, { color: "ink", title: "// execution", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-tl", children: rows.map((r, i) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-tl-row", children: [
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECard, { color: "ink", title: "// execution", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { ref: scrollRef, className: "ide-scrollbox ide-scrollbox-timeline", style: { maxHeight: 208 }, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-tl", children: rows.map((r, i) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-tl-row", children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `ide-tl-dot d-${r.d || "ok"}` }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-tl-text", children: r.txt !== void 0 ? r.txt : r.text }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-tl-time", children: r.t || r.time || "" })
-    ] }, i)) }) });
-  }
-  function IDERecovery({ message, suggestion }) {
-    const issue = message || "Click before assert \u2192 page navigated. Hero element missing from DOM on /docs/intro.";
-    const guidance = suggestion || "Go back to playwright.dev/ \xB7 Assert hero text first \xB7 Re-attempt click";
-    const steps = guidance.split("\n").map((part) => part.trim()).filter(Boolean).flatMap((part) => part.split("\xB7").map((piece) => piece.trim()).filter(Boolean));
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
-      IDECard,
-      {
-        color: "red",
-        title: "// recovery needed",
-        footer: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ide-btn primary", type: "button", style: { flex: 1, justifyContent: "center" }, children: "Send correction" }, "s"),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ide-btn", type: "button", children: "Skip" }, "k")
-        ],
-        children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-err-strip", style: { marginBottom: 10 }, children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEIcons.Warn, { size: 12 }),
-            issue
-          ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { marginBottom: 10, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 11.5 }, children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { padding: "6px 8px", background: "#faf7f3", border: "1px solid #ede8e0", borderRadius: 2 }, children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { fontSize: 9.5, color: "#9e9890", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 2 }, children: "Was" }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { style: { fontSize: 11 }, children: "playwright.dev/" })
-            ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { padding: "6px 8px", background: "#faf7f3", border: "1px solid #ede8e0", borderRadius: 2 }, children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { fontSize: 9.5, color: "#9e9890", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 2 }, children: "Now" }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { style: { fontSize: 11 }, children: "/docs/intro" })
-            ] })
-          ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
-            "div",
-            {
-              style: {
-                fontSize: 11.5,
-                color: "#4a4640",
-                background: "#faf7f3",
-                border: "1px solid #ede8e0",
-                borderRadius: 2,
-                padding: "8px 10px",
-                marginBottom: 8
-              },
-              children: [
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-                  "div",
-                  {
-                    style: {
-                      fontSize: 10,
-                      color: "#2a74d8",
-                      fontWeight: 700,
-                      textTransform: "uppercase",
-                      letterSpacing: ".07em",
-                      marginBottom: 4
-                    },
-                    children: "// suggestion"
-                  }
-                ),
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("ol", { style: { margin: 0, paddingLeft: 16, lineHeight: 1.7 }, children: steps.length > 0 ? steps.map((step, i) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("li", { children: step }, i)) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("li", { children: guidance }) })
-              ]
-            }
-          ),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("textarea", { className: "ide-input", rows: 2, placeholder: "Add guidance\u2026" })
-        ]
-      }
-    );
-  }
-  function IDERecorded({ done, recordedCount, codePreview }) {
-    const count = Number.isFinite(recordedCount) && recordedCount > 0 ? recordedCount : done ? 2 : 0;
-    const codeText = typeof codePreview === "string" && codePreview.trim() ? codePreview.trim() : done ? "await page.getByText('Get started', { exact: true }).click();" : "";
-    const showCode = Boolean(codeText);
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(IDECard, { color: done ? "green" : null, title: "// recorded output", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-stats", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-stat", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `ide-stat-num${done ? " s-green" : ""}`, children: count }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-stat-lbl", children: "Recorded steps" })
-        ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-stat", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-stat-num", children: showCode ? Math.max(1, codeText.split(/\r?\n/).length) : "\u2014" }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-stat-lbl", children: "Lines of code" })
-        ] })
-      ] }),
-      showCode && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("pre", { className: "ide-code", style: { marginTop: 8, whiteSpace: "pre-wrap" }, children: done && !codePreview ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECodeLine, { tokens: [["kw", "await "], ["fn", "page.getByText"], "(", ["str", "'Get started'"], ", { ", ["prop", "exact"], ": ", ["kw", "true"], " }).", ["fn", "click"], "();"] }) : codeText }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { display: "flex", gap: 6, marginTop: 10 }, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ide-btn sm", type: "button", style: { flex: 1, justifyContent: "center" }, children: "Steps" }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ide-btn sm", type: "button", style: { flex: 1, justifyContent: "center" }, children: "Code" })
-      ] })
-    ] });
+    ] }, i)) }) }) });
   }
   function firstText(...values) {
     for (const value of values) {
@@ -24945,6 +25023,115 @@
       }
     }
     return "";
+  }
+  function firstRawText(...values) {
+    for (const value of values) {
+      if (typeof value === "string" && value !== "") {
+        return value;
+      }
+      if (typeof value === "number" || typeof value === "boolean") {
+        return String(value);
+      }
+    }
+    return "";
+  }
+  function isTechnicalRecordedLabel(value) {
+    const text = firstText(value);
+    if (!text) {
+      return false;
+    }
+    const trimmed = text.trim();
+    return /^(css|xpath|text|role|id|name|label)=/i.test(trimmed) || /^\/{1,2}/.test(trimmed) || /[.#\[\]()>]/.test(trimmed) || /^[a-z][\w-]*(?:[.#][\w-]+)+$/i.test(trimmed);
+  }
+  function simplifyRecordedSubject(value) {
+    const text = firstText(value);
+    if (!text) {
+      return "";
+    }
+    const lower = text.toLowerCase();
+    if (/^h[1-6]$/.test(lower)) return "heading";
+    if (lower === "a") return "link";
+    if (lower === "button") return "button";
+    if (lower === "input" || lower === "textarea" || lower === "select") return "input";
+    if (lower === "img") return "image";
+    if (lower === "li") return "list item";
+    if (lower === "form") return "form";
+    if (/^[a-z][\w-]*(?:[.#][\w-]+)+$/i.test(text)) {
+      const base = text.split(/[.#\[]/, 1)[0].toLowerCase();
+      if (/^h[1-6]$/.test(base)) return "heading";
+      if (base === "a") return "link";
+      if (base === "button") return "button";
+      if (base === "input" || base === "textarea" || base === "select") return "input";
+      if (base === "img") return "image";
+    }
+    return text;
+  }
+  function pickRecordedText(...values) {
+    for (const value of values) {
+      const text = firstText(value);
+      if (!text) {
+        continue;
+      }
+      if (!isTechnicalRecordedLabel(text)) {
+        return text;
+      }
+      const simplified = simplifyRecordedSubject(text);
+      if (simplified && !isTechnicalRecordedLabel(simplified)) {
+        return simplified;
+      }
+    }
+    return firstText(...values);
+  }
+  function titleFromAction(action, subject, stepNumber) {
+    const fallback = Number.isFinite(stepNumber) && stepNumber > 0 ? `Step ${stepNumber}` : "Recorded step";
+    const cleaned = firstText(subject);
+    if (!cleaned) {
+      return fallback;
+    }
+    switch (action) {
+      case "click":
+        return `Clicked ${cleaned}`;
+      case "fill":
+        return `Filled ${cleaned}`;
+      case "assert":
+        return `Asserted ${cleaned}`;
+      case "navigate":
+        return `Navigated ${cleaned}`;
+      case "hover":
+        return `Hovered ${cleaned}`;
+      default:
+        return `Recorded ${cleaned}`;
+    }
+  }
+  function resolveRecordedStepTitle(step, action, stepNumber) {
+    const elementInfo = step?.element_info && typeof step.element_info === "object" ? step.element_info : null;
+    const explicitTitle = firstText(step?.display_title, step?.displayTitle, step?.title, step?.label);
+    if (explicitTitle && !isTechnicalRecordedLabel(explicitTitle)) {
+      if (/^(clicked|filled|asserted|navigated|hovered|recorded|step)\b/i.test(explicitTitle)) {
+        return explicitTitle;
+      }
+      return titleFromAction(action, explicitTitle, stepNumber);
+    }
+    const subject = pickRecordedText(
+      step?.target_label,
+      step?.element_name,
+      step?.elementName,
+      step?.target,
+      step?.name,
+      elementInfo?.text,
+      elementInfo?.label,
+      elementInfo?.title,
+      elementInfo?.name,
+      simplifyRecordedSubject(firstRawText(elementInfo?.tag, elementInfo?.tagName, elementInfo?.nodeName))
+    );
+    if (subject) {
+      return titleFromAction(action, subject, stepNumber);
+    }
+    const locator = pickRecordedText(step?.locator, step?.selector, step?.xpath, step?.css, step?.path);
+    if (locator) {
+      return titleFromAction(action, locator, stepNumber);
+    }
+    return Number.isFinite(stepNumber) && stepNumber > 0 ? `Step ${stepNumber}` : "Recorded step";
   }
   function normalizeElementInfoForDisplay(info) {
     if (!info || typeof info !== "object") {
@@ -24969,18 +25156,23 @@
     }
     return value.length > maxLength ? `${value.slice(0, maxLength - 1)}\u2026` : value;
   }
-  function IDEPendingSteps({
-    state,
-    steps = [],
-    live = false,
-    activePickerStepId = "",
-    onChangeIntent,
-    onAddStep,
-    onAttachElement
-  }) {
-    const hasRuntimeSteps = live && Array.isArray(steps) && steps.length > 0;
-    const fallback = ["01 \xB7 Assert hero text", "02 \xB7 Click Get started"];
-    const rows = live ? hasRuntimeSteps ? steps : [] : fallback;
+  function normalizeStepAction(kind) {
+    const normalized = firstText(kind).toLowerCase();
+    if (!normalized) return "step";
+    if (normalized === "nav") return "navigate";
+    return normalized;
+  }
+  function inferActionKindFromText(...values) {
+    const text = values.map((value) => firstText(value)).filter(Boolean).join(" ").toLowerCase();
+    if (!text) return "step";
+    if (/(^|\b)(click|tap|press|select|choose|open)\b/.test(text)) return "click";
+    if (/(^|\b)(fill|type|enter|input|paste|set)\b/.test(text)) return "fill";
+    if (/(^|\b)(assert|verify|check|expect|confirm|validate)\b/.test(text)) return "assert";
+    if (/(^|\b)(navigate|goto|go to|go back|back|forward|reload|refresh)\b/.test(text)) return "navigate";
+    if (/(^|\b)(hover)\b/.test(text)) return "hover";
+    return "step";
+  }
+  function PendingChipRow({ elementInfo, intent }) {
     const chipStyle = {
       display: "inline-flex",
       alignItems: "center",
@@ -24993,101 +25185,263 @@
       color: "#4a4640",
       whiteSpace: "nowrap"
     };
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECard, { color: "amber", title: "// pending steps", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { display: "flex", flexDirection: "column", gap: 5 }, children: rows.length > 0 ? rows.map((step, i) => {
-      if (typeof step === "string") {
-        return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
-          "div",
+    if (!elementInfo) {
+      return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { style: { color: "#8f8a82" }, children: intent.trim() ? "No element attached." : "Draft step." });
+    }
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { style: chipStyle, children: elementInfo.tag }),
+      elementInfo.text && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { style: chipStyle, children: [
+        '"',
+        shortenText(elementInfo.text),
+        '"'
+      ] }),
+      elementInfo.id && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { style: chipStyle, children: [
+        "#",
+        elementInfo.id
+      ] }),
+      elementInfo.className && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { style: chipStyle, children: [
+        ".",
+        elementInfo.className.split(/\s+/).filter(Boolean).join(".")
+      ] })
+    ] });
+  }
+  function IDERecordedStepCard({
+    step,
+    index = 0,
+    compact = false,
+    showGeneratedLine = true,
+    onReplay,
+    onCopy
+  }) {
+    const [showDetails, setShowDetails] = import_react.default.useState(false);
+    const action = normalizeStepAction(step.action || step.action_label || step.kind || step.type);
+    const stepNumberValue = Number.isFinite(Number(step.step_number)) && Number(step.step_number) > 0 ? Number(step.step_number) : index + 1;
+    const displayTitle = resolveRecordedStepTitle(step, action, stepNumberValue);
+    const target = pickRecordedText(step.target_label, step.element_name, step.target, step.label);
+    const locator = firstText(step.locator);
+    const status = firstText(step.status, "recorded").toLowerCase();
+    const statusKind = status === "passed" ? "passed" : status === "failed" ? "failed" : "recorded";
+    const codeLine = firstText(step.generated_line);
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `ide-recorded-step${compact ? " is-compact" : ""}`, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-recorded-step-main", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-recorded-step-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "ide-step-num", children: String(stepNumberValue).padStart(2, "0") }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-recorded-step-headcopy", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-recorded-step-title", children: displayTitle }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-recorded-step-badges", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEPlanTag, { kind: action }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEBadge, { kind: statusKind, children: statusKind })
+          ] })
+        ] })
+      ] }),
+      target && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-recorded-step-target", children: target }),
+      locator && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "ide-recorded-step-locator", children: locator }),
+      showGeneratedLine && codeLine && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("pre", { className: "ide-recorded-step-code", children: codeLine }),
+      !showGeneratedLine && showDetails && codeLine && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("pre", { className: "ide-recorded-step-code ide-recorded-step-code-collapsed", children: codeLine }),
+      showDetails && showGeneratedLine && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-recorded-step-note", children: "Technical details are in the Debug tab." }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-recorded-step-actions", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ide-btn sm", type: "button", onClick: () => onReplay?.(step), children: "Replay" }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ide-btn sm", type: "button", onClick: () => onCopy?.(step), children: "Copy" }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ide-btn sm", type: "button", onClick: () => setShowDetails((value) => !value), children: "More" })
+      ] })
+    ] }) });
+  }
+  function IDERecordedStepsSection({ recordedSteps = [], onReplayRecordedStep, onCopyRecordedStep }) {
+    const steps = Array.isArray(recordedSteps) ? recordedSteps : [];
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECard, { color: steps.length ? "green" : null, title: "// recorded steps", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-scrollbox ide-scrollbox-recorded", style: { maxHeight: 300 }, children: steps.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-list", children: steps.map((step, i) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+      IDERecordedStepCard,
+      {
+        step,
+        index: i,
+        compact: false,
+        showGeneratedLine: true,
+        onReplay: onReplayRecordedStep,
+        onCopy: onCopyRecordedStep
+      },
+      step.id || `${step.step_number || i}`
+    )) }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-empty-state", children: "No recorded steps yet." }) }) });
+  }
+  function IDERecordedOutput({ recordedSteps = [], onReplayRecordedStep, onCopyRecordedStep }) {
+    const [activeTab, setActiveTab] = import_react.default.useState("steps");
+    const steps = Array.isArray(recordedSteps) ? recordedSteps : [];
+    const visibleSteps = activeTab === "steps" ? steps.slice(-3).reverse() : [];
+    const codeLines = steps.map((step) => firstText(step.generated_line)).filter(Boolean);
+    const codeText = codeLines.join("\n");
+    const recordedCount = steps.length;
+    const lineCount = codeLines.length;
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(IDECard, { color: recordedCount > 0 ? "green" : null, title: "// recorded output", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-stats", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-stat", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `ide-stat-num${recordedCount > 0 ? " s-green" : ""}`, children: recordedCount }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-stat-lbl", children: "Recorded steps" })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-stat", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-stat-num", children: lineCount > 0 ? lineCount : "\u2014" }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-stat-lbl", children: "Code lines" })
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-mini-tabs", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+          "button",
           {
-            style: {
-              display: "flex",
-              gap: 8,
-              alignItems: "center",
-              padding: "6px 8px",
-              background: "#faf7f3",
-              border: "1px solid #ede8e0",
-              borderRadius: 2,
-              fontSize: 12
-            },
-            children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { style: { fontSize: 10, color: "#9e9890" }, children: String(i + 1).padStart(2, "0") }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { style: { flex: 1 }, children: step }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEBadge, { kind: "ready", children: "ready" })
-            ]
+            className: `ide-mini-tab${activeTab === "steps" ? " active" : ""}`,
+            type: "button",
+            onClick: () => setActiveTab("steps"),
+            children: "Steps"
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+          "button",
+          {
+            className: `ide-mini-tab${activeTab === "code" ? " active" : ""}`,
+            type: "button",
+            onClick: () => setActiveTab("code"),
+            children: "Code"
+          }
+        )
+      ] }),
+      activeTab === "steps" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-scrollbox ide-scrollbox-recorded", style: { maxHeight: 216 }, children: [
+        visibleSteps.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-list", children: visibleSteps.map((step, i) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+          IDERecordedStepCard,
+          {
+            step,
+            index: i,
+            compact: true,
+            showGeneratedLine: false,
+            onReplay: onReplayRecordedStep,
+            onCopy: onCopyRecordedStep
           },
-          i
-        );
-      }
-      const intent = step.intent ?? step.text ?? step.label ?? "";
-      const elementInfo = normalizeElementInfoForDisplay(step.element_info ?? step.elementInfo ?? null);
-      const isPicking = activePickerStepId === step.id;
-      const badgeLabel = step.recorded === true ? "recorded" : isPicking ? "picking\u2026" : intent.trim() ? "ready" : "draft";
-      const badgeKind = step.recorded === true ? "recorded" : isPicking ? "await" : intent.trim() ? "ready" : "await";
-      const cls = step.recorded === true ? "p-done" : isPicking ? "p-active" : intent.trim() ? "p-active" : "";
-      return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
-        "li",
-        {
-          className: cls,
-          children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { style: { fontSize: 10, color: "#9e9890" }, children: String(i + 1).padStart(2, "0") }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { flex: 1, minWidth: 0 }, children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }, children: [
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-                  "input",
-                  {
-                    className: "ide-input",
-                    style: { flex: 1, minWidth: 0, width: "auto", padding: "6px 8px" },
-                    value: intent,
-                    onChange: (event) => onChangeIntent?.(step.id, event.target.value),
-                    placeholder: "click Get started"
-                  }
-                ),
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEBadge, { kind: badgeKind, children: badgeLabel }),
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-                  "button",
-                  {
-                    className: "ide-btn sm",
-                    type: "button",
-                    onClick: () => onAttachElement?.(step.id),
-                    children: isPicking ? "Click page element\u2026" : "Attach Element"
-                  }
-                )
-              ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-                "div",
-                {
-                  style: {
-                    marginTop: 6,
-                    display: "flex",
-                    flexWrap: "wrap",
-                    gap: 6,
-                    alignItems: "center",
-                    fontSize: 10.5,
-                    color: "#4a4640"
-                  },
-                  children: elementInfo ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { style: chipStyle, children: elementInfo.tag }),
-                    elementInfo.text && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { style: chipStyle, children: [
-                      '"',
-                      shortenText(elementInfo.text),
-                      '"'
-                    ] }),
-                    elementInfo.id && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { style: chipStyle, children: [
-                      "#",
-                      elementInfo.id
-                    ] }),
-                    elementInfo.className && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { style: chipStyle, children: [
-                      ".",
-                      elementInfo.className.split(/\s+/).filter(Boolean).join(".")
-                    ] })
-                  ] }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { style: { color: "#8f8a82" }, children: intent.trim() ? "No element attached." : "Draft step." })
+          step.id || `${step.step_number || i}`
+        )) }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-empty-state", children: "No recorded steps yet." }),
+        steps.length > visibleSteps.length && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-more-note", children: [
+          "+ ",
+          steps.length - visibleSteps.length,
+          " more in the full Steps tab."
+        ] })
+      ] }) : codeText ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("pre", { className: "ide-code ide-recorded-code", style: { marginTop: 2, whiteSpace: "pre-wrap" }, children: codeText }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-empty-state", children: "No recorded steps yet." })
+    ] });
+  }
+  function IDEPendingStepCard({
+    step,
+    index = 0,
+    compact = false,
+    activePickerStepId = "",
+    onChangeIntent,
+    onAttachElement,
+    onDeleteStep
+  }) {
+    const inputRef = import_react.default.useRef(null);
+    const intent = firstRawText(step.intent, step.text, step.label);
+    const trimmedIntent = intent.trim();
+    const elementInfo = normalizeElementInfoForDisplay(step.element_info ?? step.elementInfo ?? null);
+    const isPicking = activePickerStepId === step.id;
+    const actionGuess = inferActionKindFromText(intent, elementInfo?.text, elementInfo?.tag, elementInfo?.id);
+    const explicitStatus = firstText(step.status, step.state).toLowerCase();
+    const statusLabel = isPicking ? "picking\u2026" : explicitStatus === "ready" || trimmedIntent ? "ready" : "draft";
+    const statusKind = isPicking ? "await" : explicitStatus === "ready" || trimmedIntent ? "ready" : "await";
+    const stepNumber = String(index + 1).padStart(2, "0");
+    const elementSummary = elementInfo ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(PendingChipRow, { elementInfo, intent }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { style: { color: "#8f8a82" }, children: trimmedIntent ? "No element attached." : "Draft step." });
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: `ide-step-card${compact ? " is-compact" : ""}${isPicking ? " is-active" : ""}`, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-numcol", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "ide-step-num", children: stepNumber }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-step-card-main", children: [
+        !compact ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-step-topline", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+            "input",
+            {
+              ref: inputRef,
+              className: "ide-input ide-step-input",
+              value: intent,
+              onChange: (event) => onChangeIntent?.(step.id, event.target.value),
+              placeholder: "click Get started"
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEBadge, { kind: statusKind, children: statusLabel })
+        ] }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-summary-title", children: trimmedIntent || "Draft step" }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-step-meta", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEPlanTag, { kind: actionGuess }),
+          compact ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEBadge, { kind: statusKind, children: statusLabel }) : null
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-elements", children: elementSummary }),
+        !compact && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-step-actions", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ide-btn sm", type: "button", onClick: () => onAttachElement?.(step.id), children: isPicking ? "Click page element\u2026" : "Attach Element" }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+            "button",
+            {
+              className: "ide-btn sm",
+              type: "button",
+              onClick: () => {
+                const node = inputRef.current;
+                if (!node) return;
+                node.focus();
+                if (typeof node.select === "function") {
+                  node.select();
                 }
-              )
-            ] })
-          ]
-        },
-        i
-      );
-    }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { padding: "6px 2px", color: "#8f8a82", fontSize: 11.5 }, children: "Awaiting plan_ready\u2026" }) }) });
+              },
+              children: "Edit"
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ide-btn sm danger", type: "button", onClick: () => onDeleteStep?.(step.id), children: "Delete" })
+        ] })
+      ] })
+    ] });
+  }
+  function IDEPendingSteps({
+    state = "idle",
+    steps = [],
+    live = false,
+    compact = false,
+    activePickerStepId = "",
+    onChangeIntent,
+    onAddStep,
+    onAttachElement,
+    onDeleteStep
+  }) {
+    const hasRuntimeSteps = live && Array.isArray(steps) && steps.length > 0;
+    const fallback = ["01 \xB7 Assert hero text", "02 \xB7 Click Get started"];
+    const rows = live ? hasRuntimeSteps ? steps : [] : fallback;
+    const visibleRows = compact && rows.length > 3 ? rows.slice(Math.max(0, rows.length - 3)) : rows;
+    const hasMore = compact && rows.length > visibleRows.length;
+    const emptyLabel = state === "clarification" ? "Waiting for clarification answer\u2026" : state === "recovery" ? "Waiting for recovery instruction\u2026" : state === "executing" ? "Executing\u2026" : "Awaiting plan_ready\u2026";
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+      IDECard,
+      {
+        color: "amber",
+        title: "// pending steps",
+        footer: !compact && onAddStep ? [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ide-btn primary", type: "button", style: { flex: 1, justifyContent: "center" }, onClick: () => onAddStep?.(), children: "+ Step" }, "add")
+        ] : null,
+        children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: `ide-scrollbox ide-scrollbox-pending${compact ? " is-compact" : ""}`, style: { maxHeight: compact ? 206 : 312 }, children: [
+          visibleRows.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-list", children: visibleRows.map((step, i) => {
+            if (typeof step === "string") {
+              return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-step-card is-summary", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-numcol", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "ide-step-num", children: String(i + 1).padStart(2, "0") }) }),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-step-card-main", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-summary-title", children: step }),
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-meta", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEBadge, { kind: "ready", children: "ready" }) })
+                ] })
+              ] }, i);
+            }
+            return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+              IDEPendingStepCard,
+              {
+                step,
+                index: i,
+                compact,
+                activePickerStepId,
+                onChangeIntent,
+                onAttachElement,
+                onDeleteStep
+              },
+              step.id || `${i}`
+            );
+          }) }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-empty-state", children: emptyLabel }),
+          hasMore && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-more-note", children: [
+            "+ ",
+            rows.length - visibleRows.length,
+            " more in the Steps tab."
+          ] })
+        ] })
+      }
+    );
   }
   function IDECodePreview({ codePreview, live = false }) {
     const text = typeof codePreview === "string" && codePreview.trim() ? codePreview.trim() : live ? "Awaiting code_update\u2026" : "Generated Playwright code will appear here.";
@@ -25128,16 +25482,22 @@
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { display: "flex", gap: 6, marginTop: 8, justifyContent: "flex-end" }, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ide-btn primary", type: "button", children: "\u25B6 Plan task" }) })
     ] });
   }
-  function IDEHeader({ state, connectionStatus = "disconnected" }) {
+  function IDEHeader({ state, interactionMode, connectionStatus = "disconnected" }) {
     const labels = {
       idle: "idle",
       planning: "planning\u2026",
+      plan_review: "plan review",
+      clarification: "clarification needed",
       await: "awaiting confirmation",
       exec: "executing",
+      executing: "executing",
+      recovery: "recovery needed",
       recover: "recovery needed",
-      done: "completed"
+      done: "completed",
+      completed: "completed"
     };
     const statusStyle = connectionStyle(connectionStatus);
+    const label = labels[interactionMode] || labels[state] || state;
     return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-hd", style: { gap: 8 }, children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-hd-logo", children: "AW" }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { children: [
@@ -25156,7 +25516,7 @@
             justifyContent: "flex-end"
           },
           children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `ide-hd-state s-${state}`, children: labels[state] || state }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `ide-hd-state s-${state}`, children: label }),
             /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
               "div",
               {
@@ -25181,23 +25541,29 @@
   function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
     const live = runtime.live !== false;
     const panelState = normalizePanelState(state);
+    const interactionMode = typeof runtime.interactionMode === "string" && runtime.interactionMode ? runtime.interactionMode : panelState;
     const connectionStatus = runtime.connectionStatus || "disconnected";
     const conversation = Array.isArray(runtime.conversation) ? runtime.conversation : [];
     const timeline = Array.isArray(runtime.timeline) ? runtime.timeline : [];
     const plan = runtime.plan || null;
     const pendingSteps = Array.isArray(runtime.pendingSteps) ? runtime.pendingSteps : [];
-    const correctionText = typeof runtime.correctionText === "string" ? runtime.correctionText : "";
-    const recordedCount = runtime.recordedCount ?? 0;
+    const recordedSteps = Array.isArray(runtime.recordedSteps) ? runtime.recordedSteps : [];
+    const planCorrectionText = typeof runtime.planCorrectionText === "string" ? runtime.planCorrectionText : "";
+    const clarificationQuestion = typeof runtime.clarificationQuestion === "string" ? runtime.clarificationQuestion : "";
+    const clarificationOptions = Array.isArray(runtime.clarificationOptions) ? runtime.clarificationOptions : [];
+    const clarificationAnswerText = typeof runtime.clarificationAnswerText === "string" ? runtime.clarificationAnswerText : "";
+    const recoveryText = typeof runtime.recoveryText === "string" ? runtime.recoveryText : "";
+    const currentUrl = typeof runtime.currentUrl === "string" ? runtime.currentUrl : "";
     const codePreview = typeof runtime.codePreview === "string" ? runtime.codePreview : "";
     const lastError = typeof runtime.lastError === "string" ? runtime.lastError : "";
     const lastEvent = runtime.lastEvent || null;
     const activePickerStepId = typeof runtime.activePickerStepId === "string" ? runtime.activePickerStepId : "";
-    const planSteps = Array.isArray(plan?.steps) ? plan.steps : [];
-    const stepCount = pendingSteps.length || planSteps.length || (["planning", "await", "exec", "recover", "done"].includes(panelState) ? 2 : 0);
-    const showPlan = panelState === "await" || live || Boolean(plan);
-    const showRecovery = panelState === "recover";
+    const stepCount = pendingSteps.length + recordedSteps.length;
+    const showPlanReview = interactionMode === "plan_review";
+    const showClarification = interactionMode === "clarification";
+    const showRecovery = interactionMode === "recovery";
     return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-panel", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEHeader, { state: panelState, connectionStatus }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEHeader, { state: panelState, interactionMode, connectionStatus }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-tabs", children: [
         ["workbench", "workbench"],
         ["steps", "steps"],
@@ -25219,66 +25585,86 @@
       /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-body", children: [
         tab === "workbench" && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
           panelState === "idle" && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEIdleComposer, {}),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEConversation, { state: panelState, messages: conversation, live }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDETimeline, { state: panelState, events: timeline, live }),
-          showPlan && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-            IDEPlan,
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEConversation, { state: interactionMode, messages: conversation, live }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDETimeline, { state: interactionMode, events: timeline, live }),
+          showPlanReview && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+            IDEPlanReview,
             {
-              state: panelState,
               plan,
               live,
-              correctionText,
-              onCorrectionTextChange: runtime.onCorrectionTextChange,
+              correctionText: planCorrectionText,
+              onCorrectionTextChange: runtime.onPlanCorrectionTextChange || runtime.onCorrectionTextChange,
               onConfirmPlan: runtime.onConfirmPlan,
-              onSendCorrection: runtime.onSendCorrection
+              onSendCorrection: runtime.onSendPlanCorrection || runtime.onSendCorrection
             }
           ),
-          showRecovery && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDERecovery, { message: lastError }),
+          showClarification && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+            IDEClarificationCard,
+            {
+              question: clarificationQuestion,
+              options: clarificationOptions,
+              answerText: clarificationAnswerText,
+              onAnswerTextChange: runtime.onClarificationAnswerTextChange,
+              onSendAnswer: runtime.onSendClarificationAnswer || runtime.onSendOptionSelected
+            }
+          ),
+          showRecovery && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+            IDERecovery,
+            {
+              message: lastError,
+              currentUrl,
+              recoveryText,
+              onRecoveryTextChange: runtime.onRecoveryTextChange,
+              onSendRecoveryInstruction: runtime.onSendRecoveryInstruction
+            }
+          ),
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
             IDEPendingSteps,
             {
-              state: panelState,
-              steps: pendingSteps.length > 0 ? pendingSteps : planSteps,
+              state: interactionMode,
+              steps: pendingSteps,
               live,
+              compact: true,
               activePickerStepId,
               onChangeIntent: runtime.onPendingStepIntentChange,
-              onAddStep: runtime.onAddPendingStep,
-              onAttachElement: runtime.onAttachElement
+              onAttachElement: runtime.onAttachElement,
+              onDeleteStep: runtime.onDeletePendingStep
             }
           ),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDERecorded, { done: panelState === "done", recordedCount, codePreview })
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+            IDERecordedOutput,
+            {
+              recordedSteps,
+              onReplayRecordedStep: runtime.onReplayRecordedStep,
+              onCopyRecordedStep: runtime.onCopyRecordedStep
+            }
+          )
         ] }),
         tab === "steps" && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-            IDEPlan,
-            {
-              state: panelState,
-              plan,
-              live,
-              correctionText,
-              onCorrectionTextChange: runtime.onCorrectionTextChange,
-              onConfirmPlan: runtime.onConfirmPlan,
-              onSendCorrection: runtime.onSendCorrection
-            }
-          ),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
             IDEPendingSteps,
             {
-              state: panelState,
-              steps: pendingSteps.length > 0 ? pendingSteps : planSteps,
+              state: interactionMode,
+              steps: pendingSteps,
               live,
+              compact: false,
               activePickerStepId,
               onChangeIntent: runtime.onPendingStepIntentChange,
               onAddStep: runtime.onAddPendingStep,
-              onAttachElement: runtime.onAttachElement
+              onAttachElement: runtime.onAttachElement,
+              onDeleteStep: runtime.onDeletePendingStep
             }
           ),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDERecorded, { done: panelState === "done", recordedCount, codePreview })
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+            IDERecordedStepsSection,
+            {
+              recordedSteps,
+              onReplayRecordedStep: runtime.onReplayRecordedStep,
+              onCopyRecordedStep: runtime.onCopyRecordedStep
+            }
+          )
         ] }),
-        tab === "code" && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECodePreview, { codePreview, live }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDERecorded, { done: panelState === "done", recordedCount, codePreview })
-        ] }),
+        tab === "code" && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECodePreview, { codePreview, live }) }),
         tab === "debug" && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEDebugPane, { connectionStatus, lastEvent, lastError }),
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDETimeline, { state: panelState, events: timeline, live })
@@ -25326,10 +25712,33 @@
     done: "completed",
     completed: "completed"
   };
+  var INTERACTION_MODE_ALIASES = {
+    idle: "idle",
+    planning: "planning",
+    plan_review: "plan_review",
+    "plan review": "plan_review",
+    await: "plan_review",
+    awaiting_confirmation: "plan_review",
+    "awaiting confirmation": "plan_review",
+    clarification: "clarification",
+    "clarification needed": "clarification",
+    recovery: "recovery",
+    recover: "recovery",
+    "recovery needed": "recovery",
+    executing: "executing",
+    exec: "executing",
+    completed: "completed",
+    done: "completed"
+  };
   function normalizeRunState(value) {
     if (value == null || value === "") return null;
     const key = String(value).trim().toLowerCase().replace(/[\s-]+/g, "_");
     return RUN_STATE_ALIASES[key] || null;
+  }
+  function normalizeInteractionMode(value) {
+    if (value == null || value === "") return null;
+    const key = String(value).trim().toLowerCase().replace(/[\s-]+/g, "_");
+    return INTERACTION_MODE_ALIASES[key] || null;
   }
   function toPanelState(runState) {
     switch (normalizeRunState(runState) || runState) {
@@ -25354,9 +25763,11 @@
     const tab = VALID_TABS.has(config.tab) ? config.tab : DEFAULT_CONFIG.tab;
     const panelWidth = Number.isFinite(config.panelWidth) ? config.panelWidth : DEFAULT_CONFIG.panelWidth;
     const density = ["compact", "regular", "comfy"].includes(config.density) ? config.density : DEFAULT_CONFIG.density;
+    const interactionMode = normalizeInteractionMode(config.interactionMode ?? config.mode ?? config.runState ?? config.state) || "planning";
     return {
       ...config,
       runState,
+      interactionMode,
       panelState: toPanelState(runState),
       tab,
       panelWidth,
@@ -25439,7 +25850,7 @@
       second: "2-digit"
     });
   }
-  function extractText(value, keys = ["text", "message", "content", "summary", "title", "detail", "error", "reason", "label"]) {
+  function extractText(value, keys = ["text", "message", "content", "summary", "title", "detail", "error", "reason", "label", "question"]) {
     if (value == null) return "";
     if (typeof value === "string") return value;
     if (typeof value === "number" || typeof value === "boolean") return String(value);
@@ -25489,25 +25900,23 @@
     if (step == null) {
       return null;
     }
-    if (typeof step === "string") {
-      return {
-        kind: "step",
-        text: step,
-        status: index === 0 ? "active" : "ok"
-      };
-    }
-    if (typeof step !== "object") {
-      return {
-        kind: "step",
-        text: String(step),
-        status: index === 0 ? "active" : "ok"
-      };
-    }
-    const status = String(step.status || step.state || (step.done ? "done" : "")).toLowerCase();
+    const source = typeof step === "object" ? step : { text: step };
+    const status = String(source.status || source.state || (source.done ? "done" : "")).toLowerCase();
+    const text = extractText(source, ["text", "label", "title", "message", "content"]) || `Step ${index + 1}`;
+    const normalizedStatus = ["done", "completed", "recorded", "passed", "active", "warn", "err", "ok"].includes(status) ? status : index === 0 ? "active" : "ok";
     return {
-      kind: String(step.kind || step.type || step.action || step.name || "step"),
-      text: extractText(step, ["text", "label", "title", "message", "content"]) || `Step ${index + 1}`,
-      status: ["done", "active", "warn", "err", "ok"].includes(status) ? status : index === 0 ? "active" : "ok"
+      id: firstNonEmptyText(source.id, source.step_id, source.stepId) || `plan-step-${index + 1}`,
+      step_id: firstNonEmptyText(source.step_id),
+      stepId: firstNonEmptyText(source.stepId),
+      kind: String(source.kind || source.type || source.action || source.name || "step"),
+      text,
+      label: firstNonEmptyText(source.label, text),
+      title: firstNonEmptyText(source.title, text),
+      cls: firstNonEmptyText(source.cls),
+      status: normalizedStatus,
+      recorded: ["done", "completed", "recorded", "passed"].includes(normalizedStatus),
+      completed: ["done", "completed", "recorded", "passed"].includes(normalizedStatus),
+      raw: source
     };
   }
   function normalizePlanPayload(payload) {
@@ -25543,6 +25952,90 @@
     }
     return "";
   }
+  function collectStepReferenceValues(...sources) {
+    const values = [];
+    const seen = /* @__PURE__ */ new Set();
+    const push = (value) => {
+      const text = firstNonEmptyText(value);
+      if (!text || seen.has(text)) {
+        return;
+      }
+      seen.add(text);
+      values.push(text);
+    };
+    for (const source of sources) {
+      if (source == null) {
+        continue;
+      }
+      if (Array.isArray(source)) {
+        source.forEach(push);
+        continue;
+      }
+      if (typeof source === "object") {
+        push(source.step_id);
+        push(source.stepId);
+        push(source.id);
+        push(source.step?.id);
+        push(source.step?.step_id);
+        push(source.step?.stepId);
+        continue;
+      }
+      push(source);
+    }
+    return values;
+  }
+  function isTechnicalRecordedLabel2(value) {
+    const text = firstNonEmptyText(value);
+    if (!text) {
+      return false;
+    }
+    const trimmed = text.trim();
+    return /^(css|xpath|text|role|id|name|label)=/i.test(trimmed) || /^\/{1,2}/.test(trimmed) || /[.#\[\]()>]/.test(trimmed) || /^[a-z][\w-]*(?:[.#][\w-]+)+$/i.test(trimmed);
+  }
+  function pickFriendlyText(...values) {
+    for (const value of values) {
+      const text = firstNonEmptyText(value);
+      if (text && !isTechnicalRecordedLabel2(text)) {
+        return text;
+      }
+    }
+    return firstNonEmptyText(...values);
+  }
+  function describeElementSubject(info) {
+    if (!info || typeof info !== "object") {
+      return "";
+    }
+    const friendlyText = pickFriendlyText(info.text, info.innerText, info.content, info.title, info.label, info.value, info.name);
+    if (friendlyText) {
+      return friendlyText;
+    }
+    const tag = firstNonEmptyText(info.tag, info.tagName, info.nodeName).toLowerCase();
+    switch (tag) {
+      case "h1":
+      case "h2":
+      case "h3":
+      case "h4":
+      case "h5":
+      case "h6":
+        return "heading";
+      case "a":
+        return "link";
+      case "button":
+        return "button";
+      case "input":
+      case "textarea":
+      case "select":
+        return "input";
+      case "img":
+        return "image";
+      case "li":
+        return "list item";
+      case "form":
+        return "form";
+      default:
+        return tag || "";
+    }
+  }
   function normalizeElementInfo(info) {
     if (!info || typeof info !== "object") {
       return null;
@@ -25563,17 +26056,11 @@
   }
   function normalizePickedElementMessage(message) {
     const payload = message?.payload && typeof message.payload === "object" ? message.payload : message;
-    const stepId = firstNonEmptyText(
-      payload?.step_id,
-      payload?.stepId,
-      payload?.step?.id,
-      message?.step_id,
-      message?.stepId,
-      message?.step?.id
-    );
+    const stepIds = collectStepReferenceValues(payload, message);
     const rawElementInfo = payload?.element_info ?? payload?.elementInfo ?? payload?.element ?? payload?.info ?? payload?.descriptor ?? payload?.payload ?? payload;
     return {
-      stepId,
+      stepId: stepIds[0] || "",
+      stepIds,
       elementInfo: normalizeElementInfo(rawElementInfo)
     };
   }
@@ -25582,10 +26069,12 @@
       return createPendingStep(typeof step === "string" ? step : "");
     }
     return {
+      ...step,
       id: typeof step.id === "string" && step.id.trim() ? step.id : createPendingStep().id,
-      intent: typeof step.intent === "string" ? step.intent : "",
-      element_info: step.element_info ?? null,
-      recorded: step.recorded === true
+      intent: typeof step.intent === "string" ? step.intent : typeof step.text === "string" ? step.text : typeof step.label === "string" ? step.label : "",
+      element_info: step.element_info ?? step.elementInfo ?? null,
+      recorded: step.recorded === true,
+      status: typeof step.status === "string" ? step.status : ""
     };
   }
   function normalizePendingSteps(steps) {
@@ -25593,6 +26082,326 @@
       return steps.map(normalizePendingStep);
     }
     return [createPendingStep("")];
+  }
+  function resolveFiniteNumber(value) {
+    const number = Number(value);
+    return Number.isFinite(number) ? number : null;
+  }
+  function inferActionKindFromText2(...values) {
+    const text = values.map((value) => firstNonEmptyText(value)).filter(Boolean).join(" ").toLowerCase();
+    if (!text) return "step";
+    if (/(^|\b)(click|tap|press|select|choose|open)\b/.test(text)) return "click";
+    if (/(^|\b)(fill|type|enter|input|paste|set)\b/.test(text)) return "fill";
+    if (/(^|\b)(assert|verify|check|expect|confirm|validate)\b/.test(text)) return "assert";
+    if (/(^|\b)(navigate|goto|go to|go back|back|forward|reload|refresh)\b/.test(text)) return "navigate";
+    if (/(^|\b)(hover)\b/.test(text)) return "hover";
+    return "step";
+  }
+  function stripActionPrefix(text, action) {
+    const value = firstNonEmptyText(text);
+    if (!value) return "";
+    const map = {
+      click: /^(click|tap|press|select|choose|open)\s+/i,
+      fill: /^(fill|type|enter|input|paste|set)\s+/i,
+      assert: /^(assert|verify|check|expect|confirm|validate)\s+/i,
+      navigate: /^(navigate|go to|goto|go back|back|forward|reload|refresh)\s+/i,
+      hover: /^(hover)\s+/i
+    };
+    const stripped = value.replace(map[action] || /^recorded\s+/i, "").trim();
+    return stripped || value;
+  }
+  function summarizeElementName(info) {
+    if (!info || typeof info !== "object") {
+      return "";
+    }
+    return pickFriendlyText(
+      info.text,
+      info.label,
+      info.title,
+      info.name,
+      describeElementSubject(info),
+      info.id ? `#${info.id}` : "",
+      info.tag
+    );
+  }
+  function summarizeLocator(source, matchedStep) {
+    const raw = firstNonEmptyText(
+      source?.locator,
+      source?.selector,
+      source?.css,
+      source?.xpath,
+      source?.path,
+      source?.target,
+      matchedStep?.locator,
+      matchedStep?.element_info?.locator
+    );
+    if (raw) return raw;
+    const elementInfo = matchedStep?.element_info;
+    if (!elementInfo) return "";
+    if (elementInfo.id) return `#${elementInfo.id}`;
+    if (elementInfo.className) {
+      const classes = elementInfo.className.split(/\s+/).filter(Boolean);
+      if (classes.length) {
+        return `.${classes.join(".")}`;
+      }
+    }
+    if (elementInfo.tag) return elementInfo.tag;
+    return "";
+  }
+  function buildRecordedDisplayTitle(action, elementName, stepNumber) {
+    const target = stripActionPrefix(elementName, action);
+    const fallback = Number.isFinite(stepNumber) && stepNumber > 0 ? `Step ${stepNumber}` : "Recorded step";
+    switch (action) {
+      case "click":
+        return target ? `Clicked ${target}` : fallback;
+      case "fill":
+        return target ? `Filled ${target}` : fallback;
+      case "assert":
+        return target ? `Asserted ${target}` : fallback;
+      case "navigate":
+        return target ? `Navigated ${target}` : "Navigated";
+      case "hover":
+        return target ? `Hovered ${target}` : fallback;
+      case "step":
+      default:
+        return target ? `Recorded ${target}` : fallback;
+    }
+  }
+  function normalizeRecordedStep(step, index) {
+    if (!step || typeof step !== "object") {
+      const rawText = firstNonEmptyText(step) || `Recorded step ${index + 1}`;
+      const action2 = inferActionKindFromText2(rawText);
+      const target = stripActionPrefix(rawText, action2);
+      return {
+        id: `recorded-step-${Date.now().toString(36)}-${index + 1}`,
+        step_number: index + 1,
+        action: action2,
+        element_name: target || rawText,
+        locator: "",
+        generated_line: "",
+        status: "recorded",
+        display_title: buildRecordedDisplayTitle(action2, target || rawText, index + 1),
+        action_label: action2,
+        target_label: target || rawText
+      };
+    }
+    const action = inferActionKindFromText2(
+      step.action,
+      step.action_label,
+      step.kind,
+      step.type,
+      step.intent,
+      step.display_title,
+      step.title,
+      step.element_name,
+      step.locator
+    );
+    const stepNumberValue = resolveFiniteNumber(step.step_number ?? step.stepNumber ?? step.number ?? step.index);
+    const stepNumber = Number.isFinite(stepNumberValue) ? stepNumberValue > 0 ? stepNumberValue : stepNumberValue + 1 : index + 1;
+    const matchedElementInfo = step.element_info && typeof step.element_info === "object" ? step.element_info : null;
+    const elementName = stripActionPrefix(
+      pickFriendlyText(
+        step.element_name,
+        step.elementName,
+        step.target_name,
+        step.targetName,
+        step.target,
+        step.name,
+        step.label,
+        step.intent,
+        summarizeElementName(matchedElementInfo),
+        describeElementSubject(matchedElementInfo)
+      ),
+      action
+    );
+    const status = firstNonEmptyText(step.status, step.result, step.state, step.outcome).toLowerCase();
+    const normalizedStatus = status === "passed" || status === "failed" ? status : "recorded";
+    const displayTitle = pickFriendlyText(step.display_title, step.displayTitle, step.title, step.label, buildRecordedDisplayTitle(action, elementName, stepNumber)) || buildRecordedDisplayTitle(action, elementName, stepNumber);
+    return {
+      ...step,
+      id: firstNonEmptyText(step.id, step.step_id, step.stepId) || `recorded-step-${Date.now().toString(36)}-${index + 1}`,
+      step_number: stepNumber,
+      action,
+      element_name: elementName || firstNonEmptyText(step.element_name, step.target, step.label) || `Step ${stepNumber}`,
+      locator: firstNonEmptyText(step.locator, step.selector, step.xpath, step.css, step.path) || "",
+      generated_line: firstNonEmptyText(step.generated_line, step.generatedLine, step.code_line, step.codeLine, step.line, step.code, step.snippet) || "",
+      status: normalizedStatus,
+      display_title: displayTitle,
+      action_label: action,
+      target_label: elementName || firstNonEmptyText(step.target, step.label) || ""
+    };
+  }
+  function normalizeRecordedSteps(steps) {
+    if (!Array.isArray(steps) || steps.length === 0) {
+      return [];
+    }
+    return steps.map(normalizeRecordedStep).filter(Boolean);
+  }
+  function findPendingStepMatch(steps, stepIds, recordedStepNumber, recordedStepIndex) {
+    if (!Array.isArray(steps) || steps.length === 0) {
+      return { index: -1, step: null, reason: "empty" };
+    }
+    const candidateIds = collectStepReferenceValues(stepIds);
+    if (candidateIds.length > 0) {
+      const index = steps.findIndex(
+        (step) => candidateIds.some((candidateId) => {
+          const stepCandidateIds = collectStepReferenceValues(step);
+          return stepCandidateIds.includes(candidateId);
+        })
+      );
+      if (index !== -1) {
+        return { index, step: steps[index], reason: "id" };
+      }
+    }
+    if (Number.isFinite(recordedStepNumber) && recordedStepNumber > 0) {
+      const index = recordedStepNumber - 1;
+      if (index >= 0 && index < steps.length) {
+        return { index, step: steps[index], reason: "number" };
+      }
+    }
+    if (Number.isFinite(recordedStepIndex) && recordedStepIndex >= 0 && recordedStepIndex < steps.length) {
+      return { index: recordedStepIndex, step: steps[recordedStepIndex], reason: "index" };
+    }
+    if (steps.length === 1) {
+      return { index: 0, step: steps[0], reason: "single" };
+    }
+    return { index: -1, step: null, reason: "unmatched" };
+  }
+  function buildRecordedStepFromPayload(payload, matchedStep, matchIndex, recordedStepId, recordedStepNumber, recordedStepIndex) {
+    const source = payload && typeof payload === "object" ? payload : {};
+    const action = inferActionKindFromText2(
+      source.action,
+      source.step_action,
+      source.kind,
+      source.type,
+      source.intent,
+      matchedStep?.intent,
+      source.generated_line,
+      source.locator,
+      matchedStep?.element_info?.text
+    );
+    const stepNumber = Number.isFinite(recordedStepNumber) ? recordedStepNumber : Number.isFinite(recordedStepIndex) ? recordedStepIndex + 1 : matchIndex >= 0 ? matchIndex + 1 : resolveFiniteNumber(source.step_number ?? source.stepNumber ?? source.number ?? source.index) ?? null;
+    const matchedElementName = matchedStep?.element_info ? summarizeElementName(matchedStep.element_info) : "";
+    const elementName = stripActionPrefix(
+      pickFriendlyText(
+        source.element_name,
+        source.elementName,
+        source.target_name,
+        source.targetName,
+        source.target,
+        source.name,
+        source.label,
+        matchedElementName,
+        matchedStep?.intent,
+        matchedStep?.element_info?.text,
+        describeElementSubject(matchedStep?.element_info),
+        stepNumber ? `Step ${stepNumber}` : ""
+      ),
+      action
+    );
+    const locator = summarizeLocator(source, matchedStep);
+    const generatedLine = firstNonEmptyText(
+      source.generated_line,
+      source.generatedLine,
+      source.code_line,
+      source.codeLine,
+      source.line,
+      source.script,
+      source.code,
+      source.snippet
+    );
+    const rawStatus = firstNonEmptyText(source.status, source.result, source.state, source.outcome).toLowerCase();
+    const status = rawStatus === "passed" || rawStatus === "failed" ? rawStatus : "recorded";
+    const friendlyTitle = pickFriendlyText(
+      source.display_title,
+      source.displayTitle,
+      source.title,
+      source.label,
+      buildRecordedDisplayTitle(action, elementName || matchedElementName, stepNumber ?? void 0)
+    );
+    const fallbackTitle = buildRecordedDisplayTitle(action, elementName || matchedElementName, stepNumber ?? void 0);
+    return normalizeRecordedStep(
+      {
+        id: firstNonEmptyText(source.id, source.step_id, source.stepId, recordedStepId),
+        step_number: stepNumber,
+        action,
+        element_name: elementName || matchedElementName || (stepNumber ? `Step ${stepNumber}` : "Recorded step"),
+        locator,
+        generated_line: generatedLine,
+        status,
+        display_title: friendlyTitle || fallbackTitle,
+        action_label: action,
+        target_label: elementName || matchedElementName || ""
+      },
+      Number.isFinite(matchIndex) && matchIndex >= 0 ? matchIndex : 0
+    );
+  }
+  function isPlanStepCompleted(step) {
+    if (!step || typeof step !== "object") {
+      return false;
+    }
+    const status = firstNonEmptyText(step.status, step.state, step.cls).toLowerCase();
+    return step.recorded === true || step.completed === true || ["done", "completed", "recorded", "passed"].includes(status);
+  }
+  function updatePlanAfterRecordedStep(currentPlan, matchInfo, nextRecordedStep) {
+    if (!currentPlan || typeof currentPlan !== "object") {
+      return currentPlan;
+    }
+    const currentSteps = Array.isArray(currentPlan.steps) ? currentPlan.steps : [];
+    if (!currentSteps.length) {
+      return currentPlan;
+    }
+    const { stepIds = [], recordedStepNumber, recordedStepIndex, matchedStep, matchIndex } = matchInfo || {};
+    const candidateIds = collectStepReferenceValues(stepIds, nextRecordedStep?.id, matchedStep?.id);
+    const resolvedMatch = findPendingStepMatch(
+      currentSteps,
+      candidateIds,
+      Number.isFinite(recordedStepNumber) ? recordedStepNumber : Number.NaN,
+      Number.isFinite(recordedStepIndex) ? recordedStepIndex : Number.isNaN(matchIndex) ? Number.NaN : matchIndex
+    );
+    if (resolvedMatch.index < 0) {
+      return currentPlan;
+    }
+    const nextSteps = currentSteps.slice();
+    const existingStep = nextSteps[resolvedMatch.index] || {};
+    nextSteps[resolvedMatch.index] = {
+      ...existingStep,
+      status: "done",
+      state: "done",
+      recorded: true,
+      completed: true,
+      cls: "done"
+    };
+    const allDone = nextSteps.length > 0 && nextSteps.every(isPlanStepCompleted);
+    const nextPlan = {
+      ...currentPlan,
+      steps: nextSteps
+    };
+    if (allDone) {
+      nextPlan.summary = "All plan steps recorded";
+      nextPlan.status = "completed";
+      nextPlan.state = "completed";
+      nextPlan.completed = true;
+    }
+    return nextPlan;
+  }
+  function mergeRecordedStepList(current, nextStep) {
+    const list = Array.isArray(current) ? current : [];
+    const index = list.findIndex((step) => {
+      if (step.id && nextStep.id && step.id === nextStep.id) {
+        return true;
+      }
+      return Number.isFinite(step.step_number) && Number.isFinite(nextStep.step_number) && step.step_number === nextStep.step_number;
+    });
+    if (index === -1) {
+      return [...list, nextStep];
+    }
+    const next = list.slice();
+    next[index] = {
+      ...next[index],
+      ...nextStep
+    };
+    return next;
   }
   function isSocketOpen(socket) {
     return Boolean(socket && socket.readyState === WebSocket.OPEN);
@@ -25604,6 +26413,67 @@
       txt: label
     };
   }
+  function normalizeClarificationOption(option, index) {
+    if (option == null) {
+      return null;
+    }
+    if (typeof option === "string" || typeof option === "number" || typeof option === "boolean") {
+      const text = firstNonEmptyText(option);
+      if (!text) {
+        return null;
+      }
+      return {
+        id: `clarification-option-${index + 1}`,
+        label: text,
+        value: text,
+        raw: option
+      };
+    }
+    if (typeof option !== "object") {
+      return null;
+    }
+    const label = firstNonEmptyText(option.label, option.text, option.message, option.title, option.option, option.answer, option.value, option.name);
+    const value = firstNonEmptyText(option.value, option.answer, option.option, option.text, option.label, option.message, option.title, option.name);
+    const resolvedLabel = label || value;
+    const resolvedValue = value || resolvedLabel;
+    if (!resolvedLabel && !resolvedValue) {
+      return null;
+    }
+    return {
+      id: firstNonEmptyText(option.id, option.key, option.value, option.answer) || `clarification-option-${index + 1}`,
+      label: resolvedLabel || resolvedValue,
+      value: resolvedValue || resolvedLabel,
+      raw: option
+    };
+  }
+  function normalizeClarificationOptions(options) {
+    const list = Array.isArray(options) ? options : options != null ? [options] : [];
+    return list.map((option, index) => normalizeClarificationOption(option, index)).filter(Boolean);
+  }
+  function normalizeClarificationMessage(message) {
+    const raw = message && typeof message.raw === "object" ? message.raw : {};
+    const payload = message && typeof message.payload === "object" ? message.payload : {};
+    const question = firstNonEmptyText(
+      payload.question,
+      payload.prompt,
+      payload.message,
+      payload.text,
+      raw.question,
+      raw.prompt,
+      raw.message,
+      raw.text,
+      extractText(payload),
+      extractText(raw),
+      "Clarification needed"
+    );
+    const options = normalizeClarificationOptions(
+      payload.options ?? raw.options ?? payload.choices ?? raw.choices ?? payload.suggestions ?? raw.suggestions ?? []
+    );
+    return {
+      question,
+      options
+    };
+  }
   function normalizeConversationEntry(role, text) {
     return {
       w: role,
@@ -25612,7 +26482,7 @@
     };
   }
   function useAutoWorkbenchTransport(config) {
-    const wsUrl = (0, import_react.useMemo)(
+    const wsUrl = (0, import_react2.useMemo)(
       () => resolveWsUrl(config),
       [
         config?.wsUrl,
@@ -25628,37 +26498,59 @@
         config?.host
       ]
     );
-    const [connectionStatus, setConnectionStatus] = (0, import_react.useState)("disconnected");
-    const [runState, setRunState] = (0, import_react.useState)(() => normalizeRunState(config.runState ?? config.state) || "planning");
-    const [conversation, setConversation] = (0, import_react.useState)([]);
-    const [timeline, setTimeline] = (0, import_react.useState)([]);
-    const [plan, setPlan] = (0, import_react.useState)(null);
-    const [recordedCount, setRecordedCount] = (0, import_react.useState)(0);
-    const [codePreview, setCodePreview] = (0, import_react.useState)("");
-    const [lastError, setLastError] = (0, import_react.useState)("");
-    const [lastEvent, setLastEvent] = (0, import_react.useState)(null);
-    const [pendingSteps, setPendingSteps] = (0, import_react.useState)(() => normalizePendingSteps(config.pendingSteps));
-    const [correctionText, setCorrectionText] = (0, import_react.useState)("");
-    const [activePickerStepId, setActivePickerStepId] = (0, import_react.useState)("");
-    const socketRef = (0, import_react.useRef)(null);
-    const retryRef = (0, import_react.useRef)(null);
-    const attemptRef = (0, import_react.useRef)(0);
-    const mountedRef = (0, import_react.useRef)(true);
-    const activePickerStepIdRef = (0, import_react.useRef)("");
-    (0, import_react.useEffect)(() => {
+    const [connectionStatus, setConnectionStatus] = (0, import_react2.useState)("disconnected");
+    const [runState, setRunState] = (0, import_react2.useState)(() => normalizeRunState(config.runState ?? config.state) || "planning");
+    const [conversation, setConversation] = (0, import_react2.useState)([]);
+    const [timeline, setTimeline] = (0, import_react2.useState)([]);
+    const [plan, setPlan] = (0, import_react2.useState)(null);
+    const [codePreview, setCodePreview] = (0, import_react2.useState)("");
+    const [lastError, setLastError] = (0, import_react2.useState)("");
+    const [lastEvent, setLastEvent] = (0, import_react2.useState)(null);
+    const [pendingSteps, setPendingSteps] = (0, import_react2.useState)(() => normalizePendingSteps(config.pendingSteps));
+    const [recordedSteps, setRecordedSteps] = (0, import_react2.useState)(() => normalizeRecordedSteps(config.recordedSteps));
+    const [interactionMode, setInteractionMode] = (0, import_react2.useState)(
+      () => normalizeInteractionMode(config.interactionMode ?? config.mode ?? config.runState ?? config.state) || "planning"
+    );
+    const [planCorrectionText, setPlanCorrectionText] = (0, import_react2.useState)("");
+    const [clarificationQuestion, setClarificationQuestion] = (0, import_react2.useState)("");
+    const [clarificationOptions, setClarificationOptions] = (0, import_react2.useState)([]);
+    const [clarificationAnswerText, setClarificationAnswerText] = (0, import_react2.useState)("");
+    const [recoveryText, setRecoveryText] = (0, import_react2.useState)("");
+    const [activePickerStepId, setActivePickerStepId] = (0, import_react2.useState)("");
+    const socketRef = (0, import_react2.useRef)(null);
+    const retryRef = (0, import_react2.useRef)(null);
+    const attemptRef = (0, import_react2.useRef)(0);
+    const mountedRef = (0, import_react2.useRef)(true);
+    const planRef = (0, import_react2.useRef)(null);
+    const activePickerStepIdRef = (0, import_react2.useRef)("");
+    const pendingStepsRef = (0, import_react2.useRef)([]);
+    (0, import_react2.useLayoutEffect)(() => {
       activePickerStepIdRef.current = activePickerStepId;
     }, [activePickerStepId]);
-    const appendTimeline = (0, import_react.useCallback)((label, level = "ok") => {
+    (0, import_react2.useLayoutEffect)(() => {
+      pendingStepsRef.current = pendingSteps;
+    }, [pendingSteps]);
+    (0, import_react2.useLayoutEffect)(() => {
+      planRef.current = plan;
+    }, [plan]);
+    const updatePendingSteps = (0, import_react2.useCallback)((updater) => {
+      setPendingSteps((current) => {
+        const next = typeof updater === "function" ? updater(current) : updater;
+        pendingStepsRef.current = next;
+        return next;
+      });
+    }, []);
+    const appendTimeline = (0, import_react2.useCallback)((label, level = "ok") => {
       const entry = normalizeTimelineEntry(label, level);
       setTimeline((current) => [...current.slice(-39), entry]);
       setLastEvent({ type: "timeline", ...entry });
     }, []);
-    const appendConversation = (0, import_react.useCallback)((role, text) => {
+    const appendConversation = (0, import_react2.useCallback)((role, text) => {
       const entry = normalizeConversationEntry(role, text);
       setConversation((current) => [...current.slice(-29), entry]);
       setLastEvent({ type: "conversation", ...entry });
     }, []);
-    const sendPayload = (0, import_react.useCallback)(
+    const sendPayload = (0, import_react2.useCallback)(
       (payload, offlineMessage = "WebSocket not connected.") => {
         const socket = socketRef.current;
         if (!isSocketOpen(socket)) {
@@ -25679,16 +26571,70 @@
       },
       [appendTimeline]
     );
-    const updatePendingStepIntent = (0, import_react.useCallback)((stepId, intent) => {
-      setPendingSteps(
-        (current) => current.map((step) => step.id === stepId ? { ...step, intent, recorded: false, element_info: step.element_info ?? null } : step)
+    const updatePendingStepIntent = (0, import_react2.useCallback)((stepId, intent) => {
+      updatePendingSteps(
+        (current) => current.map((step) => {
+          if (step.id !== stepId) {
+            return step;
+          }
+          const nextIntent = typeof intent === "string" ? intent : "";
+          return {
+            ...step,
+            intent: nextIntent,
+            status: nextIntent.trim() ? "ready" : "draft",
+            recorded: false,
+            element_info: step.element_info ?? step.elementInfo ?? null
+          };
+        })
       );
-    }, []);
-    const addPendingStep = (0, import_react.useCallback)(() => {
-      setPendingSteps((current) => [...current, createPendingStep("")]);
+    }, [updatePendingSteps]);
+    const removePendingStep = (0, import_react2.useCallback)(
+      (stepId) => {
+        if (!stepId) {
+          return;
+        }
+        const currentSteps = pendingStepsRef.current;
+        const removedStep = currentSteps.find((step) => step.id === stepId) || null;
+        updatePendingSteps((current) => current.filter((step) => step.id !== stepId));
+        if (activePickerStepIdRef.current === stepId) {
+          setActivePickerStepId("");
+        }
+        if (removedStep) {
+          const stepLabel = firstNonEmptyText(removedStep.intent, removedStep.element_info?.text, removedStep.element_info?.id, `step ${stepId}`);
+          appendTimeline(`Removed pending step ${stepLabel}`, "ok");
+        } else {
+          appendTimeline("Pending step removed.", "ok");
+        }
+      },
+      [appendTimeline, updatePendingSteps]
+    );
+    const addPendingStep = (0, import_react2.useCallback)(() => {
+      updatePendingSteps((current) => [...current, createPendingStep("")]);
       appendTimeline("Step added.", "ok");
-    }, [appendTimeline]);
-    const handleAttachElement = (0, import_react.useCallback)(
+    }, [appendTimeline, updatePendingSteps]);
+    const handleReplayRecordedStep = (0, import_react2.useCallback)(
+      (step) => {
+        const title = firstNonEmptyText(step?.display_title, step?.element_name, step?.action, "Recorded step");
+        appendTimeline(`Replay not implemented yet. ${title ? `(${title})` : ""}`.trim(), "warn");
+      },
+      [appendTimeline]
+    );
+    const handleCopyRecordedStep = (0, import_react2.useCallback)(
+      (step) => {
+        const line = firstNonEmptyText(step?.generated_line);
+        if (!line) {
+          appendTimeline("No generated line to copy.", "warn");
+          return;
+        }
+        if (navigator?.clipboard?.writeText) {
+          navigator.clipboard.writeText(line).then(() => appendTimeline("Copied generated line.", "ok")).catch(() => appendTimeline("Copy not available.", "warn"));
+          return;
+        }
+        appendTimeline("Copy not available.", "warn");
+      },
+      [appendTimeline]
+    );
+    const handleAttachElement = (0, import_react2.useCallback)(
       (stepId) => {
         if (!stepId) {
           return;
@@ -25709,7 +26655,7 @@
       },
       [appendTimeline, sendPayload]
     );
-    const handleRunPendingSteps = (0, import_react.useCallback)(() => {
+    const handleRunPendingSteps = (0, import_react2.useCallback)(() => {
       const readySteps = pendingSteps.filter((step) => typeof step.intent === "string" && step.intent.trim() && step.recorded !== true).map((step) => ({
         id: step.id,
         intent: step.intent.trim(),
@@ -25727,7 +26673,7 @@
         "WebSocket not connected."
       );
     }, [appendTimeline, pendingSteps, sendPayload]);
-    const handleConfirmPlan = (0, import_react.useCallback)(() => {
+    const handleConfirmPlan = (0, import_react2.useCallback)(() => {
       const sent = sendPayload(
         {
           type: "confirmed"
@@ -25735,11 +26681,15 @@
         "WebSocket not connected."
       );
       if (sent) {
+        appendConversation("user", "Confirmed.");
+        setRunState("executing");
+        setInteractionMode("executing");
+        setPlanCorrectionText("");
         appendTimeline("Confirmation sent.", "ok");
       }
-    }, [appendTimeline, sendPayload]);
-    const handleSendCorrection = (0, import_react.useCallback)(() => {
-      const correction = correctionText.trim();
+    }, [appendConversation, appendTimeline, sendPayload]);
+    const handleSendPlanCorrection = (0, import_react2.useCallback)(() => {
+      const correction = planCorrectionText.trim();
       if (!correction) {
         appendTimeline("Correction is empty.", "warn");
         return;
@@ -25752,11 +26702,63 @@
         "WebSocket not connected."
       );
       if (sent) {
-        setCorrectionText("");
+        appendConversation("user", correction);
+        setRunState("planning");
+        setInteractionMode("planning");
+        setPlanCorrectionText("");
         appendTimeline("Correction sent.", "ok");
       }
-    }, [appendTimeline, correctionText, sendPayload]);
-    const handleBackendMessage = (0, import_react.useCallback)(
+    }, [appendConversation, appendTimeline, planCorrectionText, sendPayload]);
+    const handleSendClarificationAnswer = (0, import_react2.useCallback)(
+      (answerOverride = "") => {
+        const answer = firstNonEmptyText(answerOverride, clarificationAnswerText).trim();
+        if (!answer) {
+          appendTimeline("Clarification answer is empty.", "warn");
+          return;
+        }
+        const sent = sendPayload(
+          {
+            type: "option_selected",
+            value: answer,
+            answer,
+            message: answer
+          },
+          "WebSocket not connected."
+        );
+        if (sent) {
+          appendConversation("user", answer);
+          appendTimeline("Clarification answer sent.", "ok");
+          setRunState("executing");
+          setInteractionMode("executing");
+          setClarificationQuestion("");
+          setClarificationOptions([]);
+          setClarificationAnswerText("");
+        }
+      },
+      [appendConversation, appendTimeline, clarificationAnswerText, sendPayload]
+    );
+    const handleSendRecoveryInstruction = (0, import_react2.useCallback)(() => {
+      const instruction = recoveryText.trim();
+      if (!instruction) {
+        appendTimeline("Recovery instruction is empty.", "warn");
+        return;
+      }
+      const sent = sendPayload(
+        {
+          type: "correction",
+          message: instruction
+        },
+        "WebSocket not connected."
+      );
+      if (sent) {
+        appendConversation("user", instruction);
+        appendTimeline("Recovery instruction sent.", "ok");
+        setRunState("recovery");
+        setInteractionMode("recovery");
+        setRecoveryText("");
+      }
+    }, [appendConversation, appendTimeline, recoveryText, sendPayload]);
+    const handleBackendMessage = (0, import_react2.useCallback)(
       (message) => {
         const type = String(message?.type || "status").toLowerCase();
         const payload = message?.payload;
@@ -25771,17 +26773,27 @@
             );
             if (nextState) {
               setRunState(nextState);
+              if (nextState === "idle" || nextState === "planning" || nextState === "executing" || nextState === "recovery" || nextState === "completed") {
+                setInteractionMode(nextState);
+              }
             }
             appendTimeline(text || "Status update", "ok");
             break;
           }
           case "llm_thinking":
             setRunState("planning");
+            setInteractionMode("planning");
             appendTimeline(text || "LLM thinking", "active");
             appendConversation("agent", text || "Thinking\u2026");
             break;
           case "plan_ready": {
             setRunState("awaiting_confirmation");
+            setInteractionMode("plan_review");
+            setPlanCorrectionText("");
+            setClarificationQuestion("");
+            setClarificationOptions([]);
+            setClarificationAnswerText("");
+            setRecoveryText("");
             const nextPlan = normalizePlanPayload(payload);
             setPlan(nextPlan);
             appendTimeline(nextPlan?.summary ? `Plan ready \xB7 ${nextPlan.summary}` : "Plan ready", "warn");
@@ -25790,14 +26802,28 @@
             }
             break;
           }
-          case "clarification_needed":
+          case "clarification_needed": {
+            const clarification = normalizeClarificationMessage(message);
             setRunState("awaiting_confirmation");
-            appendConversation("system", text || "Clarification needed");
-            appendTimeline(text || "Clarification needed", "warn");
+            setInteractionMode("clarification");
+            setClarificationQuestion(clarification.question);
+            setClarificationOptions(clarification.options);
+            setClarificationAnswerText("");
+            setPlanCorrectionText("");
+            setRecoveryText("");
+            appendConversation("agent", clarification.question || "Clarification needed");
+            appendTimeline("Clarification needed", "warn");
             break;
+          }
           case "error":
             setRunState("recovery");
+            setInteractionMode("recovery");
             setLastError(text || "Unknown error");
+            setClarificationQuestion("");
+            setClarificationOptions([]);
+            setClarificationAnswerText("");
+            setPlanCorrectionText("");
+            setRecoveryText("");
             appendConversation("system", text || "Error");
             appendTimeline(text || "Error", "err");
             break;
@@ -25812,40 +26838,66 @@
             }
             break;
           case "step_recorded": {
-            const recordedStepId = firstNonEmptyText(
-              payload && typeof payload === "object" ? payload.step_id : "",
-              payload && typeof payload === "object" ? payload.stepId : "",
-              payload && typeof payload === "object" ? payload.id : ""
+            const recordedStepIds = collectStepReferenceValues(payload);
+            const recordedStepNumber = resolveFiniteNumber(
+              payload && typeof payload === "object" ? payload.step_number ?? payload.stepNumber ?? payload.number : Number.NaN
             );
-            const recordedStepNumber = Number(
-              payload && typeof payload === "object" ? payload.step_number ?? payload.stepNumber ?? payload.number ?? payload.index : Number.NaN
+            const recordedStepIndex = resolveFiniteNumber(
+              payload && typeof payload === "object" ? payload.index ?? payload.step_index ?? payload.stepIndex : Number.NaN
             );
-            if (recordedStepId || Number.isFinite(recordedStepNumber)) {
-              setPendingSteps(
-                (current) => current.map((step, index) => {
-                  const matchesId = recordedStepId && step.id === recordedStepId;
-                  const matchesNumber = Number.isFinite(recordedStepNumber) && recordedStepNumber > 0 && index === recordedStepNumber - 1;
-                  if (!matchesId && !matchesNumber) {
-                    return step;
+            const { index: matchedIndex, step: matchedStep } = findPendingStepMatch(
+              pendingStepsRef.current,
+              recordedStepIds,
+              recordedStepNumber,
+              recordedStepIndex
+            );
+            const nextRecordedStep = buildRecordedStepFromPayload(
+              payload,
+              matchedStep,
+              matchedIndex,
+              recordedStepIds[0] || "",
+              recordedStepNumber,
+              recordedStepIndex
+            );
+            if (matchedStep || Number.isFinite(recordedStepNumber) || Number.isFinite(recordedStepIndex)) {
+              const removalIds = matchedStep ? collectStepReferenceValues(matchedStep) : [];
+              updatePendingSteps(
+                (current) => current.filter((step, index) => {
+                  if (removalIds.length > 0) {
+                    const stepIds = collectStepReferenceValues(step);
+                    if (stepIds.some((stepId) => removalIds.includes(stepId))) {
+                      return false;
+                    }
                   }
-                  return {
-                    ...step,
-                    recorded: true,
-                    element_info: step.element_info ?? normalizeElementInfo(payload?.element_info ?? payload?.elementInfo ?? null)
-                  };
+                  if (removalIds.length === 0 && matchedIndex >= 0 && index === matchedIndex) {
+                    return false;
+                  }
+                  return true;
                 })
               );
             }
-            const countFromPayload = Number(
-              payload && typeof payload === "object" ? payload.recordedCount ?? payload.count ?? payload.total ?? payload.stepCount : Number.NaN
-            );
-            if (Number.isFinite(countFromPayload)) {
-              setRecordedCount(countFromPayload);
-            } else {
-              setRecordedCount((current) => current + 1);
+            const nextPlan = updatePlanAfterRecordedStep(planRef.current, {
+              stepIds: recordedStepIds,
+              recordedStepNumber,
+              recordedStepIndex,
+              matchedStep,
+              matchIndex: matchedIndex
+            }, nextRecordedStep);
+            if (nextPlan && nextPlan !== planRef.current) {
+              setPlan(nextPlan);
             }
-            setRunState((current) => current === "completed" ? current : "executing");
-            appendTimeline(text || "Step recorded", "ok");
+            setRecordedSteps((current) => mergeRecordedStepList(current, nextRecordedStep));
+            const planCompleted = Boolean(nextPlan && Array.isArray(nextPlan.steps) && nextPlan.steps.length > 0 && nextPlan.steps.every(isPlanStepCompleted));
+            setRunState((current) => current === "completed" ? current : planCompleted ? "completed" : "executing");
+            setInteractionMode(planCompleted ? "completed" : "executing");
+            appendTimeline(
+              `Recorded: ${firstNonEmptyText(nextRecordedStep.action, "recorded")} \u2014 ${firstNonEmptyText(
+                nextRecordedStep.element_name,
+                nextRecordedStep.display_title,
+                "step"
+              )}`,
+              "ok"
+            );
             break;
           }
           case "code_update": {
@@ -25857,32 +26909,35 @@
             break;
           }
           case "element_picked": {
-            const { stepId, elementInfo } = normalizePickedElementMessage(message);
-            const resolvedStepId = stepId || activePickerStepIdRef.current;
-            if (resolvedStepId) {
-              let matched = false;
-              setPendingSteps(
-                (current) => current.map((step) => {
-                  if (step.id !== resolvedStepId) {
+            const { stepId, stepIds, elementInfo } = normalizePickedElementMessage(message);
+            const referenceIds = collectStepReferenceValues(stepIds, stepId, activePickerStepIdRef.current);
+            const match = findPendingStepMatch(pendingStepsRef.current, referenceIds, Number.NaN, Number.NaN);
+            if (match.step) {
+              updatePendingSteps(
+                (current) => current.map((step, index) => {
+                  if (index !== match.index) {
                     return step;
                   }
-                  matched = true;
+                  const nextIntent = typeof step.intent === "string" ? step.intent : "";
                   return {
                     ...step,
                     element_info: elementInfo,
-                    recorded: false
+                    recorded: false,
+                    status: nextIntent.trim() ? "ready" : "draft"
                   };
                 })
               );
               setActivePickerStepId("");
-              if (matched) {
-                appendTimeline(`Element attached to step ${resolvedStepId}`, "ok");
-              } else {
-                appendTimeline(`Element picked but no matching step found for ${resolvedStepId}`, "warn");
-              }
+              const stepNumber = resolveFiniteNumber(match.step.step_number ?? match.step.stepNumber ?? match.step.number ?? match.index + 1);
+              const stepLabel = Number.isFinite(stepNumber) && stepNumber > 0 ? `step ${stepNumber}` : `step ${match.step.id || match.index + 1}`;
+              appendTimeline(`Element attached to ${stepLabel}`, "ok");
             } else {
+              const availableIds = pendingStepsRef.current.map((step) => step.id).filter(Boolean);
               setActivePickerStepId("");
-              appendTimeline(text || "Element picked", "ok");
+              appendTimeline(
+                `Element picked but no matching step found for ${referenceIds.join(", ") || "unknown"}${availableIds.length > 0 ? ` \xB7 pending: ${availableIds.join(", ")}` : ""}`,
+                "warn"
+              );
             }
             break;
           }
@@ -25893,7 +26948,7 @@
       },
       [appendConversation, appendTimeline]
     );
-    (0, import_react.useEffect)(() => {
+    (0, import_react2.useEffect)(() => {
       mountedRef.current = true;
       return () => {
         mountedRef.current = false;
@@ -25910,7 +26965,7 @@
         }
       };
     }, []);
-    (0, import_react.useEffect)(() => {
+    (0, import_react2.useEffect)(() => {
       let cancelled = false;
       const clearRetry = () => {
         if (retryRef.current) {
@@ -25987,38 +27042,64 @@
     return {
       connectionStatus,
       runState,
+      interactionMode,
       conversation,
       timeline,
       plan,
       pendingSteps,
-      correctionText,
-      recordedCount,
+      recordedSteps,
+      planCorrectionText,
+      clarificationQuestion,
+      clarificationOptions,
+      clarificationAnswerText,
+      recoveryText,
+      recordedCount: recordedSteps.length,
       codePreview,
       lastError,
       lastEvent,
       wsUrl,
       activePickerStepId,
-      onCorrectionTextChange: setCorrectionText,
+      onCorrectionTextChange: setPlanCorrectionText,
+      onPlanCorrectionTextChange: setPlanCorrectionText,
+      onClarificationAnswerTextChange: setClarificationAnswerText,
+      onRecoveryTextChange: setRecoveryText,
       onPendingStepIntentChange: updatePendingStepIntent,
       onAddPendingStep: addPendingStep,
+      onDeletePendingStep: removePendingStep,
       onAttachElement: handleAttachElement,
       onRunPendingSteps: handleRunPendingSteps,
       onConfirmPlan: handleConfirmPlan,
-      onSendCorrection: handleSendCorrection,
-      setCorrectionText,
+      onSendCorrection: handleSendPlanCorrection,
+      onSendPlanCorrection: handleSendPlanCorrection,
+      onSendClarificationAnswer: handleSendClarificationAnswer,
+      onSendOptionSelected: handleSendClarificationAnswer,
+      onSendRecoveryInstruction: handleSendRecoveryInstruction,
+      onReplayRecordedStep: handleReplayRecordedStep,
+      onCopyRecordedStep: handleCopyRecordedStep,
+      setPlanCorrectionText,
+      setClarificationQuestion,
+      setClarificationOptions,
+      setClarificationAnswerText,
+      setRecoveryText,
       setPendingSteps,
+      setRecordedSteps,
       updatePendingStepIntent,
       addPendingStep,
+      removePendingStep,
       handleRunPendingSteps,
       handleConfirmPlan,
-      handleSendCorrection
+      handleSendPlanCorrection,
+      handleSendClarificationAnswer,
+      handleSendRecoveryInstruction,
+      handleReplayRecordedStep,
+      handleCopyRecordedStep
     };
   }
   function AutoWorkbenchRuntime({ config }) {
     const normalized = normalizeConfig(config);
     const transport = useAutoWorkbenchTransport(config);
-    const [tab, setTab] = (0, import_react.useState)(normalized.tab);
-    (0, import_react.useEffect)(() => {
+    const [tab, setTab] = (0, import_react2.useState)(normalized.tab);
+    (0, import_react2.useEffect)(() => {
       setTab(normalized.tab);
     }, [normalized.tab]);
     const panelState = toPanelState(transport.runState || normalized.panelState);

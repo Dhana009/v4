@@ -839,6 +839,12 @@ async def _install_picker_overlay(page: Page) -> None:
   let prevOutline = null;
   let prevOutlineOffset = null;
   let prevCursor = null;
+  let selectedEl = null;
+  let selectedOutline = null;
+  let selectedOutlineOffset = null;
+  let selectedBoxShadow = null;
+  let selectedBadge = null;
+  let selectedTimer = null;
 
   function snapshot(el) {
     const attrs = {};
@@ -875,6 +881,76 @@ async def _install_picker_overlay(page: Page) -> None:
     } catch (_) {}
   }
 
+  function clearSelection() {
+    try {
+      if (selectedTimer) {
+        clearTimeout(selectedTimer);
+        selectedTimer = null;
+      }
+    } catch (_) {}
+    try {
+      if (selectedEl) {
+        selectedEl.style.outline = selectedOutline;
+        selectedEl.style.outlineOffset = selectedOutlineOffset;
+        selectedEl.style.boxShadow = selectedBoxShadow;
+      }
+    } catch (_) {}
+    try {
+      if (selectedBadge && selectedBadge.parentNode) {
+        selectedBadge.parentNode.removeChild(selectedBadge);
+      }
+    } catch (_) {}
+    selectedEl = null;
+    selectedOutline = null;
+    selectedOutlineOffset = null;
+    selectedBoxShadow = null;
+    selectedBadge = null;
+    lastEl = null;
+    prevOutline = null;
+    prevOutlineOffset = null;
+    prevCursor = null;
+  }
+
+  function confirmSelection(el) {
+    clearSelection();
+    selectedEl = el;
+    try {
+      selectedOutline = el.style.outline;
+      selectedOutlineOffset = el.style.outlineOffset;
+      selectedBoxShadow = el.style.boxShadow;
+      el.style.outline = "3px solid #22c55e";
+      el.style.outlineOffset = "2px";
+      el.style.boxShadow = "0 0 0 4px rgba(34, 197, 94, 0.18)";
+    } catch (_) {}
+    try {
+      const rect = el.getBoundingClientRect();
+      if (rect && rect.width > 0 && rect.height > 0 && document.body) {
+        const badge = document.createElement("div");
+        badge.textContent = "Attached";
+        badge.setAttribute("data-autoworkbench-picker", "selected");
+        badge.style.position = "fixed";
+        badge.style.zIndex = "2147483647";
+        badge.style.pointerEvents = "none";
+        badge.style.padding = "4px 8px";
+        badge.style.borderRadius = "999px";
+        badge.style.background = "#22c55e";
+        badge.style.color = "#fff";
+        badge.style.font = "600 11px -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif";
+        badge.style.boxShadow = "0 6px 18px rgba(34, 197, 94, 0.35)";
+        badge.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 88))}px`;
+        badge.style.top = `${Math.max(8, rect.top - 8)}px`;
+        badge.style.transform = "translateY(-100%)";
+        document.body.appendChild(badge);
+        selectedBadge = badge;
+      }
+    } catch (_) {}
+    try {
+      selectedTimer = window.setTimeout(() => {
+        clearSelection();
+      }, 1200);
+    } catch (_) {}
+  }
+
   function cleanup() {
     armed = false;
     try {
@@ -883,7 +959,7 @@ async def _install_picker_overlay(page: Page) -> None:
       document.removeEventListener("keydown", onKey, true);
     } catch (_) {}
     try {
-      if (lastEl && prevOutline !== null) {
+      if (lastEl && lastEl !== selectedEl && prevOutline !== null) {
         lastEl.style.outline = prevOutline;
         lastEl.style.outlineOffset = prevOutlineOffset;
         lastEl.style.cursor = prevCursor;
@@ -905,6 +981,7 @@ async def _install_picker_overlay(page: Page) -> None:
     e.stopPropagation();
     e.stopImmediatePropagation();
     const el = e.target;
+    confirmSelection(el);
     cleanup();
     try {
       await window.__pickerPicked__(snapshot(el));
@@ -919,6 +996,7 @@ async def _install_picker_overlay(page: Page) -> None:
   }
 
   function arm() {
+    clearSelection();
     cleanup();
     armed = true;
     document.addEventListener("mousemove", onMove, true);
