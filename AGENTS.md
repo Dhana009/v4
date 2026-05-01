@@ -1,13 +1,13 @@
 <claude-mem-context>
 # Memory Context
 
-# [agent v4] recent context, 2026-05-01 3:00pm GMT+5:30
+# [agent v4] recent context, 2026-05-01 3:22pm GMT+5:30
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (20,665t read) | 292,021t work | 93% savings
+Stats: 50 obs (22,355t read) | 297,726t work | 92% savings
 
 ### May 1, 2026
 S88 Pre-implementation clarification Q&A — 7 design questions answered before building all 7 files (May 1 at 1:01 PM)
@@ -15,19 +15,7 @@ S87 V1 Browser Automation Agent — Full Architecture Blueprint Defined (7 files
 S89 Build all 7 files — 5 of 7 Python modules now written (browser.py, locator.py, executor.py, llm.py, agent.py) (May 1 at 1:08 PM)
 S90 V1 Browser Automation Co-pilot — All 7 files built, refined, and verified; ready to launch (May 1 at 1:11 PM)
 S91 Fix OPENAI_API_KEY loading order bug: load_dotenv() before imports, defer env var read to __init__, add startup validation (May 1 at 1:38 PM)
-335 2:10p 🔵 Agent v4 Project File Structure Identified
-336 " 🔵 Agent v4 Architecture: LLM Uses Plain Chat, No Tool-Calling API
-337 " 🔵 Agent v4 Full Component Architecture Mapped
-338 " ⚖️ Implementation Plan: Rewrite agent.py with dom_snapshot Tool Loop
-339 2:11p 🔄 llm.py Refactored: Configurable System Prompt and Exposed Client
-340 " 🟣 agent.py Fully Rewritten with dom_snapshot Tool-Calling Loop
-341 " 🔵 Playwright Browser Launch Fails with SIGABRT on macOS Due to Crashpad Permission Errors
-342 2:12p 🔵 Browser Launch Blocked by Stale SingletonLock and Live Chromium Instance from Previous Session
-343 " 🔴 Stale Chromium Process Killed; Server Now Starts Successfully
-344 2:13p 🔵 Port 8765 Already Bound by Orphaned Python Process pid 20473
-345 " 🔴 Orphaned Server Process on Port 8765 Killed
-346 " 🔴 Server Launches Clean After Both Orphan Processes Cleared
-347 " 🟣 Server Fully Up: Browser Launched and WebSocket Client Connected
+347 2:13p 🟣 Server Fully Up: Browser Launched and WebSocket Client Connected
 348 " 🟣 dom_snapshot Tool-Calling Flow Verified End-to-End
 349 " 🔵 Sandbox Blocks Outbound TCP Connections from Claude Code Tool Executor
 350 2:14p 🟣 dom_snapshot End-to-End Test Passes: LLM Sees Page and Asserts Correctly
@@ -65,6 +53,18 @@ S91 Fix OPENAI_API_KEY loading order bug: load_dotenv() before imports, defer en
 382 2:58p 🔵 User Concerned Skill Files May Be Missing From Repo
 383 " 🔵 core/SKILL.md and Several Expected Skill Files Are Missing From Repo
 384 " 🔵 skills/ Directory Was Never Git-Tracked — core and 7 Other Expected Subdirectories Never Existed
+385 3:00p 🔴 core/SKILL.md Recreated and Patched — File Now Exists With Correct Tool List and plan_ready Syntax
+386 3:05p 🟣 locator_find Refactored to Internal Waterfall Strategy
+387 " 🔵 locator_find in agent.py Has a Critical Logic Bug: strategy_name Short-Circuit
+388 " 🔵 locator_validate Uses page.locator() Only — Cannot Parse get_by_* Strings
+389 3:06p 🔴 locator_find Fully Refactored to Internal Waterfall — locator_validate and Action Tools Now Support get_by_* Strings
+390 3:07p 🔵 agent.py Patch Applied Successfully — Python Syntax Valid
+391 " 🔴 _tool_action_assert: _resolve_locator Call Moved Inside try Block
+392 " 🟣 locator_find Waterfall Refactor Verified by Automated Tests — All Assertions Pass
+393 " 🟣 has_text Assertion Hardened with Unicode/Whitespace Normalization
+394 3:20p 🔵 has_text Normalization NOT Yet Implemented — agent.py Still Uses to_contain_text()
+395 " 🔴 has_text Assertion Now Normalizes Unicode/Whitespace Before Comparing
+396 3:21p 🔴 agent.py has_text Normalization and Locator Waterfall Both Confirmed in Final git diff
 
-Access 292k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 298k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

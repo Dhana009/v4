@@ -211,6 +211,7 @@ class AgentLoop:
                                     "text": {"type": "string"},
                                     "id": {"type": "string"},
                                     "class": {"type": "string"},
+                                    "role": {"type": "string"},
                                     "aria_label": {"type": "string"},
                                     "data_testid": {"type": "string"},
                                     "placeholder": {"type": "string"},
@@ -220,7 +221,6 @@ class AgentLoop:
                                 "required": [],
                                 "additionalProperties": True,
                             },
-                            "strategy": {"type": "string"},
                         },
                         "required": ["element_data"],
                         "additionalProperties": False,
@@ -428,196 +428,82 @@ class AgentLoop:
     async def _tool_locator_find(self, args: dict[str, Any]) -> dict[str, Any]:
         page = get_page()
         element_data = args.get("element_data") or {}
-        force_strategy = str(args.get("strategy") or "").strip()
-        ordered = [
-            "data-testid",
-            "aria-label",
-            "id",
-            "placeholder_text",
-            "exact_text_match",
-            "partial_text_match",
-            "css_selector",
-            "role+name",
-            "relative_xpath",
-            "absolute_xpath",
-        ]
-        aliases = {
-            "data_testid": "data-testid",
-            "aria_label": "aria-label",
-            "placeholder": "placeholder_text",
-            "exact_text": "exact_text_match",
-            "partial_text": "partial_text_match",
-            "css": "css_selector",
-            "role_name": "role+name",
-        }
-        strategy_name = aliases.get(force_strategy, force_strategy)
-        strategies = [strategy_name] if strategy_name else ordered
-        first_positive: dict[str, Any] | None = None
+        candidates = self._build_locator_candidates(element_data)
+        tried: list[dict[str, Any]] = []
 
-        def stable_for(strategy: str) -> bool:
-            return strategy in {"data-testid", "aria-label", "id", "role+name"}
-
-        def esc_css(value: str) -> str:
-            return value.replace("\\", "\\\\").replace('"', '\\"')
-
-        def esc_xpath(value: str) -> str:
-            return value.replace("'", "\\'")
-
-        for strategy in strategies:
-            locator = None
-            locator_string = ""
-            count = 0
+        for candidate in candidates:
+            locator_string = candidate["locator"]
+            strategy = candidate["strategy"]
 
             try:
-                if strategy == "data-testid":
-                    testid = str(element_data.get("data_testid", "") or "").strip()
-                    locator_string = f'get_by_test_id("{testid}")'
-                    if testid:
-                        locator = page.get_by_test_id(testid)
-                        count = await locator.count()
-
-                elif strategy == "aria-label":
-                    aria_label = str(element_data.get("aria_label", "") or "").strip()
-                    locator_string = f'get_by_label("{aria_label}")'
-                    if aria_label:
-                        locator = page.get_by_label(aria_label)
-                        count = await locator.count()
-
-                elif strategy == "id":
-                    id_val = str(element_data.get("id", "") or "").strip()
-                    if id_val:
-                        locator_string = f"#{esc_css(id_val)}"
-                        locator = page.locator(locator_string)
-                        count = await locator.count()
-
-                elif strategy == "placeholder_text":
-                    placeholder = str(element_data.get("placeholder", "") or "").strip()
-                    locator_string = f'get_by_placeholder("{placeholder}")'
-                    if placeholder:
-                        locator = page.get_by_placeholder(placeholder)
-                        count = await locator.count()
-
-                elif strategy == "exact_text_match":
-                    text = str(element_data.get("text", "") or "")
-                    if text:
-                        locator_string = f'get_by_text("{text}", exact=True)'
-                        locator = page.get_by_text(text, exact=True)
-                        count = await locator.count()
-
-                elif strategy == "partial_text_match":
-                    text = str(element_data.get("text", "") or "")
-                    short_text = text[:50].strip()
-                    if short_text:
-                        locator_string = f'get_by_text("{short_text}", exact=False)'
-                        locator = page.get_by_text(short_text, exact=False)
-                        count = await locator.count()
-
-                elif strategy == "css_selector":
-                    tag = str(element_data.get("tag", "") or "").strip()
-                    class_value = str(element_data.get("class", "") or "").strip()
-                    cls = class_value.split()[0] if class_value else ""
-                    if tag and cls:
-                        locator_string = f"{tag}.{cls}"
-                        locator = page.locator(locator_string)
-                    elif tag:
-                        locator_string = tag
-                        locator = page.locator(locator_string)
-                    if tag and locator is not None:
-                        count = await locator.count()
-
-                elif strategy == "role+name":
-                    role = str(element_data.get("role", "") or "").strip()
-                    name = str(element_data.get("text", "") or "")[:50]
-                    if role and name:
-                        locator_string = f'get_by_role("{role}", name="{name}")'
-                        locator = page.get_by_role(role, name=name)
-                        count = await locator.count()
-
-                elif strategy == "relative_xpath":
-                    tag = str(element_data.get("tag", "") or "").strip()
-                    text = str(element_data.get("text", "") or "")[:50].strip()
-                    if tag and text:
-                        locator_string = f"//{tag}[contains(.,'{esc_xpath(text)}')]"
-                        locator = page.locator(locator_string)
-                        count = await locator.count()
-
-                elif strategy == "absolute_xpath":
-                    tag = str(element_data.get("tag", "") or "").strip()
-                    class_value = str(element_data.get("class", "") or "").strip()
-                    cls = class_value.split()[0] if class_value else ""
-                    if tag and cls:
-                        locator_string = f"//{tag}[@class='{esc_xpath(cls)}']"
-                        locator = page.locator(locator_string)
-                        count = await locator.count()
-            except Exception:  # noqa: BLE001
-                count = 0
-
-            if count > 0 and strategy_name:
-                return {
-                    "found": True,
-                    "locator": locator_string,
-                    "strategy": strategy,
-                    "count": count,
-                    "stable": stable_for(strategy),
-                }
+                locator = self._resolve_locator(page, locator_string)
+                count = await locator.count()
+            except Exception as exc:  # noqa: BLE001
+                tried.append(
+                    {
+                        "strategy": strategy,
+                        "locator": locator_string,
+                        "count": 0,
+                        "error": str(exc),
+                    }
+                )
+                continue
 
             if count == 1:
                 return {
                     "found": True,
                     "locator": locator_string,
                     "strategy": strategy,
-                    "count": count,
-                    "stable": stable_for(strategy),
+                    "count": 1,
+                    "stable": self._is_stable_locator_strategy(strategy),
+                    "tried": tried,
                 }
 
-            if count > 0 and first_positive is None:
-                first_positive = {
-                    "found": True,
-                    "locator": locator_string,
+            tried.append(
+                {
                     "strategy": strategy,
+                    "locator": locator_string,
                     "count": count,
-                    "stable": stable_for(strategy),
                 }
-
-        if first_positive is not None:
-            return first_positive
+            )
 
         return {
             "found": False,
             "locator": "",
-            "strategy": strategy_name or "",
+            "strategy": "",
             "count": 0,
             "stable": False,
+            "tried": tried,
         }
 
     async def _tool_locator_validate(self, args: dict[str, Any]) -> dict[str, Any]:
         page = get_page()
-        locator = str(args.get("locator") or "").strip()
+        locator_string = str(args.get("locator") or "").strip()
         count = 0
-        if locator:
+        if locator_string:
             try:
-                count = await page.locator(locator).count()
+                count = await self._resolve_locator(page, locator_string).count()
             except Exception:  # noqa: BLE001
                 count = 0
         return {"valid": count == 1, "count": count}
 
     async def _tool_action_click(self, args: dict[str, Any]) -> dict[str, Any]:
         page = get_page()
-        locator = str(args.get("locator") or "").strip()
+        locator_string = str(args.get("locator") or "").strip()
         timeout = int(args.get("timeout") or 30000)
         try:
-            await page.locator(locator).first.click(timeout=timeout)
+            await self._resolve_locator(page, locator_string).first.click(timeout=timeout)
             return {"success": True, "error": None}
         except Exception as exc:  # noqa: BLE001
             return {"success": False, "error": str(exc)}
 
     async def _tool_action_fill(self, args: dict[str, Any]) -> dict[str, Any]:
         page = get_page()
-        locator = str(args.get("locator") or "").strip()
+        locator_string = str(args.get("locator") or "").strip()
         value = str(args.get("value") or "")
         timeout = int(args.get("timeout") or 30000)
         try:
-            await page.locator(locator).first.fill(value, timeout=timeout)
+            await self._resolve_locator(page, locator_string).first.fill(value, timeout=timeout)
             return {"success": True, "error": None}
         except Exception as exc:  # noqa: BLE001
             return {"success": False, "error": str(exc)}
@@ -628,9 +514,9 @@ class AgentLoop:
         assertion = str(args.get("assertion") or "").strip()
         expected_value = args.get("expected_value")
         timeout = int(args.get("timeout") or 5000)
-        locator = page.locator(locator_text).first
 
         try:
+            locator = self._resolve_locator(page, locator_text).first
             if assertion == "visible":
                 await expect(locator).to_be_visible(timeout=timeout)
             elif assertion == "hidden":
@@ -642,7 +528,29 @@ class AgentLoop:
             elif assertion == "has_text":
                 if expected_value is None:
                     raise ValueError("expected_value is required for has_text")
-                await expect(locator).to_contain_text(str(expected_value), timeout=timeout)
+                try:
+                    actual_text = await locator.inner_text(timeout=timeout)
+                except Exception:  # noqa: BLE001
+                    actual_text = await locator.text_content(timeout=timeout)
+
+                normalized_actual = self._normalize_assertion_text(actual_text)
+                normalized_expected = self._normalize_assertion_text(str(expected_value))
+                if normalized_expected not in normalized_actual:
+                    return {
+                        "success": False,
+                        "error": (
+                            "Expected normalized text to contain "
+                            f"{normalized_expected!r}, got {normalized_actual!r}"
+                        ),
+                        "actual_text": normalized_actual,
+                        "expected_text": normalized_expected,
+                    }
+                return {
+                    "success": True,
+                    "assertion": "has_text",
+                    "actual_text": normalized_actual,
+                    "expected_text": normalized_expected,
+                }
             elif assertion == "has_value":
                 if expected_value is None:
                     raise ValueError("expected_value is required for has_value")
@@ -660,6 +568,20 @@ class AgentLoop:
     async def _tool_page_navigate(self, args: dict[str, Any]) -> dict[str, Any]:
         page = get_page()
         url = str(args.get("url") or "").strip()
+        invalid_literals = {"", "current page", "same page", "this page", "current"}
+        valid_prefixes = ("http://", "https://", "file://", "about:")
+
+        if url.lower() in invalid_literals or not url.startswith(valid_prefixes):
+            return {"success": False, "error": "Invalid navigation URL", "url": url}
+
+        if url == page.url:
+            return {
+                "success": True,
+                "skipped": True,
+                "reason": "Already on requested URL",
+                "url": url,
+            }
+
         await page.goto(url, wait_until="domcontentloaded")
         return {"success": True, "url": page.url}
 
@@ -750,6 +672,161 @@ class AgentLoop:
             return base
         return ""
 
+    def _build_locator_candidates(self, element_data: dict[str, Any]) -> list[dict[str, str]]:
+        text = self._normalize_space(str(element_data.get("text") or ""))
+        tag = re.sub(r"[^a-zA-Z0-9:_-]", "", str(element_data.get("tag") or "").strip())
+        role = str(element_data.get("role") or "").strip() or self._infer_role(element_data)
+        class_name = str(element_data.get("class") or "").strip()
+        classes = [
+            re.sub(r"[^a-zA-Z0-9_-]", "", item)
+            for item in class_name.split()
+            if re.sub(r"[^a-zA-Z0-9_-]", "", item)
+        ]
+        partial_text = text[:50].strip()
+        candidates: list[dict[str, str]] = []
+
+        data_testid = str(element_data.get("data_testid") or "").strip()
+        if data_testid:
+            candidates.append(
+                {
+                    "strategy": "data-testid",
+                    "locator": f'get_by_test_id("{self._tool_string_escape(data_testid)}")',
+                }
+            )
+
+        aria_label = self._normalize_space(str(element_data.get("aria_label") or ""))
+        if aria_label:
+            candidates.append(
+                {
+                    "strategy": "aria-label",
+                    "locator": f'get_by_label("{self._tool_string_escape(aria_label)}")',
+                }
+            )
+
+        element_id = str(element_data.get("id") or "").strip()
+        if element_id:
+            candidates.append({"strategy": "id", "locator": f"#{self._css_escape(element_id)}"})
+
+        placeholder = self._normalize_space(str(element_data.get("placeholder") or ""))
+        if placeholder:
+            candidates.append(
+                {
+                    "strategy": "placeholder",
+                    "locator": f'get_by_placeholder("{self._tool_string_escape(placeholder)}")',
+                }
+            )
+
+        if text:
+            candidates.append(
+                {
+                    "strategy": "exact_text",
+                    "locator": f'get_by_text("{self._tool_string_escape(text)}", exact=True)',
+                }
+            )
+
+        if partial_text:
+            candidates.append(
+                {
+                    "strategy": "partial_text",
+                    "locator": f'get_by_text("{self._tool_string_escape(partial_text)}", exact=False)',
+                }
+            )
+
+        if role and partial_text:
+            candidates.append(
+                {
+                    "strategy": "role+name",
+                    "locator": (
+                        f'get_by_role("{self._tool_string_escape(role)}", '
+                        f'name="{self._tool_string_escape(partial_text)}")'
+                    ),
+                }
+            )
+
+        css_locator = self._build_locator_from_strategy("css", element_data)
+        if css_locator:
+            candidates.append({"strategy": "css", "locator": css_locator})
+
+        if tag and partial_text:
+            candidates.append(
+                {
+                    "strategy": "relative_xpath",
+                    "locator": f"//{tag}[contains(normalize-space(.), {self._xpath_literal(partial_text)})]",
+                }
+            )
+
+        if tag:
+            if element_id:
+                absolute_xpath = f"//{tag}[@id={self._xpath_literal(element_id)}]"
+            elif classes:
+                absolute_xpath = f"//{tag}[contains(@class, {self._xpath_literal(classes[0])})]"
+            else:
+                absolute_xpath = f"//{tag}"
+            candidates.append({"strategy": "absolute_xpath", "locator": absolute_xpath})
+
+        return candidates
+
+    def _resolve_locator(self, page: Any, locator_string: str) -> Any:
+        locator_string = str(locator_string or "").strip()
+        if not locator_string:
+            raise ValueError("locator is required")
+
+        if match := re.fullmatch(r'get_by_test_id\("((?:\\.|[^"])*)"\)', locator_string):
+            return page.get_by_test_id(self._tool_string_unescape(match.group(1)))
+
+        if match := re.fullmatch(r'get_by_label\("((?:\\.|[^"])*)"\)', locator_string):
+            return page.get_by_label(self._tool_string_unescape(match.group(1)))
+
+        if match := re.fullmatch(r'get_by_placeholder\("((?:\\.|[^"])*)"\)', locator_string):
+            return page.get_by_placeholder(self._tool_string_unescape(match.group(1)))
+
+        if match := re.fullmatch(
+            r'get_by_text\("((?:\\.|[^"])*)", exact=(True|False)\)', locator_string
+        ):
+            return page.get_by_text(
+                self._tool_string_unescape(match.group(1)),
+                exact=match.group(2) == "True",
+            )
+
+        if match := re.fullmatch(
+            r'get_by_role\("((?:\\.|[^"])*)", name="((?:\\.|[^"])*)"\)', locator_string
+        ):
+            return page.get_by_role(
+                self._tool_string_unescape(match.group(1)),
+                name=self._tool_string_unescape(match.group(2)),
+            )
+
+        return page.locator(locator_string)
+
+    def _is_stable_locator_strategy(self, strategy: str) -> bool:
+        return strategy in {"data-testid", "aria-label", "id", "role+name"}
+
+    def _infer_role(self, element_data: dict[str, Any]) -> str:
+        explicit_role = str(element_data.get("role") or "").strip()
+        if explicit_role:
+            return explicit_role
+
+        tag = str(element_data.get("tag") or "").strip().lower()
+        input_type = str(element_data.get("type") or "").strip().lower()
+
+        if tag == "button":
+            return "button"
+        if tag == "a":
+            return "link"
+        if tag == "select":
+            return "combobox"
+        if tag == "textarea":
+            return "textbox"
+        if tag == "input":
+            if input_type in {"button", "submit", "reset"}:
+                return "button"
+            if input_type in {"checkbox"}:
+                return "checkbox"
+            if input_type in {"radio"}:
+                return "radio"
+            return "textbox"
+        return ""
+
     def _build_suggested_scope(self, element_info: dict[str, Any]) -> str:
         tag = re.sub(r"[^a-zA-Z0-9:_-]", "", str(element_info.get("tag") or "").strip())
         if not tag:
@@ -800,3 +877,31 @@ class AgentLoop:
 
     def _normalize_space(self, value: str) -> str:
         return re.sub(r"\s+", " ", value).strip()
+
+    def _normalize_assertion_text(self, value: str | None) -> str:
+        if value is None:
+            return ""
+        normalized = str(value)
+        normalized = normalized.replace("&nbsp;", " ")
+        normalized = normalized.replace("\u00a0", " ")
+        normalized = normalized.replace("\u202f", " ")
+        normalized = normalized.replace("\u2007", " ")
+        normalized = normalized.replace("\u0000", "")
+        normalized = re.sub(r"[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]", "", normalized)
+        normalized = re.sub(r"\s+", " ", normalized)
+        return normalized.strip()
+
+    def _tool_string_escape(self, value: str) -> str:
+        return value.replace("\\", "\\\\").replace('"', '\\"')
+
+    def _tool_string_unescape(self, value: str) -> str:
+        return value.replace('\\"', '"').replace("\\\\", "\\")
+
+    def _xpath_literal(self, value: str) -> str:
+        if "'" not in value:
+            return f"'{value}'"
+        if '"' not in value:
+            return f'"{value}"'
+        parts = value.split("'")
+        quoted_parts = [f"'{part}'" for part in parts]
+        return 'concat(' + ', "\'", '.join(quoted_parts) + ')'
