@@ -1,13 +1,13 @@
 <claude-mem-context>
 # Memory Context
 
-# [agent v4] recent context, 2026-05-01 5:54pm GMT+5:30
+# [agent v4] recent context, 2026-05-01 6:29pm GMT+5:30
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (24,854t read) | 527,702t work | 95% savings
+Stats: 50 obs (26,031t read) | 437,221t work | 94% savings
 
 ### May 1, 2026
 S88 Pre-implementation clarification Q&A — 7 design questions answered before building all 7 files (May 1 at 1:01 PM)
@@ -19,39 +19,7 @@ S93 Fix agent.py so that after send_to_overlay(plan_ready), the agent blocks for
 S94 Fix agent.py confirmation gate after send_to_overlay(plan_ready) — verify fix works in live server run (May 1 at 3:57 PM)
 S95 Fix step_recorded payload contract in agent.py so browser overlay panel receives usable data (May 1 at 3:58 PM)
 S96 Implement lifecycle guard in agent.py to enforce Planning → Confirmation → Execution → Record → Recovery control flow (May 1 at 4:06 PM)
-451 4:40p 🔴 Agent Loop Failure Recovery via ask_user Instead of Silent Termination
-452 " 🔵 agent.py Current State: No Failure-Recovery ask_user Logic Yet Present
-453 " 🔵 _tool_ask_user Implementation: Sends clarification_needed and Blocks on control_queue
-454 4:41p 🔴 agent.py: Failure-Recovery Gate and Sequential Execution Guard Implemented
-455 4:42p 🔵 browser.py Overlay: clarification_needed Handler Sets pendingMode="clarification" and Renders Options
-456 " 🔴 agent.py Rewrite Truncated: Only 243 Lines Written, Helper Methods Missing
-457 4:43p 🔵 agent.py Helper Methods Confirmed Present: File Is Complete Beyond 243 Lines
-458 " 🔴 agent.py Failure Recovery Refactored: Richer Phrase Detection, Tool Failure Tracking, Batch Pause Logic
-459 " 🔴 agent.py Failure-Recovery Patch Successfully Applied via apply_patch
-460 4:44p 🔴 agent.py: _pending_failure_followup State Flag Added to Bridge Tool-Failure Across LLM Turns
-461 " 🔵 py_compile Fails with PermissionError on macOS System Python 3.9 — Not a Code Syntax Error
-462 " 🔵 agent.py Confirmed Syntactically Valid via py_compile with /tmp Output
-463 " 🔴 git diff Confirms Complete agent.py Change Set: Failure Recovery + _wait_for_plan_confirmation Refactor
-464 " 🔴 _should_request_user_followup Phrase List Expanded with 4 Additional Patterns
-465 4:56p 🟣 Nine New Browser Tools Planned for agent.py: Navigation, Scroll, and Fill Guard
-466 " 🔵 skills/actions/SKILL.md Points Go Back/Forward/Reload/Scroll to terminal_tool — Must Be Updated
-467 " 🔵 agent.py Tool Registry Confirmed Missing page_go_back, page_go_forward, page_reload, scroll_into_view; action_fill Has No Editability Guard
-468 4:57p 🟣 agent.py: Four New Browser Tools Added Plus action_fill Editability Guard
-469 4:58p 🔴 agent.py and SKILL.md Updated: New Navigation Tools Added to page_changing_tools and _is_browser_state_tool; Skill File Corrected
-470 " 🟣 agent.py and SKILL.md Changes Verified: 146 Lines Net Addition, Syntax Clean
-471 " 🟣 Final State Confirmed: agent.py and SKILL.md Fully Updated with All New Browser Tools
-472 4:59p 🔵 server.py Startup Fails: Playwright Chromium Crashes with SIGABRT Due to macOS SIP Permission Denial
-473 " 🔵 agent.py Has Duplicate Method Definitions: Lines Doubled from nl -ba Output Artifact or Real Duplication
-474 5:15p 🔴 OpenAI Tool-Call Protocol Fix: Skipped Tool Calls Now Receive Placeholder Responses
-475 " 🔵 agent.py Tool Loop: Current Stale Tool Handling Uses `break` Without Skipped Tool Responses
-476 5:16p 🔴 agent.py Fixed: Skipped Tool Calls Now Receive Placeholder Tool Responses
-477 " 🔴 agent.py Patch Verified: All Four Early-Exit Paths Now Append Skipped Tool Responses
-478 " ✅ agent.py Passes Syntax Check; SKILL.md Navigation Tool Docs Updated
-479 " ✅ SKILL.md Whitespace Changes Reverted; Only agent.py Remains Modified
-480 " 🔵 SKILL.md Trailing Blank Line Loop: File Has 2 Trailing Newlines, Git Index Expects 3
-481 5:17p 🔵 SKILL.md Trailing Newline Confirmed: Git HEAD Has 3 Newlines, apply_patch Cannot Add Third
-482 " 🔵 Git Index Lock Error: .git/index.lock Permission Denied in Agent v4 Repo
-483 " 🔵 git restore Required Escalated Permissions to Write .git/index.lock in Agent v4
+482 5:17p 🔵 Git Index Lock Error: .git/index.lock Permission Denied in Agent v4 Repo
 484 5:19p 🔴 agent.py Final State Verified: OpenAI Tool-Call Protocol Fix Complete and Clean
 485 5:29p 🟣 Lifecycle Guard Implementation Plan for agent.py
 486 5:30p 🔵 agent.py Current State: Lifecycle Guard Partially Present, Key Bugs Confirmed
@@ -70,6 +38,38 @@ S97 Implement lifecycle guard in agent.py to enforce Planning → Confirmation �
 498 5:48p 🔵 Lifecycle Guard Bug: Agent Exits After Unresolved Tool Failure
 499 5:49p 🔵 Root Cause Analysis: Agent Exits on Unresolved Failure via _looks_like_completion_message False Positive
 500 5:50p 🔵 self.phase Field is Set But Never Read in Run Loop Decision Logic
+501 5:54p 🟣 Per-Step State Tracker and Final-Exit Guard Design for agent.py
+502 " 🔵 Step-State Tracker Fields Not Yet Implemented in agent.py
+503 5:56p 🟣 Step-State Tracker Fields and run_stop_requested Added to AgentLoop
+504 5:57p 🔴 Final-Response Guard Replaced with Step-State-Aware Blocking Logic
+505 " 🟣 Step State Transitions Wired Into Tool Dispatch Loop
+506 " 🟣 Step State Helper Methods Implemented in agent.py
+507 5:58p 🟣 Agent Step-State Tracker and Final-Exit Guard Design
+508 6:00p 🟣 agent.py Step-State Tracker and Final-Exit Guard — Full Implementation
+509 6:01p ⚖️ Agent v4 Step-State PRD Re-Submitted — Implementation Already Complete
+510 6:02p 🔴 agent.py Final-Exit Guard and Step-State Reliability Patches
+511 " 🔴 _mark_step_recorded Upgraded to Full State Machine Transition
+512 " 🔴 step_recorded Handler and _has_unresolved_failure Reliability Patches
+513 6:03p 🔴 Final-Exit Guard Uses _get_failed_step_context() for Consistent Failure Resolution
+514 " 🔵 agent.py Step-State Layer — Final Verified State After All Patches
+515 " 🔴 _mark_step_recorded Clears Failure Followup Flag and Restores Phase on Record
+516 " 🔵 agent.py Final State Verification — All Patches Confirmed Applied Correctly
+517 6:04p 🔴 _current_pending_step and _find_step_for_recording Now Skip Skipped Steps
+518 " 🔴 _advance_recording_cursor Now Skips Over Skipped Steps
+519 " 🔴 _mark_step_skipped Resets Phase to "executing" After Skip
+520 " 🔵 agent.py Passes Python Syntax Compilation Check
+521 " 🟣 Complete git diff Confirms Full Step-State Tracker Implementation in agent.py
+522 6:05p 🔵 All PRD Log Lines Present and server.py Starts Successfully
+523 " 🔵 Agent v4 Server Running and WebSocket Connection Accepted
+524 " 🟣 Test A Passed — Normal Success Flow Confirmed End-to-End
+525 6:06p 🔴 Stop Detection Added to General User Followup Branch
+526 " 🔵 Final agent.py Log Line Map — All Guards and State Transitions Confirmed
+527 " 🔵 Final Method Line Map for agent.py Step-State Tracker After All Patches
+528 6:24p 🔴 Plan Correction UX Fix — Confirm Button Now Sends Correction When Text Is Present
+529 " 🔵 browser.py Confirm Button Still Sends "confirmed" Regardless of Correction Text
+530 " 🔵 browser.py Confirm/Correct Button Logic — Exact Lines Before Fix
+531 " 🔴 browser.py Plan Correction UX Fix Applied — Confirm Button Now Detects Typed Corrections
+532 " 🔵 browser.py Plan Correction Fix Verified — All Three Changes Confirmed at Correct Lines
 
-Access 528k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 437k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

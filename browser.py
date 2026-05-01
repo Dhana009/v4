@@ -264,7 +264,7 @@ async def inject_panel(page: Page) -> None:
         <div class="ac-options"></div>
         <div class="ac-row">
           <button type="button" class="ac-confirm">Confirm</button>
-          <button type="button" class="ac-correct">Correct</button>
+          <button type="button" class="ac-correct">Send Correction</button>
         </div>
         <div class="ac-log"></div>
       </div>
@@ -469,7 +469,7 @@ async def inject_panel(page: Page) -> None:
           }}
           if (msg.instruction) parts.push("\\n" + msg.instruction);
           understandingEl.value = [
-            "Here is what I understood. Confirm if correct, or type a correction and click Correct.",
+            "Here is what I understood. Confirm if correct. If not, type correction and click Send Correction.",
             "",
             ...parts,
           ].join("\\n").trim();
