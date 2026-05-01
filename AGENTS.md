@@ -1,51 +1,24 @@
 <claude-mem-context>
 # Memory Context
 
-# [agent v4] recent context, 2026-05-01 5:14pm GMT+5:30
+# [agent v4] recent context, 2026-05-01 5:54pm GMT+5:30
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (22,638t read) | 533,546t work | 96% savings
+Stats: 50 obs (24,854t read) | 527,702t work | 95% savings
 
 ### May 1, 2026
 S88 Pre-implementation clarification Q&A — 7 design questions answered before building all 7 files (May 1 at 1:01 PM)
-S87 V1 Browser Automation Agent — Full Architecture Blueprint Defined (7 files + .env) (May 1 at 1:01 PM)
 S89 Build all 7 files — 5 of 7 Python modules now written (browser.py, locator.py, executor.py, llm.py, agent.py) (May 1 at 1:08 PM)
 S90 V1 Browser Automation Co-pilot — All 7 files built, refined, and verified; ready to launch (May 1 at 1:11 PM)
 S91 Fix OPENAI_API_KEY loading order bug: load_dotenv() before imports, defer env var read to __init__, add startup validation (May 1 at 1:26 PM)
 S92 Fix page_navigate URL validation in agent.py to prevent invalid navigation errors (May 1 at 1:38 PM)
 S93 Fix agent.py so that after send_to_overlay(plan_ready), the agent blocks for user confirmation before continuing the LLM tool-calling loop (May 1 at 3:41 PM)
 S94 Fix agent.py confirmation gate after send_to_overlay(plan_ready) — verify fix works in live server run (May 1 at 3:57 PM)
-S95 Fix step_recorded payload contract in agent.py so browser overlay panel receives usable data (May 1 at 4:06 PM)
-424 4:06p 🔵 Root Cause of step_recorded Payload Bug Traced in agent.py and browser.py
-425 4:07p 🔵 Full agent v4 Architecture Mapped — send_to_overlay Tool Schema Missing step_recorded Fields
-426 " 🔴 agent.py Fixed: send_to_overlay Tool Schema Now Includes All step_recorded Payload Fields
-427 " 🟣 agent.py: Server-Side step_recorded Payload Enrichment Layer Added
-428 4:11p 🔵 _tool_send_to_overlay Does Not Call _build_step_record_payload — Enrichment Layer Not Wired
-429 " 🔴 _tool_send_to_overlay Wired to Enrichment Layer; _coerce_step_number Added; Step Marking Fixed
-430 4:12p 🔵 browser.py Patch Failed — File Uses Double-Brace Escaping, Patch Had Wrong Context
-431 " 🔴 Fix step_recorded payload contract in Playwright Automation Co-pilot
-432 4:13p 🔴 browser.py step_recorded handler upgraded with payload fallback and generated_line display
-433 " 🔴 Run button filter fixed to use strict recorded !== true check
-434 " 🔴 agent.py step_recorded guard logic fixed from any-empty to all-core-fields-present
-435 " 🔵 browser.py final state verified after all patches — all changes confirmed in place
-436 " 🔵 agent v4 project uses system Python 3.9.6, no .venv/python3.12 present
-437 " 🔵 agent v4 runtime Python is 3.13.9 via `python` command, not python3
-438 4:14p 🟣 agent.py step_recorded payload system fully implemented with auto-derivation engine
-439 " 🔵 agent.py step_recorded payload generation verified correct end-to-end with unit test
-440 " ✅ AGENTS.md also modified as part of step_recorded fix session
-441 4:29p 🟣 Playwright Co-pilot stability and UI improvements — scroll, correction flow, plan wording
-442 " 🔵 browser.py and agent.py current state audit before stability fixes
-443 " 🔵 Detailed CSS and confirmation flow audit reveals specific gaps to fix
-444 4:30p 🔵 agent.py run() loop does not handle correction return from plan_ready — correction silently ignored
-445 " 🔴 browser.py: Recorded Steps scroll, log height, and plan_ready wording fixed
-446 " 🔴 agent.py system prompt updated with correction instruction; tool loop patch failed due to indentation mismatch
-447 " 🔴 agent.py correction loop and _wait_for_plan_confirmation fully fixed
-448 4:31p 🔴 agent.py correction message fallback added for empty correction text
-449 " ✅ Full diff verified — all stability fixes confirmed in agent.py and browser.py
-450 " 🔵 Correction flow and browser.py changes unit-tested and confirmed correct
+S95 Fix step_recorded payload contract in agent.py so browser overlay panel receives usable data (May 1 at 3:58 PM)
+S96 Implement lifecycle guard in agent.py to enforce Planning → Confirmation → Execution → Record → Recovery control flow (May 1 at 4:06 PM)
 451 4:40p 🔴 Agent Loop Failure Recovery via ask_user Instead of Silent Termination
 452 " 🔵 agent.py Current State: No Failure-Recovery ask_user Logic Yet Present
 453 " 🔵 _tool_ask_user Implementation: Sends clarification_needed and Blocks on control_queue
@@ -69,6 +42,34 @@ S95 Fix step_recorded payload contract in agent.py so browser overlay panel rece
 471 " 🟣 Final State Confirmed: agent.py and SKILL.md Fully Updated with All New Browser Tools
 472 4:59p 🔵 server.py Startup Fails: Playwright Chromium Crashes with SIGABRT Due to macOS SIP Permission Denial
 473 " 🔵 agent.py Has Duplicate Method Definitions: Lines Doubled from nl -ba Output Artifact or Real Duplication
+474 5:15p 🔴 OpenAI Tool-Call Protocol Fix: Skipped Tool Calls Now Receive Placeholder Responses
+475 " 🔵 agent.py Tool Loop: Current Stale Tool Handling Uses `break` Without Skipped Tool Responses
+476 5:16p 🔴 agent.py Fixed: Skipped Tool Calls Now Receive Placeholder Tool Responses
+477 " 🔴 agent.py Patch Verified: All Four Early-Exit Paths Now Append Skipped Tool Responses
+478 " ✅ agent.py Passes Syntax Check; SKILL.md Navigation Tool Docs Updated
+479 " ✅ SKILL.md Whitespace Changes Reverted; Only agent.py Remains Modified
+480 " 🔵 SKILL.md Trailing Blank Line Loop: File Has 2 Trailing Newlines, Git Index Expects 3
+481 5:17p 🔵 SKILL.md Trailing Newline Confirmed: Git HEAD Has 3 Newlines, apply_patch Cannot Add Third
+482 " 🔵 Git Index Lock Error: .git/index.lock Permission Denied in Agent v4 Repo
+483 " 🔵 git restore Required Escalated Permissions to Write .git/index.lock in Agent v4
+484 5:19p 🔴 agent.py Final State Verified: OpenAI Tool-Call Protocol Fix Complete and Clean
+485 5:29p 🟣 Lifecycle Guard Implementation Plan for agent.py
+486 5:30p 🔵 agent.py Current State: Lifecycle Guard Partially Present, Key Bugs Confirmed
+S97 Implement lifecycle guard in agent.py to enforce Planning → Confirmation → Execution → Record → Recovery control flow (May 1 at 5:31 PM)
+487 5:31p 🟣 Lifecycle State and Tool Sets Added to AgentLoop in agent.py
+488 5:36p 🟣 Phase Gate Inserted in run() Tool Dispatch Loop
+489 " 🟣 Lifecycle Guard Implementation Plan for agent.py
+490 5:37p 🟣 Lifecycle Guard and Step Context Preservation Implemented in agent.py
+491 5:38p 🔴 Confirmation Gate and step_recorded Guard Wired into _tool_send_to_overlay
+492 " 🔵 agent.py Lifecycle Guard Code Verified in Final State
+493 " 🔄 Renamed step variable to step_context in _build_step_record_payload
+494 5:39p 🔵 agent.py Passes Python Syntax Compilation Check
+495 " 🔴 Fixed Fallback in _build_generated_line for Unknown Actions Without Locator
+496 " 🔵 server.py Startup Fails Due to macOS Permissions on Playwright Chromium Launch
+497 5:40p 🔴 _awaiting_step_record Cleared on Plan Confirmation and Correction
+498 5:48p 🔵 Lifecycle Guard Bug: Agent Exits After Unresolved Tool Failure
+499 5:49p 🔵 Root Cause Analysis: Agent Exits on Unresolved Failure via _looks_like_completion_message False Positive
+500 5:50p 🔵 self.phase Field is Set But Never Read in Run Loop Decision Logic
 
-Access 534k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 528k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>
