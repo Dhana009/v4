@@ -41,6 +41,10 @@ def _make_loop(monkeypatch, locator: object) -> AgentLoop:
         "_resolve_locator",
         lambda self, page, locator_string: SimpleNamespace(first=locator),
     )
+    loop.capability_gaps = []
+    loop.phase_tracker = SimpleNamespace(get_phase=lambda: "planning")
+    loop.phase = "planning"
+    loop.active_step_id = "step-1"
     return loop
 
 
@@ -168,6 +172,34 @@ def test_has_value_missing_expected_value_returns_structured_failure(monkeypatch
         "error": "expected_value_required",
         "assertion": "has_value",
     }
+
+
+def test_unsupported_assertion_records_capability_gap(monkeypatch) -> None:
+    loop = _make_loop(monkeypatch, FakeLocator())
+    monkeypatch.setattr(agent_module, "expect", _unexpected_expect)
+
+    result = asyncio.run(
+        loop._tool_action_assert(
+            {
+                "locator": 'get_by_label("Greeting")',
+                "assertion": "expanded",
+                "timeout": 321,
+            }
+        )
+    )
+
+    assert result["success"] is False
+    assert result["error"] == "Unsupported assertion: expanded"
+    assert len(loop.capability_gaps) == 1
+    gap = loop.capability_gaps[0]
+    assert gap["ordinal"] == 1
+    assert gap["category"] == "unsupported_assertion"
+    assert gap["source"] == "_tool_action_assert"
+    assert gap["severity"] == "error"
+    assert gap["message"] == "Unsupported assertion requested."
+    assert gap["phase"] == "planning"
+    assert gap["step_id"] == "step-1"
+    assert gap["details"] == {"assertion": "expanded"}
 
 
 def test_visible_assertion_path_still_succeeds(monkeypatch) -> None:

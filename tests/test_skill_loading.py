@@ -29,6 +29,7 @@ def _make_loop(tmp_path: Path) -> AgentLoop:
     loop._loaded_skill_entries = []
     loop._missing_skill_names = set()
     loop._last_skill_load_phase = None
+    loop.capability_gaps = []
     return loop
 
 
@@ -172,6 +173,14 @@ def test_missing_mapped_folder_does_not_crash(tmp_path: Path, capsys) -> None:
     assert system_prompt == "CORE"
     assert loaded_skills == {"core": "CORE"}
     assert "[SKILL_WARNING] missing skill folder: dropdown" in captured.out
+    assert len(loop.capability_gaps) == 1
+    gap = loop.capability_gaps[0]
+    assert gap["ordinal"] == 1
+    assert gap["category"] == "missing_skill"
+    assert gap["source"] == "_read_skill"
+    assert gap["severity"] == "warn"
+    assert gap["message"] == "missing skill folder: dropdown"
+    assert gap["details"] == {"skill_name": "dropdown"}
 
 
 def test_recovery_phase_adds_debugging(tmp_path: Path) -> None:

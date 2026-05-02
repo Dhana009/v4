@@ -15,6 +15,7 @@ def _make_loop() -> AgentLoop:
     loop.plan_confirmed = False
     loop._pending_failure_followup = False
     loop._awaiting_step_record = False
+    loop.capability_gaps = []
     return loop
 
 
@@ -153,6 +154,14 @@ def test_unknown_intent_creates_child_operation_type_unknown() -> None:
     assert child["operation_id"] == "op_1"
     assert child["type"] == "unknown"
     assert child["status"] == "planned"
+    assert len(loop.capability_gaps) == 1
+    gap = loop.capability_gaps[0]
+    assert gap["ordinal"] == 1
+    assert gap["category"] == "unknown_planned_operation"
+    assert gap["source"] == "_build_planned_children"
+    assert gap["severity"] == "warn"
+    assert gap["message"] == "Planned child operation fell back to unknown."
+    assert gap["details"] == {"operation_type": "unknown", "planned_child_count": 1}
 
 
 def test_existing_plan_ready_fields_are_preserved() -> None:

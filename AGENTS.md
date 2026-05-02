@@ -1,13 +1,13 @@
 <claude-mem-context>
 # Memory Context
 
-# [agent v4] recent context, 2026-05-02 12:29pm GMT+5:30
+# [agent v4] recent context, 2026-05-02 12:53pm GMT+5:30
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (32,972t read) | 1,273,639t work | 97% savings
+Stats: 50 obs (33,495t read) | 1,187,843t work | 97% savings
 
 ### May 1, 2026
 S96 Implement lifecycle guard in agent.py to enforce Planning → Confirmation → Execution → Record → Recovery control flow (May 1 at 4:06 PM)
@@ -20,18 +20,6 @@ S101 Fix Phase 3D frontend UI/state bugs in AutoWorkbench IDE panel (spaces, pic
 S102 Fix backend multi-step recording bug in agent.py — replace global last_successful_action with per-step successful_action_by_step_id dict (May 2 at 3:14 AM)
 S103 Launch AutoWorkbench agent v4 once and run a smoke test of the clarification UI roundtrip (May 2 at 3:33 AM)
 S104 Add agent phase diagnostics in shadow mode to agent v4 — PhaseTracker implementation in runtime/phase_tracker.py and agent.py wiring (May 2 at 3:57 AM)
-1000 9:45a 🔵 Frontend Read-Only Investigation: Parent/Child Plan & Recorded Steps Support
-1003 9:46a 🔵 agent v4 Frontend Event Handling: Exact Code Paths for plan_ready, step_recorded, code_update
-1004 9:47a 🔵 agent v4 Frontend: Complete Status String Map and Exact Rendering Architecture
-1005 " 🔵 agent v4 CSS: Badge and State Pill Color System for Frontend Status Strings
-1010 " 🔵 agent v4 Frontend: Complete Function Registry and Children/Raw Field Preservation Confirmed
-1014 " 🔵 agent v4 style-ide.css: Complete CSS Class Inventory for IDE Panel Components
-1015 " ⚖️ Task: Add Child Operation Rendering to Plan Review UI in agent v4
-1016 9:55a 🟣 Plan Review UI: Child Operations Rendering
-1017 9:58a 🟣 Autoworkbench Plan Review UI: Child Operation Rows Implemented and Built
-1018 10:00a 🔴 Multi-Action plan_ready Normalization Bug: Duplicate Parent Steps
-1019 " 🔵 plan_ready Normalization: Root Cause of Duplicate Parent Steps Identified
-1020 " 🔵 _prepare_recording_steps Called at Line 330 Before plan_ready
 1021 10:03a 🔴 Fixed Multi-Action plan_ready: One Intent Now Produces One Parent Step
 1022 10:04a 🔴 Fix multi-action plan_ready normalization: one user intent → one parent step
 1023 10:06a 🔵 agent.py plan_ready normalization: existing architecture for _build_plan_ready_parent_step and _build_planned_children
@@ -71,6 +59,18 @@ S106 Read-only investigation of recorded parent/child display wording in AutoWor
 1122 12:14p 🔵 AutoWorkbench Agent v4 — No Capability Gap Logging System Exists
 1123 " 🔵 Frontend IDETimeline Already Supports `warn` Discriminator — No Schema Change Needed for v1
 1124 " ⚖️ Capability Gap v1 Design: Backend-Only, Timeline Event, Minimal Surface
+1142 12:29p ⚖️ Capability Gap Logging v1 — Read-Only Implementation Plan
+1143 " 🔵 Exact Code Locations for Capability Gap Logging v1 Hook Points in agent.py
+1144 12:30p 🔵 Test Patterns and AgentLoop Stub Setup for Capability Gap Logging v1 Tests
+1145 12:31p 🔵 Confirmed Lifecycle Reset Location for capability_gaps Initialization in agent.py
+1146 12:32p 🔵 Exact Line Numbers for All Four v1 Gap Hook Insertion Points and Sibling Test Anchors
+1148 " 🔵 Zero Existing Tests for Capability Gap Logic — All Four Are Net-New
+1161 12:44p ⚖️ Save/Replay Readiness Investigation Scoped — Read-Only Plan for Next PRD Block
+1163 " 🔵 Save/Replay Buttons Exist in Frontend But Backend Has Zero Implementation
+1166 12:45p 🔵 Full Save/Replay Readiness Map: Frontend Wired, Backend Entirely Absent
+1167 12:46p 🔵 Save/Replay Readiness Investigation — Autoworkbench Agent v4
+1170 " 🔵 Autoworkbench Agent v4 — Detailed Code-Level Save/Replay Gap Findings
+1171 12:47p 🔵 Frontend Recorded Step Normalization and Merge Contract — main.jsx
 
-Access 1274k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 1188k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

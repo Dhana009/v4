@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import asyncio
 from copy import deepcopy
+from datetime import datetime, timezone
 import json
 import os
 import re
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 from playwright.async_api import expect
@@ -17,6 +19,7 @@ from runtime.context_manager import ContextManager
 from runtime.model_router import ModelRouter
 from runtime.recovery_manager import classify_failure
 from runtime.phase_tracker import PhaseTracker
+from runtime.spec_snapshot import build_spec_snapshot
 from runtime.tool_registry import ToolRegistry, filter_tools_for_phase
 from runtime.skill_manager import SkillManager
 from runtime.telemetry import record_model_call_end, record_model_call_start
@@ -113,6 +116,10 @@ class AgentLoop:
         self.last_plan_summary: str | None = None
         self.last_plan_original_user_intent: str | None = None
         self._plan_correction_pending = False
+        self.capability_gaps: list[dict[str, Any]] = []
+        self.recorded_step_payloads: list[dict[str, Any]] = []
+        self.code_update_payloads: list[dict[str, Any]] = []
+        self._run_session_id = self._new_run_session_id()
         self._run_completion_requested = False
         self.run_stop_requested = False
         self._llm_call_counter = 0
@@ -145,6 +152,10 @@ class AgentLoop:
         self.run_stop_requested = False
         self._run_completion_requested = False
         self._plan_correction_pending = False
+        self.capability_gaps = []
+        self.recorded_step_payloads = []
+        self.code_update_payloads = []
+        self._run_session_id = self._new_run_session_id()
         self._clear_plan_review_context()
         self._llm_call_counter = 0
 
@@ -161,6 +172,194 @@ class AgentLoop:
             if phase_name:
                 return phase_name
         return str(getattr(self, "phase", "") or "").strip() or "planning"
+
+    def _new_run_session_id(self) -> str:
+        return f"run-{uuid4().hex}"
+
+    def _current_run_session_id(self) -> str:
+        session_id = str(
+            getattr(self, "session_id", None)
+            or getattr(self, "_run_session_id", None)
+            or ""
+        ).strip()
+        if not session_id:
+            session_id = self._new_run_session_id()
+        self._run_session_id = session_id
+        return session_id
+
+    def _sanitize_capability_gap_detail(self, value: Any) -> Any:
+        if value is None or isinstance(value, (bool, int, float)):
+            return value
+
+        if isinstance(value, str):
+            text = self._normalize_space(value).strip()
+            if len(text) > 160:
+                text = f"{text[:157]}..."
+            return text
+
+        if isinstance(value, dict):
+            sanitized: dict[str, Any] = {}
+            for key, nested_value in value.items():
+                key_text = self._normalize_space(str(key or "")).strip()
+                if not key_text:
+                    continue
+                lowered_key = key_text.lower()
+                if lowered_key in {
+                    "dom",
+                    "html",
+                    "markup",
+                    "prompt",
+                    "tool_args",
+                    "arguments",
+                    "raw_dom",
+                    "raw_prompt",
+                    "raw_tool_args",
+                }:
+                    continue
+                sanitized_value = self._sanitize_capability_gap_detail(nested_value)
+                if sanitized_value in (None, "", [], {}):
+                    continue
+                sanitized[key_text] = sanitized_value
+            return sanitized
+
+        if isinstance(value, (list, tuple, set)):
+            sanitized_items: list[Any] = []
+            for item in value:
+                sanitized_item = self._sanitize_capability_gap_detail(item)
+                if sanitized_item in (None, "", [], {}):
+                    continue
+                sanitized_items.append(sanitized_item)
+                if len(sanitized_items) >= 5:
+                    break
+            return sanitized_items
+
+        text = self._normalize_space(str(value)).strip()
+        if len(text) > 160:
+            text = f"{text[:157]}..."
+        return text
+
+    def _record_capability_gap(
+        self,
+        category: str,
+        source: str,
+        severity: str,
+        message: str,
+        **details: Any,
+    ) -> dict[str, Any]:
+        capability_gaps = getattr(self, "capability_gaps", None)
+        if not isinstance(capability_gaps, list):
+            capability_gaps = []
+            self.capability_gaps = capability_gaps
+
+        category_text = self._normalize_space(str(category or "")).strip() or "unknown"
+        source_text = self._normalize_space(str(source or "")).strip() or "unknown"
+        severity_text = self._normalize_space(str(severity or "")).strip().lower()
+        if severity_text not in {"warn", "error"}:
+            severity_text = "warn"
+        message_text = self._normalize_space(str(message or "")).strip() or "unspecified capability gap"
+        phase_text = self._current_phase()
+        step_id = str(getattr(self, "active_step_id", "") or "").strip() or None
+
+        safe_details: dict[str, Any] = {}
+        for key, value in details.items():
+            key_text = self._normalize_space(str(key or "")).strip()
+            if not key_text:
+                continue
+            safe_value = self._sanitize_capability_gap_detail(value)
+            if safe_value in (None, "", [], {}):
+                continue
+            safe_details[key_text] = safe_value
+
+        record = {
+            "ordinal": len(capability_gaps) + 1,
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            "category": category_text,
+            "source": source_text,
+            "severity": severity_text,
+            "message": message_text,
+            "phase": phase_text,
+            "step_id": step_id,
+            "details": safe_details,
+        }
+        capability_gaps.append(record)
+
+        log_line = (
+            "[CAPABILITY_GAP] "
+            f"ordinal={record['ordinal']} "
+            f"category={category_text} "
+            f"source={source_text} "
+            f"severity={severity_text} "
+            f"message={json.dumps(message_text, ensure_ascii=True)}"
+        )
+        if phase_text:
+            log_line += f" phase={phase_text}"
+        if step_id:
+            log_line += f" step_id={step_id}"
+        if safe_details:
+            log_line += f" details={json.dumps(safe_details, ensure_ascii=True, separators=(',', ':'))}"
+        print(log_line)
+
+        return record
+
+    def _append_recorded_step_payload(self, payload: dict[str, Any]) -> None:
+        recorded_step_payloads = getattr(self, "recorded_step_payloads", None)
+        if not isinstance(recorded_step_payloads, list):
+            recorded_step_payloads = []
+            self.recorded_step_payloads = recorded_step_payloads
+        recorded_step_payloads.append(deepcopy(payload))
+
+    def _append_code_update_payload(self, payload: dict[str, Any]) -> None:
+        code_update_payloads = getattr(self, "code_update_payloads", None)
+        if not isinstance(code_update_payloads, list):
+            code_update_payloads = []
+            self.code_update_payloads = code_update_payloads
+        code_update_payloads.append(deepcopy(payload))
+
+    def _build_spec_snapshot(self) -> dict[str, Any]:
+        plan_ready_payload = getattr(self, "last_plan_ready_payload", None)
+        plan_ready_summary = str(getattr(self, "last_plan_summary", "") or "").strip()
+        if not plan_ready_summary and isinstance(plan_ready_payload, dict):
+            plan_ready_summary = str(plan_ready_payload.get("summary") or "").strip()
+        plan_ready_steps: list[dict[str, Any]] = []
+        if isinstance(plan_ready_payload, dict):
+            steps = plan_ready_payload.get("steps")
+            if isinstance(steps, list):
+                plan_ready_steps = deepcopy(steps)
+
+        recorded_step_payloads = getattr(self, "recorded_step_payloads", None)
+        if not isinstance(recorded_step_payloads, list):
+            recorded_step_payloads = []
+        code_update_payloads = getattr(self, "code_update_payloads", None)
+        if not isinstance(code_update_payloads, list):
+            code_update_payloads = []
+        capability_gaps = getattr(self, "capability_gaps", None)
+        if not isinstance(capability_gaps, list):
+            capability_gaps = []
+
+        session_id = self._current_run_session_id()
+        original_user_intent = str(getattr(self, "last_plan_original_user_intent", "") or "").strip() or None
+        phase = self._current_phase()
+        completed_step_ids = getattr(self, "completed_step_ids", set())
+        completed_step_count = len(completed_step_ids) if isinstance(completed_step_ids, (set, list, tuple)) else 0
+        recorded_step_count = len(recorded_step_payloads)
+        created_at = datetime.now(timezone.utc).isoformat()
+
+        return build_spec_snapshot(
+            schema_version="autoworkbench.spec.v1",
+            session_id=session_id,
+            created_at=created_at,
+            original_user_intent=original_user_intent,
+            plan_ready={
+                "summary": plan_ready_summary or None,
+                "steps": plan_ready_steps,
+            },
+            recorded_steps=recorded_step_payloads,
+            code_update_payloads=code_update_payloads,
+            capability_gaps=capability_gaps,
+            phase=phase,
+            completed_step_count=completed_step_count,
+            recorded_step_count=recorded_step_count,
+        )
 
     def _skill_entries_from_loaded_skills(
         self,
@@ -829,6 +1028,13 @@ class AgentLoop:
             missing_skill_names = getattr(self, "_missing_skill_names", set())
             if skill_name not in missing_skill_names:
                 print(f"[SKILL_WARNING] missing skill folder: {skill_name}")
+                self._record_capability_gap(
+                    "missing_skill",
+                    "_read_skill",
+                    "warn",
+                    f"missing skill folder: {skill_name}",
+                    skill_name=skill_name,
+                )
                 missing_skill_names.add(skill_name)
                 self._missing_skill_names = missing_skill_names
             return None
@@ -2130,6 +2336,15 @@ class AgentLoop:
         operation_types = self._infer_planned_operation_sequence(intent or operation_hint)
         if not operation_types:
             operation_types = [operation_type]
+        if any(current_operation_type == "unknown" for current_operation_type in operation_types):
+            self._record_capability_gap(
+                "unknown_planned_operation",
+                "_build_planned_children",
+                "warn",
+                "Planned child operation fell back to unknown.",
+                operation_type=operation_type,
+                planned_child_count=len(operation_types),
+            )
 
         return [
             {
@@ -2706,6 +2921,13 @@ class AgentLoop:
             "ask_user": self._tool_ask_user,
         }
         if tool_name not in handlers:
+            self._record_capability_gap(
+                "unknown_tool",
+                "_dispatch_tool",
+                "error",
+                "Unsupported tool requested.",
+                tool_name=tool_name,
+            )
             raise RuntimeError(f"Unsupported tool requested: {tool_name}")
         return await handlers[tool_name](args)
 
@@ -2887,6 +3109,13 @@ class AgentLoop:
             elif assertion == "checked":
                 await expect(locator).to_be_checked(timeout=timeout)
             else:
+                self._record_capability_gap(
+                    "unsupported_assertion",
+                    "_tool_action_assert",
+                    "error",
+                    "Unsupported assertion requested.",
+                    assertion=assertion,
+                )
                 raise ValueError(f"Unsupported assertion: {assertion}")
             return {"success": True, "error": None}
         except (AssertionError, PlaywrightTimeoutError, ValueError) as exc:
@@ -3028,6 +3257,7 @@ class AgentLoop:
             else:
                 print(f"[AGENT] recording step: {json.dumps(payload, ensure_ascii=True)}")
             await self._send(message_type, **payload)
+            self._append_recorded_step_payload(payload)
             recorded_target_step = self.step_state_by_id.get(step_id) if step_id else None
             if recorded_target_step is not None and str(recorded_target_step.get("status") or "") in {"recorded", "skipped"}:
                 recorded_target_step = None
@@ -3055,6 +3285,7 @@ class AgentLoop:
                 if code_update_payload:
                     try:
                         await self._send("code_update", **code_update_payload)
+                        self._append_code_update_payload(code_update_payload)
                         print(
                             f"[CODE_UPDATE] step_id={step_id} "
                             f"operation_id={code_update_payload.get('operation_id') or 'op_1'} "
