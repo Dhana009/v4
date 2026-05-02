@@ -1706,7 +1706,13 @@ class AgentLoop:
             or clean_payload.get("generated_line")
             or ""
         ).strip()
-        status = str(clean_payload.get("status") or "recorded").strip() or "recorded"
+        intent = str(
+            clean_payload.get("intent")
+            or (recorded_step_context.get("intent") if recorded_step_context else "")
+            or (step_context.get("intent") if step_context else "")
+            or ""
+        ).strip()
+        status = "success"
 
         if not action:
             action = "step"
@@ -1716,6 +1722,9 @@ class AgentLoop:
             locator = self._derive_locator_from_step_context(step_context) or str(step_context.get("intent") or "").strip()
         if not generated_line:
             generated_line = self._build_generated_line(action, locator, action_context)
+        if not intent:
+            intent = str(step_context.get("intent") if step_context else "").strip()
+        children = self._build_recorded_children(intent, action, element_name, locator, generated_line)
 
         merged: dict[str, Any] = dict(clean_payload)
         if step_id:
@@ -1731,6 +1740,8 @@ class AgentLoop:
         merged["locator"] = locator
         merged["generated_line"] = generated_line
         merged["status"] = status
+        merged["intent"] = intent
+        merged["children"] = children
 
         required = ("action", "element_name", "locator", "generated_line")
         if not all(str(merged.get(key) or "").strip() for key in required):
@@ -1776,6 +1787,168 @@ class AgentLoop:
                 }
             )
         return normalized
+
+    def _infer_operation_type(self, intent: str) -> str:
+        normalized = self._normalize_space(str(intent or "")).lower()
+        if not normalized:
+            return "unknown"
+
+        click_match = re.search(r"\b(?:click|tap|press)\b", normalized)
+        assert_match = re.search(r"\b(?:assert|verify|check|expect)\b", normalized)
+        fill_match = re.search(r"\b(?:fill|type|enter|input)\b", normalized)
+
+        matches = [
+            operation_type
+            for operation_type, matched in (
+                ("click", click_match),
+                ("assert", assert_match),
+                ("fill", fill_match),
+            )
+            if matched
+        ]
+        if len(matches) == 1:
+            return matches[0]
+        return "unknown"
+
+    def _build_planned_children(
+        self,
+        step: dict[str, Any],
+        existing_plan_data: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        step_data = step if isinstance(step, dict) else {}
+        plan_data = existing_plan_data if isinstance(existing_plan_data, dict) else {}
+
+        intent = str(
+            step_data.get("intent")
+            or plan_data.get("intent")
+            or plan_data.get("description")
+            or plan_data.get("text")
+            or ""
+        ).strip()
+        action_hint = str(step_data.get("action") or plan_data.get("action") or "").strip()
+        operation_hint = " ".join(
+            part for part in (action_hint, intent, str(plan_data.get("description") or "").strip()) if part
+        )
+        operation_type = self._infer_operation_type(operation_hint)
+        target = str(
+            plan_data.get("target")
+            or plan_data.get("element_name")
+            or step_data.get("element_name")
+            or intent
+            or ""
+        ).strip()
+        locator = str(
+            plan_data.get("locator")
+            or step_data.get("locator")
+            or self._derive_locator_from_step_context(step_data)
+            or ""
+        ).strip()
+        if locator in {"*", 'page.locator("")'}:
+            locator = ""
+        description = intent or target or action_hint or operation_type
+
+        return [
+            {
+                "operation_id": "op_1",
+                "type": operation_type,
+                "description": description,
+                "target": target,
+                "locator": locator,
+                "status": "planned",
+            }
+        ]
+
+    def _build_recorded_children(
+        self,
+        intent: str,
+        action: str,
+        element_name: str,
+        locator: str,
+        generated_line: str,
+    ) -> list[dict[str, Any]]:
+        operation_hint = " ".join(part for part in (action, intent) if part)
+        operation_type = self._infer_operation_type(operation_hint)
+        description = intent or element_name or action or operation_type
+        target = element_name or locator or intent or action or ""
+        code_lines = [generated_line] if generated_line else []
+
+        return [
+            {
+                "operation_id": "op_1",
+                "type": operation_type,
+                "description": description,
+                "target": target,
+                "locator": locator,
+                "status": "success",
+                "code_lines": code_lines,
+            }
+        ]
+
+    def _build_code_update_payload(self, payload: dict[str, Any], step_id: str) -> dict[str, Any]:
+        if not step_id:
+            return {}
+
+        recording_steps = list(getattr(self, "_recording_steps", []))
+        if len(recording_steps) != 1:
+            return {}
+
+        generated_line = str(payload.get("generated_line") or "").strip()
+        if not generated_line:
+            return {}
+
+        children = payload.get("children")
+        if not isinstance(children, list) or len(children) != 1:
+            return {}
+
+        child = children[0]
+        if not isinstance(child, dict):
+            return {}
+
+        operation_id = str(child.get("operation_id") or "op_1").strip() or "op_1"
+        lines = [generated_line]
+        return {
+            "step_id": step_id,
+            "operation_id": operation_id,
+            "lines": lines,
+            "full_spec_preview": "\n".join(lines),
+            "diagnostics": [],
+        }
+
+    def _build_plan_ready_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
+        plan_ready_payload = dict(payload)
+        steps = payload.get("steps")
+        if not isinstance(steps, list):
+            return plan_ready_payload
+
+        current_steps = list(getattr(self, "current_steps", []))
+        planned_steps: list[dict[str, Any]] = []
+        for index, step in enumerate(steps):
+            parent_step = dict(step) if isinstance(step, dict) else {"text": str(step or "").strip()}
+            source_step = current_steps[index] if index < len(current_steps) and isinstance(current_steps[index], dict) else {}
+            step_id = str(
+                parent_step.get("step_id")
+                or parent_step.get("id")
+                or source_step.get("step_id")
+                or source_step.get("id")
+                or index + 1
+            ).strip()
+            intent = str(
+                source_step.get("intent")
+                or parent_step.get("intent")
+                or parent_step.get("description")
+                or parent_step.get("text")
+                or ""
+            ).strip()
+            if not intent:
+                intent = str(parent_step.get("action") or "").strip()
+            parent_step["step_id"] = step_id
+            parent_step["intent"] = intent
+            parent_step["status"] = "planned"
+            parent_step["children"] = self._build_planned_children(source_step, parent_step)
+            planned_steps.append(parent_step)
+
+        plan_ready_payload["steps"] = planned_steps
+        return plan_ready_payload
 
     def _assistant_message_entry(self, message: Any) -> dict[str, Any]:
         entry: dict[str, Any] = {"role": "assistant", "content": message.content or ""}
@@ -2428,6 +2601,17 @@ class AgentLoop:
                     recorded_target_step = unresolved_steps[0]
             if recorded_target_step is not None:
                 self._mark_step_recorded(recorded_target_step, payload)
+                code_update_payload = self._build_code_update_payload(payload, step_id)
+                if code_update_payload:
+                    try:
+                        await self._send("code_update", **code_update_payload)
+                        print(
+                            f"[CODE_UPDATE] step_id={step_id} "
+                            f"operation_id={code_update_payload.get('operation_id') or 'op_1'} "
+                            f"lines={len(code_update_payload.get('lines') or [])}"
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        print(f"[AGENT] code_update emit failed: {type(exc).__name__}: {exc}")
             if step_id:
                 self.successful_action_by_step_id.pop(step_id, None)
             last_action = self.last_successful_action or {}
@@ -2465,6 +2649,8 @@ class AgentLoop:
                         step_id=recorded_step_id,
                     )
             return {"sent": True, "payload": payload}
+        if message_type == "plan_ready":
+            payload = self._build_plan_ready_payload(payload)
         await self._send(message_type, **payload)
         if message_type == "plan_ready":
             plan_step_id = str(

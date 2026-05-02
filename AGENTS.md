@@ -1,13 +1,13 @@
 <claude-mem-context>
 # Memory Context
 
-# [agent v4] recent context, 2026-05-02 8:41am GMT+5:30
+# [agent v4] recent context, 2026-05-02 9:23am GMT+5:30
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (26,084t read) | 739,257t work | 96% savings
+Stats: 50 obs (23,635t read) | 716,884t work | 97% savings
 
 ### May 1, 2026
 S95 Fix step_recorded payload contract in agent.py so browser overlay panel receives usable data (May 1 at 3:58 PM)
@@ -21,56 +21,56 @@ S101 Fix Phase 3D frontend UI/state bugs in AutoWorkbench IDE panel (spaces, pic
 S102 Fix backend multi-step recording bug in agent.py — replace global last_successful_action with per-step successful_action_by_step_id dict (May 2 at 3:14 AM)
 S103 Launch AutoWorkbench agent v4 once and run a smoke test of the clarification UI roundtrip (May 2 at 3:33 AM)
 S104 Add agent phase diagnostics in shadow mode to agent v4 — PhaseTracker implementation in runtime/phase_tracker.py and agent.py wiring (May 2 at 7:34 AM)
-894 7:40a 🔵 Exact Line Numbers Confirmed for All Phase Transitions and Completion Guard in agent.py
-895 7:41a 🔵 self.phase vs phase_tracker Dual-Tracking Confirmed: self.phase Drives Control Flow, phase_tracker Is Log-Only
-896 7:42a 🔵 LLM Loop Final-Response Guards and Pre-Execution Confirmation Blocks Confirmed
-897 " 🔵 Agent v4 Has No Test Suite; Tool Dispatch and Control Queue Architecture Confirmed
-898 " 🟣 First Test Suite Created for Agent v4: tests/test_completion_guard.py
-899 7:48a 🔵 pytest Run Reveals Missing skills_root Attribute in Test Harness for AgentLoop
-900 " 🔴 Test Harness Fixed: _load_skills_for_steps Stub Added, Both Completion Guard Tests Now Pass
-901 7:52a 🟣 ContextManager v1 Managed History in Protected Mode
-902 " 🔵 Pre-Implementation State: ContextManager and HistoryManager Baseline
-903 " 🔵 agent.py Message Schema and Failure/Recovery State Variables Confirmed
-904 7:53a 🔵 test_completion_guard.py Mock Signature Locks prepare_messages Keyword Argument Names
-905 " 🟣 ContextManager v1 Managed History and _compact Function Implemented
-906 " 🔵 File Write Did Not Persist: context_manager.py Still Shows Old Content
-907 7:56a 🟣 ContextManager v1 Managed History: Final Implementation Successfully Written to Disk
-908 7:57a 🔄 COMPACTION_SUMMARY_MESSAGE Centralized in history_manager.py
-909 " 🟣 ContextManager v1 Managed History: All Tests Pass, py_compile Clean
-911 " 🟣 Phase-Aware Tool Filtering Task Initiated
-910 " 🟣 ContextManager v1 Managed History: Final Verification Complete
-912 8:01a 🔵 Pre-Implementation State: tool_registry.py, phase_tracker.py, and agent.py Baseline for Tool Filtering
-913 " 🔵 agent.py Phase State Sources Confirmed for Tool Filtering Insertion Point
-914 8:03a 🟣 filter_tools_for_phase Added to runtime/tool_registry.py
-915 " 🟣 agent.py Wired to Use filter_tools_for_phase Before Each ModelRouter Call
-916 " 🟣 tests/test_tool_registry.py Created with Phase Filter Tests
-917 " 🟣 Phase-Aware Tool Filtering: All 9 Tests Pass, py_compile Clean
-918 8:04a 🟣 Phase-Specific LLM Instruction Blocks in ContextManager
-919 8:08a 🔵 ContextManager.prepare_messages Does Not Receive Phase from agent.py
-920 " 🔵 LLMClient message list structure starts with a single system message
-921 8:09a 🔵 Existing Tests Already Pass Phase via metadata dict — No Signature Change Needed
-922 8:10a 🟣 Phase-Specific LLM Instruction Blocks Implemented Across agent.py, context_manager.py, and Tests
-923 " 🟣 Phase Instruction Implementation Confirmed Written to Disk — All Three Files Verified
-924 " 🟣 Phase Instruction Feature Passes All 13 Tests — py_compile and pytest Green
-925 8:11a 🟣 Phase Instruction Feature — Final Git Diff and Verification Complete
-926 8:12a 🟣 Full Verbose Test Suite Passes — All 13 Tests Named and Green
-927 8:13a 🔵 AgentLoop Skill Loading Architecture — Keyword-Based Dynamic Skill Injection
-928 " 🔵 Skill Architecture: Phase Instructions Complement Existing Skill-Level Rules Already Present in SKILL.md Files
-929 8:14a 🔵 Skill Loading Pipeline: _load_skills_for_steps Returns Three Values Used Separately
-930 " 🔵 _current_phase() Logic and run() Loop Structure Confirmed
-931 8:15a 🔵 PhaseTracker Architecture: get_phase() Used by _current_phase(), "dropdown" Skill Missing from Filesystem
-932 " 🔵 Phase Transition Map: All set_phase() Call Sites in agent.py Confirmed
-933 " 🟣 Progressive Skill Loading v1 — Task Specification
-934 8:23a 🔵 Progressive Skill Loading Pre-Implementation Inspection: Key Constraints Identified
-935 " 🔵 Progressive Skill Loading: Recovery/Recording Phase Triggers Confirmed in agent.py
-936 8:28a 🟣 Progressive Skill Loading v1 — Second Attempt Task Specification
-937 " 🟣 Progressive Skill Loading: New Self Fields Added to AgentLoop
-938 " 🟣 Progressive Skill Loading v1 — Core Logic Implemented in agent.py
-939 " 🔴 Two Follow-Up Fixes to Progressive Skill Loading in _load_skills_for_steps and _load_phase_skill_expansion
-940 8:29a 🟣 Progressive Skill Loading v1 — Phase-Aware, Add-Only Skill Expansion
-941 8:30a 🔴 Variable Reference Fix: loaded_skill_names → self._loaded_skill_names in agent.py
-942 " 🟣 Progressive Skill Loading v1 — Verified Implementation Details
-943 8:31a 🟣 SKILL_KEYWORDS Map and _load_skills_for_steps/_read_skill Implementation in agent.py
+944 8:41a ⚖️ Codegen Skill No Longer Auto-Loads on Recording Phase Alone
+945 " 🔵 Codegen Auto-Load on Recording Phase Still Present in agent.py Before Fix
+946 " 🔵 Recovery Phase Lifecycle: pending_recovery, active_failed_step_id, and Phase Transitions in agent.py
+947 8:42a 🔴 Removed Auto-Codegen on Recording Phase; Added _requires_complex_codegen Metadata Gate
+948 " 🟣 Tests Updated: test_simple_click_recording_does_not_add_codegen and test_generate_intent_loads_codegen
+949 " 🟣 Codegen Skill Loading Gated Behind _requires_complex_codegen — 21 Tests Pass
+950 8:43a ✅ agent.py Net Change: +209/-22 Lines for Progressive Skill Loading v1 + Codegen Gate
+951 " 🟣 Added test_complex_codegen_metadata_allows_recording_codegen to Verify Explicit Metadata Gate
+952 " 🟣 Final Verification: 22 Tests Pass — Codegen Skill Loading Fully Controlled
+953 8:47a 🔵 plan_ready payload structure and confirmation flow in agent v4
+954 " 🔵 agent.py plan_ready code path and send_to_overlay handler confirmed
+955 8:48a 🔵 Frontend plan_ready field consumption confirmed — children field is safe to add
+956 " 🔵 tests/test_plan_model.py does not exist yet; plan_ready payload shape fully confirmed
+957 " 🔵 send_to_overlay tool schema and plan_ready augmentation insertion point confirmed
+958 " 🔵 Implementation plan fully scoped — helper placement and augmentation point finalized
+959 8:49a 🟣 Parent/child plan model added to agent.py with plan_steps augmentation
+960 " 🔴 agent.py plan_ready augmentation patch applied via write_file after apply_patch failed
+961 8:51a 🟣 plan_ready payload augmentation fully wired in agent.py
+962 " 🔴 3 test failures in test_plan_model.py due to locator assertion mismatch
+963 8:52a 🔴 test_plan_model.py locator test failures fixed by correcting element_info shape
+964 " 🟣 Parent/child plan model complete — all 29 tests passing including 7 new test_plan_model tests
+965 " ✅ Final git status confirms only agent.py modified and test_plan_model.py created
+966 9:02a ⚖️ New task: add parent/child structure to step_recorded payload in agent v4
+967 " 🔵 Read-only investigation: step_recorded status compatibility in agent v4
+968 " ⚖️ Parent/child step_recorded payload v1 design for agent v4
+969 9:04a 🔵 step_recorded canonical status is "recorded" everywhere in agent v4
+970 " 🔵 _build_planned_children helper already exists in agent v4 for operation type classification
+971 " 🔵 Frontend step_recorded handler ignores unknown payload fields — children array is safe to add
+972 " 🟣 Added parent/child structure to step_recorded payload in agent.py
+973 " 🟣 _build_recorded_children and parent/child payload fields successfully added to agent.py
+974 9:05a 🔵 Internal step status lifecycle uses "recorded"/"skipped" set — not affected by payload status change to "success"
+975 " 🟣 Created tests/test_recorded_step_model.py for parent/child step_recorded payload
+976 " 🟣 All 30 tests pass after parent/child step_recorded payload implementation
+977 " 🔵 Runtime variable safety check confirmed for new variables in agent.py
+978 9:06a ✅ Git status: agent v4 changes ready — agent.py modified, two new test files untracked
+979 " ✅ agent.py parent/child recorded step feature: 146 net insertions, 1 deletion
+980 9:16a ⚖️ Plan to emit code_update after step_recorded in agent v4 single-action flow
+981 " 🔵 Frontend code_update handler confirmed: extractCodePreview reads payload.lines array
+982 9:17a 🔵 Frontend normalizePlanStep does not handle "success" status — code_update payload type field is safe
+983 9:18a 🟣 code_update emitted automatically after step_recorded in agent v4 single-action flows
+984 " 🟣 code_update call site patch applied successfully in agent.py step_recorded handler
+985 " 🔵 agent.py run loop: _all_steps_resolved check happens after tool processing completes each iteration
+986 " 🟣 Created tests/test_code_update.py for automatic code_update emission after step_recorded
+987 " 🔵 agent.py code_update call site confirmed at line 2604 — immediately after _mark_step_recorded at line 2603
+988 9:19a 🔵 test_completion_guard.py only asserts sent_messages[0][0] == "step_recorded" — will still pass with code_update as sent_messages[1]
+989 " 🔴 test_recorded_step_model.py failed: assert len(sent_messages) == 1 broken by new code_update emission
+990 " 🔴 test_recorded_step_model.py updated to expect 2 messages after code_update addition
+991 " 🟣 code_update auto-emission after step_recorded complete — 31/31 tests pass, all variables verified
+992 9:20a 🟣 Complete git diff of all agent.py changes across both sessions: parent/child model + code_update
+993 " 🔵 Final line-number verification: all agent.py and test implementations confirmed in place
 
-Access 739k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 717k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>
