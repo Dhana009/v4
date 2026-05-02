@@ -25791,6 +25791,7 @@
       ] }),
       tab === "workbench" && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-bottom", children: [
         /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ide-btn", type: "button", onClick: () => runtime.onAddPendingStep?.(), children: "+ Step" }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ide-btn", type: "button", onClick: () => runtime.onSaveSnapshot?.(), children: "Save Snapshot" }),
         /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
           "button",
           {
@@ -26630,6 +26631,7 @@
     const [codePreview, setCodePreview] = (0, import_react2.useState)("");
     const [lastError, setLastError] = (0, import_react2.useState)("");
     const [lastEvent, setLastEvent] = (0, import_react2.useState)(null);
+    const [lastSavedSnapshot, setLastSavedSnapshot] = (0, import_react2.useState)(null);
     const [pendingSteps, setPendingSteps] = (0, import_react2.useState)(() => normalizePendingSteps(config.pendingSteps));
     const [recordedSteps, setRecordedSteps] = (0, import_react2.useState)(() => normalizeRecordedSteps(config.recordedSteps));
     const [interactionMode, setInteractionMode] = (0, import_react2.useState)(
@@ -26797,6 +26799,14 @@
         "WebSocket not connected."
       );
     }, [appendTimeline, pendingSteps, sendPayload]);
+    const handleSaveSnapshot = (0, import_react2.useCallback)(() => {
+      sendPayload(
+        {
+          type: "save_snapshot"
+        },
+        "WebSocket not connected."
+      );
+    }, [sendPayload]);
     const handleConfirmPlan = (0, import_react2.useCallback)(() => {
       const sent = sendPayload(
         {
@@ -27032,6 +27042,22 @@
             appendTimeline(text || "Code updated", "ok");
             break;
           }
+          case "save_snapshot_result": {
+            const isOk = payload && typeof payload === "object" && payload.ok === true;
+            if (isOk) {
+              const nextSnapshot = payload.snapshot && typeof payload.snapshot === "object" ? payload.snapshot : null;
+              setLastSavedSnapshot(nextSnapshot);
+              appendTimeline("Snapshot saved", "ok");
+            } else {
+              const errorText = firstNonEmptyText(
+                payload && typeof payload === "object" ? payload.error : "",
+                "Snapshot save failed"
+              );
+              setLastError(errorText);
+              appendTimeline(errorText, "err");
+            }
+            break;
+          }
           case "element_picked": {
             const { stepId, stepIds, elementInfo } = normalizePickedElementMessage(message);
             const referenceIds = collectStepReferenceValues(stepIds, stepId, activePickerStepIdRef.current);
@@ -27181,6 +27207,7 @@
       codePreview,
       lastError,
       lastEvent,
+      lastSavedSnapshot,
       wsUrl,
       activePickerStepId,
       onCorrectionTextChange: setPlanCorrectionText,
@@ -27192,6 +27219,7 @@
       onDeletePendingStep: removePendingStep,
       onAttachElement: handleAttachElement,
       onRunPendingSteps: handleRunPendingSteps,
+      onSaveSnapshot: handleSaveSnapshot,
       onConfirmPlan: handleConfirmPlan,
       onSendCorrection: handleSendPlanCorrection,
       onSendPlanCorrection: handleSendPlanCorrection,
@@ -27211,6 +27239,7 @@
       addPendingStep,
       removePendingStep,
       handleRunPendingSteps,
+      handleSaveSnapshot,
       handleConfirmPlan,
       handleSendPlanCorrection,
       handleSendClarificationAnswer,

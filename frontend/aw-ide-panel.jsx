@@ -1444,6 +1444,9 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
           <button className="ide-btn" type="button" onClick={() => runtime.onAddPendingStep?.()}>
             + Step
           </button>
+          <button className="ide-btn" type="button" onClick={() => runtime.onSaveSnapshot?.()}>
+            Save Snapshot
+          </button>
           <button
             className="ide-btn primary"
             type="button"

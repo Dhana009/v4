@@ -1001,6 +1001,7 @@ function useAutoWorkbenchTransport(config) {
   const [codePreview, setCodePreview] = useState("");
   const [lastError, setLastError] = useState("");
   const [lastEvent, setLastEvent] = useState(null);
+  const [lastSavedSnapshot, setLastSavedSnapshot] = useState(null);
   const [pendingSteps, setPendingSteps] = useState(() => normalizePendingSteps(config.pendingSteps));
   const [recordedSteps, setRecordedSteps] = useState(() => normalizeRecordedSteps(config.recordedSteps));
   const [interactionMode, setInteractionMode] = useState(
@@ -1200,6 +1201,15 @@ function useAutoWorkbenchTransport(config) {
       "WebSocket not connected."
     );
   }, [appendTimeline, pendingSteps, sendPayload]);
+
+  const handleSaveSnapshot = useCallback(() => {
+    sendPayload(
+      {
+        type: "save_snapshot",
+      },
+      "WebSocket not connected."
+    );
+  }, [sendPayload]);
 
   const handleConfirmPlan = useCallback(() => {
     const sent = sendPayload(
@@ -1461,6 +1471,22 @@ function useAutoWorkbenchTransport(config) {
           appendTimeline(text || "Code updated", "ok");
           break;
         }
+        case "save_snapshot_result": {
+          const isOk = payload && typeof payload === "object" && payload.ok === true;
+          if (isOk) {
+            const nextSnapshot = payload.snapshot && typeof payload.snapshot === "object" ? payload.snapshot : null;
+            setLastSavedSnapshot(nextSnapshot);
+            appendTimeline("Snapshot saved", "ok");
+          } else {
+            const errorText = firstNonEmptyText(
+              payload && typeof payload === "object" ? payload.error : "",
+              "Snapshot save failed"
+            );
+            setLastError(errorText);
+            appendTimeline(errorText, "err");
+          }
+          break;
+        }
         case "element_picked": {
           const { stepId, stepIds, elementInfo } = normalizePickedElementMessage(message);
           const referenceIds = collectStepReferenceValues(stepIds, stepId, activePickerStepIdRef.current);
@@ -1630,6 +1656,7 @@ function useAutoWorkbenchTransport(config) {
     codePreview,
     lastError,
     lastEvent,
+    lastSavedSnapshot,
     wsUrl,
     activePickerStepId,
     onCorrectionTextChange: setPlanCorrectionText,
@@ -1641,6 +1668,7 @@ function useAutoWorkbenchTransport(config) {
     onDeletePendingStep: removePendingStep,
     onAttachElement: handleAttachElement,
     onRunPendingSteps: handleRunPendingSteps,
+    onSaveSnapshot: handleSaveSnapshot,
     onConfirmPlan: handleConfirmPlan,
     onSendCorrection: handleSendPlanCorrection,
     onSendPlanCorrection: handleSendPlanCorrection,
@@ -1660,6 +1688,7 @@ function useAutoWorkbenchTransport(config) {
     addPendingStep,
     removePendingStep,
     handleRunPendingSteps,
+    handleSaveSnapshot,
     handleConfirmPlan,
     handleSendPlanCorrection,
     handleSendClarificationAnswer,

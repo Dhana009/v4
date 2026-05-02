@@ -1,28 +1,16 @@
 <claude-mem-context>
 # Memory Context
 
-# [frontend] recent context, 2026-05-02 12:52pm GMT+5:30
+# [frontend] recent context, 2026-05-02 1:04pm GMT+5:30
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (26,694t read) | 791,703t work | 97% savings
+Stats: 50 obs (25,874t read) | 627,943t work | 96% savings
 
 ### May 2, 2026
 S105 Read-only investigation: multi-action execution/recording mismatch in agent v4 — assert disappears from step_recorded when assert+click both execute before recording (May 2 at 10:29 AM)
-1108 11:58a 🔵 Read-only investigation: recorded multi-action parent card still shows flat single-action fields
-1109 " 🔵 Root cause found: IDERecordedStepCard renders action badge and code block from flat step fields, ignoring children
-1110 11:59a 🔵 Exact line numbers mapped for IDERecordedStepCard multi-action fix in aw-ide-panel.jsx
-1111 " 🔵 getPlanStepChildren returns raw children with code_lines; normalizePlanChild strips them — fix must use raw array
-1112 " 🟣 Fix recorded multi-action parent card rendering in IDERecordedStepCard
-1113 12:02p 🔵 CSS audit: t-step style can serve as multi-action badge; ide-recorded-step-code reusable for flattened block
-1114 12:03p 🔵 firstText() confirmed available in aw-ide-panel.jsx scope at line 582 for use in multi-action code flatten
-1115 " 🔴 IDERecordedStepCard now renders multi-action parent cards correctly with MULTI-ACTION badge and flattened code
-1116 12:04p 🟣 Fix recorded multi-action parent card rendering in AutoWorkbench IDE panel
-1117 12:05p 🔴 IDERecordedStepCard multi-action parent rendering fixed in aw-ide-panel.jsx
-1125 12:11p 🟣 RecoveryManager v1 created as pure policy layer in agent v4
-1126 12:12p 🟣 agent.py integrated with RecoveryManager and stale success cleanup added
 1127 12:17p 🟣 RecoveryManager v1 Created as Pure Policy Layer
 1128 " 🟣 Agent.py Integrated with RecoveryManager and Stale Success Cleanup
 1129 12:21p 🟣 RecoveryManager Unit Tests Created
@@ -62,6 +50,18 @@ S107 Fix recorded multi-action parent card rendering in AutoWorkbench IDE panel 
 1174 " 🟣 Capability Gap Logging v1 verified: py_compile clean, 80/80 tests pass
 1175 12:50p 🔵 Two pytest environments detected: Python 3.13.1/pytest-8.3.5 (80 tests) and Python 3.13.9/pytest-8.4.2 (58 tests)
 1176 " 🟣 Capability Gap Logging v1 — final git diff confirms exact changeset shipped
+1177 12:52p 🟣 Save v1 Backend Snapshot/Spec Builder — Task Defined
+1178 12:53p 🔵 AgentLoop In-Memory State Structure for Save v1 Snapshot
+1181 " 🔵 AgentLoop Test Harness Pattern and recorded_step/code_update Payload Shape
+1182 12:54p 🔵 _build_code_update_payload and _get_existing_spec_lines Source of Truth
+1183 12:55p 🟣 runtime/spec_snapshot.py Created — Pure Snapshot Builder Module
+1184 " 🟣 AgentLoop Save v1 — Accumulators and _build_spec_snapshot() Added to agent.py
+1185 12:56p 🔴 spec_snapshot.py Fallback Logic Fixed — code_update presence check decoupled from lines check
+1186 " 🟣 tests/test_save_spec.py Created — Two Test Cases for Save v1 Snapshot
+1187 12:57p 🟣 Save v1 Backend Snapshot — All 65 Tests Pass Including 2 New test_save_spec Tests
+1188 " 🟣 Save v1 Backend Snapshot — Final Verification Complete
+1189 12:58p 🟣 tests/test_save_spec.py Expanded — More Realistic Multi-Step Fixtures
+1190 12:59p 🟣 Save v1 Final State — Three Files Confirmed, All Syntax Clean
 
-Access 792k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 628k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

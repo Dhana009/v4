@@ -1,13 +1,13 @@
 <claude-mem-context>
 # Memory Context
 
-# [agent v4] recent context, 2026-05-02 12:53pm GMT+5:30
+# [agent v4] recent context, 2026-05-02 1:06pm GMT+5:30
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (33,495t read) | 1,187,843t work | 97% savings
+Stats: 50 obs (33,606t read) | 1,276,451t work | 97% savings
 
 ### May 1, 2026
 S96 Implement lifecycle guard in agent.py to enforce Planning → Confirmation → Execution → Record → Recovery control flow (May 1 at 4:06 PM)
@@ -20,8 +20,6 @@ S101 Fix Phase 3D frontend UI/state bugs in AutoWorkbench IDE panel (spaces, pic
 S102 Fix backend multi-step recording bug in agent.py — replace global last_successful_action with per-step successful_action_by_step_id dict (May 2 at 3:14 AM)
 S103 Launch AutoWorkbench agent v4 once and run a smoke test of the clarification UI roundtrip (May 2 at 3:33 AM)
 S104 Add agent phase diagnostics in shadow mode to agent v4 — PhaseTracker implementation in runtime/phase_tracker.py and agent.py wiring (May 2 at 3:57 AM)
-1021 10:03a 🔴 Fixed Multi-Action plan_ready: One Intent Now Produces One Parent Step
-1022 10:04a 🔴 Fix multi-action plan_ready normalization: one user intent → one parent step
 1023 10:06a 🔵 agent.py plan_ready normalization: existing architecture for _build_plan_ready_parent_step and _build_planned_children
 1024 10:07a 🔴 Fixed plan_ready normalization: one user intent now collapses multiple LLM steps into one parent step
 1025 10:08a 🔴 plan_ready multi-action collapse: all 35 tests pass after fix verified
@@ -71,6 +69,8 @@ S106 Read-only investigation of recorded parent/child display wording in AutoWor
 1167 12:46p 🔵 Save/Replay Readiness Investigation — Autoworkbench Agent v4
 1170 " 🔵 Autoworkbench Agent v4 — Detailed Code-Level Save/Replay Gap Findings
 1171 12:47p 🔵 Frontend Recorded Step Normalization and Merge Contract — main.jsx
+1179 12:53p ⚖️ Save v1 Architecture Decision — Frontend-Side Export vs Backend Snapshot
+1180 " 🔵 Save v1 Frontend Attachment Points and Export Helper Gap Confirmed
 
-Access 1188k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 1276k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

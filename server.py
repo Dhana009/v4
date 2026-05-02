@@ -54,6 +54,27 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 run_task = asyncio.create_task(agent.run(steps))
                 continue
 
+            if msg_type == "save_snapshot":
+                try:
+                    snapshot = agent._build_spec_snapshot()
+                    await ws.send_json(
+                        {
+                            "type": "save_snapshot_result",
+                            "ok": True,
+                            "snapshot": snapshot,
+                        }
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    error_message = f"Snapshot save failed: {type(exc).__name__}"
+                    await ws.send_json(
+                        {
+                            "type": "save_snapshot_result",
+                            "ok": False,
+                            "error": error_message,
+                        }
+                    )
+                continue
+
             if msg_type in {"confirmed", "correction", "option_selected"}:
                 await control_queue.put(msg)
                 continue
