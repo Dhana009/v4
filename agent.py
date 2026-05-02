@@ -11,6 +11,7 @@ from playwright.async_api import expect
 
 from browser import get_page
 from llm import LLMClient
+from runtime.telemetry import record_model_call_end, record_model_call_start
 
 
 SKILL_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
@@ -82,6 +83,7 @@ class AgentLoop:
         self._awaiting_step_record = False
         self._pending_failure_followup = False
         self.run_stop_requested = False
+        self._llm_call_counter = 0
 
     def _reset_lifecycle_state(self, steps: list[dict] | None = None) -> None:
         self.phase = "planning"
@@ -103,6 +105,7 @@ class AgentLoop:
         self._last_action_context = None
         self._awaiting_step_record = False
         self.run_stop_requested = False
+        self._llm_call_counter = 0
 
     async def _send(self, msg_type: str, **kwargs: Any) -> None:
         payload = {"type": msg_type}
@@ -125,11 +128,36 @@ class AgentLoop:
 
             while True:
                 print("[AGENT] Requesting LLM response")
-                response = await self.llm.client.chat.completions.create(
-                    model="gpt-4o-mini",
+                self._llm_call_counter += 1
+                call_id = f"llm_{self._llm_call_counter:03d}"
+                model = "gpt-4o-mini"
+                telemetry = record_model_call_start(
+                    call_id=call_id,
+                    purpose="main_orchestrator",
+                    model=model,
                     messages=self.llm.messages,
                     tools=self.tools,
-                    tool_choice="auto",
+                    skill_count=len(loaded_skill_names),
+                )
+                try:
+                    response = await self.llm.client.chat.completions.create(
+                        model=model,
+                        messages=self.llm.messages,
+                        tools=self.tools,
+                        tool_choice="auto",
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    record_model_call_end(
+                        telemetry,
+                        success=False,
+                        error_type=type(exc).__name__,
+                        error_message=str(exc),
+                    )
+                    raise
+                record_model_call_end(
+                    telemetry,
+                    success=True,
+                    response_usage=getattr(response, "usage", None),
                 )
                 message = response.choices[0].message
                 self.llm.messages.append(self._assistant_message_entry(message))

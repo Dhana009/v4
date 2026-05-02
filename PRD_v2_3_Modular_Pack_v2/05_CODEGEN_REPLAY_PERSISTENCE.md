@@ -1,0 +1,493 @@
+# 05 — Codegen, Replay, and Persistence
+
+> PRD v2.3 modular pack. Existing PRD v2.2 wording is preserved where it still applies. New or corrected material is marked as v2.3 guidance.
+
+
+## v2.3 recording model
+
+A recorded step is a parent object representing user intent. It may contain one or more child operations.
+
+```json
+{
+  "step_id": "step_1",
+  "intent": "assert hero text and click Get started",
+  "status": "recorded",
+  "children": [
+    {
+      "operation_id": "op_1",
+      "type": "assert",
+      "locator": "get_by_text(...)",
+      "assertion": "has_text",
+      "expected": "Playwright enables...",
+      "status": "recorded",
+      "code_lines": ["await expect(...).toContainText(...)"]
+    },
+    {
+      "operation_id": "op_2",
+      "type": "click",
+      "locator": "get_by_text('Get started')",
+      "status": "recorded",
+      "code_lines": ["await page.getByText('Get started').click()"]
+    }
+  ]
+}
+```
+
+### Expected criteria
+
+- Multi-action user intent is not flattened into an opaque single card.
+- Replay can target parent step or child operation.
+- Codegen can produce one or more lines per child operation.
+- Recovery can update only the failed child operation when appropriate.
+
+
+## Workspace-based storage rule
+
+User-facing outputs save under the active workspace by default, not hardcoded `.hermes`.
+
+Default examples:
+
+```text
+<workspace>/autoworkbench-output/
+<workspace>/tests/generated/
+<workspace>/.autoworkbench/sessions/
+```
+
+The exact folder can be configured, but the default must be relative to where the application/project is running.
+
+Hidden internal metadata may use:
+
+```text
+<workspace>/.autoworkbench/
+```
+
+but generated specs, saved recordings, versions, and exports belong to the user’s workspace.
+
+### Expected criteria
+
+- Save works without forcing `.hermes/output`.
+- User can choose custom folder/name.
+- Session JSON and generated spec stay together unless user chooses otherwise.
+- Secrets are never written to generated code or logs.
+
+
+## Replay and repair contract
+
+Replay is a backend operation, not a frontend simulation.
+
+```text
+frontend sends replay_step / replay_operation / replay_all
+→ backend loads recorded step/operation
+→ backend revalidates locator
+→ backend executes
+→ backend emits replay_result
+→ if failure, backend emits recovery_needed
+→ LLM repair loop runs
+→ user confirms/corrects if needed
+→ backend updates recorded step and code
+→ user can save new version
+```
+
+### Expected criteria
+
+- Replay failure invokes the same recovery principles as live LLM Mode.
+- A repaired replay can update the recording only after successful validation.
+- User can save repaired flow as a new version.
+- Replay does not mutate the recording unless a validated repair is accepted.
+
+
+## Locator update / replacement flow
+
+A user can request locator replacement for one operation, one parent step, or a selected group.
+
+Expected flow:
+
+```text
+user requests locator update
+→ backend finds alternatives
+→ candidates scored for stability
+→ each candidate validated count == 1
+→ user confirms preferred candidate or system selects best stable candidate
+→ recording, locator library, and code update
+```
+
+### Expected criteria
+
+- Old locator remains in history with reason for replacement.
+- New locator is validated before activation.
+- Generated TypeScript updates immediately after replacement.
+- Replay uses the updated locator.
+
+
+## v2.3 codegen reviewer rule
+
+Code generation is backend-owned and deterministic first. The Codegen Reviewer Agent, defined in `07_MULTI_MODEL_ORCHESTRATION.md`, may review generated TypeScript for complex or high-risk flows, but it does not replace deterministic codegen.
+
+Triggered when:
+
+```text
+- exporting final spec
+- popup/download/iframe/network/auth code is generated
+- locator replacement changes code
+- replay repair modifies recorded operations
+- fragile locator warning exists
+```
+
+Expected criteria:
+
+- Recorded operation → deterministic Playwright TypeScript line remains the primary path.
+- Reviewer catches invalid locator syntax or missing waits in complex flows.
+- Reviewer suggestions are applied only through backend codegen rules, not copied blindly.
+
+
+---
+
+> **Preserved v2.2 reference only.** If this section conflicts with v2.3 guidance above, v2.3 wins.
+
+## Preserved v2.2 persistence/code sections
+
+Three levels of memory. Each serves a different purpose.
+
+### Level 1 — Managed run memory
+
+Scope: One agent run (one set of steps submitted in LLM Mode).
+
+```python
+run_state = {
+    "messages": [],              # active LLM message window
+    "history_summary": "",       # compacted prior tool history
+    "step_state": {},            # pending/executing/recovery_pending/recorded/skipped
+    "validated_locators": {},    # locator choices confirmed in this run
+    "page_state": {},            # current URL/title/dom_version
+    "unresolved_failure": None,
+}
+```
+
+Used for: preserving all relevant state while preventing raw DOM/tool outputs from growing without limit. The LLM sees the current message window plus structured summaries, not unlimited raw history.
+
+### Level 2 — Session memory (Python objects)
+
+Scope: One session (from launch to exit)
+
+```python
+session = {
+    "run_id": "...",
+    "steps": [],          # recorded steps
+    "current_url": "",
+    "domain": "",
+    "locators": {},       # locators found this session
+    "page_maps": {},      # pages explored this session
+}
+```
+
+Used for: step list, current state, locators found during this session.
+
+### Level 3 — Persistent memory (files)
+
+Scope: Across sessions
+
+**Locator library** — `.hermes/locators/[domain].json`
+```json
+{
+  "app.example.com": {
+    "login-page": {
+      "email-input":    "getByLabel('Email')",
+      "password-input": "getByLabel('Password')",
+      "login-button":   "getByRole('button', {name: 'Login'})"
+    },
+    "dashboard": {
+      "heading": "getByRole('heading', {name: 'Dashboard'})"
+    }
+  }
+}
+```
+
+When a session starts, the locator library for the current domain is injected into the LLM system prompt. The LLM reuses known locators instead of re-discovering them.
+
+**Page maps** — `.hermes/page-maps/[domain]/[path-hash].json`
+```json
+{
+  "url": "https://app.example.com/results",
+  "explored_at": "2026-04-30T10:00:00Z",
+  "sections": { ... },
+  "summary": "Results page with filter bar, data table, pagination"
+}
+```
+
+**Session memory** — `.hermes/memories/MEMORY.md`
+```
+# Memory — app.example.com
+
+## Locator patterns that work
+- Login button: getByRole('button', {name: 'Login'}) — always stable
+- Email input: getByLabel('Email') — stable
+
+## Patterns that failed
+- data-testid='login-btn' changed to data-testid='btn-login' on 2026-04-15
+
+## App behavior notes
+- After login, redirects to /dashboard with 1-2s delay
+- Filter bar requires waitForLoadState('networkidle') after each change
+```
+
+**Error patterns** — `.hermes/memories/error-patterns.json`
+```json
+{
+  "Element not interactable": {
+    "seen_count": 12,
+    "best_fix": "scroll into view then retry",
+    "success_rate": "91%"
+  },
+  "Timeout exceeded": {
+    "seen_count": 8,
+    "best_fix": "waitForLoadState networkidle",
+    "success_rate": "88%"
+  }
+}
+```
+
+When an error occurs, the system checks error patterns first and tries the best known fix immediately.
+
+**Auto-update after every session:**
+- Confirmed locators → saved to locator library
+- New fix patterns → saved to error patterns
+- App behavior notes → appended to MEMORY.md
+
+---
+
+### One session = one output file
+
+```
+Session start:
+  Backend asks (or auto-detects from first URL):
+  "What are we testing today?"
+  Answer → test name + file name
+
+Auto-naming format:
+  .hermes/output/[YYYY-MM-DD]-[session-name].spec.ts
+  Example: 2026-04-30-login-flow.spec.ts
+
+Session JSON (for reload/replay):
+  .hermes/output/[YYYY-MM-DD]-[session-name].session.json
+  {
+    "name": "login flow",
+    "url": "https://app.example.com",
+    "date": "2026-04-30",
+    "steps": [...],
+    "locators": {...}
+  }
+```
+
+### Save options
+
+```
+[💾 Save]
+  → Saves to default auto-named location
+  → .hermes/output/[date]-[name].spec.ts
+  → Overwrites if file already exists
+
+[💾 Save As]
+  → User picks custom name + custom folder
+  → Can save to any location on disk:
+    ~/tests/smoke/login.spec.ts
+    ~/projects/myapp/tests/login.spec.ts
+  → Both .spec.ts and .session.json saved together
+  → Panel shows save dialog:
+    Name: [login-flow          ]
+    Path: [.hermes/output/     ] [Browse]
+    [Save] [Cancel]
+
+[📋 Save Copy]
+  → Save a copy to new location
+  → Continue working on original session
+  → Useful for checkpointing
+```
+
+### Load options
+
+```
+[📂 Load Recording]
+  → Shows recent recordings list:
+    📄 login-flow       2026-04-30  12 steps  ✅
+    📄 checkout-flow    2026-04-29   8 steps  ❌
+    📄 settings-update  2026-04-28  15 steps  ✅
+    [Search recordings...]
+    [Browse for file...]
+
+  User can:
+  → Pick from recent list (loaded from .hermes/output/)
+  → Browse filesystem for any .session.json anywhere
+  → Load any past recording from any location
+
+  After load:
+    Steps loaded into step panel
+    Browser navigates to session's starting URL
+    User decides: [▶ Replay] or [Continue adding steps]
+    Steps loaded but NOT auto-executed
+
+[📂 Load from path]
+  → User types or pastes path directly:
+    /load ~/Downloads/old-test.session.json
+    /load ~/projects/myapp/tests/checkout.session.json
+```
+
+### Version snapshots
+
+At any point the user can save a named version:
+```
+/versions → save version "before-assertions"
+Later: /versions → load version "before-assertions"
+Stored in SQLite — not just files
+```
+
+### Step management rules
+
+- **Add step** → appended to list. Browser state unchanged.
+- **Delete step** → removed from list only. Browser stays at current state.
+- **Edit step** → modified in list. Re-validated immediately.
+- **Reorder step** → reordered in list. No re-execution.
+- **None of these operations re-execute in browser unless user explicitly asks.**
+
+### Auto-save
+
+Session auto-saves to `.session.json` after every confirmed step. If user force-quits, nothing is lost. Last state is always recoverable.
+
+### Parallel sessions
+
+```
+Terminal 1 → session 1 → browser 1 → file 1
+Terminal 2 → session 2 → browser 2 → file 2
+No shared state. No interference.
+```
+
+---
+
+| Method | How | Example |
+|---|---|---|
+| **Plain text in chat** | Type directly | "fill email with test@example.com" |
+| **Environment variables** | `.hermes/.env` (gitignored) | "use credentials from env" → reads `TEST_EMAIL` |
+| **File drop zone** | Drop file in `.hermes/uploads/` | "use the resume in uploads" |
+| **JSON test data** | `.hermes/test-data/data.json` | "use user data from test data file" |
+| **Direct file path** | Type path | "upload the file at ~/Documents/resume.pdf" |
+| **Auto-generated (Faker)** | No data provided | "fill name field" → `faker.person.fullName()` |
+
+**Faker behavior:**  
+Agent always tells user what it generated. Never uses Faker silently.  
+"I used: generated-email@example-faker.com"
+
+**Secrets rule:**  
+Values from `.env` are NEVER shown in chat, logs, or generated code.  
+Generated code references env var names, not values:
+```typescript
+await emailInput.fill(process.env.TEST_EMAIL ?? '')
+await passwordInput.fill(process.env.TEST_PASSWORD ?? '')
+```
+
+---
+
+**User controls auth completely. Agent never touches it unless explicitly asked.**
+
+```
+FLOW 1 — First time setup:
+  User logs in manually in browser
+  User says: "save storage state" or /save-auth
+  Agent saves:
+    await context.storageState({
+      path: '.hermes/auth/storageState.json'
+    })
+  Confirms: "Storage state saved ✅"
+
+FLOW 2 — Every session after:
+  User says: "load auth" or /load-auth
+  Agent creates context with saved state:
+    browser.newContext({
+      storageState: '.hermes/auth/storageState.json'
+    })
+  Navigate → already logged in ✅
+
+FLOW 3 — Auth expires:
+  Agent detects: redirect to login OR 401 response
+  Tells user: "Auth expired — please log in again"
+  User logs in → agent saves new state → continues
+
+FLOW 4 — No auth needed:
+  User never mentions auth
+  Agent never touches it
+
+MULTIPLE USERS:
+  .hermes/auth/admin-storageState.json
+  .hermes/auth/user-storageState.json
+  User specifies which to load explicitly
+```
+
+---
+
+### Structure
+
+```typescript
+// ============================================
+// Generated by Playwright Co-pilot
+// Session: 2026-04-30T10:00:00Z
+// App: https://app.example.com
+// Test: login flow
+// ============================================
+
+import { test, expect } from '@playwright/test'
+
+// === LOCATORS ===
+// All locators defined here for easy maintenance
+// Update locators here when app changes
+
+const emailInput    = page.getByLabel('Email')
+const passwordInput = page.getByLabel('Password')
+const loginButton   = page.getByRole('button', { name: 'Login' })
+const dashboard     = page.getByRole('heading', { name: 'Dashboard' })
+
+// ⚠ Fragile locator — no stable attributes found
+// Consider adding data-testid to this element
+const submitBtn = page.locator('//form/div[3]/button')
+
+// === TEST ===
+test('login flow', async ({ page }) => {
+  await page.goto(process.env.BASE_URL ?? 'https://app.example.com')
+  await emailInput.fill(process.env.TEST_EMAIL ?? 'test@example.com')
+  await passwordInput.fill(process.env.TEST_PASSWORD ?? '')
+  await loginButton.click()
+  await expect(dashboard).toBeVisible()
+})
+```
+
+### Why locators at the top
+
+- Easy to update when app changes
+- Clear separation from test logic
+- Standard pattern every Playwright engineer knows
+- One place to fix when locators break
+
+### Auto-generated Playwright config (if missing)
+
+```typescript
+// playwright.config.ts
+import { defineConfig, devices } from '@playwright/test'
+
+export default defineConfig({
+  testDir: '.hermes/output',
+  timeout: 30000,
+  retries: 1,
+  reporter: [
+    ['html', { outputFolder: '.hermes/reports' }],
+    ['list']
+  ],
+  use: {
+    baseURL: process.env.BASE_URL,
+    trace: 'retain-on-failure',
+    screenshot: 'only-on-failure',
+    video: 'retain-on-failure'
+  },
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } }
+  ]
+})
+```
+
+---

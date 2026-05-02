@@ -1,14 +1,16 @@
-# Playwright Automation Co-pilot — PRD v2
+# Playwright Automation Co-pilot — PRD v2.2
 
 > **Status:** Active  
-> **Version:** 2.0  
+> **Version:** 2.2  
 > **Replaces:** document_prd.md (v1 — archived)  
 > **Decision:** Build fresh using existing `execution/`, `locator/`, `storage/` as reference components
+> **v2.2 Update:** Makes LLM Mode the primary build focus and hardens context strategy: progressive skill loading, DOM modes, managed history, token governance, Step Runner ownership, backend-owned recording, typed events, and overlay architecture decisions.  
 
 ---
 
 ## Table of Contents
 
+0. [Product Intent & Strategic Decisions](#0-product-intent--strategic-decisions)
 1. [Why We Are Building This](#1-why-we-are-building-this)
 2. [What Went Wrong in v1](#2-what-went-wrong-in-v1)
 3. [What We Are Building](#3-what-we-are-building)
@@ -33,8 +35,42 @@
 22. [What to Rebuild](#22-what-to-rebuild)
 23. [Folder Structure](#23-folder-structure)
 24. [Build Order](#24-build-order)
+25. [LLM Mode Hardening Addendum — v2.1](#25-llm-mode-hardening-addendum--v21)
+26. [LLM Context Strategy & Token Governance — v2.2](#26-llm-context-strategy--token-governance--v22)
 
 ---
+
+## 0. Product Intent & Strategic Decisions
+
+This project is being built around **LLM Mode first**. Manual Mode is important, but the core product value is the LLM layer: the system should understand tester intent, ground that intent against the live browser, validate locators/actions, recover from failures, and produce clean Playwright TypeScript.
+
+### Primary product intent
+
+```text
+Human tells what to test.
+System figures out how to test it.
+System validates everything in the real browser.
+System recovers without restarting.
+System records reliable steps and generates runnable Playwright code.
+```
+
+### Current strategic decisions
+
+| Decision | Current direction | Why |
+|---|---|---|
+| Build focus | LLM Mode first | This is the brain and differentiator of the product. |
+| Runtime ownership | Backend Step Runner owns lifecycle | The LLM may reason, but it must not decide whether work is complete. |
+| Context ownership | Context Manager owns prompt/context | The LLM needs full relevant state, not raw full history. |
+| Skills | Progressive skill loading | Avoid loading every full skill file for every call. |
+| DOM strategy | Mode-based DOM context | Normal/explore/debug/full-DOM modes balance quality and token cost. |
+| UI delivery | Direct injected overlay for MVP | Fastest reliable way to pick elements and control the live page. |
+| Future UI isolation | Shadow DOM overlay | Better CSS/layout isolation without iframe restrictions. |
+| Recording | Backend-owned | A step is recorded only after confirmed successful execution. |
+| Code output | Clean Playwright TypeScript | Output must run without manual cleanup. |
+
+### Non-negotiable quality principle
+
+Token optimization must never reduce correctness. The system should reduce irrelevant context, not useful context. When reliability requires more context, the Context Manager must escalate deliberately and log why.
 
 ## 1. Why We Are Building This
 
@@ -123,7 +159,7 @@ Two modes. One output. Zero mechanical work for the human.
 │  └──────────────────────────────┘  └──────────────────────┘ │
 └──────────────────────────────┬──────────────────────────────┘
                                │ CDP injection
-                               │ iframe panel served locally
+                               │ direct in-page overlay injection (MVP)
                                │ WebSocket ws://localhost:PORT
 ┌──────────────────────────────▼──────────────────────────────┐
 │  Python asyncio Backend                                      │
@@ -136,12 +172,12 @@ Two modes. One output. Zero mechanical work for the human.
 │       │     LLM only on validation failure                   │
 │       │                                                      │
 │       └── LLM Agent Loop                                     │
-│             build messages[] with full context               │
-│             load relevant skills into system prompt          │
-│             call LLM via provider (any model)                │
-│             execute tool calls (async Playwright)            │
-│             append results to messages[]                     │
-│             loop until all steps complete                    │
+│             Context Manager builds full relevant state        │
+│             progressive skills expose only needed detail      │
+│             Step Runner owns lifecycle and finality           │
+│             LLM chooses tools; runtime executes safely        │
+│             managed history compresses old raw outputs        │
+│             loop until all steps recorded/skipped             │
 │                                                              │
 │  Tool Registry (async Python functions)                      │
 │    locator_find | locator_validate | action_execute          │
@@ -181,14 +217,14 @@ client = openai.AsyncOpenAI(
 # LM Studio: base_url="http://localhost:1234/v1"
 ```
 
-**3. messages[] list IS the memory**  
-Every LLM call sends the complete conversation history. The LLM is stateless — the Python list is the state. This solves the "LLM doesn't remember what it tried" problem completely.
+**3. Managed run state replaces raw full-history prompting**  
+The LLM is stateless, but the system must not blindly resend the entire raw message history forever. The backend maintains structured run state: step statuses, validated locators, confirmed plan, current page state, unresolved failures, and compact history summaries. Each LLM call receives **full relevant state**, not every old raw DOM dump or repeated error log.
 
 **4. PanelBridge is a thin router**  
 It receives WebSocket messages and routes to the correct handler. It contains zero business logic. All intelligence lives in the LLM agent loop or the manual handler.
 
-**5. iframe injection, not Shadow DOM**  
-Panel is served as a local HTTP page and injected as an iframe via `add_init_script`. CDP session ensures injection survives CSP. Panel reinjects on every page `load` event for navigation resilience.
+**5. Direct injected overlay for MVP; Shadow DOM later**  
+The MVP panel is injected directly into the live page DOM because it makes element picking, WebSocket updates, and fast iteration simpler. The stabilized version should move the panel into a Shadow DOM root for better CSS/layout isolation. iframe injection is not the preferred MVP path because CSP, cross-origin, and picker integration make it fragile on real websites.
 
 ---
 
@@ -334,16 +370,20 @@ LLM Agent Loop starts — processes ALL steps in sequence
 ```
 LLM Agent Loop starts:
 
-  STEP 1: Build system prompt
-    Load core skill (always)
-    Detect keywords across ALL steps → load relevant skills
-    Load locator library for this domain
-    Load page map if exists
-    Load session memory
+  STEP 1: Context Manager builds prompt context
+    Load compact core rules
+    Load skill index always
+    Load compact skill summaries for relevant intents
+    Load full skill details only when needed
+    Load validated locator library for this domain
+    Load page map if fresh and relevant
+    Load compact run/session memory
         ↓
-  STEP 2: Build messages[]
-    [system]: full context (skills + memory + locators)
-    [user]: all steps with their element data + intent text
+  STEP 2: Build managed LLM input
+    [system]: persona + hard rules + selected skill depth
+    [context]: step state + current page state + validated locators
+    [user]: queued steps with element data + intent text
+    [history]: compact summary of prior tool results, not raw full history
         ↓
   STEP 3: The loop
     LLM processes steps one by one
@@ -428,6 +468,21 @@ LLM: generates all assertions with validated locators
 ### The core principle
 
 **Measure first. Decide after. Never send more than needed.**
+
+The token strategy is adaptive — it changes based on what the user selected, current step risk, page complexity, and failure count. The goal is **not** to minimize tokens blindly. The goal is to send the smallest context that can safely preserve decision quality.
+
+### DOM context modes
+
+The Context Manager chooses one of four modes for each LLM call:
+
+| Mode | When used | Context included | Goal |
+|---|---|---|---|
+| Normal | Most picked-element actions/assertions | selected element descriptor, nearby context, current URL/title, step state, known locator candidates | Lowest cost while preserving accuracy |
+| Explore | Page/section is unknown or user asks to understand page | landmarks, headings, forms, buttons, links, tables, dialogs, page map summary | Build structured understanding without raw full DOM |
+| Debug | A locator/action/assertion failed or repeated retries happened | failed step, failed locator, tried strategies, current focused DOM, actual text, screenshot path, current URL/title | Explain and recover without losing quality |
+| Full DOM fallback | Focused/explore/debug modes fail, or user explicitly asks | capped raw DOM or cleaned HTML with truncation warnings | Last-resort diagnosis |
+
+Escalation is allowed. Blind dumping is not. A full DOM fallback must be logged with the reason it was needed.
 
 The token strategy is adaptive — it changes based on what the user selected and how big the DOM is.
 
@@ -951,27 +1006,33 @@ await expect.soft(locator).toBeVisible()
 
 ### How the agent loop works
 
-This is the core brain of LLM mode. It is a standard OpenAI tool-calling loop — async, stateful within a run via the messages[] list.
+This is the core brain of LLM Mode, but the LLM does **not** own the lifecycle. The Step Runner and Context Manager wrap the LLM tool-calling loop.
 
 ```python
 async def run_llm_agent(steps: list, session_context: dict):
 
-    # STEP 1: Build system prompt with skills
-    system = build_system_prompt(steps, session_context)
-    # Includes: persona + core rules + relevant skills +
-    #           locator library + page map + memory
+    # STEP 1: Step Runner initializes durable state
+    step_runner.start(steps)
+    # statuses: pending, planning, awaiting_confirmation, executing,
+    #           recovery_pending, recorded, skipped
 
-    # STEP 2: Initialize messages list
-    messages = [
-        {"role": "system", "content": system},
-        {"role": "user",   "content": format_steps(steps)}
-    ]
+    # STEP 2: Context Manager builds full relevant state
+    context = context_manager.build(
+        steps=step_runner.state,
+        page_state=browser_state,
+        locator_library=locator_store.lookup(domain),
+        page_map=page_map_store.lookup(url),
+        history_summary=run_memory.summary(),
+        skills=skill_router.select_depth(steps),
+    )
+
+    messages = context.to_messages()
 
     # STEP 3: Tool-calling loop
-    while True:
+    while not step_runner.all_steps_done():
         response = await llm_client.chat.completions.create(
             model=config.model,
-            messages=messages,           # FULL history every call
+            messages=messages,
             tools=TOOL_DEFINITIONS,
             tool_choice="auto"
         )
@@ -979,52 +1040,58 @@ async def run_llm_agent(steps: list, session_context: dict):
         message = response.choices[0].message
 
         if message.tool_calls:
-            # LLM wants to call a tool
-            messages.append({"role": "assistant", "content": message})
+            messages.append(message)
 
             for tool_call in message.tool_calls:
-                name = tool_call.function.name
-                args = json.loads(tool_call.function.arguments)
+                # Runtime enforces lifecycle and tool preconditions.
+                result = await runtime.execute_safely(tool_call, step_runner.state)
 
-                # Execute against live browser (async)
-                result = await execute_tool(name, args)
+                # Tool result is appended, but large/raw results may later be
+                # compacted into structured state by Context Manager.
+                messages.append(tool_result(tool_call.id, result))
 
-                # Append result — LLM sees this on next call
-                messages.append({
-                    "role": "tool",
-                    "tool_call_id": tool_call.id,
-                    "content": json.dumps(result)
-                })
-            # Loop — LLM now has full history of what happened
+                step_runner.observe_tool_result(tool_call, result)
+
+            messages = context_manager.compact_if_needed(messages, step_runner.state)
             continue
 
-        else:
-            # LLM is done — no more tool calls
-            return message.content
+        # No tool calls does not automatically mean done.
+        if step_runner.has_unresolved_work():
+            correction = await ask_user_or_continue_recovery(message.content, step_runner.state)
+            messages.append(user_recovery_message(correction))
+            continue
+
+        return message.content
 ```
 
-### Why context is never lost
+### Why context is preserved without raw history bloat
 
-Every single tool call and its result gets appended to messages[]. On the next LLM call, the model sees the complete history:
+The LLM receives full relevant state every call, but not necessarily full raw history.
 
-```
-system: [persona + skills + memory + locator library]
-user: "find locator for login button, element: {data-testid: null, id: null...}"
-assistant: → called locator_find(strategy="data-testid") 
-tool: "result: 0 elements found"
-assistant: → called locator_find(strategy="aria-label")
-tool: "result: 0 elements found"
-assistant: → called locator_find(strategy="text_content", text="Login")
-tool: "result: 1 element found — locator: text=Login"
-assistant: → called locator_validate(locator="text=Login")
-tool: "valid: true, count: 1, stable: medium"
-assistant: → called action_execute(action="click", locator="text=Login")
-tool: "success: true, duration: 120ms"
-assistant: → called send_to_panel(type="step_recorded", ...)
-tool: "sent: true"
+Keep as structured state:
+
+```text
+current step statuses
+confirmed plan
+validated locators
+current URL/title and DOM version
+unresolved failed step
+latest user correction
+last successful action
+page map summary
 ```
 
-The LLM never "forgets" because every attempt and result is in the messages list that it receives on every call.
+Compress or drop after summary:
+
+```text
+old raw DOM snippets
+repeated screenshots
+large actual page text
+stale failed attempts
+duplicate tool outputs
+```
+
+The model should never lose the reason for a decision, but it also should not carry every old byte of DOM forever.
 
 ### Tool registry
 
@@ -1249,51 +1316,53 @@ Skills are plain text files. They are injected into the LLM system prompt before
 
 ### How skills are loaded
 
-```python
-SKILL_TRIGGERS = {
-    "core":       None,                          # always loaded
-    "locator":    ["find", "locate", "element", "selector", "pick"],
-    "actions":    ["click", "fill", "type", "hover", "press", "double", "right"],
-    "assertions": ["assert", "verify", "check", "expect", "should", "validate"],
-    "waiting":    ["wait", "loading", "spinner", "slow", "timeout", "appear", "disappear"],
-    "popup":      ["popup", "dialog", "alert", "confirm", "prompt", "modal dialog"],
-    "upload":     ["upload", "file", "attach", "chooser", "drag and drop file"],
-    "download":   ["download", "save", "export", "save as"],
-    "tab":        ["new tab", "opens tab", "window", "link opens"],
-    "iframe":     ["iframe", "frame", "embed", "nested frame"],
-    "shadow_dom": ["shadow", "web component", "custom element"],
-    "dropdown":   ["select", "dropdown", "option", "autocomplete", "typeahead"],
-    "dynamic":    ["react", "angular", "spa", "loading", "skeleton", "dynamic"],
-    "keyboard":   ["press", "key", "shortcut", "ctrl", "keyboard", "tab navigation"],
-    "scroll":     ["scroll", "infinite scroll", "load more", "scroll to"],
-    "auth":       ["login", "auth", "session", "storage state", "credentials"],
-    "network":    ["api", "network", "request", "response", "intercept", "mock"],
-    "mobile":     ["mobile", "responsive", "touch", "device", "viewport"],
-    "console":    ["console", "js error", "browser error", "page crash"],
-    "trace":      ["trace", "replay", "record session", "debug trace"],
-    "exploration":["explore", "understand page", "analyze", "what is on this page"],
-    "codegen":    ["generate", "write script", "create test", "generate code"],
-    "debugging":  ["failed", "error", "broken", "fix", "debug", "not working", "timeout"],
-    "screenshot": ["screenshot", "capture", "visual", "take screenshot"],
-}
+Skills use **progressive disclosure**. Do not load every full `SKILL.md` file just because a keyword appears.
 
-def build_system_prompt(intent: str, context: dict) -> str:
-    prompt = read_skill("core")              # always first
-    intent_lower = intent.lower()
-    
-    for skill_name, triggers in SKILL_TRIGGERS.items():
-        if skill_name == "core":
-            continue
-        if triggers and any(t in intent_lower for t in triggers):
-            prompt += "\n\n" + read_skill(skill_name)
-    
-    # inject persistent context
-    prompt += "\n\n" + context.get("locator_library", "")
-    prompt += "\n\n" + context.get("page_map", "")
-    prompt += "\n\n" + context.get("memory", "")
-    
-    return prompt
+#### Skill loading levels
+
+| Level | What is loaded | When |
+|---|---|---|
+| Level 0 | Skill index: name, description, triggers, available tools | Always |
+| Level 1 | Compact skill summary: critical rules and tool names | Intent likely needs the skill |
+| Level 2 | Full `SKILL.md` body | The current step requires details or risk is high |
+| Level 3 | Deep reference/examples | Debug/recovery or rare edge case |
+
+#### Skill router behavior
+
+```python
+def build_prompt_context(steps, run_state):
+    skill_index = read_skill_index()  # always cheap
+
+    selected = skill_router.classify(
+        intents=[s.intent for s in steps],
+        failures=run_state.failures,
+        current_page=run_state.page_state,
+    )
+
+    prompt_parts = [read_compact_core_rules(), skill_index]
+
+    for skill in selected:
+        if skill.confidence == "low":
+            prompt_parts.append(read_skill_summary(skill.name))
+        elif skill.risk == "high" or run_state.is_recovery:
+            prompt_parts.append(read_full_skill(skill.name))
+        else:
+            prompt_parts.append(read_skill_summary(skill.name))
+
+    return "\n\n".join(prompt_parts)
 ```
+
+#### Important rules
+
+```text
+Core rules are always present, but compact.
+Skill descriptions are always available through the skill index.
+Full skill files are loaded only when needed.
+Large examples/reference docs are loaded only in debug/recovery mode.
+Skill loading must be logged with token estimates.
+```
+
+This prevents prompt bloat while preserving quality when complex actions such as upload, iframe, popup, or custom dropdown handling are needed.
 
 ### Skills list
 
@@ -1345,17 +1414,22 @@ The core skill encodes the fundamental rules:
 
 Three levels of memory. Each serves a different purpose.
 
-### Level 1 — Within-run memory (messages[] list)
+### Level 1 — Managed run memory
 
-Scope: One agent run (one set of steps submitted in LLM mode)
+Scope: One agent run (one set of steps submitted in LLM Mode).
 
 ```python
-messages = []  # grows as tools are called
-# Cleared when a new run starts
-# LLM sees complete history of current run
+run_state = {
+    "messages": [],              # active LLM message window
+    "history_summary": "",       # compacted prior tool history
+    "step_state": {},            # pending/executing/recovery_pending/recorded/skipped
+    "validated_locators": {},    # locator choices confirmed in this run
+    "page_state": {},            # current URL/title/dom_version
+    "unresolved_failure": None,
+}
 ```
 
-Used for: knowing what locators were tried, what failed, what the current page state is.
+Used for: preserving all relevant state while preventing raw DOM/tool outputs from growing without limit. The LLM sees the current message window plus structured summaries, not unlimited raw history.
 
 ### Level 2 — Session memory (Python objects)
 
@@ -1451,37 +1525,28 @@ When an error occurs, the system checks error patterns first and tries the best 
 
 ### Injection method
 
-```python
-# In PanelBridge startup:
-# 1. Start local aiohttp server (panel HTML + WebSocket)
-# 2. Inject iframe via add_init_script
-# 3. Reinject on every page load event
+MVP uses a direct injected in-page overlay. The panel is inserted into the live page DOM and connects to the backend over WebSocket.
 
+```python
 async def inject_panel(page: Page):
-    port = self.port
-    inject_js = f"""
-    (function() {{
-        if (document.getElementById('__copilot_panel_host')) return;
-        const iframe = document.createElement('iframe');
-        iframe.id = '__copilot_panel_host';
-        iframe.src = 'http://127.0.0.1:{port}/panel';
-        iframe.style.cssText = `
-            position: fixed;
-            top: 0;
-            right: 0;
-            width: 380px;
-            height: 100vh;
-            border: none;
-            z-index: 999999;
-            background: transparent;
-        `;
-        document.body.appendChild(iframe);
-    }})();
-    """
-    await page.add_init_script(inject_js)
-    # also reinject on load events for navigation resilience
-    page.on('load', lambda: asyncio.create_task(page.evaluate(inject_js)))
+    # 1. Inject overlay host and isolated CSS/JS
+    # 2. Connect overlay to ws://localhost:PORT/ws
+    # 3. Reinject after navigation if the page reloads
+    # 4. Keep picker events coordinated with the live DOM
+    await page.add_init_script(panel_bootstrap_js)
+    await page.evaluate(panel_bootstrap_js)
 ```
+
+#### Overlay evolution
+
+| Stage | Approach | Decision |
+|---|---|---|
+| MVP | Direct in-page overlay | Current approach; fastest for picker + WebSocket + live logs |
+| Stabilized | Shadow DOM overlay | Better CSS/layout isolation while preserving page access |
+| Future product | Chrome extension or separate control panel | Better packaging, but not needed for current LLM Mode MVP |
+| Avoid for MVP | iframe overlay | CSP/cross-origin/picker complexity makes it fragile |
+
+The panel must use strong CSS scoping today and should move to Shadow DOM once LLM Mode is stable enough to justify UI hardening.
 
 ### Panel layout
 
@@ -2110,17 +2175,19 @@ Goal: All Playwright actions work in manual mode.
 
 ### Phase 3 — LLM mode (Week 4-5)
 
-Goal: User describes steps in plain English, LLM handles everything.
+Goal: User describes steps in plain English. The LLM plans and reasons, while the runtime controls state, execution, recovery, recording, and code output.
 
 1. Wire `LLMOrchestrator` to `PanelBridge` as the LLM agent loop
-2. Build skills system (24 SKILL.md files, contextual loading)
-3. Build DOM strategy (adaptive snapshot, page maps, token measurement)
-4. Build tool registry (all tools from Section 9)
-5. Build messages[] context management
-6. Wire send_to_panel as a registered tool
-7. LLM persona + system prompt
+2. Build Step Runner lifecycle: pending → planning → confirmed → executing → recovery_pending → recorded/skipped
+3. Build Context Manager: managed history, token telemetry, DOM modes, locator/page-map injection
+4. Build progressive skills system: skill index → compact summary → full skill only when needed
+5. Build DOM strategy: adaptive snapshot, page maps, debug mode, full-DOM fallback rules
+6. Build tool registry with lifecycle guards and tool preconditions
+7. Wire `plan_ready`, `correction`, `step_recorded`, and `code_update` typed events
+8. Build live code preview for every recorded step
+9. LLM persona + compact system prompt
 
-**Acceptance test:** User says "go to login page, fill email with test@test.com, click login, assert dashboard is visible." LLM handles all of it including locator finding and validation.
+**Acceptance test:** User says "go to login page, fill email with test@test.com, click login, assert dashboard is visible." The system plans, asks for confirmation, validates locators, executes safely, recovers if needed, records steps, and shows clean Playwright TypeScript.
 
 ### Phase 4 — Memory & persistence (Week 6)
 
@@ -2147,3 +2214,671 @@ Goal: System gets smarter every session.
 ---
 
 *End of PRD v2*
+
+---
+
+## 25. LLM Mode Hardening Addendum — v2.1
+
+This addendum tightens the PRD based on implementation learnings from the LLM Mode prototype and current browser-agent best practices. It does **not** replace the existing architecture. It clarifies ownership boundaries so the system remains reliable as more actions, recovery flows, and generated code features are added.
+
+### 25.1 Design principle
+
+The LLM should reason, plan, and explain. It must not own product state.
+
+**Runtime ownership:**
+
+| Layer | Owns | Must not delegate to LLM |
+|---|---|---|
+| Step Runner | Step lifecycle, confirmation gates, execution order, final completion | Whether a step is done |
+| Context Manager | What the LLM sees per call | Raw full history by default |
+| Tool Runtime | Browser actions, locator validation, tool preconditions | Unsafe tool calls |
+| Recorder / Codegen | Recorded step payloads and TypeScript output | Backend truth from free-form text |
+| LLM | Intent interpretation, planning, recovery reasoning | State transitions, recording truth, final completion |
+
+Hard rule:
+
+```text
+The LLM may suggest. The runtime decides.
+```
+
+### 25.2 Context Manager
+
+The system must include a first-class Context Manager. It owns prompt construction for every LLM call.
+
+Responsibilities:
+
+- Select relevant skills only.
+- Include compact step state.
+- Include current browser state: URL, title, page identity, DOM version.
+- Include focused DOM snippets only when needed.
+- Include validated locators from the locator library.
+- Include page map summaries instead of full DOM on revisits.
+- Include unresolved failure context.
+- Compress or drop stale tool outputs.
+- Track approximate input/output tokens and cost per LLM call.
+
+The LLM must receive **full relevant state**, not raw full history.
+
+#### Managed history policy
+
+Keep:
+
+```text
+current step queue and statuses
+confirmed plan
+user corrections
+validated locator choices
+current page URL/title
+unresolved failure details
+latest focused DOM snapshot
+```
+
+Compress or drop:
+
+```text
+repeated full DOM snapshots
+repeated long page text
+stale failed locator attempts after summary
+screenshot metadata after failure summary
+old tool results that no longer affect current state
+```
+
+#### Token telemetry requirement
+
+Every LLM request must log:
+
+```text
+model
+loaded skills
+system prompt tokens
+messages/history tokens
+tool schema tokens
+DOM/tool-result tokens
+total input tokens
+output tokens
+estimated cost
+```
+
+This is required before optimizing DOM/page-map behavior. Without telemetry, token strategy is guesswork.
+
+### 25.3 Step Runner owns lifecycle
+
+The Step Runner owns the lifecycle for every step. It is the source of truth for whether work is pending, confirmed, failed, recorded, skipped, or complete.
+
+Required step statuses:
+
+```text
+pending
+planning
+validated
+awaiting_confirmation
+confirmed
+executing
+failed
+recovery_pending
+recorded
+skipped
+```
+
+Allowed state flow:
+
+```text
+pending → planning → validated → awaiting_confirmation → confirmed → executing → recorded
+```
+
+Failure flow:
+
+```text
+executing → failed → recovery_pending → recovered execution → recorded
+```
+
+Skip flow:
+
+```text
+failed/recovery_pending → user explicitly says skip → skipped
+```
+
+Hard rules:
+
+```text
+Execution tools cannot run before confirmation.
+step_recorded cannot happen before confirmed successful execution.
+The LLM cannot finalize while any step is pending, failed, executing, or recovery_pending.
+Final response is allowed only when all requested steps are recorded or explicitly skipped.
+```
+
+The system must never treat phrases such as “completed,” “done,” or “successfully” as final truth if the Step Runner state says unresolved work remains.
+
+### 25.4 Backend-owned recording
+
+Recording is backend-owned, not LLM-owned.
+
+Correct recording flow:
+
+```text
+confirmed action/assertion succeeds
+→ Step Runner verifies success
+→ Recorder builds step_recorded payload
+→ backend sends step_recorded event
+→ UI renders recorded step
+→ codegen updates generated code
+```
+
+The LLM may provide suggested metadata, but the backend must repair or generate missing fields.
+
+Required `step_recorded` payload:
+
+```json
+{
+  "type": "step_recorded",
+  "step_id": "client-step-id",
+  "step_number": 1,
+  "status": "recorded",
+  "action": "click | fill | assert | navigate | ...",
+  "element_name": "human readable target",
+  "locator": "validated locator string",
+  "generated_line": "await page...",
+  "source_intent": "original user intent"
+}
+```
+
+If the LLM omits `step_id`, action, or locator, the backend must recover them from step state and last successful action. If the backend cannot map a successful action to a step, it must not silently record; it must surface a structured error.
+
+### 25.5 Typed WebSocket protocol
+
+All backend ↔ overlay messages must have typed schemas. Missing required fields must fail visibly.
+
+Core event types:
+
+```text
+llm_thinking
+plan_ready
+clarification_needed
+correction_received
+execution_started
+execution_progress
+step_recorded
+step_failed
+recovery_required
+code_update
+error
+```
+
+`plan_ready` must include:
+
+```json
+{
+  "type": "plan_ready",
+  "summary": "human readable summary",
+  "steps": [
+    {
+      "step_id": "...",
+      "intent": "...",
+      "planned_action": "...",
+      "target": "...",
+      "locator_preview": "optional"
+    }
+  ],
+  "requires_confirmation": true
+}
+```
+
+`code_update` must include:
+
+```json
+{
+  "type": "code_update",
+  "step_id": "...",
+  "generated_line": "await page...",
+  "full_code_preview": "optional"
+}
+```
+
+UI buttons must have unambiguous behavior:
+
+```text
+Confirm = accept plan and execute.
+Send Correction = reject/revise plan using typed correction text.
+```
+
+### 25.6 DOM freshness and invalidation rules
+
+Every DOM extraction and validated locator belongs to a page state.
+
+Track:
+
+```text
+page_url
+page_title
+dom_version
+extraction_scope
+created_at
+invalidated_by
+```
+
+Any browser-mutating action increments or invalidates DOM state:
+
+```text
+click that may navigate
+page_navigate
+page_go_back
+page_go_forward
+page_reload
+form submit
+popup/new tab open
+DOM-changing interaction
+```
+
+Rules:
+
+```text
+After navigation/reload/back/forward, old DOM snapshots are stale.
+After a click that changes page state, later assertions must revalidate against current DOM.
+Do not execute a same-page assertion from an old snapshot after a navigation action.
+If a tool batch contains a mutating action followed by another browser action/assertion, execute the mutating action first, then re-query LLM with updated browser state.
+```
+
+### 25.7 Tool safety policy
+
+All tools must declare preconditions and enforce them before calling Playwright.
+
+Examples:
+
+```text
+action_fill: allowed only on input, textarea, select, or contenteditable; reject body/div/span/etc.
+page_go_back: use for browser history back; never simulate navigation with fill/click on body.
+action_assert: must revalidate locator if DOM version changed.
+file upload: must verify file exists under approved upload directory.
+download: must register download listener before click.
+popup/dialog: must register handler before triggering action.
+```
+
+Tool failures must produce structured results:
+
+```json
+{
+  "success": false,
+  "error": "...",
+  "tool": "action_fill",
+  "recoverable": true,
+  "requires_user_input": false,
+  "step_id": "..."
+}
+```
+
+### 25.8 Recovery anchoring
+
+Recovery must stay anchored to the original failed step.
+
+When a failure occurs, the LLM must receive:
+
+```text
+failed step id
+step number
+original user intent
+selected element info
+validated locator if any
+current browser URL/title
+last successful action
+last error
+available recovery options
+```
+
+Hard rule:
+
+```text
+The agent must recover the original failed step. It must not replace it with a new unrelated assertion/action unless the user explicitly asks.
+```
+
+Example failure:
+
+```text
+Original intent: assert homepage heading after clicking Get Started.
+Current URL: /docs/intro.
+Failure: homepage heading not found.
+```
+
+Correct recovery options:
+
+```text
+go back and assert before click
+navigate to homepage and assert
+ask user whether to skip or revise
+```
+
+Incorrect recovery:
+
+```text
+assert an unrelated heading on /docs/intro just because it exists
+```
+
+### 25.9 Model routing strategy
+
+MVP may use one model, but the architecture must allow future model routing.
+
+Recommended roles:
+
+| Role | Purpose | Model size |
+|---|---|---|
+| Main reasoning model | planning, recovery, tool choice | strongest available |
+| Page extraction model | summarize DOM/page content | smaller/faster |
+| Judge model | optional trace quality validation | medium/strong |
+| Fallback model | provider/model failure recovery | alternate provider/model |
+
+Do not implement multi-model routing before the basic LLM Mode is stable. Design interfaces so it can be added later without rewriting the agent loop.
+
+### 25.10 Overlay architecture decision
+
+The MVP overlay is a direct injected in-page overlay, not an iframe.
+
+Decision:
+
+```text
+MVP: direct injected overlay
+Stabilized version: Shadow DOM overlay
+Future product option: Chrome extension or separate control panel
+Avoid iframe unless CSP and cross-origin constraints are solved
+```
+
+Rationale:
+
+```text
+Direct overlay: best for current element picking and fast iteration; weaker CSS isolation.
+Shadow DOM overlay: better CSS/layout isolation and still supports page interaction; recommended next stabilization step.
+Iframe overlay: stronger UI isolation but cross-origin/CSP and picker complexity; not preferred for MVP.
+```
+
+### 25.11 Edge cases that must be covered by tests
+
+Plan / correction:
+
+```text
+user confirms correct plan
+user sends correction before execution
+user types correction but clicks wrong button
+user says stop/skip during recovery
+```
+
+DOM / locator:
+
+```text
+selected section is too large
+same text appears multiple times
+text has &nbsp;, child spans, hidden/control characters
+locator valid before navigation but invalid after navigation
+element is inside iframe/shadow DOM
+```
+
+Execution:
+
+```text
+click navigates before old-page assertion
+click opens popup/new tab
+dialog must be handled before click
+download listener must be registered before click
+upload needs missing file handling
+fill is attempted on non-editable element
+```
+
+Recovery:
+
+```text
+tool fails after partial success
+recovery needs page_go_back
+recovery must not drift to unrelated assertion
+failed step must remain unresolved until recorded/skipped
+```
+
+Recording / codegen:
+
+```text
+step_recorded missing metadata
+multi-action single intent needs deterministic sub-step handling
+generated code must use valid Playwright TypeScript syntax
+replay must revalidate locator before execution
+```
+
+Session:
+
+```text
+browser reconnects while steps exist
+recorded steps must not rerun unless user asks
+confirmed steps must be autosaved later
+```
+
+### 25.12 Updated LLM Mode implementation order
+
+After the current agent loop is functional, prioritize:
+
+```text
+1. Recorded Steps UI stabilization
+2. Live code_update event and code preview
+3. Locator-string-to-TypeScript conversion
+4. Token telemetry for every LLM call
+5. Replay single recorded step
+6. Replay all recorded steps
+7. Context Manager / managed history
+8. Progressive skill loading
+9. DOM modes: normal / explore / debug / full fallback
+10. Persistent locator library
+11. Page maps and revisit compression
+12. Advanced action vocabulary: hover, press, select, upload, download, popup, iframe, network
+13. Session persistence and final .spec.ts output
+```
+
+Do not expand advanced vocabulary before recorded steps, code preview, and replay are usable enough to test reliably.
+---
+
+## 26. LLM Context Strategy & Token Governance — v2.2
+
+This section clarifies how LLM Mode should balance reliability and cost. The goal is not to minimize tokens blindly. The goal is to preserve decision quality while removing irrelevant context.
+
+### 26.1 Core rule
+
+```text
+Give the LLM full relevant state, not raw full history.
+```
+
+The LLM must always know:
+
+```text
+what the user asked
+which step is active
+which plan was confirmed
+which locators are validated
+which page state is current
+what failed and why
+what correction the user gave
+what still remains unresolved
+```
+
+The LLM does not need every old raw DOM dump, repeated screenshot path, or duplicate failed attempt once those details have been summarized into structured state.
+
+### 26.2 Context Manager responsibilities
+
+`ContextManager` is a first-class component. It owns the prompt/context package for each LLM call.
+
+Responsibilities:
+
+```text
+select skill depth
+choose DOM mode
+include step state
+include current browser state
+include validated locators
+include page map summary
+include active failure context
+compact old history
+enforce token budget
+log token telemetry
+escalate context when quality requires it
+```
+
+The agent loop should ask the Context Manager for context. It should not manually concatenate every available file and every old tool output.
+
+### 26.3 Progressive skill loading
+
+Skill loading must be progressive.
+
+```text
+Always loaded: compact core rules + skill index
+Usually loaded: compact summaries for likely skills
+Only when needed: full SKILL.md
+Rare/debug only: deep examples and reference files
+```
+
+Example:
+
+```text
+User intent: "click Get started"
+Context: core compact rules + actions summary + locator summary
+Do not load: upload, download, iframe, network, auth, visual, mobile
+
+User intent: "upload resume and verify success modal"
+Context: core compact rules + actions summary + upload full skill + assertions summary + popup/modal summary
+
+Failure: file chooser did not appear
+Context escalates: upload details + screenshot/debug context + tried actions
+```
+
+### 26.4 DOM mode decision tree
+
+```text
+Selected single element?
+  → Normal mode descriptor.
+
+Selected section?
+  → Accessibility tree if useful.
+  → Else cleaned interactive subtree.
+  → If too large, ask user to narrow.
+
+No element or page-level instruction?
+  → Explore mode page map.
+
+Tool failed once?
+  → Debug mode around failed target.
+
+Repeated failure or unknown structure?
+  → Explore changed area or focused full-page map.
+
+Still ambiguous?
+  → Ask one user question.
+
+Only as last resort or explicit user request?
+  → Full DOM fallback with cap and reason logged.
+```
+
+### 26.5 History compaction policy
+
+After each meaningful phase, raw tool history may be compacted into a structured summary.
+
+Keep exactly:
+
+```text
+current queued steps
+step statuses
+confirmed plan
+current page URL/title/dom_version
+validated locators
+active failure context
+user correction text
+last successful action
+recorded step metadata
+```
+
+Compress:
+
+```text
+old raw DOM snippets → section summary
+long actual text → truncated normalized text + reason
+repeated locator attempts → tried strategies summary
+screenshot metadata → latest screenshot only
+old tool outputs → phase summary
+```
+
+Never compress away unresolved work.
+
+### 26.6 Token budgets
+
+Budgets are guardrails, not hard correctness limits. If quality requires escalation, escalate and log why.
+
+| Call type | Target input tokens | Allowed escalation |
+|---|---:|---|
+| Normal selected-element call | 4k–8k | Add nearby DOM if locator confidence is low |
+| Section interaction | 6k–12k | Add interactive subtree or accessibility tree |
+| Explore mode | 8k–15k | Split by sections rather than one huge call |
+| Debug/recovery | 10k–20k | Include focused DOM, failure, screenshot path, tried locators |
+| Full DOM fallback | Explicit/capped | Last resort only; must log reason |
+
+### 26.7 Token telemetry
+
+Every LLM call must log:
+
+```text
+model
+call purpose: normal / explore / debug / recovery / codegen
+loaded skill levels
+system prompt tokens
+skill tokens
+tool schema tokens
+message/history tokens
+DOM/tool-result tokens
+total input tokens
+output tokens
+estimated cost
+context mode used
+compaction applied: yes/no
+```
+
+Without telemetry, optimization is guesswork.
+
+### 26.8 Quality-preservation rules
+
+Context reduction must never remove:
+
+```text
+active failed step
+current user correction
+confirmed plan
+current page URL/title
+validated locator for active step
+reason previous attempt failed
+step state and remaining work
+```
+
+If removing context would make the next decision unsafe, keep the context or ask the user.
+
+### 26.9 Repeated failure escalation
+
+```text
+First failure:
+  Use focused debug context around the target.
+
+Second similar failure:
+  Include tried strategies, current URL, current DOM section, and page map.
+
+Third similar failure:
+  Ask user one specific question or offer concrete options.
+
+After user correction:
+  Preserve correction exactly and anchor recovery to original failed step.
+```
+
+The agent must not loop silently. It must either recover deterministically, escalate context, or ask the user.
+
+### 26.10 Implementation order for context hardening
+
+Do not build the entire Context Manager before the product loop is usable. Implement in stages:
+
+```text
+1. Token telemetry for every LLM call
+2. Skill index + compact skill summaries
+3. History compaction after tool phases
+4. DOM modes: normal / explore / debug / full fallback
+5. Page map reuse
+6. Persistent locator library reuse
+7. Optional model routing for extraction/judge/fallback
+```
+
+This keeps progress practical while preventing future token explosions.
+
