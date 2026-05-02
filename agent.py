@@ -11,6 +11,9 @@ from playwright.async_api import expect
 
 from browser import get_page
 from llm import LLMClient
+from runtime.context_manager import ContextManager
+from runtime.model_router import ModelRouter
+from runtime.skill_manager import SkillManager
 from runtime.telemetry import record_model_call_end, record_model_call_start
 
 
@@ -62,6 +65,9 @@ class AgentLoop:
         self.control_queue = control_queue
         self.skills_root = Path("/Users/apple/personal/agent v4/skills/playwright-automation")
         self.llm = LLMClient()
+        self.context_manager = ContextManager()
+        self.model_router = ModelRouter()
+        self.skill_manager = SkillManager()
         self.tools = self._build_tool_definitions()
         self.phase = "planning"
         self.plan_confirmed = False
@@ -82,6 +88,7 @@ class AgentLoop:
         self._last_action_context: dict[str, Any] | None = None
         self._awaiting_step_record = False
         self._pending_failure_followup = False
+        self._run_completion_requested = False
         self.run_stop_requested = False
         self._llm_call_counter = 0
 
@@ -105,6 +112,7 @@ class AgentLoop:
         self._last_action_context = None
         self._awaiting_step_record = False
         self.run_stop_requested = False
+        self._run_completion_requested = False
         self._llm_call_counter = 0
 
     async def _send(self, msg_type: str, **kwargs: Any) -> None:
@@ -116,18 +124,40 @@ class AgentLoop:
         try:
             self._reset_lifecycle_state(steps)
             self._prepare_recording_steps(steps)
-            loaded_skill_names, system_prompt = self._load_skills_for_steps(steps)
+            loaded_skill_names, system_prompt, loaded_skills = self._load_skills_for_steps(steps)
             self.llm.system_prompt = system_prompt
             self.llm.reset()
             self._pending_failure_followup = False
 
+            skill_diagnostics = self.skill_manager.analyze(
+                loaded_skills,
+                loaded_skill_names=loaded_skill_names,
+            )
             print(f"[SKILLS LOADED] {' + '.join(loaded_skill_names)}")
+            print(
+                "[SKILL_DIAGNOSTICS] "
+                f"skills={skill_diagnostics.skill_count} "
+                f"names={','.join(skill_diagnostics.loaded_skill_names) or 'none'} "
+                f"estimated_tokens={skill_diagnostics.estimated_total_skill_tokens} "
+                f"largest={skill_diagnostics.largest_skill_name} "
+                f"largest_tokens={skill_diagnostics.largest_skill_tokens} "
+                f"policy={skill_diagnostics.suggested_future_policy}"
+            )
             print("[AGENT] Starting tool-calling loop")
 
             self.llm.messages.append({"role": "user", "content": self._format_steps(steps)})
 
             while True:
                 print("[AGENT] Requesting LLM response")
+                context_bundle = self.context_manager.prepare_messages(
+                    self.llm.messages,
+                    purpose="main_orchestrator",
+                    context_mode="normal",
+                    metadata={
+                        "skill_count": len(loaded_skill_names),
+                        "tool_count": len(self.tools),
+                    },
+                )
                 self._llm_call_counter += 1
                 call_id = f"llm_{self._llm_call_counter:03d}"
                 model = "gpt-4o-mini"
@@ -135,14 +165,16 @@ class AgentLoop:
                     call_id=call_id,
                     purpose="main_orchestrator",
                     model=model,
-                    messages=self.llm.messages,
+                    messages=context_bundle.messages,
                     tools=self.tools,
                     skill_count=len(loaded_skill_names),
                 )
                 try:
-                    response = await self.llm.client.chat.completions.create(
+                    response = await self.model_router.call(
+                        purpose="main_orchestrator",
+                        client=self.llm.client,
                         model=model,
-                        messages=self.llm.messages,
+                        messages=context_bundle.messages,
                         tools=self.tools,
                         tool_choice="auto",
                     )
@@ -343,6 +375,17 @@ class AgentLoop:
                             "content": json.dumps(result, ensure_ascii=True),
                         }
                     )
+                    if self._run_completion_requested:
+                        if index + 1 < len(tool_calls):
+                            self._append_skipped_tool_responses(
+                                tool_calls,
+                                index + 1,
+                                "Skipped because all current steps were already resolved.",
+                            )
+                        print("[AGENT] all steps resolved; ending run without extra LLM call")
+                        self._pending_failure_followup = False
+                        self._reset_lifecycle_state()
+                        return
                     if is_plan_rejected:
                         correction = str(result.get("correction") or "").strip() or "the user requested a correction"
                         note = (
@@ -501,19 +544,22 @@ class AgentLoop:
             "screenshot_take",
         }
 
-    def _load_skills_for_steps(self, steps: list[dict]) -> tuple[list[str], str]:
+    def _load_skills_for_steps(self, steps: list[dict]) -> tuple[list[str], str, dict[str, str]]:
         intents = " ".join(str(step.get("intent") or "") for step in steps).lower()
         loaded_names = ["core"]
-        contents = [self._read_skill("core")]
+        loaded_skills = {"core": self._read_skill("core")}
+        contents = [loaded_skills["core"]]
 
         for skill_name, keywords in SKILL_KEYWORDS:
             if skill_name == "core":
                 continue
             if any(keyword in intents for keyword in keywords):
                 loaded_names.append(skill_name)
-                contents.append(self._read_skill(skill_name))
+                skill_text = self._read_skill(skill_name)
+                loaded_skills[skill_name] = skill_text
+                contents.append(skill_text)
 
-        return loaded_names, "\n\n".join(contents)
+        return loaded_names, "\n\n".join(contents), loaded_skills
 
     def _read_skill(self, skill_name: str) -> str:
         skill_path = self.skills_root / skill_name / "SKILL.md"
@@ -725,6 +771,19 @@ class AgentLoop:
     def _all_steps_done(self) -> bool:
         if not self._recording_steps:
             return True
+        return all(str(step.get("status") or "") in {"recorded", "skipped"} for step in self._recording_steps)
+
+    def _all_steps_resolved(self) -> bool:
+        if not self._recording_steps:
+            return False
+        if not self.plan_confirmed:
+            return False
+        if self._awaiting_step_record or self.pending_recovery or self._pending_failure_followup:
+            return False
+        if self.active_step_id or self.active_failed_step_id:
+            return False
+        if self._has_unresolved_failure():
+            return False
         return all(str(step.get("status") or "") in {"recorded", "skipped"} for step in self._recording_steps)
 
     def _step_state_summary(self, step: dict[str, Any] | None) -> dict[str, Any]:
@@ -2149,6 +2208,8 @@ class AgentLoop:
                 self.last_successful_action = None
             self._awaiting_step_record = False
             self._last_action_context = None
+            if recorded_target_step is not None and self._all_steps_resolved():
+                self._run_completion_requested = True
             return {"sent": True, "payload": payload}
         await self._send(message_type, **payload)
         if message_type == "plan_ready":

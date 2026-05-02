@@ -1,13 +1,13 @@
 <claude-mem-context>
 # Memory Context
 
-# [agent v4] recent context, 2026-05-02 6:28am GMT+5:30
+# [agent v4] recent context, 2026-05-02 7:17am GMT+5:30
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (21,262t read) | 524,033t work | 96% savings
+Stats: 50 obs (21,436t read) | 285,841t work | 93% savings
 
 ### May 1, 2026
 S94 Fix agent.py confirmation gate after send_to_overlay(plan_ready) — verify fix works in live server run (May 1 at 3:57 PM)
@@ -20,57 +20,57 @@ S99 Phase 3D AutoWorkbench IDE UI — fix scroll, pending delete, step_recorded 
 S100 Phase 3D AutoWorkbench IDE UI — continuing session after restart, re-establishing context from prior Phase 3C work (May 2 at 2:25 AM)
 S101 Fix Phase 3D frontend UI/state bugs in AutoWorkbench IDE panel (spaces, picker, plan state, recorded card layout/titles) (May 2 at 2:55 AM)
 S102 Fix backend multi-step recording bug in agent.py — replace global last_successful_action with per-step successful_action_by_step_id dict (May 2 at 3:14 AM)
-743 3:48a 🟣 Implemented interactionMode State, New Action Handlers, and WebSocket Message Routing
-744 3:49a 🔴 Patch Application Retry: State Fields and Action Handlers Applied in Two Separate Passes
-745 " 🟣 WebSocket Message Handlers Wired to interactionMode with Full State Isolation per Mode
-746 " 🟣 Hook Return Object Updated: interactionMode and All Mode-Specific State/Handlers Exported
-747 " 🔵 aw-ide-panel.jsx Patch Anchor Mismatch: "recover" and "done" Fallback Blocks Not Found as Expected
-748 " 🟣 IDEConversation Fallback Data Extended for All interactionMode Values
-749 3:50a 🔵 IDEPlan and IDERecovery Components: Pre-Refactor Structure in aw-ide-panel.jsx
-750 " 🟣 IDEPlan Renamed to IDEPlanReview; IDEClarificationCard and Wired IDERecovery Added
-751 " 🟣 IDETimeline and IDEHeader Updated for interactionMode Labels and Fallback Data
-752 " 🔵 IDEPanel Workbench Tab Still Uses Old IDEPlan/IDERecovery and panelState — Needs interactionMode Wiring
-753 " 🟣 IDEPanel Workbench Tab Fully Wired to interactionMode with Conditional Card Rendering
-754 3:51a 🟣 CSS Added for IDEClarificationCard and IDERecovery URL Components
-755 " 🔵 Final Verification: All interactionMode Render Paths Confirmed Present in aw-ide-panel.jsx
-756 " 🔵 Hook Return Object Final State Verified: All New Fields and Handlers Present
-757 " 🔵 Full Code Review Passed: Both Files Confirmed Correct Before Build
-758 3:52a 🔵 step_recorded Handler Sets interactionMode to "completed" or "executing" Based on Plan Completion
-759 " 🔴 IDEPendingSteps Empty State Label Made Mode-Aware
-760 " 🟣 Build Initiated: npm run build in /Users/apple/personal/agent v4/frontend
-761 " 🔴 Build Failed: Duplicate IDERecovery Function Declaration — Old Version Not Removed
-762 " 🔴 Build Fixed and Passing: Duplicate IDERecovery Removed, npm run build Succeeds
-763 3:54a 🔵 Project Architecture: AutoWorkbench IDE vs Design Preview — Two Separate Rendering Paths
-764 3:55a 🔵 Server Started Successfully on Port 8765 for Live Testing
-765 " 🔵 AutoWorkbench frontend built; WebSocket dependency gap found
-766 3:56a 🔵 browser.py AutoWorkbench injection architecture mapped
-767 " 🔵 Mock WebSocket server blocked by sandbox permission error on port 9876
-768 " 🔵 Mock WebSocket server requires escalated sandbox permissions to bind on localhost
-769 3:57a 🔵 Clarification UI smoke test failed: question text never rendered visible in browser
 S103 Launch AutoWorkbench agent v4 once and run a smoke test of the clarification UI roundtrip (May 2 at 3:57 AM)
-770 3:59a 🔴 Fixed IDEPendingSteps missing `state` prop — caused undefined reference in emptyLabel
-771 " 🔵 server.py runs on port 8765 via Uvicorn; API key loaded from env on startup
-772 " 🟣 Clarification UI smoke test passed — WebSocket roundtrip verified end-to-end
-773 " 🟣 option_selected WebSocket message format confirmed — full roundtrip verified
-774 4:00a 🔵 server.py WebSocket endpoint is /ws — confirmed browser connects to ws://host:8765/ws
-775 " 🔵 Modified files in agent v4 repo at end of smoke test session
-776 " 🟣 Major frontend overhaul — 3675 insertions across UI source and dist files
-777 5:34a 🔵 Playwright Automation Co-pilot Repo State Discovery (agent v4)
-778 " 🔵 agent v4 Repository Structure and File Inventory
-779 5:35a 🔵 Complete Source File Map and Line Counts for agent v4
-780 " 🔵 server.py: FastAPI WebSocket Entry Point with Minimal Routing
-781 " 🔵 browser.py: AutoWorkbench UI Injection via Built Bundle
-782 " 🔵 agent.py: AgentLoop — 2492L LLM Tool-Calling Loop with Recording State
-783 " 🔵 executor.py and locator.py: Thin Action and Locator Utilities
-784 " 🔵 Playwright Automation Co-pilot Repo State Discovery
-785 5:36a 🔵 WebSocket Event Contract: Implemented vs PRD v2.3 Expected
-786 " 🔵 LLM Context Management: Raw Message History, No ContextManager
-787 " 🔵 Step Recording Data Model: Flat step_context Dict Per User Step
-788 5:37a 🔵 Replay, Save/Load, and Persistence: Entirely Absent from Current Implementation
-789 6:21a 🔵 AgentLoop Internal Architecture Mapping for Safe Telemetry/ContextManager Insertion
-790 6:22a 🔵 AgentLoop Internal Structure: LLM Call Site, Tool Dispatch, Confirmation Gate, and Safe Insertion Points
-791 " 🔵 Precise Safe Insertion Points for Telemetry, ContextManager, and ModelRouter in AgentLoop
-792 6:23a 🔵 browser.py Contains Legacy Inline UI That Silently Ignores code_update
+809 6:45a 🔵 generate_openai_yaml.py Tool Exists for Codex Skill Agent Configuration
+810 6:46a 🟣 Codex Skill autoworkbench-regression-safe-implementation Fully Created and Validated
+811 " ✅ SKILL.md Final Version Written with Architecture Status Table
+812 " 🟣 Codex Skill autoworkbench-regression-safe-implementation — Final Verified State
+813 6:48a ✅ SKILL.md Expanded with Full Stop Conditions, Regression Baseline, and Reporting Format
+814 " ✅ SKILL.md Final Validated State — autoworkbench-regression-safe-implementation Complete
+815 6:49a 🟣 Second Codex Skill Created: autoworkbench-llm-runtime-architecture
+816 " 🔵 init_skill.py Output Not Persisted to Disk — Sandbox Permission Issue
+817 " 🟣 Second Codex Skill autoworkbench-llm-runtime-architecture Created and Validated
+818 6:50a 🔵 autoworkbench-llm-runtime-architecture Skill Not Visible to Shell — Filesystem Persistence Gap Confirmed
+819 " 🔵 Both AutoWorkbench Skills Confirmed Present on Real Filesystem
+820 " 🔵 init_skill.py Overwrote Authored SKILL.md with Template Boilerplate
+821 6:51a 🔵 quick_validate.py Rejects Angle Brackets in SKILL.md description Field
+822 6:52a 🟣 Third Codex Skill autoworkbench-frontend-runtime-contract Created and Validated
+823 " 🔵 Python Heredoc Required for Multi-line String Edits Outside Workspace — -c Flag Fails with Backslash-Newlines
+824 " 🟣 All Three AutoWorkbench Codex Skills Installed and Validated — Final State Confirmed
+825 6:53a ✅ autoworkbench-regression-safe-implementation SKILL.md and openai.yaml Refined
+826 6:54a 🔵 All Three Skill Descriptions and openai.yaml Files Confirmed — Final Inventory
+827 " 🔴 Fourth Skill init_skill.py Created SKILL.md as Directory Instead of File — Shell cat Redirect Collision
+828 6:55a 🟣 Fourth Codex Skill autoworkbench-debug-readonly-investigation Created and Validated
+829 " 🟣 ModelRouter Shell Added to Agent V4 LLM Call Path
+830 " 🔵 Agent V4 Pre-ModelRouter State: Live LLM Call Path Confirmed
+831 6:56a 🔵 Two Active LLM Call Paths Confirmed in Agent V4 Codebase
+832 " 🔵 ContextManager Already Integrated Into Agent.py in Working Tree
+833 " 🔄 ModelRouter Inserted Into Agent.py LLM Call Path
+834 6:57a 🟣 runtime/model_router.py Created With ModelRouter, ModelCallRequest, ModelCallResult
+835 " 🟣 ModelRouter Integration Complete and Verified — All Files Compile Clean
+836 6:58a 🟣 HistoryManager Shadow-Mode Diagnostics Planned for Agent V4
+837 7:02a 🟣 HistoryManager and History Diagnostics Implemented in Agent V4 Runtime
+838 7:03a 🔵 Context Manager Log Order: [CONTEXT_MANAGER] Prints Before [HISTORY_DIAGNOSTICS]
+839 " 🟣 HistoryManager Shadow Diagnostics Verified — All Five Runtime Files Compile Clean
+840 " 🔵 Agent V4 Runtime Seam Files Are All Untracked — Not Yet Committed to Git
+841 7:05a 🟣 SkillManager Shadow Diagnostics Added — Skill Token Budget Observability
+842 7:07a 🔴 SkillManager _normalize_sequence Fixed for Plain String Items in Skill Lists
+843 7:08a 🟣 Full Runtime Seam Stack Verified — Six Files Compile Clean Including SkillManager
+844 " 🔵 Agent V4 Runtime Seam Stack — Final Git Status: Four Untracked New Files
+845 7:10a 🟣 Deterministic Completion Guard Added to agent.py
+846 7:12a 🔵 agent.py Step State Architecture Fully Mapped
+847 " 🔵 step_recorded Tool Dispatch Return Path Identified in run() Loop
+848 " 🟣 _all_steps_resolved() Helper and _run_completion_requested Flag Added to agent.py
+849 " 🔵 First Patch Failed to Apply — _run_completion_requested Not Yet in agent.py
+850 7:13a 🟣 _run_completion_requested Flag and _all_steps_resolved() Successfully Patched into agent.py
+851 " 🟣 Completion Guard Wired into run() Tool Dispatch Loop
+852 " 🟣 All Three Completion Guard Patches Verified in agent.py
+853 " 🟣 Completion Guard Implementation Verified: py_compile Passes, All Lines Confirmed
+854 " 🔵 agent v4 Git Status: agent.py and AGENTS.md Modified, Runtime Files Untracked
+855 7:14a 🔵 Completion Guard Fired But Extra LLM Call Still Observed — Debug Investigation Opened
+856 7:16a 🔵 Root Cause Found: _awaiting_step_record Still True When _all_steps_resolved() Is Called
+857 " 🔵 Confirmed: _awaiting_step_record Cleared at Line 2210 After _all_steps_resolved() Called at Line 2196
+858 " 🔵 _mark_step_recorded Clears active_step_id But NOT _awaiting_step_record
 
-Access 524k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 286k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>
