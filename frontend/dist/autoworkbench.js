@@ -24862,6 +24862,7 @@
             const kind = it.kind || it.type || "step";
             const text = it.text || it.label || it.title || `Step ${i + 1}`;
             const status = firstText(it.status, it.state, it.cls).toLowerCase();
+            const expectedOutcome = formatExpectedOutcomeSummary(it.expected_outcome ?? it.expectedOutcome);
             const childRows = getPlanStepChildren(it).map((child, childIndex) => normalizePlanChild(child, childIndex)).filter(Boolean);
             const cls = it.cls || (it.recorded === true || it.completed === true || ["done", "completed", "recorded", "passed"].includes(status) ? "done" : status === "active" ? "active" : "");
             return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("li", { className: cls, children: [
@@ -24872,6 +24873,10 @@
                 ] }),
                 /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ide-plan-text", children: text }),
                 /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEPlanTag, { kind })
+              ] }),
+              expectedOutcome && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-plan-outcome", children: [
+                "expected_outcome: ",
+                expectedOutcome
               ] }),
               childRows.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-plan-children", children: childRows.map((child) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-plan-child", children: [
                 /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-plan-child-head", children: [
@@ -25223,6 +25228,34 @@
     if (normalized === "nav") return "navigate";
     return normalized;
   }
+  var EXPECTED_OUTCOME_TYPES = [
+    "navigation",
+    "modal",
+    "dropdown",
+    "new_tab",
+    "toast_or_message",
+    "content_change",
+    "download",
+    "file_picker",
+    "no_visible_change",
+    "not_sure"
+  ];
+  function isClickLikeIntent(value) {
+    const text = firstText(value).toLowerCase();
+    return /(^|\b)(click|tap|press|open)\b/.test(text);
+  }
+  function formatExpectedOutcomeSummary(expectedOutcome) {
+    if (!expectedOutcome || typeof expectedOutcome !== "object") {
+      return "";
+    }
+    const type = firstText(expectedOutcome.type).toLowerCase().replace(/[\s-]+/g, "_");
+    if (!type || !EXPECTED_OUTCOME_TYPES.includes(type)) {
+      return "";
+    }
+    const description = firstText(expectedOutcome.description);
+    const summary = description ? `${type} \xB7 ${description}` : type;
+    return summary.length > 80 ? `${summary.slice(0, 79)}\u2026` : summary;
+  }
   function inferActionKindFromText(...values) {
     const text = values.map((value) => firstText(value)).filter(Boolean).join(" ").toLowerCase();
     if (!text) return "step";
@@ -25280,6 +25313,7 @@
     const displayTitle = resolveRecordedStepTitle(step, action, stepNumberValue);
     const target = pickRecordedText(step.target_label, step.element_name, step.target, step.label);
     const locator = firstText(step.locator);
+    const expectedOutcome = formatExpectedOutcomeSummary(step.expected_outcome ?? step.expectedOutcome);
     const status = firstText(step.status, "recorded").toLowerCase();
     const statusKind = status === "passed" ? "passed" : status === "failed" ? "failed" : "recorded";
     const codeLine = firstText(step.generated_line);
@@ -25317,6 +25351,10 @@
         ] })
       ] }),
       !hasChildren && target && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-recorded-step-target", children: target }),
+      expectedOutcome && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-recorded-step-outcome", children: [
+        "expected_outcome: ",
+        expectedOutcome
+      ] }),
       !hasChildren && locator && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "ide-recorded-step-locator", children: locator }),
       showGeneratedLine && codeBlockText && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("pre", { className: "ide-recorded-step-code", children: codeBlockText }),
       !showGeneratedLine && showDetails && codeBlockText && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("pre", { className: "ide-recorded-step-code ide-recorded-step-code-collapsed", children: codeBlockText }),
@@ -25336,9 +25374,22 @@
       ] })
     ] }) });
   }
-  function IDERecordedStepsSection({ recordedSteps = [], onReplayRecordedStep, onCopyRecordedStep }) {
+  function IDERecordedStepsSection({ recordedSteps = [], onReplayRecordedStep, onReplayAllRecordedSteps, onCopyRecordedStep }) {
     const steps = Array.isArray(recordedSteps) ? recordedSteps : [];
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECard, { color: steps.length ? "green" : null, title: "// recorded steps", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-scrollbox ide-scrollbox-recorded", style: { maxHeight: 300 }, children: steps.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-list", children: steps.map((step, i) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+    const footer = onReplayAllRecordedSteps ? [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+        "button",
+        {
+          className: "ide-btn sm",
+          type: "button",
+          style: { marginLeft: "auto" },
+          onClick: () => onReplayAllRecordedSteps?.(),
+          children: "Replay All"
+        },
+        "replay-all"
+      )
+    ] : null;
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECard, { color: steps.length ? "green" : null, title: "// recorded steps", footer, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-scrollbox ide-scrollbox-recorded", style: { maxHeight: 300 }, children: steps.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-list", children: steps.map((step, i) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
       IDERecordedStepCard,
       {
         step,
@@ -25351,7 +25402,7 @@
       step.id || `${step.step_number || i}`
     )) }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-empty-state", children: "No recorded steps yet." }) }) });
   }
-  function IDERecordedOutput({ recordedSteps = [], onReplayRecordedStep, onCopyRecordedStep }) {
+  function IDERecordedOutput({ recordedSteps = [], onReplayRecordedStep, onReplayAllRecordedSteps, onCopyRecordedStep }) {
     const [activeTab, setActiveTab] = import_react.default.useState("steps");
     const steps = Array.isArray(recordedSteps) ? recordedSteps : [];
     const visibleSteps = activeTab === "steps" ? steps.slice(-3).reverse() : [];
@@ -25387,7 +25438,20 @@
     const codeText = codeLines.join("\n");
     const recordedCount = steps.length;
     const lineCount = codeLines.length;
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(IDECard, { color: recordedCount > 0 ? "green" : null, title: "// recorded output", children: [
+    const footer = onReplayAllRecordedSteps ? [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+        "button",
+        {
+          className: "ide-btn sm",
+          type: "button",
+          style: { marginLeft: "auto" },
+          onClick: () => onReplayAllRecordedSteps?.(),
+          children: "Replay All"
+        },
+        "replay-all"
+      )
+    ] : null;
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(IDECard, { color: recordedCount > 0 ? "green" : null, title: "// recorded output", footer, children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-stats", children: [
         /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-stat", children: [
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `ide-stat-num${recordedCount > 0 ? " s-green" : ""}`, children: recordedCount }),
@@ -25445,6 +25509,7 @@
     compact = false,
     activePickerStepId = "",
     onChangeIntent,
+    onChangeExpectedOutcome,
     onAttachElement,
     onDeleteStep
   }) {
@@ -25452,12 +25517,18 @@
     const intent = firstRawText(step.intent, step.text, step.label);
     const trimmedIntent = intent.trim();
     const elementInfo = normalizeElementInfoForDisplay(step.element_info ?? step.elementInfo ?? null);
+    const expectedOutcome = step.expected_outcome && typeof step.expected_outcome === "object" ? step.expected_outcome : null;
+    const expectedOutcomeType = firstText(expectedOutcome?.type).toLowerCase().replace(/[\s-]+/g, "_");
+    const expectedOutcomeDescription = firstRawText(expectedOutcome?.description);
     const isPicking = activePickerStepId === step.id;
     const actionGuess = inferActionKindFromText(intent, elementInfo?.text, elementInfo?.tag, elementInfo?.id);
     const explicitStatus = firstText(step.status, step.state).toLowerCase();
-    const statusLabel = isPicking ? "picking\u2026" : explicitStatus === "ready" || trimmedIntent ? "ready" : "draft";
-    const statusKind = isPicking ? "await" : explicitStatus === "ready" || trimmedIntent ? "ready" : "await";
+    const needsExpectedOutcome = isClickLikeIntent(intent) && !expectedOutcomeType;
+    const statusLabel = isPicking ? "picking\u2026" : needsExpectedOutcome ? "needs outcome" : explicitStatus === "ready" || trimmedIntent ? "ready" : "draft";
+    const statusKind = isPicking ? "await" : needsExpectedOutcome ? "await" : explicitStatus === "ready" || trimmedIntent ? "ready" : "await";
     const stepNumber = String(index + 1).padStart(2, "0");
+    const outcomeLine = expectedOutcomeType ? formatExpectedOutcomeSummary(expectedOutcome) : "";
+    const validationMessage = needsExpectedOutcome ? "Expected outcome required for click-like steps." : "";
     const elementSummary = elementInfo ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(PendingChipRow, { elementInfo, intent }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { style: { color: "#8f8a82" }, children: trimmedIntent ? "No element attached." : "Draft step." });
     return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: `ide-step-card${compact ? " is-compact" : ""}${isPicking ? " is-active" : ""}`, children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-numcol", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "ide-step-num", children: stepNumber }) }),
@@ -25480,6 +25551,47 @@
           compact ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEBadge, { kind: statusKind, children: statusLabel }) : null
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-elements", children: elementSummary }),
+        !compact && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-step-outcome", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-outcome-label", children: "Expected Outcome" }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-outcome-chips", children: EXPECTED_OUTCOME_TYPES.map((type) => {
+            const active = expectedOutcomeType === type;
+            return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+              "button",
+              {
+                className: `ide-outcome-chip${active ? " active" : ""}`,
+                type: "button",
+                onClick: () => onChangeExpectedOutcome?.(step.id, {
+                  type,
+                  description: expectedOutcomeDescription,
+                  source: "user",
+                  required: isClickLikeIntent(intent)
+                }),
+                children: type
+              },
+              type
+            );
+          }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+            "input",
+            {
+              className: "ide-input ide-step-outcome-input",
+              value: expectedOutcomeDescription,
+              onChange: (event) => onChangeExpectedOutcome?.(step.id, {
+                type: expectedOutcomeType || (event.target.value.trim() ? "not_sure" : ""),
+                description: event.target.value,
+                source: "user",
+                required: isClickLikeIntent(intent)
+              }),
+              placeholder: "Expected outcome details"
+            }
+          ),
+          validationMessage && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-validation", children: validationMessage }),
+          outcomeLine && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-step-outcome-summary", children: [
+            "selected: ",
+            outcomeLine
+          ] })
+        ] }),
+        compact && validationMessage && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-validation", children: validationMessage }),
         !compact && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-step-actions", children: [
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ide-btn sm", type: "button", onClick: () => onAttachElement?.(step.id), children: isPicking ? "Click page element\u2026" : "Attach Element" }),
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
@@ -25510,6 +25622,7 @@
     compact = false,
     activePickerStepId = "",
     onChangeIntent,
+    onChangeExpectedOutcome,
     onAddStep,
     onAttachElement,
     onDeleteStep
@@ -25547,6 +25660,7 @@
                 compact,
                 activePickerStepId,
                 onChangeIntent,
+                onChangeExpectedOutcome,
                 onAttachElement,
                 onDeleteStep
               },
@@ -25746,6 +25860,7 @@
               compact: true,
               activePickerStepId,
               onChangeIntent: runtime.onPendingStepIntentChange,
+              onChangeExpectedOutcome: runtime.onPendingStepExpectedOutcomeChange,
               onAttachElement: runtime.onAttachElement,
               onDeleteStep: runtime.onDeletePendingStep
             }
@@ -25755,6 +25870,7 @@
             {
               recordedSteps,
               onReplayRecordedStep: runtime.onReplayRecordedStep,
+              onReplayAllRecordedSteps: runtime.onReplayAllRecordedSteps,
               onCopyRecordedStep: runtime.onCopyRecordedStep
             }
           )
@@ -25769,6 +25885,7 @@
               compact: false,
               activePickerStepId,
               onChangeIntent: runtime.onPendingStepIntentChange,
+              onChangeExpectedOutcome: runtime.onPendingStepExpectedOutcomeChange,
               onAddStep: runtime.onAddPendingStep,
               onAttachElement: runtime.onAttachElement,
               onDeleteStep: runtime.onDeletePendingStep
@@ -25779,6 +25896,7 @@
             {
               recordedSteps,
               onReplayRecordedStep: runtime.onReplayRecordedStep,
+              onReplayAllRecordedSteps: runtime.onReplayAllRecordedSteps,
               onCopyRecordedStep: runtime.onCopyRecordedStep
             }
           )
@@ -26033,6 +26151,7 @@
       label: firstNonEmptyText(source.label, text),
       title: firstNonEmptyText(source.title, text),
       cls: firstNonEmptyText(source.cls),
+      expected_outcome: normalizeExpectedOutcome(source.expected_outcome ?? source.expectedOutcome, false),
       status: normalizedStatus,
       recorded: ["done", "completed", "recorded", "passed"].includes(normalizedStatus),
       completed: ["done", "completed", "recorded", "passed"].includes(normalizedStatus),
@@ -26058,8 +26177,59 @@
       id: `pending-step-${Date.now().toString(36)}-${pendingStepCounter}`,
       intent,
       element_info: elementInfo,
-      recorded
+      expected_outcome: null,
+      recorded,
+      status: "draft"
     };
+  }
+  var EXPECTED_OUTCOME_TYPES2 = [
+    "navigation",
+    "modal",
+    "dropdown",
+    "new_tab",
+    "toast_or_message",
+    "content_change",
+    "download",
+    "file_picker",
+    "no_visible_change",
+    "not_sure"
+  ];
+  function isClickLikeIntent2(value) {
+    const text = firstNonEmptyText(value).toLowerCase();
+    return /(^|\b)(click|tap|press|open)\b/.test(text);
+  }
+  function normalizeExpectedOutcome(expectedOutcome, required = false) {
+    if (!expectedOutcome || typeof expectedOutcome !== "object") {
+      return null;
+    }
+    const type = firstNonEmptyText(expectedOutcome.type).toLowerCase().replace(/[\s-]+/g, "_");
+    if (!type || !EXPECTED_OUTCOME_TYPES2.includes(type)) {
+      return null;
+    }
+    const description = firstRawText2(expectedOutcome.description);
+    return {
+      type,
+      ...description ? { description } : {},
+      source: "user",
+      required: Boolean(required || expectedOutcome.required === true)
+    };
+  }
+  function resolvePendingStepStatus(step) {
+    if (!step || typeof step !== "object") {
+      return "draft";
+    }
+    if (step.recorded === true) {
+      return "recorded";
+    }
+    const intent = firstNonEmptyText(step.intent, step.text, step.label);
+    if (!intent) {
+      return "draft";
+    }
+    const expectedOutcome = normalizeExpectedOutcome(step.expected_outcome ?? step.expectedOutcome, isClickLikeIntent2(intent));
+    if (isClickLikeIntent2(intent) && (!expectedOutcome || !expectedOutcome.type)) {
+      return "needs_outcome";
+    }
+    return "ready";
   }
   function firstNonEmptyText(...values) {
     for (const value of values) {
@@ -26067,6 +26237,17 @@
         return value.trim();
       }
       if ((typeof value === "number" || typeof value === "boolean") && value !== "") {
+        return String(value);
+      }
+    }
+    return "";
+  }
+  function firstRawText2(...values) {
+    for (const value of values) {
+      if (typeof value === "string" && value !== "") {
+        return value;
+      }
+      if (typeof value === "number" || typeof value === "boolean") {
         return String(value);
       }
     }
@@ -26188,13 +26369,19 @@
     if (!step || typeof step !== "object") {
       return createPendingStep(typeof step === "string" ? step : "");
     }
-    return {
+    const nextIntent = typeof step.intent === "string" ? step.intent : typeof step.text === "string" ? step.text : typeof step.label === "string" ? step.label : "";
+    const normalizedStep = {
       ...step,
       id: typeof step.id === "string" && step.id.trim() ? step.id : createPendingStep().id,
-      intent: typeof step.intent === "string" ? step.intent : typeof step.text === "string" ? step.text : typeof step.label === "string" ? step.label : "",
+      intent: nextIntent,
       element_info: step.element_info ?? step.elementInfo ?? null,
-      recorded: step.recorded === true,
-      status: typeof step.status === "string" ? step.status : ""
+      expected_outcome: normalizeExpectedOutcome(step.expected_outcome ?? step.expectedOutcome, isClickLikeIntent2(nextIntent)),
+      recorded: step.recorded === true
+    };
+    const status = typeof step.status === "string" ? step.status.trim().toLowerCase() : "";
+    return {
+      ...normalizedStep,
+      status: ["recorded", "done", "completed", "passed", "failed", "skipped"].includes(status) ? status : resolvePendingStepStatus(normalizedStep)
     };
   }
   function normalizePendingSteps(steps) {
@@ -26345,6 +26532,7 @@
       element_name: elementName || firstNonEmptyText(step.element_name, step.target, step.label) || `Step ${stepNumber}`,
       locator: firstNonEmptyText(step.locator, step.selector, step.xpath, step.css, step.path) || "",
       generated_line: firstNonEmptyText(step.generated_line, step.generatedLine, step.code_line, step.codeLine, step.line, step.code, step.snippet) || "",
+      expected_outcome: step.expected_outcome ?? step.expectedOutcome ?? (step.raw && typeof step.raw === "object" ? step.raw.expected_outcome ?? step.raw.expectedOutcome : null),
       status: normalizedStatus,
       display_title: displayTitle,
       action_label: action,
@@ -26704,12 +26892,40 @@
             return step;
           }
           const nextIntent = typeof intent === "string" ? intent : "";
-          return {
+          const nextStep = {
             ...step,
             intent: nextIntent,
-            status: nextIntent.trim() ? "ready" : "draft",
             recorded: false,
             element_info: step.element_info ?? step.elementInfo ?? null
+          };
+          return {
+            ...nextStep,
+            expected_outcome: normalizeExpectedOutcome(
+              step.expected_outcome ?? step.expectedOutcome,
+              isClickLikeIntent2(nextIntent)
+            ),
+            status: resolvePendingStepStatus(nextStep)
+          };
+        })
+      );
+    }, [updatePendingSteps]);
+    const updatePendingStepExpectedOutcome = (0, import_react2.useCallback)((stepId, expectedOutcome) => {
+      updatePendingSteps(
+        (current) => current.map((step) => {
+          if (step.id !== stepId) {
+            return step;
+          }
+          const nextIntent = typeof step.intent === "string" ? step.intent : "";
+          const nextStep = {
+            ...step,
+            intent: nextIntent,
+            recorded: false,
+            element_info: step.element_info ?? step.elementInfo ?? null,
+            expected_outcome: normalizeExpectedOutcome(expectedOutcome, isClickLikeIntent2(nextIntent))
+          };
+          return {
+            ...nextStep,
+            status: resolvePendingStepStatus(nextStep)
           };
         })
       );
@@ -26759,6 +26975,18 @@
       },
       [appendTimeline, sendPayload]
     );
+    const handleReplayAllRecordedSteps = (0, import_react2.useCallback)(() => {
+      const sent = sendPayload(
+        {
+          type: "replay_all",
+          stop_on_error: true
+        },
+        "WebSocket not connected."
+      );
+      if (sent) {
+        appendTimeline("Replay all requested.", "active");
+      }
+    }, [appendTimeline, sendPayload]);
     const handleCopyRecordedStep = (0, import_react2.useCallback)(
       (step) => {
         const line = firstNonEmptyText(step?.generated_line);
@@ -26796,11 +27024,30 @@
       [appendTimeline, sendPayload]
     );
     const handleRunPendingSteps = (0, import_react2.useCallback)(() => {
-      const readySteps = pendingSteps.filter((step) => typeof step.intent === "string" && step.intent.trim() && step.recorded !== true).map((step) => ({
-        id: step.id,
-        intent: step.intent.trim(),
-        element_info: step.element_info ?? null
-      }));
+      const readySteps = [];
+      for (const step of pendingSteps) {
+        if (!step || typeof step !== "object" || step.recorded === true) {
+          continue;
+        }
+        const intent = firstNonEmptyText(step.intent, step.text, step.label);
+        if (!intent) {
+          continue;
+        }
+        const normalizedOutcome = normalizeExpectedOutcome(
+          step.expected_outcome ?? step.expectedOutcome,
+          isClickLikeIntent2(intent)
+        );
+        if (isClickLikeIntent2(intent) && (!normalizedOutcome || !normalizedOutcome.type)) {
+          appendTimeline(`Select an expected outcome for "${intent}" before running.`, "warn");
+          return;
+        }
+        readySteps.push({
+          id: step.id,
+          intent,
+          element_info: step.element_info ?? step.elementInfo ?? null,
+          expected_outcome: normalizedOutcome
+        });
+      }
       if (!readySteps.length) {
         appendTimeline("Add at least one step before running.", "warn");
         return;
@@ -27056,6 +27303,94 @@
             appendTimeline(text || "Code updated", "ok");
             break;
           }
+          case "replay_started": {
+            const scope = firstNonEmptyText(payload && typeof payload === "object" ? payload.scope : "");
+            const stepCount = resolveFiniteNumber(
+              payload && typeof payload === "object" ? payload.step_count ?? payload.stepCount : Number.NaN
+            );
+            const scopeLabel = scope === "all" ? "Replay all started" : "Replay started";
+            appendTimeline(
+              Number.isFinite(stepCount) ? `${scopeLabel} \xB7 ${stepCount} steps` : scopeLabel,
+              "active"
+            );
+            break;
+          }
+          case "replay_result": {
+            const replayStepId = firstNonEmptyText(
+              payload && typeof payload === "object" ? payload.step_id : "",
+              payload && typeof payload === "object" ? payload.stepId : ""
+            );
+            const isOk = payload && typeof payload === "object" && payload.ok === true;
+            const operationCount = resolveFiniteNumber(
+              payload && typeof payload === "object" ? payload.operation_count ?? payload.operationCount : Number.NaN
+            );
+            if (isOk) {
+              appendTimeline(
+                `Replay step succeeded for ${replayStepId || "step"}${Number.isFinite(operationCount) ? ` \xB7 ${operationCount} operations` : ""}`,
+                "ok"
+              );
+            } else {
+              const failedOperationId = firstNonEmptyText(
+                payload && typeof payload === "object" ? payload.failed_operation_id : "",
+                payload && typeof payload === "object" ? payload.failedOperationId : ""
+              );
+              const errorText = firstNonEmptyText(
+                payload && typeof payload === "object" ? payload.error : "",
+                "Replay failed"
+              );
+              setLastError(errorText);
+              appendTimeline(
+                `Replay step failed for ${replayStepId || "step"}${failedOperationId ? ` \xB7 ${failedOperationId}` : ""} \xB7 ${errorText}`,
+                "err"
+              );
+            }
+            break;
+          }
+          case "replay_all_result": {
+            const isOk = payload && typeof payload === "object" && payload.ok === true;
+            const replayedCount = resolveFiniteNumber(
+              payload && typeof payload === "object" ? payload.replayed_count ?? payload.replayedCount : Number.NaN
+            );
+            const passedCount = resolveFiniteNumber(
+              payload && typeof payload === "object" ? payload.passed_count ?? payload.passedCount : Number.NaN
+            );
+            const failedCount = resolveFiniteNumber(
+              payload && typeof payload === "object" ? payload.failed_count ?? payload.failedCount : Number.NaN
+            );
+            const failedStepId = firstNonEmptyText(
+              payload && typeof payload === "object" ? payload.failed_step_id : "",
+              payload && typeof payload === "object" ? payload.failedStepId : ""
+            );
+            const failedOperationId = firstNonEmptyText(
+              payload && typeof payload === "object" ? payload.failed_operation_id : "",
+              payload && typeof payload === "object" ? payload.failedOperationId : ""
+            );
+            const errorText = firstNonEmptyText(
+              payload && typeof payload === "object" ? payload.error : "",
+              "Replay all failed"
+            );
+            if (isOk) {
+              const replayedLabel = Number.isFinite(replayedCount) ? `${replayedCount} step${replayedCount === 1 ? "" : "s"}` : "replay";
+              const passedLabel = Number.isFinite(passedCount) ? `${passedCount} passed` : "";
+              appendTimeline(
+                ["Replay all completed", replayedLabel, passedLabel].filter(Boolean).join(" \xB7 "),
+                "ok"
+              );
+            } else {
+              setLastError(errorText);
+              appendTimeline(
+                [
+                  "Replay all failed",
+                  failedStepId,
+                  failedOperationId,
+                  Number.isFinite(failedCount) ? `${failedCount} failed` : "",
+                  errorText
+                ].filter(Boolean).join(" \xB7 "),
+                "err"
+              );
+            }
+            break;
+          }
           case "replay_one_result": {
             const replayStepId = firstNonEmptyText(
               payload && typeof payload === "object" ? payload.step_id : "",
@@ -27114,11 +27449,19 @@
                     return step;
                   }
                   const nextIntent = typeof step.intent === "string" ? step.intent : "";
-                  return {
+                  const nextStep = {
                     ...step,
                     element_info: elementInfo,
                     recorded: false,
                     status: nextIntent.trim() ? "ready" : "draft"
+                  };
+                  return {
+                    ...nextStep,
+                    expected_outcome: normalizeExpectedOutcome(
+                      step.expected_outcome ?? step.expectedOutcome,
+                      isClickLikeIntent2(nextIntent)
+                    ),
+                    status: resolvePendingStepStatus(nextStep)
                   };
                 })
               );
@@ -27260,6 +27603,7 @@
       onClarificationAnswerTextChange: setClarificationAnswerText,
       onRecoveryTextChange: setRecoveryText,
       onPendingStepIntentChange: updatePendingStepIntent,
+      onPendingStepExpectedOutcomeChange: updatePendingStepExpectedOutcome,
       onAddPendingStep: addPendingStep,
       onDeletePendingStep: removePendingStep,
       onAttachElement: handleAttachElement,
@@ -27272,6 +27616,7 @@
       onSendOptionSelected: handleSendClarificationAnswer,
       onSendRecoveryInstruction: handleSendRecoveryInstruction,
       onReplayRecordedStep: handleReplayRecordedStep,
+      onReplayAllRecordedSteps: handleReplayAllRecordedSteps,
       onCopyRecordedStep: handleCopyRecordedStep,
       setPlanCorrectionText,
       setClarificationQuestion,
@@ -27290,6 +27635,7 @@
       handleSendClarificationAnswer,
       handleSendRecoveryInstruction,
       handleReplayRecordedStep,
+      handleReplayAllRecordedSteps,
       handleCopyRecordedStep
     };
   }

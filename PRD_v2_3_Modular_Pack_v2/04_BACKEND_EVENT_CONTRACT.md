@@ -65,6 +65,14 @@ Backend Step Runner is the source of truth. Frontend renders typed events and se
 - Frontend should ignore unknown events only after logging them visibly for developers.
 - Backend should reject invalid commands with typed error responses.
 
+frontend/backend must pass expected outcome through typed payloads. This file owns commands/events like replay_all, save_session, load_session, etc.
+
+Add fields to relevant events/payloads:
+
+pending step / plan_ready / step_recorded / save_snapshot should allow:
+expected_outcome
+observed_outcome
+
 ### Expected criteria
 
 - Frontend can render correct state using events alone, without parsing LLM prose.

@@ -34,6 +34,12 @@ PHASE_INSTRUCTION_CONTENT = {
     ),
 }
 
+RECOVERY_SCOPE_INSTRUCTION = (
+    "Completed/recorded steps are locked. Do not replan completed steps. Do not send "
+    "plan_ready during unresolved recovery. Work only on the failed unresolved step. "
+    "Allowed outcomes: retry or repair the failed step, ask user, skip, stop/end."
+)
+
 
 def _build_phase_instruction(context_mode: str, phase: str | None) -> dict | None:
     normalized_phase = str(phase or "").strip().lower()
@@ -80,6 +86,7 @@ class ContextManager:
             requested_phase = "planning"
         phase_instruction = _build_phase_instruction(context_mode, requested_phase)
         final_messages = list(managed_history.messages)
+        recovery_scope_instruction_applied = False
         phase_insert_index = 0
         for index, message in enumerate(final_messages):
             if isinstance(message, dict) and str(message.get("role") or "").strip().lower() == "system":
@@ -87,6 +94,24 @@ class ContextManager:
                 break
         if phase_instruction is not None:
             final_messages.insert(phase_insert_index, phase_instruction)
+            if requested_phase == "recovery":
+                if phase_insert_index > 0:
+                    first_system_message = final_messages[0] if final_messages else None
+                    if isinstance(first_system_message, dict):
+                        existing_content = str(first_system_message.get("content") or "")
+                        first_system_message["content"] = (
+                            f"{existing_content}\n\n{RECOVERY_SCOPE_INSTRUCTION}".strip()
+                            if existing_content
+                            else RECOVERY_SCOPE_INSTRUCTION
+                        )
+                        recovery_scope_instruction_applied = True
+                if not recovery_scope_instruction_applied and isinstance(phase_instruction, dict):
+                    existing_content = str(phase_instruction.get("content") or "")
+                    phase_instruction["content"] = (
+                        f"{existing_content}\n\n{RECOVERY_SCOPE_INSTRUCTION}".strip()
+                        if existing_content
+                        else RECOVERY_SCOPE_INSTRUCTION
+                    )
         final_message_count = len(final_messages)
         estimated_message_tokens = estimate_messages_tokens(final_messages)
         bundle_metadata["managed_history_enabled"] = True
@@ -99,6 +124,7 @@ class ContextManager:
         bundle_metadata["purpose"] = str(purpose or "").strip() or "unknown"
         bundle_metadata["phase"] = requested_phase
         bundle_metadata["phase_instruction_applied"] = phase_instruction is not None
+        bundle_metadata["recovery_scope_instruction_applied"] = recovery_scope_instruction_applied
         requested_context_mode = str(context_mode or "").strip() or "normal"
         bundle_metadata["context_mode"] = (
             "protected" if managed_history.compaction_applied else requested_context_mode

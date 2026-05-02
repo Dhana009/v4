@@ -1,67 +1,69 @@
 <claude-mem-context>
 # Memory Context
 
-# [frontend] recent context, 2026-05-02 1:22pm GMT+5:30
+# [frontend] recent context, 2026-05-02 8:46pm GMT+5:30
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (27,774t read) | 656,442t work | 96% savings
+Stats: 50 obs (26,411t read) | 704,369t work | 96% savings
 
 ### May 2, 2026
+S107 Fix recorded multi-action parent card rendering in AutoWorkbench IDE panel (aw-ide-panel.jsx) (May 2 at 10:29 AM)
 S105 Read-only investigation: multi-action execution/recording mismatch in agent v4 — assert disappears from step_recorded when assert+click both execute before recording (May 2 at 10:29 AM)
-1138 12:24p 🟣 RecoveryManager v1 Complete — 51 Tests Passing
-1139 " 🟣 RecoveryManager v1 — Final Git Diff Summary
-1140 12:29p ⚖️ Plan Correction v1 — Task Specification Defined
-1141 " 🔵 Plan Correction Current Code Path Traced in agent.py
-1147 12:31p 🟣 Plan Correction v1 — Active Plan Context Storage and Structured Correction Message
-1149 12:33p 🟣 Plan Correction v1 — Structured Context-Aware Replanning
-1150 " 🟣 Plan Correction v1 — Test Suite Created
-1151 12:34p 🔵 Plan Correction v1 — Two Test Failures After Initial Run
-1152 " 🔵 Root Cause of Two Plan Correction Test Failures Identified
-1153 12:36p 🔵 Plan model collapses multi-step assert+click specs into single parent with 2 children — test expectations wrong
-1154 " 🔵 Correction message renders correctly when called directly — op_2 line IS present
-1155 12:37p 🔵 Correction message step line shows "1. assert" instead of step intent — _build_plan_step_context_lines reads plan step not source step
-1156 " 🔵 Progress: 53/54 pass — remaining failure is test assertion expecting 1 child on revised plan but plan model always generates 2 for assert+click intent
-1157 12:38p 🔵 _build_planned_children derives child count from source step intent, not LLM plan spec action — revised plans always inherit original child count
-1158 " 🟣 Plan Correction v1 — _plan_correction_pending flag enables plan-spec-driven child derivation on revised plans
-1159 " 🔴 _plan_correction_pending flag applied twice — payload built without flag then rebuilt with flag
-S107 Fix recorded multi-action parent card rendering in AutoWorkbench IDE panel (aw-ide-panel.jsx) (May 2 at 12:41 PM)
-1160 12:44p 🟣 Capability Gap Logging v1 — Backend-Only Run-Scoped State
-1162 " 🔵 Pre-implementation code audit: four gap hook point locations confirmed in agent.py
-1164 12:45p 🔵 Existing test suite layout and test_skill_loading.py baseline before capability gap additions
-1168 " 🟣 Capability Gap Logging v1 core infrastructure added to agent.py
-1165 " 🔵 test_assertion_flow.py and test_skill_loading.py baseline: exact assertions to preserve during gap logging additions
-1169 12:47p 🟣 tests/test_capability_gaps.py created with three core gap logging tests
-1172 " 🟣 test_skill_loading.py updated: missing_skill gap assertions added to _make_loop and test_missing_mapped_folder_does_not_crash
-1173 " 🟣 test_assertion_flow.py and test_plan_model.py updated with capability gap assertions
-1174 " 🟣 Capability Gap Logging v1 verified: py_compile clean, 80/80 tests pass
-1175 12:50p 🔵 Two pytest environments detected: Python 3.13.1/pytest-8.3.5 (80 tests) and Python 3.13.9/pytest-8.4.2 (58 tests)
-1176 " 🟣 Capability Gap Logging v1 — final git diff confirms exact changeset shipped
-1177 12:52p 🟣 Save v1 Backend Snapshot/Spec Builder — Task Defined
-1178 12:53p 🔵 AgentLoop In-Memory State Structure for Save v1 Snapshot
-1181 " 🔵 AgentLoop Test Harness Pattern and recorded_step/code_update Payload Shape
-1182 12:54p 🔵 _build_code_update_payload and _get_existing_spec_lines Source of Truth
-1183 12:55p 🟣 runtime/spec_snapshot.py Created — Pure Snapshot Builder Module
-1184 " 🟣 AgentLoop Save v1 — Accumulators and _build_spec_snapshot() Added to agent.py
-1185 12:56p 🔴 spec_snapshot.py Fallback Logic Fixed — code_update presence check decoupled from lines check
-1186 " 🟣 tests/test_save_spec.py Created — Two Test Cases for Save v1 Snapshot
-1187 12:57p 🟣 Save v1 Backend Snapshot — All 65 Tests Pass Including 2 New test_save_spec Tests
-1188 " 🟣 Save v1 Backend Snapshot — Final Verification Complete
-1189 12:58p 🟣 tests/test_save_spec.py Expanded — More Realistic Multi-Step Fixtures
-1190 12:59p 🟣 Save v1 Final State — Three Files Confirmed, All Syntax Clean
-1191 1:04p 🟣 Save Snapshot WebSocket Command + Frontend Button — Task Scoped
-1192 " 🔵 Agent v4 Codebase Pre-Implementation State Mapped
-1197 1:09p 🟣 Save Snapshot WebSocket + Frontend Button — Task Re-Initiated
-1199 " 🔵 No Existing WebSocket Integration Tests in Agent v4 Test Suite
-1202 1:11p 🟣 Save Snapshot — All Three Files Patched
-1203 1:12p 🟣 test_save_snapshot_ws.py Upgraded to Full FastAPI TestClient Integration Tests
-1204 " 🟣 Save Snapshot — All Changes Verified In-File After Patches Applied
-1205 " 🟣 Save Snapshot Feature — All Verification Passed
-1206 " 🟣 Save Snapshot Git Diff — Final Change Summary
-1207 " 🔵 runtime/spec_snapshot.py and test_save_spec.py Are Pre-Existing Tracked Files
-1208 1:13p 🔵 AgentLoop Snapshot Infrastructure — Inline in agent.py Not a Separate Module
+S108 AutoWorkbench Expected Outcome Capture v1 — Read-only root-cause investigation of 5 manual regression failures (May 2 at 12:41 PM)
+S109 AutoWorkbench Recording-Phase Hardening — Fix five Expected Outcome Capture v1 regressions (space-stripping, tool leakage, step_id mismatch, stale loop, no call guard) (May 2 at 7:42 PM)
+1353 7:45p 🔴 Recording-Phase Hard Guards Implemented in agent.py
+1354 7:46p 🔵 _mark_step_failed Clears _awaiting_step_record But Not _recording_wait_guard_armed
+1355 " 🔴 agent.py Tool Dispatch Verified: _should_block_recording_wait_tool Inserted Before Existing Guards
+1356 " 🔴 _recording_wait_guard_armed Gap Fixed in _mark_step_failed and _mark_step_skipped
+1357 " 🟣 test_recording_wait_filters_to_overlay_and_ask_user_only Added to test_tool_registry.py
+1358 " 🟣 Regression Test Added: Canonical step_id Override and Space Preservation in step_recorded Payload
+1359 7:47p 🟣 End-to-End Multi-Turn Recording Guard Test Added to test_multi_action_safety.py
+1360 " 🔵 Syntax Error Found in _build_step_record_payload — "if recorded_step_context:" Without Body
+1361 " 🔵 test_tool_registry.py Final State Confirmed — All Four Tests Verified
+1362 7:48p 🔴 agent.py Code Verified Clean — Syntax Error in _build_step_record_payload Was Already Fixed
+1363 " 🔵 Confirmed Syntax Error Persists at agent.py:2627-2628 — "if recorded_step_context:" With Wrong Indentation
+1364 " 🔴 Two Syntax/Logic Fixes Applied to agent.py — Indentation Error and step_id Priority
+1365 " 🔴 py_compile Passes Clean — All Six Modified Files Syntax-Valid
+1366 7:49p 🔴 All 83 Tests Pass — Recording-Phase Hardening Verified Green
+1367 " 🔴 AutoWorkbench Expected Outcome Capture v1 Recording-Phase Hardening — Shipped
+1368 7:55p 🔴 Expected Outcome Details Input Space-Stripping Bug — Frontend Investigation Task
+1369 " 🔴 Expected Outcome Description Strips Spaces Before Backend Submission
+1370 7:56p 🔵 Root Cause: firstNonEmptyText() Strips Spaces from Expected Outcome Description
+1371 " 🔵 No Frontend JS Test Harness (vitest/jest) Exists in Agent v4
+1372 " 🔵 Exact Root Cause Confirmed: normalizeExpectedOutcome() Uses firstNonEmptyText() on Description
+1373 " 🔴 Fixed: Expected Outcome Description Now Preserves Internal Spaces
+1374 8:19p ⚖️ Deterministic Step Recording v1 — Architecture Decision
+1375 " 🔵 agent.py Pre-Edit Inspection: step_recorded Still LLM-Driven via send_to_overlay
+1376 8:20p 🔵 Full Pre-Edit Code Inspection: Exact Change Points for Deterministic Recording
+1377 " 🔵 Complete Test Suite Inspection: Existing Tests Are LLM-Driven; Must Be Updated for Auto-Recording
+1378 8:21p 🔵 EXECUTION_TOOLS Set Location: Line 73 of agent.py
+1379 8:26p 🟣 Deterministic Step Recording v1 — Runtime-Owned Auto-Recording
+1380 8:27p 🟣 Auto-Recording Architecture: replay_all, recording_wait guard, and EXPECTED_OUTCOME_TYPES Added to agent.py
+1381 8:28p ⚖️ Implementation Plan: 3-Step Deterministic Recording Rollout
+1382 8:29p 🔵 AgentLoop Test Harness: _make_loop() Factory Pattern in test_replay_one.py
+1383 " 🟣 _auto_record_successful_step() and _record_step_payload() Implemented in agent.py
+1384 8:30p 🔵 agent.py Patch Application: First Attempt Failed, Apply-Patch Retry Strategy Used
+1385 8:31p 🔄 _tool_send_to_overlay step_recorded Handler Refactored to Delegate to _record_step_payload()
+1386 8:32p 🟣 Final Batch Loop Structure: did_auto_record_this_batch Flag Coordinates Mid-Batch and Post-Batch Auto-Recording
+1387 " 🔄 did_auto_record_this_batch Flag Removed — Auto-Record is Idempotent
+1388 8:33p 🟣 Deterministic Step Recording v1: All 295 Tests Pass, py_compile Clean
+1389 " 🟣 test_code_update.py Updated to Use action_click Instead of LLM step_recorded
+1390 " 🟣 test_completion_guard.py Updated to Use action_click for Auto-Recording Path
+1391 8:34p 🟣 test_multi_action_safety.py: send_to_overlay step_recorded Removed from All Batch Tool-Call Lists
+1392 " 🟣 test_auto_recorded_step_is_archived_and_replayable Added to test_recorded_step_model.py
+1393 " 🔵 test_replay_all.py Structure: replay_all() Tests Verify Archive Order and Stop-on-Error
+1394 " 🟣 test_replay_all_uses_auto_recorded_archive_order Added to test_replay_all.py
+1395 8:35p 🔵 test_multi_action_safety.py Final State: All Tests Verified Against Auto-Recording Architecture
+1396 " 🔴 Final Changeset Summary: 5 Files Changed, 943 Insertions, 182 Deletions
+1397 " 🔴 Test Harness: fake_reset_lifecycle_state Fixed to Not Pre-Populate Successful Action State
+1398 8:36p 🔵 Remaining message_type: step_recorded in Tests Are All Legacy Fallback Path Tests
+1399 " 🔴 Test Failure: action_click Fired But Auto-Record Found No Action — expected_outcome Missing Blocked _validate_recording_steps
+1400 " 🟣 Deterministic Step Recording v1 — Runtime-Owned Auto-Recording
+1401 8:37p 🟣 All 85 Tests Pass — Deterministic Step Recording v1 Verified
+1402 8:38p ✅ Log Order Assertions Added to test_code_update.py
 
-Access 656k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 704k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

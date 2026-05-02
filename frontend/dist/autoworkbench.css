@@ -1563,6 +1563,13 @@
   flex: 1;
   color: #1e2030;
 }
+.ide-plan-outcome {
+  font-size: 10.5px;
+  line-height: 1.35;
+  color: #7e7870;
+  margin-left: 18px;
+  overflow-wrap: anywhere;
+}
 .ide-plan-tag {
   font-size: 9.5px;
   font-weight: 700;
@@ -1830,6 +1837,64 @@
   flex-wrap: wrap;
   font-size: 10.5px;
 }
+.ide-step-outcome {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px 8px;
+  background: #f7f3ee;
+  border: 1px solid #e8e0d5;
+  border-radius: 2px;
+}
+.ide-step-outcome-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: #9e9890;
+}
+.ide-step-outcome-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+}
+.ide-outcome-chip {
+  appearance: none;
+  border: 1px solid #c8c3ba;
+  background: #f0ece4;
+  color: #4a4640;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 3px 7px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition:
+    background .1s,
+    border-color .1s,
+    color .1s;
+}
+.ide-outcome-chip:hover {
+  background: #e4dfd6;
+  border-color: #a89e90;
+}
+.ide-outcome-chip.active {
+  background: #1e2030;
+  border-color: #1e2030;
+  color: #e8e4dc;
+}
+.ide-step-outcome-input {
+  padding: 6px 8px;
+}
+.ide-step-outcome-summary {
+  font-size: 10.5px;
+  color: #7e7870;
+}
+.ide-step-validation {
+  font-size: 10.5px;
+  color: #c8880a;
+  line-height: 1.35;
+}
 .ide-step-actions {
   display: flex;
   gap: 6px;
@@ -1926,6 +1991,11 @@
   font-size: 11px;
   line-height: 1.45;
   color: #4a4640;
+}
+.ide-recorded-step-outcome {
+  font-size: 10.5px;
+  line-height: 1.35;
+  color: #7e7870;
 }
 .ide-recorded-step-locator {
   display: inline-block;

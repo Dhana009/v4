@@ -352,6 +352,7 @@ function IDEPlanReview({
               const kind = it.kind || it.type || "step";
               const text = it.text || it.label || it.title || `Step ${i + 1}`;
               const status = firstText(it.status, it.state, it.cls).toLowerCase();
+              const expectedOutcome = formatExpectedOutcomeSummary(it.expected_outcome ?? it.expectedOutcome);
               const childRows = getPlanStepChildren(it).map((child, childIndex) => normalizePlanChild(child, childIndex)).filter(Boolean);
               const cls =
                 it.cls ||
@@ -367,6 +368,7 @@ function IDEPlanReview({
                     <span className="ide-plan-text">{text}</span>
                     <IDEPlanTag kind={kind} />
                   </div>
+                  {expectedOutcome && <div className="ide-plan-outcome">expected_outcome: {expectedOutcome}</div>}
                   {childRows.length > 0 && (
                     <div className="ide-plan-children">
                       {childRows.map((child) => (
@@ -759,6 +761,39 @@ function normalizeStepAction(kind) {
   return normalized;
 }
 
+const EXPECTED_OUTCOME_TYPES = [
+  "navigation",
+  "modal",
+  "dropdown",
+  "new_tab",
+  "toast_or_message",
+  "content_change",
+  "download",
+  "file_picker",
+  "no_visible_change",
+  "not_sure",
+];
+
+function isClickLikeIntent(value) {
+  const text = firstText(value).toLowerCase();
+  return /(^|\b)(click|tap|press|open)\b/.test(text);
+}
+
+function formatExpectedOutcomeSummary(expectedOutcome) {
+  if (!expectedOutcome || typeof expectedOutcome !== "object") {
+    return "";
+  }
+
+  const type = firstText(expectedOutcome.type).toLowerCase().replace(/[\s-]+/g, "_");
+  if (!type || !EXPECTED_OUTCOME_TYPES.includes(type)) {
+    return "";
+  }
+
+  const description = firstText(expectedOutcome.description);
+  const summary = description ? `${type} · ${description}` : type;
+  return summary.length > 80 ? `${summary.slice(0, 79)}…` : summary;
+}
+
 function inferActionKindFromText(...values) {
   const text = values.map((value) => firstText(value)).filter(Boolean).join(" ").toLowerCase();
   if (!text) return "step";
@@ -813,6 +848,7 @@ function IDERecordedStepCard({
   const displayTitle = resolveRecordedStepTitle(step, action, stepNumberValue);
   const target = pickRecordedText(step.target_label, step.element_name, step.target, step.label);
   const locator = firstText(step.locator);
+  const expectedOutcome = formatExpectedOutcomeSummary(step.expected_outcome ?? step.expectedOutcome);
   const status = firstText(step.status, "recorded").toLowerCase();
   const statusKind = status === "passed" ? "passed" : status === "failed" ? "failed" : "recorded";
   const codeLine = firstText(step.generated_line);
@@ -857,6 +893,7 @@ function IDERecordedStepCard({
           </div>
         </div>
         {!hasChildren && target && <div className="ide-recorded-step-target">{target}</div>}
+        {expectedOutcome && <div className="ide-recorded-step-outcome">expected_outcome: {expectedOutcome}</div>}
         {!hasChildren && locator && <code className="ide-recorded-step-locator">{locator}</code>}
         {showGeneratedLine && codeBlockText && <pre className="ide-recorded-step-code">{codeBlockText}</pre>}
         {!showGeneratedLine && showDetails && codeBlockText && (
@@ -893,11 +930,24 @@ function IDERecordedStepCard({
   );
 }
 
-function IDERecordedStepsSection({ recordedSteps = [], onReplayRecordedStep, onCopyRecordedStep }) {
+function IDERecordedStepsSection({ recordedSteps = [], onReplayRecordedStep, onReplayAllRecordedSteps, onCopyRecordedStep }) {
   const steps = Array.isArray(recordedSteps) ? recordedSteps : [];
+  const footer = onReplayAllRecordedSteps
+    ? [
+        <button
+          key="replay-all"
+          className="ide-btn sm"
+          type="button"
+          style={{ marginLeft: "auto" }}
+          onClick={() => onReplayAllRecordedSteps?.()}
+        >
+          Replay All
+        </button>,
+      ]
+    : null;
 
   return (
-    <IDECard color={steps.length ? "green" : null} title="// recorded steps">
+    <IDECard color={steps.length ? "green" : null} title="// recorded steps" footer={footer}>
       <div className="ide-scrollbox ide-scrollbox-recorded" style={{ maxHeight: 300 }}>
         {steps.length > 0 ? (
           <div className="ide-step-list">
@@ -921,7 +971,7 @@ function IDERecordedStepsSection({ recordedSteps = [], onReplayRecordedStep, onC
   );
 }
 
-function IDERecordedOutput({ recordedSteps = [], onReplayRecordedStep, onCopyRecordedStep }) {
+function IDERecordedOutput({ recordedSteps = [], onReplayRecordedStep, onReplayAllRecordedSteps, onCopyRecordedStep }) {
   const [activeTab, setActiveTab] = React.useState("steps");
   const steps = Array.isArray(recordedSteps) ? recordedSteps : [];
   const visibleSteps = activeTab === "steps" ? steps.slice(-3).reverse() : [];
@@ -958,9 +1008,22 @@ function IDERecordedOutput({ recordedSteps = [], onReplayRecordedStep, onCopyRec
   const codeText = codeLines.join("\n");
   const recordedCount = steps.length;
   const lineCount = codeLines.length;
+  const footer = onReplayAllRecordedSteps
+    ? [
+        <button
+          key="replay-all"
+          className="ide-btn sm"
+          type="button"
+          style={{ marginLeft: "auto" }}
+          onClick={() => onReplayAllRecordedSteps?.()}
+        >
+          Replay All
+        </button>,
+      ]
+    : null;
 
   return (
-    <IDECard color={recordedCount > 0 ? "green" : null} title="// recorded output">
+    <IDECard color={recordedCount > 0 ? "green" : null} title="// recorded output" footer={footer}>
       <div className="ide-stats">
         <div className="ide-stat">
           <div className={`ide-stat-num${recordedCount > 0 ? " s-green" : ""}`}>{recordedCount}</div>
@@ -1027,6 +1090,7 @@ function IDEPendingStepCard({
   compact = false,
   activePickerStepId = "",
   onChangeIntent,
+  onChangeExpectedOutcome,
   onAttachElement,
   onDeleteStep,
 }) {
@@ -1034,12 +1098,18 @@ function IDEPendingStepCard({
   const intent = firstRawText(step.intent, step.text, step.label);
   const trimmedIntent = intent.trim();
   const elementInfo = normalizeElementInfoForDisplay(step.element_info ?? step.elementInfo ?? null);
+  const expectedOutcome = step.expected_outcome && typeof step.expected_outcome === "object" ? step.expected_outcome : null;
+  const expectedOutcomeType = firstText(expectedOutcome?.type).toLowerCase().replace(/[\s-]+/g, "_");
+  const expectedOutcomeDescription = firstRawText(expectedOutcome?.description);
   const isPicking = activePickerStepId === step.id;
   const actionGuess = inferActionKindFromText(intent, elementInfo?.text, elementInfo?.tag, elementInfo?.id);
   const explicitStatus = firstText(step.status, step.state).toLowerCase();
-  const statusLabel = isPicking ? "picking…" : explicitStatus === "ready" || trimmedIntent ? "ready" : "draft";
-  const statusKind = isPicking ? "await" : explicitStatus === "ready" || trimmedIntent ? "ready" : "await";
+  const needsExpectedOutcome = isClickLikeIntent(intent) && !expectedOutcomeType;
+  const statusLabel = isPicking ? "picking…" : needsExpectedOutcome ? "needs outcome" : explicitStatus === "ready" || trimmedIntent ? "ready" : "draft";
+  const statusKind = isPicking ? "await" : needsExpectedOutcome ? "await" : explicitStatus === "ready" || trimmedIntent ? "ready" : "await";
   const stepNumber = String(index + 1).padStart(2, "0");
+  const outcomeLine = expectedOutcomeType ? formatExpectedOutcomeSummary(expectedOutcome) : "";
+  const validationMessage = needsExpectedOutcome ? "Expected outcome required for click-like steps." : "";
 
   const elementSummary = elementInfo ? (
     <PendingChipRow elementInfo={elementInfo} intent={intent} />
@@ -1072,6 +1142,49 @@ function IDEPendingStepCard({
           {compact ? <IDEBadge kind={statusKind}>{statusLabel}</IDEBadge> : null}
         </div>
         <div className="ide-step-elements">{elementSummary}</div>
+        {!compact && (
+          <div className="ide-step-outcome">
+            <div className="ide-step-outcome-label">Expected Outcome</div>
+            <div className="ide-step-outcome-chips">
+              {EXPECTED_OUTCOME_TYPES.map((type) => {
+                const active = expectedOutcomeType === type;
+                return (
+                  <button
+                    key={type}
+                    className={`ide-outcome-chip${active ? " active" : ""}`}
+                    type="button"
+                    onClick={() =>
+                      onChangeExpectedOutcome?.(step.id, {
+                        type,
+                        description: expectedOutcomeDescription,
+                        source: "user",
+                        required: isClickLikeIntent(intent),
+                      })
+                    }
+                  >
+                    {type}
+                  </button>
+                );
+              })}
+            </div>
+            <input
+              className="ide-input ide-step-outcome-input"
+              value={expectedOutcomeDescription}
+              onChange={(event) =>
+                onChangeExpectedOutcome?.(step.id, {
+                  type: expectedOutcomeType || (event.target.value.trim() ? "not_sure" : ""),
+                  description: event.target.value,
+                  source: "user",
+                  required: isClickLikeIntent(intent),
+                })
+              }
+              placeholder="Expected outcome details"
+            />
+            {validationMessage && <div className="ide-step-validation">{validationMessage}</div>}
+            {outcomeLine && <div className="ide-step-outcome-summary">selected: {outcomeLine}</div>}
+          </div>
+        )}
+        {compact && validationMessage && <div className="ide-step-validation">{validationMessage}</div>}
         {!compact && (
           <div className="ide-step-actions">
             <button className="ide-btn sm" type="button" onClick={() => onAttachElement?.(step.id)}>
@@ -1108,6 +1221,7 @@ function IDEPendingSteps({
   compact = false,
   activePickerStepId = "",
   onChangeIntent,
+  onChangeExpectedOutcome,
   onAddStep,
   onAttachElement,
   onDeleteStep,
@@ -1168,6 +1282,7 @@ function IDEPendingSteps({
                   compact={compact}
                   activePickerStepId={activePickerStepId}
                   onChangeIntent={onChangeIntent}
+                  onChangeExpectedOutcome={onChangeExpectedOutcome}
                   onAttachElement={onAttachElement}
                   onDeleteStep={onDeleteStep}
                 />
@@ -1397,12 +1512,14 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
               compact
               activePickerStepId={activePickerStepId}
               onChangeIntent={runtime.onPendingStepIntentChange}
+              onChangeExpectedOutcome={runtime.onPendingStepExpectedOutcomeChange}
               onAttachElement={runtime.onAttachElement}
               onDeleteStep={runtime.onDeletePendingStep}
             />
             <IDERecordedOutput
               recordedSteps={recordedSteps}
               onReplayRecordedStep={runtime.onReplayRecordedStep}
+              onReplayAllRecordedSteps={runtime.onReplayAllRecordedSteps}
               onCopyRecordedStep={runtime.onCopyRecordedStep}
             />
           </>
@@ -1416,6 +1533,7 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
               compact={false}
               activePickerStepId={activePickerStepId}
               onChangeIntent={runtime.onPendingStepIntentChange}
+              onChangeExpectedOutcome={runtime.onPendingStepExpectedOutcomeChange}
               onAddStep={runtime.onAddPendingStep}
               onAttachElement={runtime.onAttachElement}
               onDeleteStep={runtime.onDeletePendingStep}
@@ -1423,6 +1541,7 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
             <IDERecordedStepsSection
               recordedSteps={recordedSteps}
               onReplayRecordedStep={runtime.onReplayRecordedStep}
+              onReplayAllRecordedSteps={runtime.onReplayAllRecordedSteps}
               onCopyRecordedStep={runtime.onCopyRecordedStep}
             />
           </>

@@ -488,6 +488,413 @@ export default defineConfig({
     { name: 'chromium', use: { ...devices['Desktop Chrome'] } }
   ]
 })
+
+
+
+Below is the PRD patch to add. Do **not** implement yet. First add this section to the PRD.
+
+---
+
+# PRD Addendum — Expected Outcome Capture / Interaction Outcome Model
+
+## 1. Problem
+
+A picked element alone is not enough to create reliable automation.
+
+Today the recorder captures:
+
+```text
+target element
+action
+locator
+generated code
+```
+
+But it does not reliably capture:
+
+```text
+what the user expects to happen after the action
+what actually happened after the action
+whether the action changed page/application state
+```
+
+This causes failures in flows where one step changes the application state for the next step.
+
+Example:
+
+```text
+Step 1: assert homepage heading
+Step 2: click Get started
+Step 3: assert Installation heading
+```
+
+The click in Step 2 navigates to a new page. Without capturing that expected outcome, the system may validate or replay later steps from the wrong page/state. The latest manual run showed this class of issue clearly: actions were valid, but the runtime did not have a stable model of which page/state each later step belonged to. 
+
+This is not only a navigation issue. Real applications can change state in many ways:
+
+```text
+navigation
+modal/dialog opened
+dropdown/menu opened
+new tab opened
+toast/message shown
+content changed
+download started
+file picker opened
+iframe changed
+no visible change
+```
+
+So the product needs a generic model, not one-off navigation handling.
+
+---
+
+## 2. Core Concept
+
+Introduce an **Expected Outcome Capture** model.
+
+Every meaningful interaction should be represented as:
+
+```text
+Target + Action + Expected Outcome + Observed Outcome
+```
+
+Example:
+
+```json
+{
+  "target": "Get started",
+  "action": "click",
+  "expected_outcome": {
+    "type": "navigation",
+    "source": "user",
+    "description": "Should go to the docs intro page"
+  },
+  "observed_outcome": {
+    "type": "navigation",
+    "before_url": "https://playwright.dev/",
+    "after_url": "https://playwright.dev/docs/intro",
+    "matched_expected": true
+  }
+}
+```
+
+---
+
+## 3. Product Principle
+
+The system should not force the user into heavy manual entry, but it should collect critical expected-outcome information when the action is likely to change application state.
+
+### Required for click actions
+
+For `click`, expected outcome should be required before the step is finalized.
+
+Reason:
+
+```text
+click is the highest-risk action because it commonly changes state
+```
+
+### Optional for non-click actions
+
+For actions like `assert`, `fill`, `select`, expected outcome should be optional but supported.
+
+Reason:
+
+```text
+these actions may still change state, but not always
+```
+
+---
+
+## 4. Frontend UX Requirement
+
+When a user picks an element or adds an interaction, show an **Expected Outcome** section.
+
+### For click actions
+
+Show:
+
+```text
+After clicking this, what should happen?
+```
+
+Quick options:
+
+```text
+Navigate to another page
+Open modal/dialog
+Open dropdown/menu
+Open new tab
+Show toast/message
+Change page content
+Start download
+Open file picker
+No visible change
+Not sure / let agent detect
+```
+
+Also provide an optional text field:
+
+```text
+Expected outcome details
+```
+
+Examples:
+
+```text
+Should go to /docs/intro
+Should open the login modal
+Should show success message
+Should open the country dropdown
+```
+
+### For non-click actions
+
+Show the same field as optional.
+
+---
+
+## 5. Backend Data Model
+
+Each pending/recorded step should support:
+
+```json
+{
+  "expected_outcome": {
+    "type": "navigation | modal | dropdown | new_tab | toast | content_change | download | file_picker | no_visible_change | not_sure",
+    "description": "optional user-provided detail",
+    "source": "user | inferred | unknown",
+    "required": true
+  }
+}
+```
+
+Each executed operation may later include:
+
+```json
+{
+  "observed_outcome": {
+    "type": "navigation | modal | dropdown | new_tab | toast | content_change | download | file_picker | no_visible_change | unknown",
+    "before_url": "...",
+    "after_url": "...",
+    "before_title": "...",
+    "after_title": "...",
+    "evidence": [],
+    "matched_expected": true
+  }
+}
+```
+
+Do not store full DOM snapshots in the step payload. Store compact evidence only.
+
+---
+
+## 6. Runtime Behavior
+
+For each action execution:
+
+```text
+1. Capture compact before-state
+2. Execute action
+3. Wait for page/app to settle
+4. Capture compact after-state
+5. Classify observed outcome
+6. Compare expected_outcome vs observed_outcome
+7. Store observed_outcome with the operation
+```
+
+Compact state may include:
+
+```text
+url
+title
+page/tab count
+visible dialog candidates
+visible menu/listbox candidates
+visible toast/alert/message candidates
+top headings
+small DOM signature
+```
+
+---
+
+## 7. Replay Behavior
+
+Replay should not only execute actions. It should also validate expected outcomes.
+
+Replay flow:
+
+```text
+1. Restore starting page/state where possible
+2. Replay operation
+3. Wait for expected outcome
+4. Compare observed outcome
+5. Continue only when outcome is satisfied
+```
+
+Examples:
+
+```text
+expected_outcome = navigation
+→ wait for URL/title/page state change
+
+expected_outcome = modal
+→ wait for visible dialog/modal
+
+expected_outcome = dropdown
+→ wait for menu/listbox/options
+
+expected_outcome = toast
+→ wait for visible toast/message
+
+expected_outcome = not_sure
+→ use current replay behavior
+```
+
+---
+
+## 8. Repair Behavior
+
+If replay or execution sees a mismatch:
+
+```text
+expected: modal opened
+observed: navigation occurred
+```
+
+then repair context should include:
+
+```text
+expected_outcome
+observed_outcome
+mismatch reason
+operation metadata
+current browser state
+```
+
+The LLM should repair using this information instead of guessing from locator/code alone.
+
+---
+
+## 9. Save Snapshot Behavior
+
+Save snapshots must serialize:
+
+```text
+expected_outcome
+observed_outcome
+outcome mismatch status if any
+```
+
+This is required for future:
+
+```text
+Replay Repair
+Save Repaired Version
+Artifact Versioning
+```
+
+---
+
+## 10. MVP Scope
+
+### Expected Outcome Capture v1
+
+Implement only the smallest useful version:
+
+```text
+1. Add expected_outcome to pending step model.
+2. Add frontend expected-outcome input/chips.
+3. Require expected_outcome for click actions.
+4. Store expected_outcome in plan_ready / step_recorded / save snapshot.
+5. Include expected_outcome in LLM context.
+6. Do not require full observed_outcome detection yet.
+```
+
+### v1 supported outcome types
+
+```text
+navigation
+modal
+dropdown
+new_tab
+toast_or_message
+content_change
+download
+file_picker
+no_visible_change
+not_sure
+```
+
+### v1 replay usage
+
+For v1, replay should at least use:
+
+```text
+navigation → restore start URL and/or wait for URL/title change
+not_sure → current behavior
+```
+
+Other types can be stored first and used by later detection.
+
+---
+
+## 11. Out of Scope for v1
+
+Do not implement in v1:
+
+```text
+perfect modal/dropdown/toast detection
+full DOM diff storage
+cross-browser state persistence
+multi-tab repair
+download/file upload repair
+visual comparison
+branching repaired snapshot versions
+```
+
+---
+
+## 12. Acceptance Criteria
+
+Expected Outcome Capture v1 is complete when:
+
+```text
+1. Click steps require expected_outcome before final add/confirm.
+2. Non-click steps can optionally store expected_outcome.
+3. expected_outcome is present in backend pending-step state.
+4. expected_outcome appears in plan/record/step payloads where relevant.
+5. expected_outcome is saved in spec snapshot.
+6. LLM prompt/context includes expected_outcome.
+7. Existing single-action and multi-action flows still pass.
+8. Replay All has enough data to know the intended state transition for click steps.
+```
+
+---
+
+## 13. Implementation Order
+
+```text
+1. Add expected_outcome data model.
+2. Add frontend capture UI.
+3. Require it for click actions.
+4. Pass it through backend planning/recording.
+5. Save it in snapshot.
+6. Add LLM instruction to use expected outcome and avoid guessing.
+7. Add basic replay usage for navigation/not_sure.
+8. Later: add observed_outcome capture.
+```
+
+---
+
+## Short PRD summary line
+
+```text
+Expected Outcome Capture ensures every picked interaction records not only the target and action, but also what the user expects to happen after the action. This reduces LLM guessing and provides the foundation for reliable replay and repair.
+```
+
+
 ```
 
 ---

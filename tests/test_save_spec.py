@@ -42,6 +42,12 @@ def _make_loop() -> AgentLoop:
                 "action": "assert",
                 "element_name": "Get started",
                 "intent": "Check that Get started is visible and click it",
+                "expected_outcome": {
+                    "type": "navigation",
+                    "description": "goes to docs intro page",
+                    "source": "user",
+                    "required": True,
+                },
                 "children": [
                     {
                         "operation_id": "op_1",
@@ -68,7 +74,21 @@ def _make_loop() -> AgentLoop:
             "step_id": "step-1",
             "step_number": 1,
             "intent": "Check that Get started is visible and click it",
+            "expected_outcome": {
+                "type": "navigation",
+                "description": "goes to docs intro page",
+                "source": "user",
+                "required": True,
+            },
             "generated_line": "await expect(getStarted).toBeVisible();",
+            "observed_outcome": {
+                "type": "navigation",
+                "before_url": "https://playwright.dev/",
+                "after_url": "https://playwright.dev/docs/intro",
+                "before_title": "Playwright",
+                "after_title": "Installation | Playwright",
+                "matched_expected": True,
+            },
             "children": [
                 {
                     "operation_id": "op_1",
@@ -132,7 +152,27 @@ def test_build_spec_snapshot_includes_plan_recorded_and_code_update_data() -> No
     assert snapshot["original_user_intent"] == "Check that Get started is visible and click it"
     assert snapshot["plan_ready"]["summary"] == "I will check that Get started is visible and click it"
     assert snapshot["plan_ready"]["steps"] == loop.last_plan_ready_payload["steps"]
+    assert snapshot["plan_ready"]["steps"][0]["expected_outcome"] == {
+        "type": "navigation",
+        "description": "goes to docs intro page",
+        "source": "user",
+        "required": True,
+    }
     assert snapshot["recorded_steps"] == loop.recorded_step_payloads
+    assert snapshot["recorded_steps"][0]["expected_outcome"] == {
+        "type": "navigation",
+        "description": "goes to docs intro page",
+        "source": "user",
+        "required": True,
+    }
+    assert snapshot["recorded_steps"][0]["observed_outcome"] == {
+        "type": "navigation",
+        "before_url": "https://playwright.dev/",
+        "after_url": "https://playwright.dev/docs/intro",
+        "before_title": "Playwright",
+        "after_title": "Installation | Playwright",
+        "matched_expected": True,
+    }
     assert snapshot["recorded_steps"][0]["children"][0]["code_lines"] == [
         "await expect(getStarted).toBeVisible();"
     ]
@@ -191,4 +231,3 @@ def test_build_spec_snapshot_falls_back_to_recorded_child_code_lines_without_cod
     assert snapshot["code"]["full_spec_preview"] == "\n".join(snapshot["code"]["lines"])
     assert snapshot["recorded_steps"] == loop.recorded_step_payloads
     assert snapshot["metadata"]["recorded_step_count"] == 2
-

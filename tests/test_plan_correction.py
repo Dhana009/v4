@@ -17,6 +17,12 @@ def _make_current_step() -> dict[str, object]:
             "text": "Get started",
             "attributes": {"aria-label": "Get started"},
         },
+        "expected_outcome": {
+            "type": "navigation",
+            "description": "goes to docs intro page",
+            "source": "user",
+            "required": True,
+        },
     }
 
 
@@ -232,6 +238,7 @@ def test_plan_correction_message_uses_active_plan_context() -> None:
     assert 'Correction: "Only verify it is visible, do not click"' in note
     assert 'Previous plan summary: "I will check that Get started is visible and click it"' in note
     assert "1. Check that Get started is visible and click it" in note
+    assert "   expected_outcome: navigation · goes to docs intro page" in note
     assert "   - op_1 assert Get started is visible" in note
     assert "   - op_2 click Get started" in note
     assert note == loop.llm.messages[-1]["content"]
@@ -335,6 +342,7 @@ def test_plan_correction_triggers_replanned_plan_ready_before_execution(monkeypa
             assert "User corrected the current plan." in correction_message
             assert 'Correction: "Only verify it is visible, do not click"' in correction_message
             assert 'Previous plan summary: "I will check that Get started is visible and click it"' in correction_message
+            assert "   expected_outcome: navigation · goes to docs intro page" in correction_message
             assert "   - op_1 assert Get started is visible" in correction_message
             assert "   - op_2 click Get started" in correction_message
             return _plan_ready_response(

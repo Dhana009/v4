@@ -14,6 +14,7 @@ def _make_step_context(
     intent: str,
     element_text: str,
     aria_label: str,
+    expected_outcome: dict[str, object] | None = None,
 ) -> dict[str, object]:
     return {
         "step_id": step_id,
@@ -28,6 +29,13 @@ def _make_step_context(
         "status": "executing",
         "recorded": False,
         "last_error": None,
+        "expected_outcome": expected_outcome
+        or {
+            "type": "navigation",
+            "description": "goes to docs intro page",
+            "source": "user",
+            "required": True,
+        },
     }
 
 
@@ -46,6 +54,7 @@ def _build_loop_for_multi_action_safety_test(
     monkeypatch,
     step_context: dict[str, object],
     tool_calls: list[SimpleNamespace],
+    responses: list[SimpleNamespace] | None = None,
 ):
     sent_messages: list[tuple[str, dict[str, object]]] = []
     blocked_results: list[tuple[str, dict[str, object]]] = []
@@ -175,17 +184,21 @@ def _build_loop_for_multi_action_safety_test(
     loop._tool_action_click = fake_action_click
     loop._tool_action_assert = fake_action_assert
 
-    async def fake_model_call(*args, **kwargs):
-        call_counter["count"] += 1
-        if call_counter["count"] > 1:
-            raise AssertionError("Unexpected second model call")
-        return SimpleNamespace(
+    response_queue = list(responses) if responses is not None else [
+        SimpleNamespace(
             choices=[
                 SimpleNamespace(
                     message=SimpleNamespace(content="", tool_calls=list(tool_calls))
                 )
             ]
         )
+    ]
+
+    async def fake_model_call(*args, **kwargs):
+        call_counter["count"] += 1
+        if call_counter["count"] > len(response_queue):
+            raise AssertionError("Unexpected second model call")
+        return response_queue[call_counter["count"] - 1]
 
     loop.model_router = SimpleNamespace(call=fake_model_call)
     monkeypatch.setattr(agent_module, "record_model_call_start", lambda **kwargs: object())
@@ -210,17 +223,6 @@ def test_single_click_action_can_still_be_recorded(monkeypatch) -> None:
                 "locator": 'get_by_label("Submit")',
             },
         ),
-        _make_tool_call(
-            "call-2",
-            "send_to_overlay",
-            {
-                "message_type": "step_recorded",
-                "payload": {
-                    "step_id": "step-1",
-                    "step_number": 1,
-                },
-            },
-        ),
     ]
 
     loop, sent_messages, blocked_results, executed_actions, call_counter = _build_loop_for_multi_action_safety_test(
@@ -229,15 +231,46 @@ def test_single_click_action_can_still_be_recorded(monkeypatch) -> None:
         tool_calls,
     )
 
-    asyncio.run(loop.run([{"id": "step-1"}]))
+    capture_calls: list[str] = []
+    capture_states = [
+        {
+            "url": "https://playwright.dev/",
+            "title": "Playwright",
+        },
+        {
+            "url": "https://playwright.dev/docs/intro",
+            "title": "Installation | Playwright",
+        },
+    ]
+    capture_index = {"count": 0}
+
+    async def fake_capture_browser_state() -> dict[str, str]:
+        call_index = capture_index["count"]
+        capture_index["count"] += 1
+        capture_calls.append("capture")
+        return capture_states[call_index]
+
+    loop._capture_browser_state = fake_capture_browser_state
+
+    asyncio.run(loop.run([step_context]))
 
     assert call_counter["count"] == 1
     assert executed_actions == ["action_click"]
+    assert capture_calls == ["capture", "capture"]
+    assert capture_index["count"] == 2
     assert blocked_results == []
     assert len(sent_messages) == 2
     assert sent_messages[0][0] == "step_recorded"
     assert sent_messages[0][1]["action"] == "click"
     assert sent_messages[0][1]["status"] == "success"
+    assert sent_messages[0][1]["observed_outcome"] == {
+        "type": "navigation",
+        "before_url": "https://playwright.dev/",
+        "after_url": "https://playwright.dev/docs/intro",
+        "before_title": "Playwright",
+        "after_title": "Installation | Playwright",
+        "matched_expected": True,
+    }
     assert sent_messages[0][1]["children"][0]["type"] == "click"
     assert sent_messages[1][0] == "code_update"
     assert sent_messages[1][1]["lines"] == [sent_messages[0][1]["generated_line"]]
@@ -270,17 +303,6 @@ def test_assert_and_click_both_execute_and_record_in_order(monkeypatch) -> None:
                 "locator": 'get_by_label("Get started")',
             },
         ),
-        _make_tool_call(
-            "call-3",
-            "send_to_overlay",
-            {
-                "message_type": "step_recorded",
-                "payload": {
-                    "step_id": "step-1",
-                    "step_number": 1,
-                },
-            },
-        ),
     ]
 
     loop, sent_messages, blocked_results, executed_actions, call_counter = _build_loop_for_multi_action_safety_test(
@@ -289,7 +311,7 @@ def test_assert_and_click_both_execute_and_record_in_order(monkeypatch) -> None:
         tool_calls,
     )
 
-    asyncio.run(loop.run([{"id": "step-1"}]))
+    asyncio.run(loop.run([step_context]))
 
     assert call_counter["count"] == 1
     assert executed_actions == ["action_assert", "action_click"]
@@ -303,6 +325,91 @@ def test_assert_and_click_both_execute_and_record_in_order(monkeypatch) -> None:
     assert sent_messages[0][1]["children"][1]["type"] == "click"
     assert sent_messages[1][0] == "code_update"
     assert len(sent_messages[1][1]["lines"]) == 2
+
+
+def test_auto_record_ends_batch_before_followup_model_turns(monkeypatch) -> None:
+    step_context = _make_step_context(
+        "pending-step-mooeb8ca-2",
+        "Click the submit button",
+        "Submit",
+        "Submit",
+    )
+    responses = [
+        SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    message=SimpleNamespace(
+                        content="",
+                        tool_calls=[
+                            _make_tool_call(
+                                "call-1",
+                                "action_click",
+                                {
+                                    "step_id": "pending-step-mooeb8ca-2",
+                                    "step_number": 1,
+                                    "locator": 'get_by_label("Submit")',
+                                },
+                            )
+                        ],
+                    )
+                )
+            ]
+        ),
+        SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    message=SimpleNamespace(
+                        content="",
+                        tool_calls=[
+                            _make_tool_call(
+                                "call-2",
+                                "screenshot_take",
+                                {"filename": "debug.png"},
+                            )
+                        ],
+                    )
+                )
+            ]
+        ),
+        SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    message=SimpleNamespace(
+                        content="",
+                        tool_calls=[
+                            _make_tool_call(
+                                "call-3",
+                                "send_to_overlay",
+                                {
+                                    "message_type": "step_recorded",
+                                    "payload": {
+                                        "step_id": "1",
+                                        "step_number": 1,
+                                    },
+                                },
+                            )
+                        ],
+                    )
+                )
+            ]
+        ),
+    ]
+
+    loop, sent_messages, blocked_results, executed_actions, call_counter = _build_loop_for_multi_action_safety_test(
+        monkeypatch,
+        step_context,
+        [],
+        responses=responses,
+    )
+
+    asyncio.run(loop.run([step_context]))
+
+    assert call_counter["count"] == 1
+    assert executed_actions == ["action_click"]
+    assert blocked_results == []
+    assert sent_messages[0][0] == "step_recorded"
+    assert sent_messages[0][1]["step_id"] == "pending-step-mooeb8ca-2"
+    assert sent_messages[1][0] == "code_update"
 
 
 def test_failed_assert_stops_later_click_in_same_batch(monkeypatch) -> None:
@@ -402,7 +509,7 @@ def test_failed_assert_stops_later_click_in_same_batch(monkeypatch) -> None:
     loop._tool_ask_user = fake_tool_ask_user
     loop.model_router = SimpleNamespace(call=fake_model_call)
 
-    asyncio.run(loop.run([{"id": "step-1"}]))
+    asyncio.run(loop.run([step_context]))
 
     assert call_counter["count"] == 3
     assert executed_actions == ["action_assert"]
@@ -472,3 +579,69 @@ def test_failed_step_clears_stale_success_history_before_recording(monkeypatch) 
     assert blocked_results == []
     assert executed_actions == []
     assert call_counter["count"] == 0
+
+
+def test_click_like_step_without_expected_outcome_is_blocked_before_llm(monkeypatch) -> None:
+    step_context = _make_step_context(
+        "step-1",
+        "Click the submit button",
+        "Submit",
+        "Submit",
+    )
+    step_context.pop("expected_outcome", None)
+
+    loop, sent_messages, blocked_results, executed_actions, call_counter = _build_loop_for_multi_action_safety_test(
+        monkeypatch,
+        step_context,
+        [],
+    )
+
+    asyncio.run(loop.run([step_context]))
+
+    assert call_counter["count"] == 0
+    assert executed_actions == []
+    assert blocked_results == []
+    assert len(sent_messages) == 1
+    assert sent_messages[0][0] == "error"
+    assert "expected_outcome.type" in sent_messages[0][1]["message"]
+
+
+def test_non_click_step_can_omit_expected_outcome(monkeypatch) -> None:
+    step_context = _make_step_context(
+        "step-1",
+        "Assert the hero text is visible",
+        "Hero",
+        "Hero",
+    )
+    step_context.pop("expected_outcome", None)
+
+    tool_calls = [
+        _make_tool_call(
+            "call-1",
+            "action_assert",
+            {
+                "step_id": "step-1",
+                "step_number": 1,
+                "locator": 'get_by_label("Hero")',
+                "assertion": "visible",
+            },
+        ),
+    ]
+
+    loop, sent_messages, blocked_results, executed_actions, call_counter = _build_loop_for_multi_action_safety_test(
+        monkeypatch,
+        step_context,
+        tool_calls,
+    )
+
+    asyncio.run(loop.run([step_context]))
+
+    assert call_counter["count"] == 1
+    assert executed_actions == ["action_assert"]
+    assert blocked_results == []
+    assert len(sent_messages) == 2
+    assert sent_messages[0][0] == "step_recorded"
+    assert sent_messages[0][1]["action"] == "assert"
+    assert sent_messages[0][1]["status"] == "success"
+    assert sent_messages[0][1]["children"][0]["type"] == "assert"
+    assert sent_messages[1][0] == "code_update"

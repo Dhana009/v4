@@ -89,6 +89,44 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 await ws.send_json(result)
                 continue
 
+            if msg_type == "replay_all":
+                stop_on_error_value = msg.get("stop_on_error", True)
+                if isinstance(stop_on_error_value, bool):
+                    stop_on_error = stop_on_error_value
+                else:
+                    stop_on_error_text = str(stop_on_error_value or "").strip().lower()
+                    stop_on_error = stop_on_error_text not in {"false", "0", "no", "off", ""}
+                try:
+                    result = await agent.replay_all(stop_on_error=stop_on_error)
+                except Exception as exc:  # noqa: BLE001
+                    await ws.send_json(
+                        {
+                            "type": "replay_all_result",
+                            "ok": False,
+                            "stop_on_error": stop_on_error,
+                            "step_ids": [],
+                            "replayed_count": 0,
+                            "passed_count": 0,
+                            "failed_count": 0,
+                            "error": f"Replay failed: {type(exc).__name__}",
+                        }
+                    )
+                else:
+                    if not getattr(agent, "_replay_all_result_sent", False):
+                        if not isinstance(result, dict):
+                            result = {
+                                "type": "replay_all_result",
+                                "ok": False,
+                                "stop_on_error": stop_on_error,
+                                "step_ids": [],
+                                "replayed_count": 0,
+                                "passed_count": 0,
+                                "failed_count": 0,
+                                "error": "Replay failed",
+                            }
+                        await ws.send_json(result)
+                continue
+
             if msg_type in {"confirmed", "correction", "option_selected"}:
                 await control_queue.put(msg)
                 continue

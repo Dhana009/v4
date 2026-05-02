@@ -147,14 +147,14 @@ def _build_loop_for_code_update_test(monkeypatch):
         loop.completed_step_ids = set()
         loop.skipped_step_ids = set()
         loop.current_step_index = 0
-        loop.last_successful_action = success_record
-        loop.successful_action_by_step_id = {"step-1": success_record}
-        loop.successful_actions_by_step_id = {"step-1": [success_record]}
+        loop.last_successful_action = None
+        loop.successful_action_by_step_id = {}
+        loop.successful_actions_by_step_id = {}
         loop._recording_steps = [step_context]
         loop._recording_step_index = 0
         loop._recorded_step_ids = set()
         loop._last_action_context = None
-        loop._awaiting_step_record = True
+        loop._awaiting_step_record = False
         loop._pending_failure_followup = False
         loop._run_completion_requested = False
         loop.run_stop_requested = False
@@ -170,6 +170,12 @@ def _build_loop_for_code_update_test(monkeypatch):
 
     loop._send = fake_send
 
+    async def fake_action_click(args):
+        locator = str(args.get("locator") or "")
+        return {"success": True, "error": None, "locator": locator}
+
+    loop._tool_action_click = fake_action_click
+
     async def fake_model_call(*args, **kwargs):
         call_counter["count"] += 1
         if call_counter["count"] > 1:
@@ -178,14 +184,12 @@ def _build_loop_for_code_update_test(monkeypatch):
             id="call-1",
             type="function",
             function=SimpleNamespace(
-                name="send_to_overlay",
+                name="action_click",
                 arguments=json.dumps(
                     {
-                        "message_type": "step_recorded",
-                        "payload": {
-                            "step_id": "step-1",
-                            "step_number": 1,
-                        },
+                        "step_id": "step-1",
+                        "step_number": 1,
+                        "locator": 'get_by_role("button", name="Submit")',
                     }
                 ),
             ),
@@ -233,7 +237,15 @@ def test_simple_click_recording_emits_code_update_and_stops_cleanly(monkeypatch,
     assert isinstance(code_update_payload["diagnostics"], list)
     assert code_update_payload["diagnostics"] == []
     assert loop._run_completion_requested is True
+    assert "[AGENT] auto-recording successful step: step-1" in captured
+    assert "[AGENT] recording step:" in captured
     assert "[CODE_UPDATE] step_id=step-1 operation_id=op_1 lines=1" in captured
+    assert captured.index("[AGENT] auto-recording successful step: step-1") < captured.index(
+        "[AGENT] recording step:"
+    )
+    assert captured.index("[AGENT] recording step:") < captured.index(
+        "[CODE_UPDATE] step_id=step-1 operation_id=op_1 lines=1"
+    )
     assert captured.index("[CODE_UPDATE] step_id=step-1 operation_id=op_1 lines=1") < captured.index(
         "[AGENT] all steps resolved; ending run without extra LLM call"
     )

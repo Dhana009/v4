@@ -45,6 +45,20 @@ SKILL_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
     ("debugging", ("debug", "error", "fix", "broken")),
 ]
 
+EXPECTED_OUTCOME_TYPES: set[str] = {
+    "navigation",
+    "modal",
+    "dropdown",
+    "new_tab",
+    "toast_or_message",
+    "content_change",
+    "download",
+    "file_picker",
+    "no_visible_change",
+    "not_sure",
+}
+CLICK_LIKE_INTENT_PATTERN = re.compile(r"(^|\b)(click|tap|press|open)\b", re.IGNORECASE)
+
 
 class AgentLoop:
     PLANNING_ALLOWED_TOOLS = {
@@ -110,6 +124,7 @@ class AgentLoop:
         self._recorded_step_ids: set[str] = set()
         self._last_action_context: dict[str, Any] | None = None
         self._awaiting_step_record = False
+        self._recording_wait_guard_armed = False
         self._pending_failure_followup = False
         self.last_plan_ready_payload: dict[str, Any] | None = None
         self.last_plan_step_ids: list[str] = []
@@ -151,6 +166,7 @@ class AgentLoop:
         self._recorded_step_ids = set()
         self._last_action_context = None
         self._awaiting_step_record = False
+        self._recording_wait_guard_armed = False
         self.run_stop_requested = False
         self._run_completion_requested = False
         self._plan_correction_pending = False
@@ -378,6 +394,44 @@ class AgentLoop:
             return f"{text[:197]}..."
         return text
 
+    def _get_replay_archive_step_ids(self) -> list[str]:
+        step_ids: list[str] = []
+        seen_step_ids: set[str] = set()
+
+        recorded_step_payloads = getattr(self, "recorded_step_payloads", None)
+        if isinstance(recorded_step_payloads, list):
+            for payload in recorded_step_payloads:
+                if not isinstance(payload, dict):
+                    continue
+                step_id = str(
+                    payload.get("step_id")
+                    or payload.get("stepId")
+                    or payload.get("id")
+                    or ""
+                ).strip()
+                if not step_id or step_id in seen_step_ids:
+                    continue
+                seen_step_ids.add(step_id)
+                step_ids.append(step_id)
+
+        if step_ids:
+            return step_ids
+
+        replay_recorded_step_payloads_by_step_id = getattr(
+            self,
+            "replay_recorded_step_payloads_by_step_id",
+            None,
+        )
+        if isinstance(replay_recorded_step_payloads_by_step_id, dict):
+            for step_id in replay_recorded_step_payloads_by_step_id.keys():
+                step_id_text = str(step_id or "").strip()
+                if not step_id_text or step_id_text in seen_step_ids:
+                    continue
+                seen_step_ids.add(step_id_text)
+                step_ids.append(step_id_text)
+
+        return step_ids
+
     async def replay_one(self, step_id: str) -> dict[str, Any]:
         replay_step_id = str(step_id or "").strip()
         if not replay_step_id:
@@ -523,6 +577,109 @@ class AgentLoop:
             "status": "success",
             "operation_count": operation_count,
         }
+
+    async def replay_all(self, stop_on_error: bool = True) -> dict[str, Any]:
+        selected_step_ids = self._get_replay_archive_step_ids()
+        step_count = len(selected_step_ids)
+        self._replay_all_result_sent = False
+        print(f"[REPLAY_ALL] started steps={step_count} stop_on_error={json.dumps(bool(stop_on_error))}")
+        await self._send("replay_started", scope="all", step_count=step_count)
+
+        replayed_count = 0
+        passed_count = 0
+        failed_count = 0
+        first_failed_step_id = ""
+        first_failed_operation_id = ""
+        first_error = ""
+        stop_after_failure = bool(stop_on_error)
+
+        for step_id in selected_step_ids:
+            try:
+                step_result = await self.replay_one(step_id)
+            except Exception as exc:  # noqa: BLE001
+                step_result = {
+                    "type": "replay_one_result",
+                    "ok": False,
+                    "step_id": step_id,
+                    "error": self._safe_replay_error_message(f"Replay failed: {type(exc).__name__}"),
+                }
+
+            if not isinstance(step_result, dict):
+                step_result = {
+                    "type": "replay_one_result",
+                    "ok": False,
+                    "step_id": step_id,
+                    "error": self._safe_replay_error_message("Replay failed"),
+                }
+
+            step_ok = step_result.get("ok") is True
+            step_operation_count = 0
+            try:
+                step_operation_count = int(step_result.get("operation_count") or 0)
+            except (TypeError, ValueError):
+                step_operation_count = 0
+
+            replay_event: dict[str, Any] = {
+                "type": "replay_result",
+                "step_id": step_id,
+                "ok": step_ok,
+                "status": "success" if step_ok else "failed",
+                "operation_count": step_operation_count,
+            }
+
+            if step_ok:
+                passed_count += 1
+            else:
+                failed_count += 1
+                failed_step_id = str(step_result.get("step_id") or step_id or "").strip() or step_id
+                failed_operation_id = str(step_result.get("failed_operation_id") or "").strip()
+                error_text = self._safe_replay_error_message(step_result.get("error") or "Replay failed")
+                if failed_step_id and not first_failed_step_id:
+                    first_failed_step_id = failed_step_id
+                if failed_operation_id and not first_failed_operation_id:
+                    first_failed_operation_id = failed_operation_id
+                if error_text and not first_error:
+                    first_error = error_text
+                if failed_operation_id:
+                    replay_event["failed_operation_id"] = failed_operation_id
+                replay_event["error"] = error_text
+
+            replayed_count += 1
+            print(
+                "[REPLAY_ALL] step_result "
+                f"step_id={step_id} "
+                f"ok={json.dumps(step_ok)} "
+                f"operations={step_operation_count}"
+            )
+            await self._send("replay_result", **replay_event)
+
+            if not step_ok and stop_after_failure:
+                break
+
+        final_result: dict[str, Any] = {
+            "type": "replay_all_result",
+            "ok": failed_count == 0,
+            "stop_on_error": stop_after_failure,
+            "step_ids": list(selected_step_ids),
+            "replayed_count": replayed_count,
+            "passed_count": passed_count,
+            "failed_count": failed_count,
+        }
+        if first_failed_step_id:
+            final_result["failed_step_id"] = first_failed_step_id
+        if first_failed_operation_id:
+            final_result["failed_operation_id"] = first_failed_operation_id
+        if failed_count > 0:
+            final_result["error"] = first_error or "Replay completed with failures"
+        print(
+            "[REPLAY_ALL] completed "
+            f"total={replayed_count} "
+            f"passed={passed_count} "
+            f"failed={failed_count}"
+        )
+        await self._send("replay_all_result", **final_result)
+        self._replay_all_result_sent = True
+        return final_result
 
     def _build_spec_snapshot(self) -> dict[str, Any]:
         plan_ready_payload = getattr(self, "last_plan_ready_payload", None)
@@ -748,6 +905,7 @@ class AgentLoop:
             self._reset_lifecycle_state(steps)
             self.phase_tracker.set_phase("planning", reason="run_started")
             self._prepare_recording_steps(steps)
+            self._validate_recording_steps(self.current_steps)
             loaded_skill_names, _, loaded_skills = self._load_skills_for_steps(steps)
             self._loaded_skill_names = list(loaded_skill_names)
             self._loaded_skill_entries = self._skill_entries_from_loaded_skills(
@@ -770,7 +928,15 @@ class AgentLoop:
                 print("[AGENT] Requesting LLM response")
                 current_phase = self._current_phase()
                 self._load_phase_skill_expansion(current_phase)
-                filtered_tools = filter_tools_for_phase(self.tools, current_phase)
+                awaiting_step_record = bool(
+                    getattr(self, "_awaiting_step_record", False)
+                    and getattr(self, "_recording_wait_guard_armed", False)
+                )
+                filtered_tools = filter_tools_for_phase(
+                    self.tools,
+                    current_phase,
+                    awaiting_step_record=awaiting_step_record,
+                )
                 context_bundle = self.context_manager.prepare_messages(
                     self.llm.messages,
                     purpose="main_orchestrator",
@@ -907,6 +1073,8 @@ class AgentLoop:
 
                 print(f"[AGENT] Executing {len(message.tool_calls)} tool call(s)")
                 had_tool_failure = False
+                saw_successful_execution_action = False
+                saw_step_recorded = False
                 pause_for_fresh_page = False
                 tool_calls = list(message.tool_calls)
                 state_changing_tools = {
@@ -970,6 +1138,57 @@ class AgentLoop:
                         self._append_tool_response(tool_call.id, blocked_result)
                         continue
 
+                    if (
+                        saw_successful_execution_action
+                        and not saw_step_recorded
+                        and not had_tool_failure
+                        and tool_name not in self.EXECUTION_TOOLS
+                        and not (
+                            tool_name == "send_to_overlay"
+                            and str(args.get("message_type") or "").strip() == "step_recorded"
+                        )
+                    ):
+                        auto_recorded_payload = await self._auto_record_successful_step()
+                        if auto_recorded_payload is not None:
+                            if self._run_completion_requested:
+                                self.phase_tracker.set_phase(
+                                    "completed",
+                                    reason="all_steps_resolved",
+                                    step_id=str(
+                                        (auto_recorded_payload or {}).get("step_id")
+                                        or ""
+                                    ).strip() or None,
+                                )
+                                if index < len(tool_calls):
+                                    self._append_skipped_tool_responses(
+                                        tool_calls,
+                                        index,
+                                        "Skipped because all current steps were already resolved.",
+                                    )
+                                print("[AGENT] all steps resolved; ending run without extra LLM call")
+                                self._pending_failure_followup = False
+                                self._reset_lifecycle_state()
+                                return
+
+                    if self._should_block_recording_wait_tool(tool_name, args):
+                        step_id = str(getattr(self, "active_step_id", "") or "").strip() or "unknown"
+                        print(
+                            "[RECORDING_GUARD] blocked tool while awaiting_step_record "
+                            f"tool={tool_name} step_id={step_id}"
+                        )
+                        blocked_result = {
+                            "success": False,
+                            "blocked": True,
+                            "reason": "awaiting_step_record",
+                            "message": (
+                                "A successful action is waiting to be recorded. "
+                                "Record the step before using more browser tools."
+                            ),
+                        }
+                        print(f"[TOOL RESULT] {self._summarize(blocked_result, limit=100)}")
+                        self._append_tool_response(tool_call.id, blocked_result)
+                        continue
+
                     if self._should_block_additional_execution_action(tool_name, args):
                         print(f"[AGENT] blocked additional execution action before recording: {tool_name}")
                         blocked_result = {
@@ -984,6 +1203,10 @@ class AgentLoop:
                         print(f"[TOOL RESULT] {self._summarize(blocked_result, limit=100)}")
                         self._append_tool_response(tool_call.id, blocked_result)
                         continue
+
+                    browser_state_before = None
+                    if tool_name in self.EXECUTION_TOOLS:
+                        browser_state_before = await self._capture_browser_state()
 
                     result = await self._dispatch_tool(tool_name, args)
                     print(f"[TOOL RESULT] {self._summarize(result, limit=100)}")
@@ -1019,8 +1242,22 @@ class AgentLoop:
                         and not result.get("skipped")
                         and tool_name in self.EXECUTION_TOOLS
                     ):
+                        browser_state_after = await self._capture_browser_state()
                         self._mark_step_executing(step_context)
-                        self._capture_action_context(tool_name, args, result)
+                        self._capture_action_context(
+                            tool_name,
+                            args,
+                            result,
+                            browser_state_before=browser_state_before,
+                            browser_state_after=browser_state_after,
+                        )
+                        saw_successful_execution_action = True
+                    if (
+                        tool_name == "send_to_overlay"
+                        and str(args.get("message_type") or "").strip() == "step_recorded"
+                        and result.get("sent") is True
+                    ):
+                        saw_step_recorded = True
                     self.llm.messages.append(
                         {
                             "role": "tool",
@@ -1060,6 +1297,36 @@ class AgentLoop:
                     if tool_name in state_changing_tools and result.get("success") is True and not result.get("skipped"):
                         pause_for_fresh_page = True
                         self.phase = "recovering" if had_tool_failure else "executing"
+
+                if (
+                    saw_successful_execution_action
+                    and not saw_step_recorded
+                    and not had_tool_failure
+                ):
+                    auto_recorded_payload = await self._auto_record_successful_step()
+                    if auto_recorded_payload is not None:
+                        if self._run_completion_requested:
+                            self.phase_tracker.set_phase(
+                                "completed",
+                                reason="all_steps_resolved",
+                                step_id=str(
+                                    (auto_recorded_payload or {}).get("step_id")
+                                    or ""
+                                ).strip() or None,
+                            )
+                            print("[AGENT] all steps resolved; ending run without extra LLM call")
+                            self._pending_failure_followup = False
+                            self._reset_lifecycle_state()
+                            return
+
+                if (
+                    self._awaiting_step_record
+                    and saw_successful_execution_action
+                    and not saw_step_recorded
+                ):
+                    self._recording_wait_guard_armed = True
+                elif not self._awaiting_step_record:
+                    self._recording_wait_guard_armed = False
 
                 if had_tool_failure:
                     self._pending_failure_followup = True
@@ -1249,23 +1516,118 @@ class AgentLoop:
             return None
         return skill_path.read_text(encoding="utf-8")
 
-    def _format_steps(self, steps: list[dict]) -> str:
-        lines = [
-            "User steps:",
-            json.dumps(self._normalize_steps(steps), ensure_ascii=True, indent=2),
-            "",
-            "Execution requirements:",
-            "- Always use tools. Never guess.",
-            '- Start by calling send_to_overlay with message_type "llm_thinking".',
-            "- Use browser_get_state or dom_extract before deciding what is on the page.",
-            "- If a step includes suggested_scope for a picked element, call dom_extract with that suggested_scope first.",
-            "- Validate locators before using them for actions or assertions.",
-            "- Use page_go_back, page_go_forward, and page_reload for browser history or refresh actions.",
-            "- Use action_fill only on editable fields. Never use it on body to simulate navigation.",
-            '- After a successful recorded step, call send_to_overlay with message_type "step_recorded" and include step_id, step_number, action, element_name, locator, generated_line, and status.',
-            "- If the user corrects the plan, revise it before any action and ask for confirmation again.",
-            '- When finished, report the outcome clearly through send_to_overlay or the final assistant response.',
+    def _is_click_like_intent(self, intent: Any) -> bool:
+        normalized_intent = self._normalize_space(str(intent or "")).lower()
+        return bool(CLICK_LIKE_INTENT_PATTERN.search(normalized_intent))
+
+    def _normalize_expected_outcome(
+        self,
+        expected_outcome: Any,
+        required: bool = False,
+    ) -> dict[str, Any] | None:
+        if not isinstance(expected_outcome, dict):
+            return None
+
+        type_text = self._normalize_space(str(expected_outcome.get("type") or "")).lower()
+        type_text = re.sub(r"[\s-]+", "_", type_text)
+        if not type_text or type_text not in EXPECTED_OUTCOME_TYPES:
+            return None
+
+        description_text = self._normalize_space(str(expected_outcome.get("description") or "")).strip()
+        normalized_outcome: dict[str, Any] = {
+            "type": type_text,
+            "source": "user",
+            "required": bool(required or expected_outcome.get("required") is True),
+        }
+        if description_text:
+            normalized_outcome["description"] = description_text
+        return normalized_outcome
+
+    def _expected_outcome_summary(self, expected_outcome: Any) -> str:
+        if not isinstance(expected_outcome, dict):
+            return ""
+
+        type_text = self._normalize_space(str(expected_outcome.get("type") or "")).lower()
+        type_text = re.sub(r"[\s-]+", "_", type_text)
+        if not type_text or type_text not in EXPECTED_OUTCOME_TYPES:
+            return ""
+
+        description_text = self._normalize_space(str(expected_outcome.get("description") or "")).strip()
+        summary = f"{type_text} · {description_text}" if description_text else type_text
+        if len(summary) > 80:
+            return f"{summary[:79]}..."
+        return summary
+
+    def _compact_step_element_summary(self, step: dict[str, Any]) -> str:
+        element_info = step.get("element_info") or {}
+        if not isinstance(element_info, dict):
+            return ""
+
+        attributes = element_info.get("attributes") if isinstance(element_info.get("attributes"), dict) else {}
+        candidates = [
+            self._normalize_space(str(element_info.get("text") or "")).strip(),
+            self._normalize_space(str(attributes.get("aria-label") or "")).strip(),
+            self._normalize_space(str(attributes.get("placeholder") or "")).strip(),
+            self._normalize_space(str(element_info.get("id") or "")).strip(),
+            self._normalize_space(str(element_info.get("tag") or "")).strip(),
         ]
+        parts = [part for part in candidates if part]
+        return " · ".join(parts[:3])
+
+    def _validate_recording_steps(self, steps: list[dict[str, Any]]) -> None:
+        for index, step in enumerate(steps, start=1):
+            if not isinstance(step, dict):
+                continue
+
+            intent = self._normalize_space(str(step.get("intent") or "")).strip()
+            if not intent or not self._is_click_like_intent(intent):
+                continue
+
+            normalized_expected_outcome = self._normalize_expected_outcome(
+                step.get("expected_outcome") or step.get("expectedOutcome"),
+                True,
+            )
+            if normalized_expected_outcome is None or not str(normalized_expected_outcome.get("type") or "").strip():
+                step_ref = str(step.get("id") or step.get("step_id") or step.get("stepId") or index).strip() or str(index)
+                raise ValueError(f"Click-like step {step_ref} requires expected_outcome.type")
+
+    def _format_steps(self, steps: list[dict]) -> str:
+        normalized_steps = self._normalize_steps(steps)
+        lines = ["User steps:"]
+        for index, step in enumerate(normalized_steps, start=1):
+            step_intent = self._normalize_space(str(step.get("intent") or "")).strip()
+            lines.append(f"{index}. {step_intent}" if step_intent else f"{index}.")
+
+            raw_step = steps[index - 1] if index - 1 < len(steps) and isinstance(steps[index - 1], dict) else {}
+            step_expected_outcome = self._expected_outcome_summary(
+                self._normalize_expected_outcome(
+                    raw_step.get("expected_outcome") or raw_step.get("expectedOutcome"),
+                    self._is_click_like_intent(step_intent),
+                )
+            )
+            if step_expected_outcome:
+                lines.append(f"   expected_outcome: {step_expected_outcome}")
+
+            element_summary = self._compact_step_element_summary(raw_step)
+            if element_summary:
+                lines.append(f"   element: {element_summary}")
+
+        lines.extend(
+            [
+                "",
+                "Execution requirements:",
+                "- Always use tools. Never guess.",
+                '- Start by calling send_to_overlay with message_type "llm_thinking".',
+                "- Use browser_get_state or dom_extract before deciding what is on the page.",
+                "- If a step includes suggested_scope for a picked element, call dom_extract with that suggested_scope first.",
+                "- Validate locators before using them for actions or assertions.",
+                "- Use page_go_back, page_go_forward, and page_reload for browser history or refresh actions.",
+                "- Use action_fill only on editable fields. Never use it on body to simulate navigation.",
+                "- Recording is backend-owned. After successful execution, the runtime records the step automatically and emits code_update.",
+                "- If the user corrects the plan, revise it before any action and ask for confirmation again.",
+                '- When finished, report the outcome clearly through send_to_overlay or the final assistant response.',
+            ]
+        )
         return "\n".join(lines)
 
     def _prepare_recording_steps(self, steps: list[dict]) -> None:
@@ -1282,16 +1644,21 @@ class AgentLoop:
         for idx, step in enumerate(self.current_steps, start=1):
             raw_element_info = step.get("element_info") if isinstance(step.get("element_info"), dict) else {}
             step_id = str(step.get("id") or "").strip() or str(idx)
+            intent_text = str(step.get("intent") or "").strip()
             context = {
                 "step_id": step_id,
                 "step_number": idx,
-                "intent": str(step.get("intent") or "").strip(),
+                "intent": intent_text,
                 "element_info": raw_element_info,
                 "element_name": self._derive_step_context_element_name(step, raw_element_info),
                 "locator": None,
                 "last_error": None,
                 "status": "pending",
                 "recorded": False,
+                "expected_outcome": self._normalize_expected_outcome(
+                    step.get("expected_outcome") or step.get("expectedOutcome"),
+                    self._is_click_like_intent(intent_text),
+                ),
             }
             self._recording_steps.append(context)
             self.step_state_by_id[step_id] = context
@@ -1413,6 +1780,7 @@ class AgentLoop:
         self.skipped_step_ids.discard(step_id)
         self._last_action_context = None
         self._awaiting_step_record = False
+        self._recording_wait_guard_armed = False
         self.current_step_index = max(0, int(context.get("step_number") or 1) - 1)
         self._clear_failed_step_success_state(context)
         print(f"[AGENT] step recovery_pending: {step_id}")
@@ -1501,6 +1869,14 @@ class AgentLoop:
                 str(step.get("intent") or step.get("title") or step.get("text") or step.get("label") or "")
             ).strip()
             step_lines.append(f"{index}. {step_intent}" if step_intent else f"{index}.")
+            expected_outcome_text = self._expected_outcome_summary(
+                self._normalize_expected_outcome(
+                    step.get("expected_outcome") or step.get("expectedOutcome"),
+                    self._is_click_like_intent(step_intent),
+                )
+            )
+            if expected_outcome_text:
+                step_lines.append(f"   expected_outcome: {expected_outcome_text}")
             children = step.get("children")
             if not isinstance(children, list):
                 continue
@@ -1565,6 +1941,7 @@ class AgentLoop:
             self.active_step_id = None
         if self.plan_confirmed:
             self.phase = "executing"
+        self._recording_wait_guard_armed = False
         self.current_step_index = max(0, int(context.get("step_number") or 1) - 1)
         print(f"[AGENT] step skipped: {step_id}")
         return context
@@ -1701,7 +2078,7 @@ class AgentLoop:
         return any(phrase in normalized for phrase in stop_phrases)
 
     def _derive_step_context_element_name(self, step: dict[str, Any], element_info: dict[str, Any]) -> str:
-        attrs = element_info.get("attributes") or {}
+        attrs = element_info.get("attributes") if isinstance(element_info.get("attributes"), dict) else {}
         candidates = [
             str(element_info.get("text") or "").strip(),
             str(attrs.get("aria-label") or "").strip(),
@@ -1834,7 +2211,7 @@ class AgentLoop:
     ) -> bool:
         if tool_name not in self.EXECUTION_TOOLS:
             return False
-        if not getattr(self, "_awaiting_step_record", False):
+        if not getattr(self, "_recording_wait_guard_armed", False):
             return False
 
         history_by_step_id = getattr(self, "successful_actions_by_step_id", None)
@@ -1855,6 +2232,162 @@ class AgentLoop:
             return True
 
         return False
+
+    async def _record_step_payload(
+        self,
+        payload: dict[str, Any],
+        step_context: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
+        target_step = step_context or self._resolve_recording_target_step(payload)
+        if not self._has_successful_action_to_record(target_step, payload):
+            step_ref = str(
+                (target_step or {}).get("step_id")
+                or payload.get("step_id")
+                or payload.get("id")
+                or payload.get("stepId")
+                or "unknown"
+            ).strip() or "unknown"
+            print(f"[AGENT] no successful action context for recorded step: {step_ref}")
+            return None
+
+        recorded_payload = self._build_step_record_payload(payload, target_step)
+        if not recorded_payload:
+            return None
+
+        step_id = str((target_step or {}).get("step_id") or recorded_payload.get("step_id") or "").strip()
+        if step_id:
+            print(f"[AGENT] using successful action for recorded step: {step_id}")
+        print(f"[AGENT] recording step: {json.dumps(recorded_payload, ensure_ascii=True)}")
+
+        await self._send("step_recorded", **recorded_payload)
+        self._append_recorded_step_payload(recorded_payload)
+
+        recorded_target_step = self.step_state_by_id.get(step_id) if step_id else None
+        if recorded_target_step is not None and str(recorded_target_step.get("status") or "") in {"recorded", "skipped"}:
+            recorded_target_step = None
+        if recorded_target_step is None and target_step is not None:
+            target_step_id = str(target_step.get("step_id") or "").strip()
+            if not step_id or target_step_id == step_id:
+                recorded_target_step = target_step
+        step_number = self._coerce_step_number(recorded_payload.get("step_number"))
+        if recorded_target_step is None and (step_id or step_number is not None):
+            recorded_target_step = self._find_step_for_recording(
+                step_id or None,
+                step_number,
+            )
+        if recorded_target_step is None:
+            unresolved_steps = [
+                step
+                for step in self._recording_steps
+                if str(step.get("status") or "") not in {"recorded", "skipped"}
+            ]
+            if len(unresolved_steps) == 1:
+                recorded_target_step = unresolved_steps[0]
+        if recorded_target_step is not None:
+            self._mark_step_recorded(recorded_target_step, recorded_payload)
+            code_update_payload = self._build_code_update_payload(recorded_payload, step_id)
+            if code_update_payload:
+                try:
+                    await self._send("code_update", **code_update_payload)
+                    self._append_code_update_payload(code_update_payload)
+                    print(
+                        f"[CODE_UPDATE] step_id={step_id} "
+                        f"operation_id={code_update_payload.get('operation_id') or 'op_1'} "
+                        f"lines={len(code_update_payload.get('lines') or [])}"
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    print(f"[AGENT] code_update emit failed: {type(exc).__name__}: {exc}")
+
+        replay_recorded_step_payloads_by_step_id = getattr(
+            self,
+            "replay_recorded_step_payloads_by_step_id",
+            None,
+        )
+        if not isinstance(replay_recorded_step_payloads_by_step_id, dict):
+            replay_recorded_step_payloads_by_step_id = {}
+            self.replay_recorded_step_payloads_by_step_id = replay_recorded_step_payloads_by_step_id
+        if step_id:
+            replay_recorded_step_payloads_by_step_id[step_id] = deepcopy(recorded_payload)
+            history_by_step_id = getattr(self, "successful_actions_by_step_id", None)
+            if isinstance(history_by_step_id, dict):
+                history_by_step_id.pop(step_id, None)
+            self.successful_action_by_step_id.pop(step_id, None)
+
+        last_action = self.last_successful_action or {}
+        last_action_step = last_action.get("step_context") or {}
+        last_action_step_id = str(last_action_step.get("step_id") or last_action.get("step_id") or "").strip()
+        last_action_step_number = self._coerce_step_number(
+            last_action_step.get("step_number") or last_action.get("step_number")
+        )
+        recorded_step_number = self._coerce_step_number(recorded_payload.get("step_number"))
+        if step_id and last_action_step_id == step_id:
+            self.last_successful_action = None
+        elif step_id and recorded_step_number is not None and last_action_step_number == recorded_step_number:
+            self.last_successful_action = None
+        elif not step_id and recorded_step_number is not None and last_action_step_number == recorded_step_number:
+            self.last_successful_action = None
+
+        self._awaiting_step_record = False
+        self._recording_wait_guard_armed = False
+        self._last_action_context = None
+        if recorded_target_step is not None:
+            recorded_step_id = str(
+                (recorded_target_step or {}).get("step_id")
+                or recorded_payload.get("step_id")
+                or recorded_payload.get("id")
+                or recorded_payload.get("stepId")
+                or ""
+            ).strip() or None
+            if self._all_steps_resolved():
+                self._run_completion_requested = True
+                self.phase_tracker.set_phase(
+                    "completed",
+                    reason="all_steps_resolved",
+                    step_id=recorded_step_id,
+                )
+            elif not self.pending_recovery and not self._pending_failure_followup:
+                self.phase_tracker.set_phase(
+                    "executing",
+                    reason="step_recorded",
+                    step_id=recorded_step_id,
+                )
+
+        return recorded_payload
+
+    async def _auto_record_successful_step(self) -> dict[str, Any] | None:
+        target_step = self._resolve_recording_target_step()
+        if target_step is None:
+            return None
+
+        step_id = str(target_step.get("step_id") or "").strip()
+        if not step_id:
+            return None
+
+        if not self._has_successful_action_to_record(
+            target_step,
+            {"step_id": step_id, "step_number": target_step.get("step_number")},
+        ):
+            return None
+
+        print(f"[AGENT] auto-recording successful step: {step_id}")
+        payload = {
+            "step_id": step_id,
+            "step_number": target_step.get("step_number"),
+        }
+        return await self._record_step_payload(payload, target_step)
+
+    def _should_block_recording_wait_tool(
+        self,
+        tool_name: str,
+        args: dict[str, Any],
+    ) -> bool:
+        if not getattr(self, "_recording_wait_guard_armed", False):
+            return False
+        if tool_name == "ask_user":
+            return False
+        if tool_name == "send_to_overlay":
+            return str(args.get("message_type") or "").strip() != "step_recorded"
+        return True
 
     def _get_successful_action_for_step(
         self,
@@ -1951,7 +2484,84 @@ class AgentLoop:
             return None
         return number if number > 0 else None
 
-    def _capture_action_context(self, tool_name: str, args: dict[str, Any], result: dict[str, Any]) -> None:
+    async def _capture_browser_state(self) -> dict[str, str] | None:
+        try:
+            page = get_page()
+        except Exception:  # noqa: BLE001
+            return None
+
+        try:
+            page_url = str(page.url or "")
+        except Exception:  # noqa: BLE001
+            return None
+
+        try:
+            page_title = str(await page.title() or "")
+        except Exception:  # noqa: BLE001
+            page_title = ""
+
+        return {"url": page_url, "title": page_title}
+
+    def _normalize_browser_state_snapshot(self, browser_state: Any) -> dict[str, str] | None:
+        if not isinstance(browser_state, dict):
+            return None
+        return {
+            "url": str(browser_state.get("url") or ""),
+            "title": str(browser_state.get("title") or ""),
+        }
+
+    def _build_observed_outcome(
+        self,
+        action_history: list[dict[str, Any]],
+        expected_outcome: Any,
+    ) -> dict[str, Any]:
+        before_state = None
+        after_state = None
+        if action_history:
+            first_action = action_history[0]
+            if isinstance(first_action, dict):
+                before_state = self._normalize_browser_state_snapshot(first_action.get("browser_state_before"))
+            last_action = action_history[-1]
+            if isinstance(last_action, dict):
+                after_state = self._normalize_browser_state_snapshot(last_action.get("browser_state_after"))
+
+        before_url = before_state.get("url") if before_state is not None else None
+        after_url = after_state.get("url") if after_state is not None else None
+        before_title = before_state.get("title") if before_state is not None else None
+        after_title = after_state.get("title") if after_state is not None else None
+
+        observed_type = "unknown"
+        if before_state is not None and after_state is not None:
+            if before_url != after_url:
+                observed_type = "navigation"
+            elif before_title == after_title:
+                observed_type = "no_visible_change"
+
+        expected_type = ""
+        if isinstance(expected_outcome, dict):
+            expected_type = self._normalize_space(str(expected_outcome.get("type") or "")).strip().lower()
+
+        matched_expected: bool | None = None
+        if observed_type != "unknown" and expected_type and expected_type != "not_sure":
+            matched_expected = observed_type == expected_type
+
+        return {
+            "type": observed_type,
+            "before_url": before_url,
+            "after_url": after_url,
+            "before_title": before_title,
+            "after_title": after_title,
+            "matched_expected": matched_expected,
+        }
+
+    def _capture_action_context(
+        self,
+        tool_name: str,
+        args: dict[str, Any],
+        result: dict[str, Any],
+        browser_state_before: dict[str, str] | None = None,
+        browser_state_after: dict[str, str] | None = None,
+    ) -> None:
         action = self._action_name_for_tool(tool_name)
         if not action:
             return
@@ -2000,6 +2610,12 @@ class AgentLoop:
             captured["wait_until"] = str(args.get("wait_until") or "").strip()
         if "filename" in args:
             captured["filename"] = str(args.get("filename") or "").strip()
+        normalized_browser_state_before = self._normalize_browser_state_snapshot(browser_state_before)
+        if normalized_browser_state_before is not None:
+            captured["browser_state_before"] = normalized_browser_state_before
+        normalized_browser_state_after = self._normalize_browser_state_snapshot(browser_state_after)
+        if normalized_browser_state_after is not None:
+            captured["browser_state_after"] = normalized_browser_state_after
 
         self.last_successful_action = captured
         if step_id:
@@ -2319,10 +2935,10 @@ class AgentLoop:
             step_context = recorded_step_context
 
         step_id = str(
-            clean_payload.get("step_id")
+            (step_context.get("step_id") if step_context else "")
             or (recorded_step_context.get("step_id") if recorded_step_context else "")
-            or (step_context.get("step_id") if step_context else "")
             or action_record.get("step_id")
+            or clean_payload.get("step_id")
             or ""
         ).strip()
         step_number = (
@@ -2364,6 +2980,15 @@ class AgentLoop:
             or (step_context.get("intent") if step_context else "")
             or ""
         ).strip()
+        expected_outcome = self._normalize_expected_outcome(
+            clean_payload.get("expected_outcome")
+            or clean_payload.get("expectedOutcome")
+            or (recorded_step_context.get("expected_outcome") if recorded_step_context else None)
+            or (recorded_step_context.get("expectedOutcome") if recorded_step_context else None)
+            or (step_context.get("expected_outcome") if step_context else None)
+            or (step_context.get("expectedOutcome") if step_context else None),
+            self._is_click_like_intent(intent),
+        )
         status = "success"
 
         if not action:
@@ -2377,6 +3002,7 @@ class AgentLoop:
         if not intent:
             intent = str(step_context.get("intent") if step_context else "").strip()
         children = self._build_recorded_children(action_history, intent, element_name, locator)
+        observed_outcome = self._build_observed_outcome(action_history, expected_outcome)
 
         merged: dict[str, Any] = dict(clean_payload)
         if step_id:
@@ -2393,6 +3019,14 @@ class AgentLoop:
         merged["generated_line"] = generated_line
         merged["status"] = status
         merged["intent"] = intent
+        if expected_outcome is not None:
+            merged["expected_outcome"] = expected_outcome
+        else:
+            merged.pop("expected_outcome", None)
+        merged.pop("observed_outcome", None)
+        merged.pop("browser_state_before", None)
+        merged.pop("browser_state_after", None)
+        merged["observed_outcome"] = observed_outcome
         merged["children"] = children
 
         required = ("action", "element_name", "locator", "generated_line")
@@ -2600,6 +3234,12 @@ class AgentLoop:
 
         parent_step["step_id"] = step_id
         parent_step["intent"] = intent
+        normalized_expected_outcome = self._normalize_expected_outcome(
+            source_step_data.get("expected_outcome") or source_step_data.get("expectedOutcome"),
+            self._is_click_like_intent(intent),
+        )
+        if normalized_expected_outcome is not None:
+            parent_step["expected_outcome"] = normalized_expected_outcome
         parent_step["status"] = "planned"
         parent_step["children"] = self._build_planned_children(source_step_data, parent_step)
 
@@ -2744,10 +3384,6 @@ class AgentLoop:
 
     def _build_code_update_payload(self, payload: dict[str, Any], step_id: str) -> dict[str, Any]:
         if not step_id:
-            return {}
-
-        recording_steps = list(getattr(self, "_recording_steps", []))
-        if len(recording_steps) != 1:
             return {}
 
         children = payload.get("children")
@@ -3437,127 +4073,32 @@ class AgentLoop:
                     "reason": "step_recorded blocked before confirmed execution.",
                 }
             target_step = self._resolve_recording_target_step(payload)
-            if not self._has_successful_action_to_record(target_step, payload):
-                step_ref = str(
-                    (target_step or {}).get("step_id")
-                    or payload.get("step_id")
-                    or payload.get("id")
-                    or payload.get("stepId")
-                    or "unknown"
-                ).strip() or "unknown"
-                print(f"[AGENT] no successful action context for recorded step: {step_ref}")
+            recorded_payload = await self._record_step_payload(payload, target_step)
+            if not recorded_payload:
                 return {
                     "sent": False,
                     "skipped": True,
                     "reason": "No successful confirmed action to record.",
                 }
-
-            recovered_context = any(
-                not str(payload.get(key) or "").strip()
-                for key in ("step_id", "action", "locator")
-            )
-            payload = self._build_step_record_payload(payload, target_step)
-            if not payload:
-                return {
-                    "sent": False,
-                    "skipped": True,
-                    "reason": "No successful confirmed action to record.",
-                }
-            step_id = str(payload.get("step_id") or (target_step or {}).get("step_id") or "").strip()
-            if step_id:
-                print(f"[AGENT] using successful action for recorded step: {step_id}")
-            if recovered_context:
-                print(f"[AGENT] recording step with recovered context: {json.dumps(payload, ensure_ascii=True)}")
-            else:
-                print(f"[AGENT] recording step: {json.dumps(payload, ensure_ascii=True)}")
-            await self._send(message_type, **payload)
-            self._append_recorded_step_payload(payload)
-            recorded_target_step = self.step_state_by_id.get(step_id) if step_id else None
-            if recorded_target_step is not None and str(recorded_target_step.get("status") or "") in {"recorded", "skipped"}:
-                recorded_target_step = None
-            if recorded_target_step is None and target_step is not None:
-                target_step_id = str(target_step.get("step_id") or "").strip()
-                if not step_id or target_step_id == step_id:
-                    recorded_target_step = target_step
-            step_number = self._coerce_step_number(payload.get("step_number"))
-            if recorded_target_step is None and (step_id or step_number is not None):
-                recorded_target_step = self._find_step_for_recording(
-                    step_id or None,
-                    step_number,
-                )
-            if recorded_target_step is None:
-                unresolved_steps = [
-                    step
-                    for step in self._recording_steps
-                    if str(step.get("status") or "") not in {"recorded", "skipped"}
-                ]
-                if len(unresolved_steps) == 1:
-                    recorded_target_step = unresolved_steps[0]
-            if recorded_target_step is not None:
-                self._mark_step_recorded(recorded_target_step, payload)
-                code_update_payload = self._build_code_update_payload(payload, step_id)
-                if code_update_payload:
-                    try:
-                        await self._send("code_update", **code_update_payload)
-                        self._append_code_update_payload(code_update_payload)
-                        print(
-                            f"[CODE_UPDATE] step_id={step_id} "
-                            f"operation_id={code_update_payload.get('operation_id') or 'op_1'} "
-                            f"lines={len(code_update_payload.get('lines') or [])}"
-                        )
-                    except Exception as exc:  # noqa: BLE001
-                        print(f"[AGENT] code_update emit failed: {type(exc).__name__}: {exc}")
-            replay_recorded_step_payloads_by_step_id = getattr(
-                self,
-                "replay_recorded_step_payloads_by_step_id",
-                None,
-            )
-            if not isinstance(replay_recorded_step_payloads_by_step_id, dict):
-                replay_recorded_step_payloads_by_step_id = {}
-                self.replay_recorded_step_payloads_by_step_id = replay_recorded_step_payloads_by_step_id
-            if step_id:
-                replay_recorded_step_payloads_by_step_id[step_id] = deepcopy(payload)
-            if step_id:
-                history_by_step_id = getattr(self, "successful_actions_by_step_id", None)
-                if isinstance(history_by_step_id, dict):
-                    history_by_step_id.pop(step_id, None)
-                self.successful_action_by_step_id.pop(step_id, None)
-            last_action = self.last_successful_action or {}
-            last_action_step = last_action.get("step_context") or {}
-            last_action_step_id = str(last_action_step.get("step_id") or last_action.get("step_id") or "").strip()
-            last_action_step_number = self._coerce_step_number(last_action_step.get("step_number") or last_action.get("step_number"))
-            recorded_step_number = self._coerce_step_number(payload.get("step_number"))
-            if step_id and last_action_step_id == step_id:
-                self.last_successful_action = None
-            elif step_id and recorded_step_number is not None and last_action_step_number == recorded_step_number:
-                self.last_successful_action = None
-            elif not step_id and recorded_step_number is not None and last_action_step_number == recorded_step_number:
-                self.last_successful_action = None
-            self._awaiting_step_record = False
-            self._last_action_context = None
-            if recorded_target_step is not None:
-                recorded_step_id = str(
-                    payload.get("step_id")
-                    or (recorded_target_step or {}).get("step_id")
-                    or payload.get("id")
-                    or payload.get("stepId")
-                    or ""
-                ).strip() or None
-                if self._all_steps_resolved():
-                    self._run_completion_requested = True
-                    self.phase_tracker.set_phase(
-                        "completed",
-                        reason="all_steps_resolved",
-                        step_id=recorded_step_id,
-                    )
-                elif not self.pending_recovery and not self._pending_failure_followup:
-                    self.phase_tracker.set_phase(
-                        "executing",
-                        reason="step_recorded",
-                        step_id=recorded_step_id,
-                    )
-            return {"sent": True, "payload": payload}
+            return {"sent": True, "payload": recorded_payload}
         if message_type == "plan_ready":
+            pending_recovery = bool(getattr(self, "pending_recovery", False))
+            active_failed_step_id = str(getattr(self, "active_failed_step_id", "") or "").strip()
+            pending_failure_followup = bool(getattr(self, "_pending_failure_followup", False))
+            if pending_recovery or active_failed_step_id or pending_failure_followup:
+                print(
+                    "[RECOVERY_SCOPE_GUARD] blocked plan_ready during unresolved recovery "
+                    f"step_id={active_failed_step_id or 'unknown'}"
+                )
+                return {
+                    "sent": False,
+                    "blocked": True,
+                    "reason": "plan_ready_blocked_during_recovery",
+                    "message": (
+                        "Recovery is unresolved. Completed steps are locked; retry, skip, "
+                        "stop, or ask about the failed step only."
+                    ),
+                }
             plan_correction_pending = bool(getattr(self, "_plan_correction_pending", False))
             payload = self._build_plan_ready_payload(
                 payload,
@@ -3586,6 +4127,7 @@ class AgentLoop:
                 self.phase_tracker.set_phase("executing", reason="confirmed", step_id=plan_step_id)
                 self._pending_failure_followup = False
                 self._awaiting_step_record = False
+                self._recording_wait_guard_armed = False
                 self._plan_correction_pending = False
                 self._clear_plan_review_context()
                 answer = str(confirmation.get("answer") or "confirmed").strip() or "confirmed"
@@ -3598,6 +4140,7 @@ class AgentLoop:
             self.last_successful_action = None
             self._last_action_context = None
             self._awaiting_step_record = False
+            self._recording_wait_guard_armed = False
             self._pending_failure_followup = False
             correction = str(confirmation.get("correction") or "").strip() or "the user requested a correction"
             print("[AGENT] correction received; staying in planning phase")

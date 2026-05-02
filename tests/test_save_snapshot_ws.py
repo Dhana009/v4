@@ -54,9 +54,35 @@ def test_save_snapshot_ws_returns_snapshot_and_skips_control_queue(monkeypatch) 
         "original_user_intent": "Check that Get started is visible and click it",
         "plan_ready": {
             "summary": "I will check that Get started is visible and click it",
-            "steps": [],
+            "steps": [
+                {
+                    "number": 1,
+                    "action": "assert",
+                    "element_name": "Get started",
+                    "expected_outcome": {
+                        "type": "navigation",
+                        "description": "goes to docs intro page",
+                        "source": "user",
+                        "required": True,
+                    },
+                }
+            ],
         },
-        "recorded_steps": [],
+        "recorded_steps": [
+            {
+                "step_id": "step-1",
+                "step_number": 1,
+                "intent": "Check that Get started is visible and click it",
+                "expected_outcome": {
+                    "type": "navigation",
+                    "description": "goes to docs intro page",
+                    "source": "user",
+                    "required": True,
+                },
+                "generated_line": "await expect(getStarted).toBeVisible();",
+                "children": [],
+            }
+        ],
         "code": {"lines": [], "full_spec_preview": ""},
         "capability_gaps": [],
         "metadata": {
@@ -79,6 +105,18 @@ def test_save_snapshot_ws_returns_snapshot_and_skips_control_queue(monkeypatch) 
     assert response["type"] == "save_snapshot_result"
     assert response["ok"] is True
     assert response["snapshot"] == snapshot
+    assert response["snapshot"]["plan_ready"]["steps"][0]["expected_outcome"] == {
+        "type": "navigation",
+        "description": "goes to docs intro page",
+        "source": "user",
+        "required": True,
+    }
+    assert response["snapshot"]["recorded_steps"][0]["expected_outcome"] == {
+        "type": "navigation",
+        "description": "goes to docs intro page",
+        "source": "user",
+        "required": True,
+    }
     assert created["agent"].control_queue is fake_queue
     assert fake_queue.items == []
 
@@ -97,4 +135,3 @@ def test_save_snapshot_ws_returns_safe_failure_message(monkeypatch) -> None:
     assert response["error"] == "Snapshot save failed: RuntimeError"
     assert created["agent"].control_queue is fake_queue
     assert fake_queue.items == []
-

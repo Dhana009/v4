@@ -15,6 +15,11 @@ PLANNING_SAFE_TOOL_NAMES = {
     "ask_user",
 }
 
+RECORDING_WAIT_SAFE_TOOL_NAMES = {
+    "send_to_overlay",
+    "ask_user",
+}
+
 
 @dataclass(slots=True)
 class ToolDiagnostics:
@@ -45,10 +50,37 @@ def _tool_name(tool: Any, index: int) -> str:
     return f"tool_{index + 1}"
 
 
-def filter_tools_for_phase(tools: Any, phase: str) -> list[Any]:
+def filter_tools_for_recording_wait(tools: Any) -> list[Any]:
+    normalized_tools = _normalize_tools(tools)
+    original_count = len(normalized_tools)
+    filtered_tools = [
+        tool
+        for index, tool in enumerate(normalized_tools)
+        if _tool_name(tool, index) in RECORDING_WAIT_SAFE_TOOL_NAMES
+    ]
+    filtered_count = len(filtered_tools)
+    print(
+        "[TOOL_FILTER] "
+        "phase=recording "
+        "awaiting_step_record=true "
+        f"original={original_count} "
+        f"filtered={filtered_count} "
+        f"removed={original_count - filtered_count}"
+    )
+    return filtered_tools
+
+
+def filter_tools_for_phase(
+    tools: Any,
+    phase: str,
+    awaiting_step_record: bool = False,
+) -> list[Any]:
     normalized_tools = _normalize_tools(tools)
     normalized_phase = str(phase or "").strip().lower()
     original_count = len(normalized_tools)
+
+    if normalized_phase == "recording" and awaiting_step_record:
+        return filter_tools_for_recording_wait(normalized_tools)
 
     if normalized_phase in {"executing", "recording", "recovery", "recovering"}:
         filtered_tools = list(normalized_tools)

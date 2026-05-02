@@ -119,13 +119,14 @@ def _build_loop_for_completion_test(monkeypatch):
         loop.completed_step_ids = set()
         loop.skipped_step_ids = set()
         loop.current_step_index = 0
-        loop.last_successful_action = success_record
-        loop.successful_action_by_step_id = {"step-1": success_record}
+        loop.last_successful_action = None
+        loop.successful_action_by_step_id = {}
+        loop.successful_actions_by_step_id = {}
         loop._recording_steps = [step_context]
         loop._recording_step_index = 0
         loop._recorded_step_ids = set()
         loop._last_action_context = None
-        loop._awaiting_step_record = True
+        loop._awaiting_step_record = False
         loop._pending_failure_followup = False
         loop._run_completion_requested = False
         loop.run_stop_requested = False
@@ -134,6 +135,12 @@ def _build_loop_for_completion_test(monkeypatch):
     loop._reset_lifecycle_state = fake_reset_lifecycle_state
     loop._prepare_recording_steps = lambda steps: None
     loop._load_skills_for_steps = lambda steps: (["core"], "", [{"name": "core"}])
+
+    async def fake_action_click(args):
+        locator = str(args.get("locator") or "")
+        return {"success": True, "error": None, "locator": locator}
+
+    loop._tool_action_click = fake_action_click
 
     async def fake_send(msg_type, **kwargs):
         sent_messages.append((msg_type, kwargs))
@@ -148,14 +155,12 @@ def _build_loop_for_completion_test(monkeypatch):
             id="call-1",
             type="function",
             function=SimpleNamespace(
-                name="send_to_overlay",
+                name="action_click",
                 arguments=json.dumps(
                     {
-                        "message_type": "step_recorded",
-                        "payload": {
-                            "step_id": "step-1",
-                            "step_number": 1,
-                        },
+                        "step_id": "step-1",
+                        "step_number": 1,
+                        "locator": 'get_by_role("button", name="Submit")',
                     }
                 ),
             ),

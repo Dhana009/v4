@@ -19,11 +19,16 @@ def _make_loop() -> AgentLoop:
     return loop
 
 
-def _make_source_step(intent: str, element_info: dict[str, object]) -> dict[str, object]:
+def _make_source_step(
+    intent: str,
+    element_info: dict[str, object],
+    expected_outcome: dict[str, object] | None = None,
+) -> dict[str, object]:
     return {
         "id": "step-1",
         "intent": intent,
         "element_info": element_info,
+        "expected_outcome": expected_outcome,
     }
 
 
@@ -170,6 +175,12 @@ def test_existing_plan_ready_fields_are_preserved() -> None:
         _make_source_step(
             "Click the submit button",
             {"text": "Submit", "aria_label": "Submit"},
+            {
+                "type": "navigation",
+                "description": "goes to docs intro page",
+                "source": "user",
+                "required": True,
+            },
         )
     ]
     payload = _make_plan_payload("click", "Submit", "await submit.click();")
@@ -188,6 +199,12 @@ def test_existing_plan_ready_fields_are_preserved() -> None:
     assert step["step_id"] == "step-1"
     assert step["intent"] == "Click the submit button"
     assert step["status"] == "planned"
+    assert step["expected_outcome"] == {
+        "type": "navigation",
+        "description": "goes to docs intro page",
+        "source": "user",
+        "required": True,
+    }
 
 
 def test_multi_action_intent_collapses_top_level_steps_into_one_parent() -> None:
@@ -233,6 +250,8 @@ def test_multi_action_intent_collapses_top_level_steps_into_one_parent() -> None
     assert [child["operation_id"] for child in parent["children"]] == ["op_1", "op_2"]
     assert [child["type"] for child in parent["children"]] == ["assert", "click"]
     assert [child["description"] for child in parent["children"]] == ["Get started is visible", "Get started"]
+    assert "expected_outcome" not in parent["children"][0]
+    assert "expected_outcome" not in parent["children"][1]
     assert all("Children:" not in description for description in child_descriptions)
     assert all(description != parent["intent"] for description in child_descriptions)
 
@@ -243,6 +262,12 @@ def test_children_field_is_added_without_breaking_existing_structure() -> None:
         _make_source_step(
             "Click the submit button",
             {"text": "Submit", "aria_label": "Submit"},
+            {
+                "type": "navigation",
+                "description": "goes to docs intro page",
+                "source": "user",
+                "required": True,
+            },
         )
     ]
     payload = _make_plan_payload("click", "Submit", "await submit.click();")
@@ -267,6 +292,12 @@ def test_plan_ready_send_augments_payload_without_real_runtime() -> None:
         _make_source_step(
             "Click the submit button",
             {"text": "Submit", "aria_label": "Submit"},
+            {
+                "type": "navigation",
+                "description": "goes to docs intro page",
+                "source": "user",
+                "required": True,
+            },
         )
     ]
     sent_messages: list[tuple[str, dict[str, object]]] = []
@@ -296,6 +327,32 @@ def test_plan_ready_send_augments_payload_without_real_runtime() -> None:
     assert sent_messages[0][1]["summary"] == "I will click the submit button"
     assert sent_messages[0][1]["instruction"] == "Confirm to proceed"
     assert len(sent_messages[0][1]["steps"]) == 1
+    assert sent_messages[0][1]["steps"][0]["expected_outcome"] == {
+        "type": "navigation",
+        "description": "goes to docs intro page",
+        "source": "user",
+        "required": True,
+    }
     assert sent_messages[0][1]["steps"][0]["children"][0]["type"] == "click"
     assert sent_messages[0][1]["steps"][0]["children"][0]["status"] == "planned"
     assert loop.plan_confirmed is True
+
+
+def test_format_steps_includes_compact_expected_outcome_line() -> None:
+    loop = _make_loop()
+    steps = [
+        _make_source_step(
+            "Click the submit button",
+            {"text": "Submit", "aria_label": "Submit"},
+            {
+                "type": "navigation",
+                "description": "goes to docs intro page",
+                "source": "user",
+                "required": True,
+            },
+        )
+    ]
+
+    formatted = loop._format_steps(steps)
+
+    assert "expected_outcome: navigation · goes to docs intro page" in formatted

@@ -277,6 +277,7 @@ function normalizePlanStep(step, index) {
     label: firstNonEmptyText(source.label, text),
     title: firstNonEmptyText(source.title, text),
     cls: firstNonEmptyText(source.cls),
+    expected_outcome: normalizeExpectedOutcome(source.expected_outcome ?? source.expectedOutcome, false),
     status: normalizedStatus,
     recorded: ["done", "completed", "recorded", "passed"].includes(normalizedStatus),
     completed: ["done", "completed", "recorded", "passed"].includes(normalizedStatus),
@@ -319,8 +320,90 @@ function createPendingStep(intent = "", elementInfo = null, recorded = false) {
     id: `pending-step-${Date.now().toString(36)}-${pendingStepCounter}`,
     intent,
     element_info: elementInfo,
+    expected_outcome: null,
     recorded,
+    status: "draft",
   };
+}
+
+const EXPECTED_OUTCOME_TYPES = [
+  "navigation",
+  "modal",
+  "dropdown",
+  "new_tab",
+  "toast_or_message",
+  "content_change",
+  "download",
+  "file_picker",
+  "no_visible_change",
+  "not_sure",
+];
+
+function isClickLikeIntent(value) {
+  const text = firstNonEmptyText(value).toLowerCase();
+  return /(^|\b)(click|tap|press|open)\b/.test(text);
+}
+
+function normalizeExpectedOutcome(expectedOutcome, required = false) {
+  if (!expectedOutcome || typeof expectedOutcome !== "object") {
+    return null;
+  }
+
+  const type = firstNonEmptyText(expectedOutcome.type)
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  if (!type || !EXPECTED_OUTCOME_TYPES.includes(type)) {
+    return null;
+  }
+
+  const description = firstRawText(expectedOutcome.description);
+  return {
+    type,
+    ...(description ? { description } : {}),
+    source: "user",
+    required: Boolean(required || expectedOutcome.required === true),
+  };
+}
+
+function formatExpectedOutcomeSummary(expectedOutcome) {
+  if (!expectedOutcome || typeof expectedOutcome !== "object") {
+    return "";
+  }
+
+  const type = firstNonEmptyText(expectedOutcome.type).toLowerCase().replace(/[\s-]+/g, "_");
+  if (!type) {
+    return "";
+  }
+
+  const description = firstRawText(expectedOutcome.description);
+  const summary = description ? `${type} · ${description}` : type;
+  return summary.length > 80 ? `${summary.slice(0, 79)}…` : summary;
+}
+
+function resolvePendingStepStatus(step) {
+  if (!step || typeof step !== "object") {
+    return "draft";
+  }
+
+  if (step.recorded === true) {
+    return "recorded";
+  }
+
+  const intent = firstNonEmptyText(step.intent, step.text, step.label);
+  if (!intent) {
+    return "draft";
+  }
+
+  const expectedOutcome = normalizeExpectedOutcome(step.expected_outcome ?? step.expectedOutcome, isClickLikeIntent(intent));
+  if (isClickLikeIntent(intent) && (!expectedOutcome || !expectedOutcome.type)) {
+    return "needs_outcome";
+  }
+
+  return "ready";
+}
+
+function isPendingStepReady(step) {
+  return resolvePendingStepStatus(step) === "ready";
 }
 
 function firstNonEmptyText(...values) {
@@ -329,6 +412,18 @@ function firstNonEmptyText(...values) {
       return value.trim();
     }
     if ((typeof value === "number" || typeof value === "boolean") && value !== "") {
+      return String(value);
+    }
+  }
+  return "";
+}
+
+function firstRawText(...values) {
+  for (const value of values) {
+    if (typeof value === "string" && value !== "") {
+      return value;
+    }
+    if (typeof value === "number" || typeof value === "boolean") {
       return String(value);
     }
   }
@@ -486,20 +581,30 @@ function normalizePendingStep(step) {
     return createPendingStep(typeof step === "string" ? step : "");
   }
 
-  return {
+  const nextIntent =
+    typeof step.intent === "string"
+      ? step.intent
+      : typeof step.text === "string"
+        ? step.text
+        : typeof step.label === "string"
+          ? step.label
+          : "";
+  const normalizedStep = {
     ...step,
     id: typeof step.id === "string" && step.id.trim() ? step.id : createPendingStep().id,
-    intent:
-      typeof step.intent === "string"
-        ? step.intent
-        : typeof step.text === "string"
-          ? step.text
-          : typeof step.label === "string"
-            ? step.label
-            : "",
+    intent: nextIntent,
     element_info: step.element_info ?? step.elementInfo ?? null,
+    expected_outcome: normalizeExpectedOutcome(step.expected_outcome ?? step.expectedOutcome, isClickLikeIntent(nextIntent)),
     recorded: step.recorded === true,
-    status: typeof step.status === "string" ? step.status : "",
+  };
+  const status = typeof step.status === "string" ? step.status.trim().toLowerCase() : "";
+
+  return {
+    ...normalizedStep,
+    status:
+      ["recorded", "done", "completed", "passed", "failed", "skipped"].includes(status)
+        ? status
+        : resolvePendingStepStatus(normalizedStep),
   };
 }
 
@@ -669,6 +774,12 @@ function normalizeRecordedStep(step, index) {
     element_name: elementName || firstNonEmptyText(step.element_name, step.target, step.label) || `Step ${stepNumber}`,
     locator: firstNonEmptyText(step.locator, step.selector, step.xpath, step.css, step.path) || "",
     generated_line: firstNonEmptyText(step.generated_line, step.generatedLine, step.code_line, step.codeLine, step.line, step.code, step.snippet) || "",
+    expected_outcome:
+      step.expected_outcome ??
+      step.expectedOutcome ??
+      (step.raw && typeof step.raw === "object"
+        ? step.raw.expected_outcome ?? step.raw.expectedOutcome
+        : null),
     status: normalizedStatus,
     display_title: displayTitle,
     action_label: action,
@@ -1085,12 +1196,43 @@ function useAutoWorkbenchTransport(config) {
         }
 
         const nextIntent = typeof intent === "string" ? intent : "";
-        return {
+        const nextStep = {
           ...step,
           intent: nextIntent,
-          status: nextIntent.trim() ? "ready" : "draft",
           recorded: false,
           element_info: step.element_info ?? step.elementInfo ?? null,
+        };
+        return {
+          ...nextStep,
+          expected_outcome: normalizeExpectedOutcome(
+            step.expected_outcome ?? step.expectedOutcome,
+            isClickLikeIntent(nextIntent)
+          ),
+          status: resolvePendingStepStatus(nextStep),
+        };
+      })
+    );
+  }, [updatePendingSteps]);
+
+  const updatePendingStepExpectedOutcome = useCallback((stepId, expectedOutcome) => {
+    updatePendingSteps((current) =>
+      current.map((step) => {
+        if (step.id !== stepId) {
+          return step;
+        }
+
+        const nextIntent = typeof step.intent === "string" ? step.intent : "";
+        const nextStep = {
+          ...step,
+          intent: nextIntent,
+          recorded: false,
+          element_info: step.element_info ?? step.elementInfo ?? null,
+          expected_outcome: normalizeExpectedOutcome(expectedOutcome, isClickLikeIntent(nextIntent)),
+        };
+
+        return {
+          ...nextStep,
+          status: resolvePendingStepStatus(nextStep),
         };
       })
     );
@@ -1149,6 +1291,20 @@ function useAutoWorkbenchTransport(config) {
     [appendTimeline, sendPayload]
   );
 
+  const handleReplayAllRecordedSteps = useCallback(() => {
+    const sent = sendPayload(
+      {
+        type: "replay_all",
+        stop_on_error: true,
+      },
+      "WebSocket not connected."
+    );
+
+    if (sent) {
+      appendTimeline("Replay all requested.", "active");
+    }
+  }, [appendTimeline, sendPayload]);
+
   const handleCopyRecordedStep = useCallback(
     (step) => {
       const line = firstNonEmptyText(step?.generated_line);
@@ -1196,13 +1352,33 @@ function useAutoWorkbenchTransport(config) {
   );
 
   const handleRunPendingSteps = useCallback(() => {
-    const readySteps = pendingSteps
-      .filter((step) => typeof step.intent === "string" && step.intent.trim() && step.recorded !== true)
-      .map((step) => ({
+    const readySteps = [];
+    for (const step of pendingSteps) {
+      if (!step || typeof step !== "object" || step.recorded === true) {
+        continue;
+      }
+
+      const intent = firstNonEmptyText(step.intent, step.text, step.label);
+      if (!intent) {
+        continue;
+      }
+
+      const normalizedOutcome = normalizeExpectedOutcome(
+        step.expected_outcome ?? step.expectedOutcome,
+        isClickLikeIntent(intent)
+      );
+      if (isClickLikeIntent(intent) && (!normalizedOutcome || !normalizedOutcome.type)) {
+        appendTimeline(`Select an expected outcome for "${intent}" before running.`, "warn");
+        return;
+      }
+
+      readySteps.push({
         id: step.id,
-        intent: step.intent.trim(),
-        element_info: step.element_info ?? null,
-      }));
+        intent,
+        element_info: step.element_info ?? step.elementInfo ?? null,
+        expected_outcome: normalizedOutcome,
+      });
+    }
 
     if (!readySteps.length) {
       appendTimeline("Add at least one step before running.", "warn");
@@ -1487,6 +1663,102 @@ function useAutoWorkbenchTransport(config) {
           appendTimeline(text || "Code updated", "ok");
           break;
         }
+        case "replay_started": {
+          const scope = firstNonEmptyText(payload && typeof payload === "object" ? payload.scope : "");
+          const stepCount = resolveFiniteNumber(
+            payload && typeof payload === "object" ? payload.step_count ?? payload.stepCount : Number.NaN
+          );
+          const scopeLabel = scope === "all" ? "Replay all started" : "Replay started";
+          appendTimeline(
+            Number.isFinite(stepCount) ? `${scopeLabel} · ${stepCount} steps` : scopeLabel,
+            "active"
+          );
+          break;
+        }
+        case "replay_result": {
+          const replayStepId = firstNonEmptyText(
+            payload && typeof payload === "object" ? payload.step_id : "",
+            payload && typeof payload === "object" ? payload.stepId : ""
+          );
+          const isOk = payload && typeof payload === "object" && payload.ok === true;
+          const operationCount = resolveFiniteNumber(
+            payload && typeof payload === "object" ? payload.operation_count ?? payload.operationCount : Number.NaN
+          );
+          if (isOk) {
+            appendTimeline(
+              `Replay step succeeded for ${replayStepId || "step"}${
+                Number.isFinite(operationCount) ? ` · ${operationCount} operations` : ""
+              }`,
+              "ok"
+            );
+          } else {
+            const failedOperationId = firstNonEmptyText(
+              payload && typeof payload === "object" ? payload.failed_operation_id : "",
+              payload && typeof payload === "object" ? payload.failedOperationId : ""
+            );
+            const errorText = firstNonEmptyText(
+              payload && typeof payload === "object" ? payload.error : "",
+              "Replay failed"
+            );
+            setLastError(errorText);
+            appendTimeline(
+              `Replay step failed for ${replayStepId || "step"}${
+                failedOperationId ? ` · ${failedOperationId}` : ""
+              } · ${errorText}`,
+              "err"
+            );
+          }
+          break;
+        }
+        case "replay_all_result": {
+          const isOk = payload && typeof payload === "object" && payload.ok === true;
+          const replayedCount = resolveFiniteNumber(
+            payload && typeof payload === "object" ? payload.replayed_count ?? payload.replayedCount : Number.NaN
+          );
+          const passedCount = resolveFiniteNumber(
+            payload && typeof payload === "object" ? payload.passed_count ?? payload.passedCount : Number.NaN
+          );
+          const failedCount = resolveFiniteNumber(
+            payload && typeof payload === "object" ? payload.failed_count ?? payload.failedCount : Number.NaN
+          );
+          const failedStepId = firstNonEmptyText(
+            payload && typeof payload === "object" ? payload.failed_step_id : "",
+            payload && typeof payload === "object" ? payload.failedStepId : ""
+          );
+          const failedOperationId = firstNonEmptyText(
+            payload && typeof payload === "object" ? payload.failed_operation_id : "",
+            payload && typeof payload === "object" ? payload.failedOperationId : ""
+          );
+          const errorText = firstNonEmptyText(
+            payload && typeof payload === "object" ? payload.error : "",
+            "Replay all failed"
+          );
+          if (isOk) {
+            const replayedLabel = Number.isFinite(replayedCount)
+              ? `${replayedCount} step${replayedCount === 1 ? "" : "s"}`
+              : "replay";
+            const passedLabel = Number.isFinite(passedCount) ? `${passedCount} passed` : "";
+            appendTimeline(
+              ["Replay all completed", replayedLabel, passedLabel].filter(Boolean).join(" · "),
+              "ok"
+            );
+          } else {
+            setLastError(errorText);
+            appendTimeline(
+              [
+                "Replay all failed",
+                failedStepId,
+                failedOperationId,
+                Number.isFinite(failedCount) ? `${failedCount} failed` : "",
+                errorText,
+              ]
+                .filter(Boolean)
+                .join(" · "),
+              "err"
+            );
+          }
+          break;
+        }
         case "replay_one_result": {
           const replayStepId = firstNonEmptyText(
             payload && typeof payload === "object" ? payload.step_id : "",
@@ -1547,11 +1819,19 @@ function useAutoWorkbenchTransport(config) {
                   return step;
                 }
                 const nextIntent = typeof step.intent === "string" ? step.intent : "";
-                return {
+                const nextStep = {
                   ...step,
                   element_info: elementInfo,
                   recorded: false,
                   status: nextIntent.trim() ? "ready" : "draft",
+                };
+                return {
+                  ...nextStep,
+                  expected_outcome: normalizeExpectedOutcome(
+                    step.expected_outcome ?? step.expectedOutcome,
+                    isClickLikeIntent(nextIntent)
+                  ),
+                  status: resolvePendingStepStatus(nextStep),
                 };
               })
             );
@@ -1713,6 +1993,7 @@ function useAutoWorkbenchTransport(config) {
     onClarificationAnswerTextChange: setClarificationAnswerText,
     onRecoveryTextChange: setRecoveryText,
     onPendingStepIntentChange: updatePendingStepIntent,
+    onPendingStepExpectedOutcomeChange: updatePendingStepExpectedOutcome,
     onAddPendingStep: addPendingStep,
     onDeletePendingStep: removePendingStep,
     onAttachElement: handleAttachElement,
@@ -1725,6 +2006,7 @@ function useAutoWorkbenchTransport(config) {
     onSendOptionSelected: handleSendClarificationAnswer,
     onSendRecoveryInstruction: handleSendRecoveryInstruction,
     onReplayRecordedStep: handleReplayRecordedStep,
+    onReplayAllRecordedSteps: handleReplayAllRecordedSteps,
     onCopyRecordedStep: handleCopyRecordedStep,
     setPlanCorrectionText,
     setClarificationQuestion,
@@ -1743,6 +2025,7 @@ function useAutoWorkbenchTransport(config) {
     handleSendClarificationAnswer,
     handleSendRecoveryInstruction,
     handleReplayRecordedStep,
+    handleReplayAllRecordedSteps,
     handleCopyRecordedStep,
   };
 }

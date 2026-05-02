@@ -67,6 +67,20 @@ def test_runtime_phases_return_all_tools_in_original_order_without_mutation(phas
     assert tools == before
 
 
+def test_recording_wait_filters_to_overlay_and_ask_user_only() -> None:
+    tools = _build_tools()
+    before = deepcopy(tools)
+
+    filtered_tools = filter_tools_for_phase(tools, "recording", awaiting_step_record=True)
+
+    assert filtered_tools is not tools
+    assert _tool_names(filtered_tools) == [
+        "send_to_overlay",
+        "ask_user",
+    ]
+    assert tools == before
+
+
 def test_unknown_phase_falls_back_to_safe_tools_and_logs_warning(capsys: pytest.CaptureFixture[str]) -> None:
     tools = _build_tools()
 
