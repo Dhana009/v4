@@ -792,6 +792,11 @@ function buildRecordedStepFromPayload(payload, matchedStep, matchIndex, recorded
       display_title: friendlyTitle || fallbackTitle,
       action_label: action,
       target_label: elementName || matchedElementName || "",
+      ...(Array.isArray(source.children)
+        ? {
+            children: source.children.map((child) => (child && typeof child === "object" ? { ...child } : child)),
+          }
+        : {}),
     },
     Number.isFinite(matchIndex) && matchIndex >= 0 ? matchIndex : 0
   );

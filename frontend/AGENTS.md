@@ -1,13 +1,13 @@
 <claude-mem-context>
 # Memory Context
 
-# [frontend] recent context, 2026-05-02 10:40am GMT+5:30
+# [frontend] recent context, 2026-05-02 11:25am GMT+5:30
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 21 obs (9,727t read) | 218,974t work | 96% savings
+Stats: 38 obs (19,003t read) | 450,786t work | 96% savings
 
 ### May 2, 2026
 999 9:45a 🟣 Multi-action parent/child plan model v1 implemented in agent v4 backend
@@ -32,6 +32,23 @@ S105 Read-only investigation: multi-action execution/recording mismatch in agent
 1035 " 🟣 tests/test_multi_action_safety.py Successfully Applied to Disk
 1037 " 🔵 Multi-Action Safety Block Final Code Position Confirmed in agent.py
 1038 10:37a 🟣 Multi-Action Safety Block Fully Verified — 37/37 Tests Pass
+1043 10:40a 🟣 Ordered Per-Step Action History Model Planned for agent.py
+1045 10:41a 🔵 Existing Recording Architecture Before Ordered History Addition
+1048 10:42a 🟣 successful_actions_by_step_id Ordered History Added to agent.py
+1049 " 🟣 Full Ordered Multi-Action Recording Model Implemented in agent.py
+1050 10:43a 🔵 Consolidated Patch Failed: Old _build_recorded_children Signature Still Present in agent.py
+1051 10:44a 🔵 agent.py Confirmed in Pre-Consolidated-Patch State After Failed Apply
+1055 10:45a 🔵 successful_actions_by_step_id Not in agent.py After All Partial Patches
+1056 " 🟣 Ordered Per-Step Action History Added to Recorder
+1057 10:48a 🟣 Multi-Action Ordered History Cleanup and Test Coverage Added
+1058 10:51a 🟣 test_code_update.py Extended for Multi-Action Flattened Code Update Lines
+1059 10:52a 🔴 test_multi_action_safety.py Missing successful_actions_by_step_id Initialization Fixed
+1060 " 🟣 Full Test Suite Passes: 28/28 After Multi-Action History Feature
+1061 " 🔵 agent.py Internal Architecture: Key Methods for Multi-Action History
+1062 " 🔴 Test Failure: operation_id for Multi-Action code_update Returns Last Child Not First
+1063 10:53a 🔴 Fixed operation_id Selection Bug in _build_code_update_payload
+1064 " ✅ Final Modified File Set Confirmed for Multi-Action History Feature
+1065 " ⚖️ Multi-Action History Feature Complete — Next Step Deferred
 
-Access 219k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 451k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

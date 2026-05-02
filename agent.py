@@ -94,6 +94,7 @@ class AgentLoop:
         self.current_step_index = 0
         self.last_successful_action: dict[str, Any] | None = None
         self.successful_action_by_step_id: dict[str, dict[str, Any]] = {}
+        self.successful_actions_by_step_id: dict[str, list[dict[str, Any]]] = {}
         self._loaded_skill_names: list[str] = []
         self._loaded_skill_entries: list[tuple[str, str]] = []
         self._missing_skill_names: set[str] = set()
@@ -123,6 +124,7 @@ class AgentLoop:
         self.current_step_index = 0
         self.last_successful_action = None
         self.successful_action_by_step_id = {}
+        self.successful_actions_by_step_id = {}
         self._loaded_skill_names = []
         self._loaded_skill_entries = []
         self._missing_skill_names = set()
@@ -1276,11 +1278,24 @@ class AgentLoop:
         if not getattr(self, "_awaiting_step_record", False):
             return False
 
+        history_by_step_id = getattr(self, "successful_actions_by_step_id", None)
+        if not isinstance(history_by_step_id, dict):
+            return True
+
         active_step_id = str(getattr(self, "active_step_id", "") or "").strip()
         step_context = self.step_state_by_id.get(active_step_id) if active_step_id else None
         if step_context is None:
             step_context = self._resolve_step_context(tool_name, args, {})
-        return self._has_successful_action_to_record(step_context, args)
+        if step_context is None:
+            return True
+
+        resolved_step_id = str(step_context.get("step_id") or "").strip()
+        if not resolved_step_id:
+            return True
+        if active_step_id and resolved_step_id != active_step_id:
+            return True
+
+        return False
 
     def _get_successful_action_for_step(
         self,
@@ -1343,6 +1358,33 @@ class AgentLoop:
             return last_action
         return None
 
+    def _get_successful_action_history_for_step(
+        self,
+        step_context: dict[str, Any] | None = None,
+        payload: dict[str, Any] | None = None,
+    ) -> list[dict[str, Any]]:
+        payload = payload or {}
+        step_context = step_context or {}
+        history_by_step_id = getattr(self, "successful_actions_by_step_id", None)
+        if not isinstance(history_by_step_id, dict):
+            return []
+
+        candidate_step_ids: list[str] = []
+        for source in (step_context, payload):
+            if not isinstance(source, dict):
+                continue
+            for key in ("step_id", "id", "stepId"):
+                candidate_step_id = str(source.get(key) or "").strip()
+                if candidate_step_id and candidate_step_id not in candidate_step_ids:
+                    candidate_step_ids.append(candidate_step_id)
+
+        for candidate_step_id in candidate_step_ids:
+            action_history = history_by_step_id.get(candidate_step_id)
+            if isinstance(action_history, list):
+                return action_history
+
+        return []
+
     def _coerce_step_number(self, value: Any) -> int | None:
         try:
             number = int(value)
@@ -1402,6 +1444,15 @@ class AgentLoop:
 
         self.last_successful_action = captured
         if step_id:
+            history_by_step_id = getattr(self, "successful_actions_by_step_id", None)
+            if not isinstance(history_by_step_id, dict):
+                history_by_step_id = {}
+                self.successful_actions_by_step_id = history_by_step_id
+            step_history = history_by_step_id.get(step_id)
+            if not isinstance(step_history, list):
+                step_history = []
+                history_by_step_id[step_id] = step_history
+            step_history.append(captured)
             self.successful_action_by_step_id[step_id] = captured
             print(f"[AGENT] stored successful action for step: {step_id}")
         else:
@@ -1677,7 +1728,13 @@ class AgentLoop:
             if value not in (None, "", [], {})
         }
         step_context = step_context or self._resolve_recording_target_step(clean_payload)
-        action_record = self._get_successful_action_for_step(step_context, clean_payload)
+        action_history = self._get_successful_action_history_for_step(step_context, clean_payload)
+        if action_history:
+            action_record = action_history[-1]
+        else:
+            action_record = self._get_successful_action_for_step(step_context, clean_payload)
+            if action_record:
+                action_history = [action_record]
         if not action_record:
             step_ref = str(
                 (step_context or {}).get("step_id")
@@ -1755,7 +1812,7 @@ class AgentLoop:
             generated_line = self._build_generated_line(action, locator, action_context)
         if not intent:
             intent = str(step_context.get("intent") if step_context else "").strip()
-        children = self._build_recorded_children(intent, action, element_name, locator, generated_line)
+        children = self._build_recorded_children(action_history, intent, element_name, locator)
 
         merged: dict[str, Any] = dict(clean_payload)
         if step_id:
@@ -1984,29 +2041,71 @@ class AgentLoop:
 
     def _build_recorded_children(
         self,
+        action_records: list[dict[str, Any]],
         intent: str,
-        action: str,
         element_name: str,
         locator: str,
-        generated_line: str,
     ) -> list[dict[str, Any]]:
-        operation_hint = " ".join(part for part in (action, intent) if part)
-        operation_type = self._infer_operation_type(operation_hint)
-        description = intent or element_name or action or operation_type
-        target = element_name or locator or intent or action or ""
-        code_lines = [generated_line] if generated_line else []
+        recorded_children: list[dict[str, Any]] = []
+        for index, action_record in enumerate(action_records, start=1):
+            if not isinstance(action_record, dict):
+                continue
 
-        return [
-            {
-                "operation_id": "op_1",
-                "type": operation_type,
-                "description": description,
-                "target": target,
-                "locator": locator,
-                "status": "success",
-                "code_lines": code_lines,
-            }
-        ]
+            action_context = dict(action_record.get("action_context") or {})
+            recorded_step_context = action_record.get("step_context") or {}
+            if not isinstance(recorded_step_context, dict):
+                recorded_step_context = {}
+
+            action = str(
+                action_record.get("action")
+                or self._action_name_for_tool(str(action_record.get("tool") or ""))
+                or ""
+            ).strip()
+            child_locator = str(
+                action_context.get("locator")
+                or action_record.get("locator")
+                or locator
+                or self._derive_locator_from_step_context(recorded_step_context)
+                or ""
+            ).strip()
+            child_generated_line = str(
+                action_record.get("generated_line")
+                or self._build_generated_line(action, child_locator, action_context)
+                or ""
+            ).strip()
+            operation_type = self._infer_operation_type(action)
+            if operation_type == "unknown" and action:
+                operation_type = action
+            description = str(
+                action_record.get("description")
+                or intent
+                or element_name
+                or action
+                or operation_type
+                or ""
+            ).strip()
+            target = str(
+                action_record.get("element_name")
+                or element_name
+                or child_locator
+                or intent
+                or action
+                or ""
+            ).strip()
+
+            recorded_children.append(
+                {
+                    "operation_id": f"op_{index}",
+                    "type": operation_type,
+                    "description": description,
+                    "target": target,
+                    "locator": child_locator,
+                    "status": "success",
+                    "code_lines": [child_generated_line] if child_generated_line else [],
+                }
+            )
+
+        return recorded_children
 
     def _build_code_update_payload(self, payload: dict[str, Any], step_id: str) -> dict[str, Any]:
         if not step_id:
@@ -2016,20 +2115,31 @@ class AgentLoop:
         if len(recording_steps) != 1:
             return {}
 
-        generated_line = str(payload.get("generated_line") or "").strip()
-        if not generated_line:
-            return {}
-
         children = payload.get("children")
-        if not isinstance(children, list) or len(children) != 1:
-            return {}
-
-        child = children[0]
-        if not isinstance(child, dict):
-            return {}
-
-        operation_id = str(child.get("operation_id") or "op_1").strip() or "op_1"
-        lines = [generated_line]
+        lines: list[str] = []
+        operation_id = "op_1"
+        operation_id_set = False
+        if isinstance(children, list) and children:
+            for child in children:
+                if not isinstance(child, dict):
+                    continue
+                if not operation_id_set:
+                    child_operation_id = str(child.get("operation_id") or "").strip()
+                    if child_operation_id:
+                        operation_id = child_operation_id
+                    operation_id_set = True
+                child_code_lines = child.get("code_lines")
+                if not isinstance(child_code_lines, list):
+                    continue
+                for child_code_line in child_code_lines:
+                    line_text = str(child_code_line or "").strip()
+                    if line_text:
+                        lines.append(line_text)
+        if not lines:
+            generated_line = str(payload.get("generated_line") or "").strip()
+            if not generated_line:
+                return {}
+            lines = [generated_line]
         return {
             "step_id": step_id,
             "operation_id": operation_id,
@@ -2723,6 +2833,9 @@ class AgentLoop:
                     except Exception as exc:  # noqa: BLE001
                         print(f"[AGENT] code_update emit failed: {type(exc).__name__}: {exc}")
             if step_id:
+                history_by_step_id = getattr(self, "successful_actions_by_step_id", None)
+                if isinstance(history_by_step_id, dict):
+                    history_by_step_id.pop(step_id, None)
                 self.successful_action_by_step_id.pop(step_id, None)
             last_action = self.last_successful_action or {}
             last_action_step = last_action.get("step_context") or {}

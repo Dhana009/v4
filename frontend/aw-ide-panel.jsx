@@ -812,6 +812,7 @@ function IDERecordedStepCard({
   const status = firstText(step.status, "recorded").toLowerCase();
   const statusKind = status === "passed" ? "passed" : status === "failed" ? "failed" : "recorded";
   const codeLine = firstText(step.generated_line);
+  const childRows = getPlanStepChildren(step).map((child, childIndex) => normalizePlanChild(child, childIndex)).filter(Boolean);
 
   return (
     <div className={`ide-recorded-step${compact ? " is-compact" : ""}`}>
@@ -830,6 +831,20 @@ function IDERecordedStepCard({
         {locator && <code className="ide-recorded-step-locator">{locator}</code>}
         {showGeneratedLine && codeLine && <pre className="ide-recorded-step-code">{codeLine}</pre>}
         {!showGeneratedLine && showDetails && codeLine && <pre className="ide-recorded-step-code ide-recorded-step-code-collapsed">{codeLine}</pre>}
+        {childRows.length > 0 && (
+          <div className="ide-plan-children">
+            {childRows.map((child) => (
+              <div key={child.key} className="ide-plan-child">
+                <div className="ide-plan-child-head">
+                  {child.operationId && <span className="ide-plan-child-op">{child.operationId}</span>}
+                  <IDEPlanTag kind={child.kind} />
+                </div>
+                <div className="ide-plan-child-desc">{child.description}</div>
+                {child.locator && <code className="ide-plan-child-locator">{child.locator}</code>}
+              </div>
+            ))}
+          </div>
+        )}
         {showDetails && showGeneratedLine && <div className="ide-recorded-step-note">Technical details are in the Debug tab.</div>}
         <div className="ide-recorded-step-actions">
           <button className="ide-btn sm" type="button" onClick={() => onReplay?.(step)}>
@@ -879,7 +894,36 @@ function IDERecordedOutput({ recordedSteps = [], onReplayRecordedStep, onCopyRec
   const [activeTab, setActiveTab] = React.useState("steps");
   const steps = Array.isArray(recordedSteps) ? recordedSteps : [];
   const visibleSteps = activeTab === "steps" ? steps.slice(-3).reverse() : [];
-  const codeLines = steps.map((step) => firstText(step.generated_line)).filter(Boolean);
+  const codeLines = steps.reduce((accumulatedLines, step) => {
+    const childRows = Array.isArray(step && step.children) ? step.children : [];
+    if (childRows.length > 0) {
+      for (const child of childRows) {
+        if (!child || typeof child !== "object") {
+          continue;
+        }
+        if (Array.isArray(child.code_lines) && child.code_lines.length > 0) {
+          for (const line of child.code_lines) {
+            const text = firstText(line);
+            if (text) {
+              accumulatedLines.push(text);
+            }
+          }
+          continue;
+        }
+        const childLine = firstText(child.generated_line);
+        if (childLine) {
+          accumulatedLines.push(childLine);
+        }
+      }
+      return accumulatedLines;
+    }
+
+    const parentLine = firstText(step && step.generated_line);
+    if (parentLine) {
+      accumulatedLines.push(parentLine);
+    }
+    return accumulatedLines;
+  }, []);
   const codeText = codeLines.join("\n");
   const recordedCount = steps.length;
   const lineCount = codeLines.length;

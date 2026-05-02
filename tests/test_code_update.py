@@ -26,19 +26,46 @@ def _make_step_context() -> dict[str, object]:
     }
 
 
-def _make_success_record(step_context: dict[str, object]) -> dict[str, object]:
-    locator = 'get_by_role("button", name="Submit")'
+def _make_action_record(
+    step_context: dict[str, object],
+    tool_name: str,
+    action: str,
+    locator: str,
+    assertion: str | None = None,
+) -> dict[str, object]:
     return {
-        "tool": "action_click",
-        "action": "click",
+        "tool": tool_name,
+        "action": action,
         "locator": locator,
         "result": {"success": True, "skipped": False},
         "step_context": step_context,
-        "action_context": {"locator": locator},
-        "tool_args": {"locator": locator},
+        "action_context": {
+            "locator": locator,
+            **({"assertion": assertion} if assertion is not None else {}),
+        },
+        "tool_args": {
+            "locator": locator,
+            **({"assertion": assertion} if assertion is not None else {}),
+        },
         "step_id": step_context["step_id"],
         "step_number": step_context["step_number"],
     }
+
+
+def _make_success_record(step_context: dict[str, object]) -> dict[str, object]:
+    locator = 'get_by_role("button", name="Submit")'
+    return _make_action_record(step_context, "action_click", "click", locator)
+
+
+def _make_assert_success_record(step_context: dict[str, object]) -> dict[str, object]:
+    locator = 'get_by_label("Get started")'
+    return _make_action_record(
+        step_context,
+        "action_assert",
+        "assert",
+        locator,
+        assertion="visible",
+    )
 
 
 def _build_loop_for_code_update_test(monkeypatch):
@@ -71,6 +98,7 @@ def _build_loop_for_code_update_test(monkeypatch):
     loop.current_step_index = 0
     loop.last_successful_action = None
     loop.successful_action_by_step_id = {}
+    loop.successful_actions_by_step_id = {}
     loop._recording_steps = []
     loop._recording_step_index = 0
     loop._recorded_step_ids = set()
@@ -121,6 +149,7 @@ def _build_loop_for_code_update_test(monkeypatch):
         loop.current_step_index = 0
         loop.last_successful_action = success_record
         loop.successful_action_by_step_id = {"step-1": success_record}
+        loop.successful_actions_by_step_id = {"step-1": [success_record]}
         loop._recording_steps = [step_context]
         loop._recording_step_index = 0
         loop._recorded_step_ids = set()
@@ -208,3 +237,61 @@ def test_simple_click_recording_emits_code_update_and_stops_cleanly(monkeypatch,
     assert captured.index("[CODE_UPDATE] step_id=step-1 operation_id=op_1 lines=1") < captured.index(
         "[AGENT] all steps resolved; ending run without extra LLM call"
     )
+
+
+def test_multi_action_recording_flattens_code_update_lines_in_order(monkeypatch) -> None:
+    loop, sent_messages, call_counter = _build_loop_for_code_update_test(monkeypatch)
+    step_context = {
+        "step_id": "step-1",
+        "step_number": 1,
+        "intent": "Check that Get started is visible and click it",
+        "element_info": {
+            "text": "Get started",
+            "attributes": {"aria-label": "Get started"},
+        },
+        "element_name": "Get started",
+        "locator": None,
+        "status": "executing",
+        "recorded": False,
+        "last_error": None,
+    }
+    assert_record = _make_assert_success_record(step_context)
+    click_record = _make_action_record(
+        step_context,
+        "action_click",
+        "click",
+        'get_by_label("Get started")',
+    )
+    loop.step_state_by_id = {"step-1": step_context}
+    loop.step_context_by_id = {"step-1": step_context}
+    loop._recording_steps = [step_context]
+    loop.last_successful_action = click_record
+    loop.successful_action_by_step_id = {"step-1": click_record}
+    loop.successful_actions_by_step_id = {"step-1": [assert_record, click_record]}
+
+    payload = loop._build_step_record_payload(
+        {
+            "step_id": "step-1",
+            "step_number": 1,
+        },
+        step_context,
+    )
+    code_update_payload = loop._build_code_update_payload(payload, "step-1")
+    assert_line = loop._build_generated_line(
+        "assert",
+        'get_by_label("Get started")',
+        {"locator": 'get_by_label("Get started")', "assertion": "visible"},
+    )
+    click_line = loop._build_generated_line(
+        "click",
+        'get_by_label("Get started")',
+        {"locator": 'get_by_label("Get started")'},
+    )
+
+    assert call_counter["count"] == 0
+    assert sent_messages == []
+    assert payload["children"][0]["type"] == "assert"
+    assert payload["children"][1]["type"] == "click"
+    assert code_update_payload["lines"] == [assert_line, click_line]
+    assert code_update_payload["full_spec_preview"] == "\n".join([assert_line, click_line])
+    assert code_update_payload["operation_id"] == "op_1"

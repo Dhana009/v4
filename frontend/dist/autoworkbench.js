@@ -25279,6 +25279,7 @@
     const status = firstText(step.status, "recorded").toLowerCase();
     const statusKind = status === "passed" ? "passed" : status === "failed" ? "failed" : "recorded";
     const codeLine = firstText(step.generated_line);
+    const childRows = getPlanStepChildren(step).map((child, childIndex) => normalizePlanChild(child, childIndex)).filter(Boolean);
     return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `ide-recorded-step${compact ? " is-compact" : ""}`, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-recorded-step-main", children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-recorded-step-head", children: [
         /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "ide-step-num", children: String(stepNumberValue).padStart(2, "0") }),
@@ -25294,6 +25295,14 @@
       locator && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "ide-recorded-step-locator", children: locator }),
       showGeneratedLine && codeLine && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("pre", { className: "ide-recorded-step-code", children: codeLine }),
       !showGeneratedLine && showDetails && codeLine && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("pre", { className: "ide-recorded-step-code ide-recorded-step-code-collapsed", children: codeLine }),
+      childRows.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-plan-children", children: childRows.map((child) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-plan-child", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-plan-child-head", children: [
+          child.operationId && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ide-plan-child-op", children: child.operationId }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEPlanTag, { kind: child.kind })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-plan-child-desc", children: child.description }),
+        child.locator && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "ide-plan-child-locator", children: child.locator })
+      ] }, child.key)) }),
       showDetails && showGeneratedLine && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-recorded-step-note", children: "Technical details are in the Debug tab." }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-recorded-step-actions", children: [
         /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ide-btn sm", type: "button", onClick: () => onReplay?.(step), children: "Replay" }),
@@ -25321,7 +25330,35 @@
     const [activeTab, setActiveTab] = import_react.default.useState("steps");
     const steps = Array.isArray(recordedSteps) ? recordedSteps : [];
     const visibleSteps = activeTab === "steps" ? steps.slice(-3).reverse() : [];
-    const codeLines = steps.map((step) => firstText(step.generated_line)).filter(Boolean);
+    const codeLines = steps.reduce((accumulatedLines, step) => {
+      const childRows = Array.isArray(step && step.children) ? step.children : [];
+      if (childRows.length > 0) {
+        for (const child of childRows) {
+          if (!child || typeof child !== "object") {
+            continue;
+          }
+          if (Array.isArray(child.code_lines) && child.code_lines.length > 0) {
+            for (const line of child.code_lines) {
+              const text = firstText(line);
+              if (text) {
+                accumulatedLines.push(text);
+              }
+            }
+            continue;
+          }
+          const childLine = firstText(child.generated_line);
+          if (childLine) {
+            accumulatedLines.push(childLine);
+          }
+        }
+        return accumulatedLines;
+      }
+      const parentLine = firstText(step && step.generated_line);
+      if (parentLine) {
+        accumulatedLines.push(parentLine);
+      }
+      return accumulatedLines;
+    }, []);
     const codeText = codeLines.join("\n");
     const recordedCount = steps.length;
     const lineCount = codeLines.length;
@@ -26388,7 +26425,10 @@
         status,
         display_title: friendlyTitle || fallbackTitle,
         action_label: action,
-        target_label: elementName || matchedElementName || ""
+        target_label: elementName || matchedElementName || "",
+        ...Array.isArray(source.children) ? {
+          children: source.children.map((child) => child && typeof child === "object" ? { ...child } : child)
+        } : {}
       },
       Number.isFinite(matchIndex) && matchIndex >= 0 ? matchIndex : 0
     );

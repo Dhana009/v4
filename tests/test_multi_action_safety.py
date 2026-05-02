@@ -49,6 +49,7 @@ def _build_loop_for_multi_action_safety_test(
 ):
     sent_messages: list[tuple[str, dict[str, object]]] = []
     blocked_results: list[tuple[str, dict[str, object]]] = []
+    executed_actions: list[str] = []
     call_counter = {"count": 0}
 
     loop = AgentLoop.__new__(AgentLoop)
@@ -75,6 +76,7 @@ def _build_loop_for_multi_action_safety_test(
     loop.current_step_index = 0
     loop.last_successful_action = None
     loop.successful_action_by_step_id = {}
+    loop.successful_actions_by_step_id = {}
     loop._recording_steps = []
     loop._recording_step_index = 0
     loop._recorded_step_ids = set()
@@ -125,6 +127,7 @@ def _build_loop_for_multi_action_safety_test(
         loop.current_step_index = 0
         loop.last_successful_action = None
         loop.successful_action_by_step_id = {}
+        loop.successful_actions_by_step_id = {}
         loop._recording_steps = [step_context]
         loop._recording_step_index = 0
         loop._recorded_step_ids = set()
@@ -154,10 +157,12 @@ def _build_loop_for_multi_action_safety_test(
     loop._append_tool_response = recording_append_tool_response
 
     async def fake_action_click(args):
+        executed_actions.append("action_click")
         locator = str(args.get("locator") or "")
         return {"success": True, "error": None, "locator": locator}
 
     async def fake_action_assert(args):
+        executed_actions.append("action_assert")
         locator = str(args.get("locator") or "")
         assertion = str(args.get("assertion") or "visible")
         return {
@@ -185,7 +190,7 @@ def _build_loop_for_multi_action_safety_test(
     loop.model_router = SimpleNamespace(call=fake_model_call)
     monkeypatch.setattr(agent_module, "record_model_call_start", lambda **kwargs: object())
     monkeypatch.setattr(agent_module, "record_model_call_end", lambda *args, **kwargs: None)
-    return loop, sent_messages, blocked_results, call_counter
+    return loop, sent_messages, blocked_results, executed_actions, call_counter
 
 
 def test_single_click_action_can_still_be_recorded(monkeypatch) -> None:
@@ -218,7 +223,7 @@ def test_single_click_action_can_still_be_recorded(monkeypatch) -> None:
         ),
     ]
 
-    loop, sent_messages, blocked_results, call_counter = _build_loop_for_multi_action_safety_test(
+    loop, sent_messages, blocked_results, executed_actions, call_counter = _build_loop_for_multi_action_safety_test(
         monkeypatch,
         step_context,
         tool_calls,
@@ -227,14 +232,18 @@ def test_single_click_action_can_still_be_recorded(monkeypatch) -> None:
     asyncio.run(loop.run([{"id": "step-1"}]))
 
     assert call_counter["count"] == 1
+    assert executed_actions == ["action_click"]
     assert blocked_results == []
-    assert len(sent_messages) >= 1
+    assert len(sent_messages) == 2
     assert sent_messages[0][0] == "step_recorded"
     assert sent_messages[0][1]["action"] == "click"
     assert sent_messages[0][1]["status"] == "success"
+    assert sent_messages[0][1]["children"][0]["type"] == "click"
+    assert sent_messages[1][0] == "code_update"
+    assert sent_messages[1][1]["lines"] == [sent_messages[0][1]["generated_line"]]
 
 
-def test_second_execution_action_before_recording_is_blocked(monkeypatch) -> None:
+def test_assert_and_click_both_execute_and_record_in_order(monkeypatch) -> None:
     step_context = _make_step_context(
         "step-1",
         "Check that Get started is visible and click it",
@@ -274,7 +283,7 @@ def test_second_execution_action_before_recording_is_blocked(monkeypatch) -> Non
         ),
     ]
 
-    loop, sent_messages, blocked_results, call_counter = _build_loop_for_multi_action_safety_test(
+    loop, sent_messages, blocked_results, executed_actions, call_counter = _build_loop_for_multi_action_safety_test(
         monkeypatch,
         step_context,
         tool_calls,
@@ -283,18 +292,14 @@ def test_second_execution_action_before_recording_is_blocked(monkeypatch) -> Non
     asyncio.run(loop.run([{"id": "step-1"}]))
 
     assert call_counter["count"] == 1
-    assert len(blocked_results) == 1
-    assert blocked_results[0][0] == "call-2"
-    assert blocked_results[0][1] == {
-        "success": False,
-        "blocked": True,
-        "reason": "multi_action_recording_not_supported",
-        "message": (
-            "Only one execution action can be recorded per step until "
-            "multi-action recording is implemented."
-        ),
-    }
-    assert len(sent_messages) >= 1
+    assert executed_actions == ["action_assert", "action_click"]
+    assert blocked_results == []
+    assert len(sent_messages) == 2
     assert sent_messages[0][0] == "step_recorded"
-    assert sent_messages[0][1]["action"] == "assert"
+    assert len(sent_messages[0][1]["children"]) == 2
+    assert sent_messages[0][1]["action"] == "click"
     assert sent_messages[0][1]["status"] == "success"
+    assert sent_messages[0][1]["children"][0]["type"] == "assert"
+    assert sent_messages[0][1]["children"][1]["type"] == "click"
+    assert sent_messages[1][0] == "code_update"
+    assert len(sent_messages[1][1]["lines"]) == 2
