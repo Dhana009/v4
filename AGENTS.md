@@ -1,13 +1,13 @@
 <claude-mem-context>
 # Memory Context
 
-# [agent v4] recent context, 2026-05-02 1:06pm GMT+5:30
+# [agent v4] recent context, 2026-05-02 1:22pm GMT+5:30
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (33,606t read) | 1,276,451t work | 97% savings
+Stats: 50 obs (34,497t read) | 1,321,191t work | 97% savings
 
 ### May 1, 2026
 S96 Implement lifecycle guard in agent.py to enforce Planning → Confirmation → Execution → Record → Recovery control flow (May 1 at 4:06 PM)
@@ -20,14 +20,6 @@ S101 Fix Phase 3D frontend UI/state bugs in AutoWorkbench IDE panel (spaces, pic
 S102 Fix backend multi-step recording bug in agent.py — replace global last_successful_action with per-step successful_action_by_step_id dict (May 2 at 3:14 AM)
 S103 Launch AutoWorkbench agent v4 once and run a smoke test of the clarification UI roundtrip (May 2 at 3:33 AM)
 S104 Add agent phase diagnostics in shadow mode to agent v4 — PhaseTracker implementation in runtime/phase_tracker.py and agent.py wiring (May 2 at 3:57 AM)
-1023 10:06a 🔵 agent.py plan_ready normalization: existing architecture for _build_plan_ready_parent_step and _build_planned_children
-1024 10:07a 🔴 Fixed plan_ready normalization: one user intent now collapses multiple LLM steps into one parent step
-1025 10:08a 🔴 plan_ready multi-action collapse: all 35 tests pass after fix verified
-1033 10:36a ⚖️ Planned feature: ordered per-step action history for multi-operation recording
-1036 " 🔵 agent.py successful action state: current fields, storage locations, and clearing points
-1039 " 🔵 Full architecture map for ordered action history feature: insertion, clearing, and consumer upgrade points
-1040 10:37a 🔵 Confirmed: _build_recorded_children and safety block for multi-action execution are already in agent.py
-1041 " 🔵 Safety block _should_block_additional_execution_action confirmed active; _mark_step_failed clears action state
 1042 10:38a 🔵 _build_recorded_children signature and structure confirmed: single-op only, must be extended for multi-action
 1044 10:40a 🔵 frontend/src/main.jsx code_update and step_recorded handlers confirmed: lines array already supported
 1046 10:41a 🔵 Frontend fully compatible with multi-action recording: lines array, code preview, and recorded step display require no changes
@@ -71,6 +63,14 @@ S106 Read-only investigation of recorded parent/child display wording in AutoWor
 1171 12:47p 🔵 Frontend Recorded Step Normalization and Merge Contract — main.jsx
 1179 12:53p ⚖️ Save v1 Architecture Decision — Frontend-Side Export vs Backend Snapshot
 1180 " 🔵 Save v1 Frontend Attachment Points and Export Helper Gap Confirmed
+1193 1:06p ⚖️ Replay One v1 — Read-Only Implementation Plan for Autoworkbench Agent v4
+1194 " 🔵 Backend Snapshot Builder and Spec Snapshot Module Confirmed — Replay v1 Ready State
+1195 1:07p 🔵 Complete Tool Dispatch Map Confirmed for Replay v1 — All Action Primitives Located
+1196 1:08p 🔵 _resolve_locator Full Implementation Confirmed — Supports All Playwright Locator Patterns
+1198 1:09p 🔵 Replay v1 Implementation Planning — Read-Only Investigation
+1200 " 🔵 Autoworkbench Agent v4 — Replay v1 Codebase Architecture Map
+1201 1:11p 🔵 Replay v1 — Deep Contract Map: Tool Dispatch, Frontend Message Loop, and Child Execution Model
+1209 1:22p ⚖️ Replay All v1 Architecture Planning for AutoWorkbench
 
-Access 1276k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 1321k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

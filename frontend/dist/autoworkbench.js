@@ -26740,10 +26740,24 @@
     }, [appendTimeline, updatePendingSteps]);
     const handleReplayRecordedStep = (0, import_react2.useCallback)(
       (step) => {
-        const title = firstNonEmptyText(step?.display_title, step?.element_name, step?.action, "Recorded step");
-        appendTimeline(`Replay not implemented yet. ${title ? `(${title})` : ""}`.trim(), "warn");
+        const stepId = firstNonEmptyText(step?.id, step?.step_id, step?.stepId);
+        const title = firstNonEmptyText(step?.display_title, step?.element_name, step?.action, stepId, "Recorded step");
+        if (!stepId) {
+          appendTimeline("Replay unavailable for this step.", "warn");
+          return;
+        }
+        const sent = sendPayload(
+          {
+            type: "replay_one",
+            step_id: stepId
+          },
+          "WebSocket not connected."
+        );
+        if (sent) {
+          appendTimeline(`Replay requested for ${title}`, "active");
+        }
       },
-      [appendTimeline]
+      [appendTimeline, sendPayload]
     );
     const handleCopyRecordedStep = (0, import_react2.useCallback)(
       (step) => {
@@ -27040,6 +27054,37 @@
               setCodePreview(nextCode);
             }
             appendTimeline(text || "Code updated", "ok");
+            break;
+          }
+          case "replay_one_result": {
+            const replayStepId = firstNonEmptyText(
+              payload && typeof payload === "object" ? payload.step_id : "",
+              payload && typeof payload === "object" ? payload.stepId : ""
+            );
+            const isOk = payload && typeof payload === "object" && payload.ok === true;
+            if (isOk) {
+              const operationCount = resolveFiniteNumber(
+                payload && typeof payload === "object" ? payload.operation_count ?? payload.operationCount : Number.NaN
+              );
+              appendTimeline(
+                `Replay succeeded for ${replayStepId || "step"}${Number.isFinite(operationCount) ? ` \xB7 ${operationCount} operations` : ""}`,
+                "ok"
+              );
+            } else {
+              const failedOperationId = firstNonEmptyText(
+                payload && typeof payload === "object" ? payload.failed_operation_id : "",
+                payload && typeof payload === "object" ? payload.failedOperationId : ""
+              );
+              const errorText = firstNonEmptyText(
+                payload && typeof payload === "object" ? payload.error : "",
+                "Replay failed"
+              );
+              setLastError(errorText);
+              appendTimeline(
+                `Replay failed for ${replayStepId || "step"}${failedOperationId ? ` \xB7 ${failedOperationId}` : ""} \xB7 ${errorText}`,
+                "err"
+              );
+            }
             break;
           }
           case "save_snapshot_result": {

@@ -1,28 +1,17 @@
 <claude-mem-context>
 # Memory Context
 
-# [frontend] recent context, 2026-05-02 1:04pm GMT+5:30
+# [frontend] recent context, 2026-05-02 1:22pm GMT+5:30
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (25,874t read) | 627,943t work | 96% savings
+Stats: 50 obs (27,774t read) | 656,442t work | 96% savings
 
 ### May 2, 2026
 S105 Read-only investigation: multi-action execution/recording mismatch in agent v4 — assert disappears from step_recorded when assert+click both execute before recording (May 2 at 10:29 AM)
-1127 12:17p 🟣 RecoveryManager v1 Created as Pure Policy Layer
-1128 " 🟣 Agent.py Integrated with RecoveryManager and Stale Success Cleanup
-1129 12:21p 🟣 RecoveryManager Unit Tests Created
-1130 " 🟣 All 37 Tests Pass After RecoveryManager v1 Integration
-1131 " 🟣 Integration Tests Added for Failed Assert Batch Stop and Stale Success Cleanup
-1132 12:22p 🟣 Completion Guard Test Extended for Pending Recovery
-1133 " 🔴 Defensive getattr Guards Added to _clear_failed_step_success_state
-1134 " 🔴 Test Failure: _make_success_record Undefined in test_multi_action_safety.py
-1135 12:23p 🔵 Stale Success Cleanup Not Triggered by _mark_step_failed Alone
-1136 " 🔵 Stale Pytest Cache Causing Old Test Code to Run
-1137 12:24p 🔄 _clear_failed_step_success_state Moved into _mark_step_failed Directly
-1138 " 🟣 RecoveryManager v1 Complete — 51 Tests Passing
+1138 12:24p 🟣 RecoveryManager v1 Complete — 51 Tests Passing
 1139 " 🟣 RecoveryManager v1 — Final Git Diff Summary
 1140 12:29p ⚖️ Plan Correction v1 — Task Specification Defined
 1141 " 🔵 Plan Correction Current Code Path Traced in agent.py
@@ -62,6 +51,17 @@ S107 Fix recorded multi-action parent card rendering in AutoWorkbench IDE panel 
 1188 " 🟣 Save v1 Backend Snapshot — Final Verification Complete
 1189 12:58p 🟣 tests/test_save_spec.py Expanded — More Realistic Multi-Step Fixtures
 1190 12:59p 🟣 Save v1 Final State — Three Files Confirmed, All Syntax Clean
+1191 1:04p 🟣 Save Snapshot WebSocket Command + Frontend Button — Task Scoped
+1192 " 🔵 Agent v4 Codebase Pre-Implementation State Mapped
+1197 1:09p 🟣 Save Snapshot WebSocket + Frontend Button — Task Re-Initiated
+1199 " 🔵 No Existing WebSocket Integration Tests in Agent v4 Test Suite
+1202 1:11p 🟣 Save Snapshot — All Three Files Patched
+1203 1:12p 🟣 test_save_snapshot_ws.py Upgraded to Full FastAPI TestClient Integration Tests
+1204 " 🟣 Save Snapshot — All Changes Verified In-File After Patches Applied
+1205 " 🟣 Save Snapshot Feature — All Verification Passed
+1206 " 🟣 Save Snapshot Git Diff — Final Change Summary
+1207 " 🔵 runtime/spec_snapshot.py and test_save_spec.py Are Pre-Existing Tracked Files
+1208 1:13p 🔵 AgentLoop Snapshot Infrastructure — Inline in agent.py Not a Separate Module
 
-Access 628k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 656k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

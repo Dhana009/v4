@@ -119,6 +119,8 @@ class AgentLoop:
         self.capability_gaps: list[dict[str, Any]] = []
         self.recorded_step_payloads: list[dict[str, Any]] = []
         self.code_update_payloads: list[dict[str, Any]] = []
+        self.replay_recorded_step_payloads_by_step_id: dict[str, dict[str, Any]] = {}
+        self.replay_action_history_by_step_id: dict[str, list[dict[str, Any]]] = {}
         self._run_session_id = self._new_run_session_id()
         self._run_completion_requested = False
         self.run_stop_requested = False
@@ -155,6 +157,9 @@ class AgentLoop:
         self.capability_gaps = []
         self.recorded_step_payloads = []
         self.code_update_payloads = []
+        if steps is not None:
+            self.replay_recorded_step_payloads_by_step_id = {}
+            self.replay_action_history_by_step_id = {}
         self._run_session_id = self._new_run_session_id()
         self._clear_plan_review_context()
         self._llm_call_counter = 0
@@ -314,6 +319,210 @@ class AgentLoop:
             code_update_payloads = []
             self.code_update_payloads = code_update_payloads
         code_update_payloads.append(deepcopy(payload))
+
+    def _get_replay_recorded_step_payload(self, step_id: str) -> dict[str, Any] | None:
+        replay_step_id = str(step_id or "").strip()
+        if not replay_step_id:
+            return None
+
+        recorded_step_payloads = getattr(self, "recorded_step_payloads", None)
+        if isinstance(recorded_step_payloads, list):
+            for payload in recorded_step_payloads:
+                if not isinstance(payload, dict):
+                    continue
+                candidate_step_id = str(
+                    payload.get("step_id")
+                    or payload.get("stepId")
+                    or payload.get("id")
+                    or ""
+                ).strip()
+                if candidate_step_id == replay_step_id:
+                    return deepcopy(payload)
+
+        replay_recorded_step_payloads_by_step_id = getattr(
+            self,
+            "replay_recorded_step_payloads_by_step_id",
+            None,
+        )
+        if isinstance(replay_recorded_step_payloads_by_step_id, dict):
+            archived_payload = replay_recorded_step_payloads_by_step_id.get(replay_step_id)
+            if isinstance(archived_payload, dict):
+                return deepcopy(archived_payload)
+
+        return None
+
+    def _get_replay_action_history(self, step_id: str) -> list[dict[str, Any]]:
+        replay_step_id = str(step_id or "").strip()
+        if not replay_step_id:
+            return []
+
+        history_by_step_id = getattr(self, "successful_actions_by_step_id", None)
+        if isinstance(history_by_step_id, dict):
+            action_history = history_by_step_id.get(replay_step_id)
+            if isinstance(action_history, list):
+                return deepcopy(action_history)
+
+        replay_action_history_by_step_id = getattr(self, "replay_action_history_by_step_id", None)
+        if isinstance(replay_action_history_by_step_id, dict):
+            archived_history = replay_action_history_by_step_id.get(replay_step_id)
+            if isinstance(archived_history, list):
+                return deepcopy(archived_history)
+
+        return []
+
+    def _safe_replay_error_message(self, message: Any) -> str:
+        text = self._normalize_space(str(message or "")).strip()
+        if not text:
+            return "Replay failed"
+        if len(text) > 200:
+            return f"{text[:197]}..."
+        return text
+
+    async def replay_one(self, step_id: str) -> dict[str, Any]:
+        replay_step_id = str(step_id or "").strip()
+        if not replay_step_id:
+            return {
+                "type": "replay_one_result",
+                "ok": False,
+                "step_id": "",
+                "error": "Replay requires step_id",
+            }
+
+        recorded_step_payload = self._get_replay_recorded_step_payload(replay_step_id)
+        if not isinstance(recorded_step_payload, dict):
+            return {
+                "type": "replay_one_result",
+                "ok": False,
+                "step_id": replay_step_id,
+                "error": "Recorded step not found",
+            }
+
+        action_history = self._get_replay_action_history(replay_step_id)
+        if not action_history:
+            return {
+                "type": "replay_one_result",
+                "ok": False,
+                "step_id": replay_step_id,
+                "error": "Recorded action history unavailable for replay",
+            }
+
+        recorded_children = recorded_step_payload.get("children")
+        if not isinstance(recorded_children, list):
+            recorded_children = []
+
+        supported_actions = {"assert", "click", "fill"}
+        supported_assertions = {"visible", "hidden", "enabled", "disabled", "checked", "has_text", "has_value"}
+        operation_count = 0
+
+        for index, action_record in enumerate(action_history, start=1):
+            child_operation_id = f"op_{index}"
+            if index - 1 < len(recorded_children):
+                child = recorded_children[index - 1]
+                if isinstance(child, dict):
+                    child_operation_id = str(child.get("operation_id") or child_operation_id).strip() or child_operation_id
+
+            if not isinstance(action_record, dict):
+                return {
+                    "type": "replay_one_result",
+                    "ok": False,
+                    "step_id": replay_step_id,
+                    "failed_operation_id": child_operation_id,
+                    "error": self._safe_replay_error_message("Recorded action history entry is invalid"),
+                }
+
+            action_name = str(
+                action_record.get("action")
+                or self._action_name_for_tool(str(action_record.get("tool") or ""))
+                or ""
+            ).strip().lower()
+            if action_name not in supported_actions:
+                return {
+                    "type": "replay_one_result",
+                    "ok": False,
+                    "step_id": replay_step_id,
+                    "failed_operation_id": child_operation_id,
+                    "error": self._safe_replay_error_message(f"Unsupported replay operation: {action_name or 'unknown'}"),
+                }
+
+            replay_args: dict[str, Any] = {}
+            tool_args = action_record.get("tool_args")
+            if isinstance(tool_args, dict):
+                replay_args.update(tool_args)
+            action_context = action_record.get("action_context")
+            if isinstance(action_context, dict):
+                for key, value in action_context.items():
+                    if key not in replay_args:
+                        replay_args[key] = value
+
+            locator = str(replay_args.get("locator") or "").strip()
+            if not locator:
+                return {
+                    "type": "replay_one_result",
+                    "ok": False,
+                    "step_id": replay_step_id,
+                    "failed_operation_id": child_operation_id,
+                    "error": self._safe_replay_error_message(f"Replay requires stored locator for {action_name}"),
+                }
+
+            if action_name == "fill" and ("value" not in replay_args or replay_args.get("value") is None):
+                return {
+                    "type": "replay_one_result",
+                    "ok": False,
+                    "step_id": replay_step_id,
+                    "failed_operation_id": child_operation_id,
+                    "error": self._safe_replay_error_message("Replay requires stored value for fill"),
+                }
+
+            if action_name == "assert":
+                assertion = str(replay_args.get("assertion") or "").strip()
+                if assertion not in supported_assertions:
+                    return {
+                        "type": "replay_one_result",
+                        "ok": False,
+                        "step_id": replay_step_id,
+                        "failed_operation_id": child_operation_id,
+                        "error": self._safe_replay_error_message(f"Unsupported replay assertion: {assertion or 'unknown'}"),
+                    }
+                if assertion in {"has_text", "has_value"} and (
+                    "expected_value" not in replay_args or replay_args.get("expected_value") is None
+                ):
+                    return {
+                        "type": "replay_one_result",
+                        "ok": False,
+                        "step_id": replay_step_id,
+                        "failed_operation_id": child_operation_id,
+                        "error": self._safe_replay_error_message(
+                            f"Replay requires stored expected_value for {assertion}"
+                        ),
+                    }
+
+            if action_name == "click":
+                result = await self._tool_action_click(replay_args)
+            elif action_name == "fill":
+                result = await self._tool_action_fill(replay_args)
+            else:
+                result = await self._tool_action_assert(replay_args)
+
+            if result.get("success") is not True or result.get("skipped"):
+                return {
+                    "type": "replay_one_result",
+                    "ok": False,
+                    "step_id": replay_step_id,
+                    "failed_operation_id": child_operation_id,
+                    "error": self._safe_replay_error_message(
+                        result.get("error") or f"Replay operation failed: {action_name or 'unknown'}"
+                    ),
+                }
+
+            operation_count = index
+
+        return {
+            "type": "replay_one_result",
+            "ok": True,
+            "step_id": replay_step_id,
+            "status": "success",
+            "operation_count": operation_count,
+        }
 
     def _build_spec_snapshot(self) -> dict[str, Any]:
         plan_ready_payload = getattr(self, "last_plan_ready_payload", None)
@@ -1804,6 +2013,11 @@ class AgentLoop:
                 history_by_step_id[step_id] = step_history
             step_history.append(captured)
             self.successful_action_by_step_id[step_id] = captured
+            replay_action_history_by_step_id = getattr(self, "replay_action_history_by_step_id", None)
+            if not isinstance(replay_action_history_by_step_id, dict):
+                replay_action_history_by_step_id = {}
+                self.replay_action_history_by_step_id = replay_action_history_by_step_id
+            replay_action_history_by_step_id[step_id] = deepcopy(step_history)
             print(f"[AGENT] stored successful action for step: {step_id}")
         else:
             print("[AGENT] stored successful action without step id")
@@ -3293,6 +3507,16 @@ class AgentLoop:
                         )
                     except Exception as exc:  # noqa: BLE001
                         print(f"[AGENT] code_update emit failed: {type(exc).__name__}: {exc}")
+            replay_recorded_step_payloads_by_step_id = getattr(
+                self,
+                "replay_recorded_step_payloads_by_step_id",
+                None,
+            )
+            if not isinstance(replay_recorded_step_payloads_by_step_id, dict):
+                replay_recorded_step_payloads_by_step_id = {}
+                self.replay_recorded_step_payloads_by_step_id = replay_recorded_step_payloads_by_step_id
+            if step_id:
+                replay_recorded_step_payloads_by_step_id[step_id] = deepcopy(payload)
             if step_id:
                 history_by_step_id = getattr(self, "successful_actions_by_step_id", None)
                 if isinstance(history_by_step_id, dict):

@@ -75,6 +75,20 @@ async def ws_endpoint(ws: WebSocket) -> None:
                     )
                 continue
 
+            if msg_type == "replay_one":
+                step_id = str(msg.get("step_id") or "").strip()
+                try:
+                    result = await agent.replay_one(step_id)
+                except Exception as exc:  # noqa: BLE001
+                    result = {
+                        "type": "replay_one_result",
+                        "ok": False,
+                        "step_id": step_id,
+                        "error": f"Replay failed: {type(exc).__name__}",
+                    }
+                await ws.send_json(result)
+                continue
+
             if msg_type in {"confirmed", "correction", "option_selected"}:
                 await control_queue.put(msg)
                 continue
