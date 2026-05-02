@@ -24585,8 +24585,8 @@
   var IDEIcons = window.Icons;
   function IDEPlanTag({ kind }) {
     const normalized = String(kind || "step").toLowerCase();
-    const map = { click: "click", fill: "fill", assert: "assert", navigate: "nav", nav: "nav" };
-    const label = normalized === "nav" ? "navigate" : normalized;
+    const map = { click: "click", fill: "fill", assert: "assert", navigate: "nav", nav: "nav", multi: "step" };
+    const label = normalized === "nav" ? "navigate" : normalized === "multi" ? "multi-action" : normalized;
     return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: `ide-plan-tag t-${map[normalized] || normalized}`, children: label });
   }
   function IDEBadge({ kind, children }) {
@@ -25162,6 +25162,10 @@
   }
   function resolveRecordedStepTitle(step, action, stepNumber) {
     const elementInfo = step?.element_info && typeof step.element_info === "object" ? step.element_info : null;
+    const intentTitle = firstText(step?.intent, step?.raw?.intent);
+    if (intentTitle) {
+      return intentTitle;
+    }
     const explicitTitle = firstText(step?.display_title, step?.displayTitle, step?.title, step?.label);
     if (explicitTitle && !isTechnicalRecordedLabel(explicitTitle)) {
       if (/^(clicked|filled|asserted|navigated|hovered|recorded|step)\b/i.test(explicitTitle)) {
@@ -25279,23 +25283,44 @@
     const status = firstText(step.status, "recorded").toLowerCase();
     const statusKind = status === "passed" ? "passed" : status === "failed" ? "failed" : "recorded";
     const codeLine = firstText(step.generated_line);
-    const childRows = getPlanStepChildren(step).map((child, childIndex) => normalizePlanChild(child, childIndex)).filter(Boolean);
+    const childRows = getPlanStepChildren(step);
+    const hasChildren = childRows.length > 0;
+    const displayChildRows = childRows.map((child, childIndex) => normalizePlanChild(child, childIndex)).filter(Boolean);
+    const codeBlockText = hasChildren ? childRows.reduce((accumulatedLines, child) => {
+      if (!child || typeof child !== "object") {
+        return accumulatedLines;
+      }
+      if (Array.isArray(child.code_lines) && child.code_lines.length > 0) {
+        for (const line of child.code_lines) {
+          const text = firstText(line);
+          if (text) {
+            accumulatedLines.push(text);
+          }
+        }
+        return accumulatedLines;
+      }
+      const childLine = firstText(child.generated_line);
+      if (childLine) {
+        accumulatedLines.push(childLine);
+      }
+      return accumulatedLines;
+    }, []).join("\n") : codeLine;
     return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `ide-recorded-step${compact ? " is-compact" : ""}`, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-recorded-step-main", children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-recorded-step-head", children: [
         /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "ide-step-num", children: String(stepNumberValue).padStart(2, "0") }),
         /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-recorded-step-headcopy", children: [
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-recorded-step-title", children: displayTitle }),
           /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-recorded-step-badges", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEPlanTag, { kind: action }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEPlanTag, { kind: hasChildren ? "multi" : action }),
             /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEBadge, { kind: statusKind, children: statusKind })
           ] })
         ] })
       ] }),
-      target && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-recorded-step-target", children: target }),
-      locator && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "ide-recorded-step-locator", children: locator }),
-      showGeneratedLine && codeLine && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("pre", { className: "ide-recorded-step-code", children: codeLine }),
-      !showGeneratedLine && showDetails && codeLine && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("pre", { className: "ide-recorded-step-code ide-recorded-step-code-collapsed", children: codeLine }),
-      childRows.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-plan-children", children: childRows.map((child) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-plan-child", children: [
+      !hasChildren && target && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-recorded-step-target", children: target }),
+      !hasChildren && locator && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "ide-recorded-step-locator", children: locator }),
+      showGeneratedLine && codeBlockText && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("pre", { className: "ide-recorded-step-code", children: codeBlockText }),
+      !showGeneratedLine && showDetails && codeBlockText && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("pre", { className: "ide-recorded-step-code ide-recorded-step-code-collapsed", children: codeBlockText }),
+      displayChildRows.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-plan-children", children: displayChildRows.map((child) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-plan-child", children: [
         /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-plan-child-head", children: [
           child.operationId && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ide-plan-child-op", children: child.operationId }),
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEPlanTag, { kind: child.kind })
@@ -26419,6 +26444,7 @@
         id: firstNonEmptyText(source.id, source.step_id, source.stepId, recordedStepId),
         step_number: stepNumber,
         action,
+        intent: firstNonEmptyText(source.intent, source.raw?.intent, matchedStep?.intent),
         element_name: elementName || matchedElementName || (stepNumber ? `Step ${stepNumber}` : "Recorded step"),
         locator,
         generated_line: generatedLine,
@@ -26426,6 +26452,7 @@
         display_title: friendlyTitle || fallbackTitle,
         action_label: action,
         target_label: elementName || matchedElementName || "",
+        raw: source,
         ...Array.isArray(source.children) ? {
           children: source.children.map((child) => child && typeof child === "object" ? { ...child } : child)
         } : {}

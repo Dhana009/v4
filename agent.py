@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 import re
@@ -2039,6 +2040,59 @@ class AgentLoop:
         parent_step["type"] = "step"
         return parent_step
 
+    def _build_recorded_child_description(
+        self,
+        action: str,
+        operation_type: str,
+        target: str,
+        action_context: dict[str, Any],
+        intent: str,
+    ) -> str:
+        operation_name = str(action or operation_type or "").strip().lower()
+        target_text = self._normalize_space(str(target or "")).strip()
+        intent_text = self._normalize_space(str(intent or "")).strip()
+        value_text = self._normalize_space(
+            str(action_context.get("value") or action_context.get("expected_value") or "")
+        ).strip()
+        assertion_text = str(action_context.get("assertion") or "").strip().lower()
+
+        if operation_name in {"click", "tap", "press"}:
+            return target_text or intent_text
+
+        if operation_name in {"fill", "type"}:
+            if target_text and value_text:
+                return f"{target_text}: {value_text}"
+            return target_text or value_text or intent_text
+
+        if operation_name == "assert" or assertion_text:
+            if assertion_text == "visible":
+                return f"{target_text} is visible" if target_text else intent_text
+            if assertion_text == "hidden":
+                return f"{target_text} is hidden" if target_text else intent_text
+            if assertion_text == "enabled":
+                return f"{target_text} is enabled" if target_text else intent_text
+            if assertion_text == "disabled":
+                return f"{target_text} is disabled" if target_text else intent_text
+            if assertion_text == "checked":
+                return f"{target_text} is checked" if target_text else intent_text
+            if assertion_text == "has_text":
+                if target_text and value_text:
+                    return f"{target_text} has text {value_text}"
+                return target_text or value_text or intent_text
+            if assertion_text == "has_value":
+                if target_text and value_text:
+                    return f"{target_text} has value {value_text}"
+                return target_text or value_text or intent_text
+            return target_text or intent_text
+
+        if operation_name == "navigate":
+            return target_text or intent_text
+
+        if operation_name == "hover":
+            return target_text or intent_text
+
+        return target_text or intent_text
+
     def _build_recorded_children(
         self,
         action_records: list[dict[str, Any]],
@@ -2076,14 +2130,23 @@ class AgentLoop:
             operation_type = self._infer_operation_type(action)
             if operation_type == "unknown" and action:
                 operation_type = action
-            description = str(
-                action_record.get("description")
-                or intent
-                or element_name
-                or action
-                or operation_type
+            description_target = str(
+                action_record.get("element_name")
+                or recorded_step_context.get("element_name")
+                or self._locator_label_hint(child_locator)
                 or ""
             ).strip()
+            description = self._build_recorded_child_description(
+                action,
+                operation_type,
+                description_target,
+                action_context,
+                intent,
+            )
+            if not description:
+                description = str(action_record.get("description") or "").strip()
+            if not description:
+                description = str(element_name or action or operation_type or intent or "").strip()
             target = str(
                 action_record.get("element_name")
                 or element_name
@@ -2614,6 +2677,13 @@ class AgentLoop:
         expected_value = args.get("expected_value")
         timeout = int(args.get("timeout") or 5000)
 
+        if assertion in {"has_text", "has_value"} and expected_value is None:
+            return {
+                "success": False,
+                "error": "expected_value_required",
+                "assertion": assertion,
+            }
+
         try:
             locator = self._resolve_locator(page, locator_text).first
             if assertion == "visible":
@@ -2625,34 +2695,42 @@ class AgentLoop:
             elif assertion == "disabled":
                 await expect(locator).to_be_disabled(timeout=timeout)
             elif assertion == "has_text":
-                if expected_value is None:
-                    raise ValueError("expected_value is required for has_text")
-                try:
-                    actual_text = await locator.inner_text(timeout=timeout)
-                except Exception:  # noqa: BLE001
-                    actual_text = await locator.text_content(timeout=timeout)
-
-                normalized_actual = self._normalize_assertion_text(actual_text)
                 normalized_expected = self._normalize_assertion_text(str(expected_value))
-                if normalized_expected not in normalized_actual:
-                    return {
-                        "success": False,
-                        "error": (
-                            "Expected normalized text to contain "
-                            f"{normalized_expected!r}, got {normalized_actual!r}"
-                        ),
-                        "actual_text": normalized_actual,
-                        "expected_text": normalized_expected,
-                    }
-                return {
-                    "success": True,
-                    "assertion": "has_text",
-                    "actual_text": normalized_actual,
-                    "expected_text": normalized_expected,
-                }
+                poll_timeout = max(1, min(max(timeout, 0), 250))
+                deadline = asyncio.get_running_loop().time() + max(timeout, 0) / 1000
+                actual_text = ""
+                normalized_actual = ""
+
+                while True:
+                    try:
+                        actual_text = await locator.inner_text(timeout=poll_timeout)
+                    except Exception:  # noqa: BLE001
+                        try:
+                            actual_text = await locator.text_content(timeout=poll_timeout)
+                        except Exception:  # noqa: BLE001
+                            actual_text = ""
+
+                    normalized_actual = self._normalize_assertion_text(actual_text)
+                    if normalized_expected in normalized_actual:
+                        return {
+                            "success": True,
+                            "assertion": "has_text",
+                            "actual_text": normalized_actual,
+                            "expected_text": normalized_expected,
+                        }
+                    if timeout <= 0 or asyncio.get_running_loop().time() >= deadline:
+                        return {
+                            "success": False,
+                            "assertion": "has_text",
+                            "error": (
+                                "Expected normalized text to contain "
+                                f"{normalized_expected!r}, got {normalized_actual!r}"
+                            ),
+                            "actual_text": normalized_actual,
+                            "expected_text": normalized_expected,
+                        }
+                    await asyncio.sleep(min(0.1, max(deadline - asyncio.get_running_loop().time(), 0.01)))
             elif assertion == "has_value":
-                if expected_value is None:
-                    raise ValueError("expected_value is required for has_value")
                 await expect(locator).to_have_value(str(expected_value), timeout=timeout)
             elif assertion == "checked":
                 await expect(locator).to_be_checked(timeout=timeout)

@@ -1,13 +1,13 @@
 <claude-mem-context>
 # Memory Context
 
-# [agent v4] recent context, 2026-05-02 11:26am GMT+5:30
+# [agent v4] recent context, 2026-05-02 11:40am GMT+5:30
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (29,853t read) | 1,013,117t work | 97% savings
+Stats: 50 obs (31,241t read) | 1,233,948t work | 97% savings
 
 ### May 1, 2026
 S95 Fix step_recorded payload contract in agent.py so browser overlay panel receives usable data (May 1 at 3:58 PM)
@@ -21,11 +21,7 @@ S101 Fix Phase 3D frontend UI/state bugs in AutoWorkbench IDE panel (spaces, pic
 S102 Fix backend multi-step recording bug in agent.py — replace global last_successful_action with per-step successful_action_by_step_id dict (May 2 at 3:14 AM)
 S103 Launch AutoWorkbench agent v4 once and run a smoke test of the clarification UI roundtrip (May 2 at 3:33 AM)
 S104 Add agent phase diagnostics in shadow mode to agent v4 — PhaseTracker implementation in runtime/phase_tracker.py and agent.py wiring (May 2 at 7:34 AM)
-986 9:18a 🟣 Created tests/test_code_update.py for automatic code_update emission after step_recorded
-987 " 🔵 agent.py code_update call site confirmed at line 2604 — immediately after _mark_step_recorded at line 2603
-988 9:19a 🔵 test_completion_guard.py only asserts sent_messages[0][0] == "step_recorded" — will still pass with code_update as sent_messages[1]
-989 " 🔴 test_recorded_step_model.py failed: assert len(sent_messages) == 1 broken by new code_update emission
-990 " 🔴 test_recorded_step_model.py updated to expect 2 messages after code_update addition
+990 9:19a 🔴 test_recorded_step_model.py updated to expect 2 messages after code_update addition
 991 " 🟣 code_update auto-emission after step_recorded complete — 31/31 tests pass, all variables verified
 992 9:20a 🟣 Complete git diff of all agent.py changes across both sessions: parent/child model + code_update
 993 " 🔵 Final line-number verification: all agent.py and test implementations confirmed in place
@@ -71,6 +67,10 @@ S104 Add agent phase diagnostics in shadow mode to agent v4 — PhaseTracker imp
 1071 " 🟣 IDERecordedStepCard renders child operations and IDERecordedOutput flattens child code lines
 1073 " 🟣 Verified aw-ide-panel.jsx and main.jsx changes landed correctly in source
 1074 " 🟣 Frontend build succeeded and runtime variable safety check passed
+1077 11:26a 🔵 Read-Only Investigation Initiated: RecoveryManager / Failure Handling Readiness
+1078 11:29a 🔵 RecoveryManager Readiness Investigation: Current Failure Handling Architecture Mapped
+1081 11:39a 🔵 AutoWorkbench agent.py step_recorded payload structure for parent/child steps
+1083 11:40a 🔵 Full parent/child display wording pipeline traced across agent.py and frontend
 
-Access 1013k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 1234k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

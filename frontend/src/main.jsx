@@ -785,6 +785,7 @@ function buildRecordedStepFromPayload(payload, matchedStep, matchIndex, recorded
       id: firstNonEmptyText(source.id, source.step_id, source.stepId, recordedStepId),
       step_number: stepNumber,
       action,
+      intent: firstNonEmptyText(source.intent, source.raw?.intent, matchedStep?.intent),
       element_name: elementName || matchedElementName || (stepNumber ? `Step ${stepNumber}` : "Recorded step"),
       locator,
       generated_line: generatedLine,
@@ -792,6 +793,7 @@ function buildRecordedStepFromPayload(payload, matchedStep, matchIndex, recorded
       display_title: friendlyTitle || fallbackTitle,
       action_label: action,
       target_label: elementName || matchedElementName || "",
+      raw: source,
       ...(Array.isArray(source.children)
         ? {
             children: source.children.map((child) => (child && typeof child === "object" ? { ...child } : child)),

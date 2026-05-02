@@ -223,8 +223,10 @@ def test_step_recorded_payload_uses_ordered_action_history_for_children() -> Non
     assert assert_child["operation_id"] == "op_1"
     assert assert_child["type"] == "assert"
     assert assert_child["status"] == "success"
+    assert assert_child["description"] == "Get started is visible"
     assert assert_child["code_lines"] == [assert_line]
     assert click_child["operation_id"] == "op_2"
     assert click_child["type"] == "click"
     assert click_child["status"] == "success"
+    assert click_child["description"] == "Get started"
     assert click_child["code_lines"] == [click_line]
