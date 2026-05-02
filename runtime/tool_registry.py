@@ -6,6 +6,15 @@ from typing import Any
 
 from runtime.telemetry import estimate_text_tokens
 
+PLANNING_SAFE_TOOL_NAMES = {
+    "send_to_overlay",
+    "browser_get_state",
+    "dom_extract",
+    "locator_find",
+    "locator_validate",
+    "ask_user",
+}
+
 
 @dataclass(slots=True)
 class ToolDiagnostics:
@@ -16,6 +25,54 @@ class ToolDiagnostics:
     largest_tool_name: str
     largest_tool_tokens: int
     suggested_future_policy: str
+
+
+def _normalize_tools(tools: Any) -> list[Any]:
+    if tools is None:
+        return []
+    if isinstance(tools, (list, tuple)):
+        return list(tools)
+    return [tools]
+
+
+def _tool_name(tool: Any, index: int) -> str:
+    if isinstance(tool, dict):
+        function = tool.get("function")
+        if isinstance(function, dict):
+            name = function.get("name")
+            if name:
+                return str(name)
+    return f"tool_{index + 1}"
+
+
+def filter_tools_for_phase(tools: Any, phase: str) -> list[Any]:
+    normalized_tools = _normalize_tools(tools)
+    normalized_phase = str(phase or "").strip().lower()
+    original_count = len(normalized_tools)
+
+    if normalized_phase in {"executing", "recording", "recovery", "recovering"}:
+        filtered_tools = list(normalized_tools)
+    else:
+        filtered_tools = [
+            tool
+            for index, tool in enumerate(normalized_tools)
+            if _tool_name(tool, index) in PLANNING_SAFE_TOOL_NAMES
+        ]
+        if normalized_phase not in {"planning", "awaiting_confirmation"}:
+            print(
+                "[TOOL_FILTER] "
+                f"warning=unknown_phase phase={normalized_phase or 'unknown'}"
+            )
+
+    filtered_count = len(filtered_tools)
+    print(
+        "[TOOL_FILTER] "
+        f"phase={normalized_phase or 'unknown'} "
+        f"original={original_count} "
+        f"filtered={filtered_count} "
+        f"removed={original_count - filtered_count}"
+    )
+    return filtered_tools
 
 
 class ToolRegistry:
@@ -57,13 +114,7 @@ class ToolRegistry:
         )
 
     def _extract_tool_name(self, tool: Any, index: int) -> str:
-        if isinstance(tool, dict):
-            function = tool.get("function")
-            if isinstance(function, dict):
-                name = function.get("name")
-                if name:
-                    return str(name)
-        return f"tool_{index + 1}"
+        return _tool_name(tool, index)
 
     def _serialize_tool(self, tool: Any) -> str:
         if isinstance(tool, dict):

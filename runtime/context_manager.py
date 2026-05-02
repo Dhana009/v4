@@ -3,8 +3,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from runtime.history_manager import HistoryManager
-from runtime.telemetry import estimate_messages_tokens
+from runtime.history_manager import (
+    PROTECTED_HISTORY_TOKEN_THRESHOLD,
+    HistoryManager,
+)
 
 
 @dataclass(slots=True)
@@ -32,12 +34,28 @@ class ContextManager:
             dict(message) if isinstance(message, dict) else message
             for message in (messages or [])
         ]
-        history_diagnostics = HistoryManager().analyze(copied_messages)
-        message_count = len(copied_messages)
-        estimated_message_tokens = estimate_messages_tokens(copied_messages)
+        history_manager = HistoryManager()
+        history_diagnostics = history_manager.analyze(copied_messages)
+        managed_history = history_manager.build_managed_history(
+            copied_messages,
+            metadata=metadata,
+            threshold=PROTECTED_HISTORY_TOKEN_THRESHOLD,
+        )
+        message_count = managed_history.final_message_count
+        estimated_message_tokens = managed_history.final_estimated_tokens
         bundle_metadata: dict[str, Any] = dict(metadata or {})
+        bundle_metadata["managed_history_enabled"] = True
+        bundle_metadata["compaction_applied"] = managed_history.compaction_applied
+        bundle_metadata["original_message_count"] = managed_history.original_message_count
+        bundle_metadata["final_message_count"] = managed_history.final_message_count
+        bundle_metadata["original_estimated_tokens"] = managed_history.original_estimated_tokens
+        bundle_metadata["final_estimated_tokens"] = managed_history.final_estimated_tokens
+        bundle_metadata["preserved_reason_counts"] = dict(managed_history.preserved_reason_counts)
         bundle_metadata["purpose"] = str(purpose or "").strip() or "unknown"
-        bundle_metadata["context_mode"] = str(context_mode or "").strip() or "normal"
+        requested_context_mode = str(context_mode or "").strip() or "normal"
+        bundle_metadata["context_mode"] = (
+            "protected" if managed_history.compaction_applied else requested_context_mode
+        )
         bundle_metadata["history_diagnostics"] = history_diagnostics.to_summary_dict()
         if run_id is not None:
             bundle_metadata["run_id"] = run_id
@@ -48,8 +66,11 @@ class ContextManager:
             "[CONTEXT_MANAGER] "
             f"purpose={bundle_metadata['purpose']} "
             f"mode={bundle_metadata['context_mode']} "
-            f"messages={message_count} "
-            f"estimated_tokens={estimated_message_tokens}"
+            f"compacted={'true' if managed_history.compaction_applied else 'false'} "
+            f"original_messages={managed_history.original_message_count} "
+            f"final_messages={managed_history.final_message_count} "
+            f"original_tokens={managed_history.original_estimated_tokens} "
+            f"final_tokens={managed_history.final_estimated_tokens}"
         )
         print(
             "[HISTORY_DIAGNOSTICS] "
@@ -66,7 +87,7 @@ class ContextManager:
         )
 
         return ContextBundle(
-            messages=copied_messages,
+            messages=managed_history.messages,
             purpose=bundle_metadata["purpose"],
             context_mode=bundle_metadata["context_mode"],
             message_count=message_count,

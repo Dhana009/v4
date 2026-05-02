@@ -14,7 +14,7 @@ from llm import LLMClient
 from runtime.context_manager import ContextManager
 from runtime.model_router import ModelRouter
 from runtime.phase_tracker import PhaseTracker
-from runtime.tool_registry import ToolRegistry
+from runtime.tool_registry import ToolRegistry, filter_tools_for_phase
 from runtime.skill_manager import SkillManager
 from runtime.telemetry import record_model_call_end, record_model_call_start
 
@@ -133,6 +133,15 @@ class AgentLoop:
         payload.update(kwargs)
         await self.ws.send_json(payload)
 
+    def _current_phase(self) -> str:
+        phase_tracker = getattr(self, "phase_tracker", None)
+        phase_getter = getattr(phase_tracker, "get_phase", None)
+        if callable(phase_getter):
+            phase_name = str(phase_getter() or "").strip()
+            if phase_name:
+                return phase_name
+        return str(getattr(self, "phase", "") or "").strip() or "planning"
+
     async def run(self, steps: list[dict]) -> None:
         try:
             self._reset_lifecycle_state(steps)
@@ -163,13 +172,15 @@ class AgentLoop:
 
             while True:
                 print("[AGENT] Requesting LLM response")
+                current_phase = self._current_phase()
+                filtered_tools = filter_tools_for_phase(self.tools, current_phase)
                 context_bundle = self.context_manager.prepare_messages(
                     self.llm.messages,
                     purpose="main_orchestrator",
                     context_mode="normal",
                     metadata={
                         "skill_count": len(loaded_skill_names),
-                        "tool_count": len(self.tools),
+                        "tool_count": len(filtered_tools),
                     },
                 )
                 self._llm_call_counter += 1
@@ -180,7 +191,7 @@ class AgentLoop:
                     purpose="main_orchestrator",
                     model=model,
                     messages=context_bundle.messages,
-                    tools=self.tools,
+                    tools=filtered_tools,
                     skill_count=len(loaded_skill_names),
                 )
                 try:
@@ -189,7 +200,7 @@ class AgentLoop:
                         client=self.llm.client,
                         model=model,
                         messages=context_bundle.messages,
-                        tools=self.tools,
+                        tools=filtered_tools,
                         tool_choice="auto",
                     )
                 except Exception as exc:  # noqa: BLE001
