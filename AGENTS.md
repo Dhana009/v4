@@ -1,16 +1,15 @@
 <claude-mem-context>
 # Memory Context
 
-# [agent v4] recent context, 2026-05-02 11:40am GMT+5:30
+# [agent v4] recent context, 2026-05-02 12:29pm GMT+5:30
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (31,241t read) | 1,233,948t work | 97% savings
+Stats: 50 obs (32,972t read) | 1,273,639t work | 97% savings
 
 ### May 1, 2026
-S95 Fix step_recorded payload contract in agent.py so browser overlay panel receives usable data (May 1 at 3:58 PM)
 S96 Implement lifecycle guard in agent.py to enforce Planning → Confirmation → Execution → Record → Recovery control flow (May 1 at 4:06 PM)
 S97 Implement lifecycle guard in agent.py to enforce Planning → Confirmation → Execution → Record → Recovery control flow (May 1 at 5:30 PM)
 S98 Phase 3C — Wire Attach Element / picker flow in AutoWorkbench IDE frontend (agent v4 project) (May 1 at 5:31 PM)
@@ -20,16 +19,7 @@ S100 Phase 3D AutoWorkbench IDE UI — continuing session after restart, re-esta
 S101 Fix Phase 3D frontend UI/state bugs in AutoWorkbench IDE panel (spaces, picker, plan state, recorded card layout/titles) (May 2 at 2:55 AM)
 S102 Fix backend multi-step recording bug in agent.py — replace global last_successful_action with per-step successful_action_by_step_id dict (May 2 at 3:14 AM)
 S103 Launch AutoWorkbench agent v4 once and run a smoke test of the clarification UI roundtrip (May 2 at 3:33 AM)
-S104 Add agent phase diagnostics in shadow mode to agent v4 — PhaseTracker implementation in runtime/phase_tracker.py and agent.py wiring (May 2 at 7:34 AM)
-990 9:19a 🔴 test_recorded_step_model.py updated to expect 2 messages after code_update addition
-991 " 🟣 code_update auto-emission after step_recorded complete — 31/31 tests pass, all variables verified
-992 9:20a 🟣 Complete git diff of all agent.py changes across both sessions: parent/child model + code_update
-993 " 🔵 Final line-number verification: all agent.py and test implementations confirmed in place
-994 9:23a ⚖️ Wrap-up verification task: add [CODE_UPDATE] log line to confirm code_update emission order
-995 9:24a 🔵 code_update emission path confirmed correct in agent.py — only log line addition needed
-996 " 🔵 Completion guard runs after code_update — _run_completion_requested set inside _tool_send_to_overlay after cleanup
-997 " 🟣 Added [CODE_UPDATE] log line to agent.py and log-order assertion to test_code_update.py
-998 " 🟣 All 31 tests pass with [CODE_UPDATE] log line and ordering assertion — agent v4 code_update flow fully verified
+S104 Add agent phase diagnostics in shadow mode to agent v4 — PhaseTracker implementation in runtime/phase_tracker.py and agent.py wiring (May 2 at 3:57 AM)
 1000 9:45a 🔵 Frontend Read-Only Investigation: Parent/Child Plan & Recorded Steps Support
 1003 9:46a 🔵 agent v4 Frontend Event Handling: Exact Code Paths for plan_ready, step_recorded, code_update
 1004 9:47a 🔵 agent v4 Frontend: Complete Status String Map and Exact Rendering Architecture
@@ -71,6 +61,16 @@ S104 Add agent phase diagnostics in shadow mode to agent v4 — PhaseTracker imp
 1078 11:29a 🔵 RecoveryManager Readiness Investigation: Current Failure Handling Architecture Mapped
 1081 11:39a 🔵 AutoWorkbench agent.py step_recorded payload structure for parent/child steps
 1083 11:40a 🔵 Full parent/child display wording pipeline traced across agent.py and frontend
+S106 Read-only investigation of recorded parent/child display wording in AutoWorkbench (agent v4) — tracing why parent title and children repeat the same full intent text (May 2 at 11:40 AM)
+1084 " 🔵 action_context structure confirmed: locator, assertion, value fields are captured per tool call
+1086 11:41a 🔵 Existing test suite for recorded step model — child description assertions are absent
+1118 12:12p 🔵 Plan Correction Flow Investigation in AutoWorkbench Agent v4
+1121 " 🔵 Capability Gap Logging v1 — Read-Only Investigation of Agent v4
+1119 " 🔵 AutoWorkbench Plan Correction Flow — Full System Map
+1120 12:13p 🔵 WebSocket Server Routes Correction Events Correctly — server.py Confirmed
+1122 12:14p 🔵 AutoWorkbench Agent v4 — No Capability Gap Logging System Exists
+1123 " 🔵 Frontend IDETimeline Already Supports `warn` Discriminator — No Schema Change Needed for v1
+1124 " ⚖️ Capability Gap v1 Design: Backend-Only, Timeline Event, Minimal Surface
 
-Access 1234k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 1274k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

@@ -303,3 +303,172 @@ def test_assert_and_click_both_execute_and_record_in_order(monkeypatch) -> None:
     assert sent_messages[0][1]["children"][1]["type"] == "click"
     assert sent_messages[1][0] == "code_update"
     assert len(sent_messages[1][1]["lines"]) == 2
+
+
+def test_failed_assert_stops_later_click_in_same_batch(monkeypatch) -> None:
+    step_context = _make_step_context(
+        "step-1",
+        "Check that Get started is visible and click it",
+        "Get started",
+        "Get started",
+    )
+    tool_calls = [
+        _make_tool_call(
+            "call-1",
+            "action_assert",
+            {
+                "step_id": "step-1",
+                "step_number": 1,
+                "locator": 'get_by_label("Get started")',
+                "assertion": "visible",
+            },
+        ),
+        _make_tool_call(
+            "call-2",
+            "action_click",
+            {
+                "step_id": "step-1",
+                "step_number": 1,
+                "locator": 'get_by_label("Get started")',
+            },
+        ),
+        _make_tool_call(
+            "call-3",
+            "send_to_overlay",
+            {
+                "message_type": "step_recorded",
+                "payload": {
+                    "step_id": "step-1",
+                    "step_number": 1,
+                },
+            },
+        ),
+    ]
+
+    loop, sent_messages, blocked_results, executed_actions, call_counter = _build_loop_for_multi_action_safety_test(
+        monkeypatch,
+        step_context,
+        tool_calls,
+    )
+
+    async def failing_action_assert(args):
+        executed_actions.append("action_assert")
+        locator = str(args.get("locator") or "")
+        assertion = str(args.get("assertion") or "visible")
+        return {
+            "success": False,
+            "error": "assertion failed",
+            "locator": locator,
+            "assertion": assertion,
+        }
+
+    async def fake_tool_ask_user(args):  # noqa: ARG001
+        return {"answer": "stop", "event_type": "option_selected"}
+
+    responses = [
+        SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    message=SimpleNamespace(content="", tool_calls=list(tool_calls))
+                )
+            ]
+        ),
+        SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    message=SimpleNamespace(
+                        content="Please advise how would you like to proceed",
+                        tool_calls=[],
+                    )
+                )
+            ]
+        ),
+        SimpleNamespace(
+            choices=[
+                SimpleNamespace(
+                    message=SimpleNamespace(content="", tool_calls=[])
+                )
+            ]
+        ),
+    ]
+
+    async def fake_model_call(*args, **kwargs):  # noqa: ARG001
+        call_counter["count"] += 1
+        if call_counter["count"] > len(responses):
+            raise AssertionError("Unexpected extra model call")
+        return responses[call_counter["count"] - 1]
+
+    loop._tool_action_assert = failing_action_assert
+    loop._tool_ask_user = fake_tool_ask_user
+    loop.model_router = SimpleNamespace(call=fake_model_call)
+
+    asyncio.run(loop.run([{"id": "step-1"}]))
+
+    assert call_counter["count"] == 3
+    assert executed_actions == ["action_assert"]
+    assert [tool_call_id for tool_call_id, _ in blocked_results] == ["call-2", "call-3"]
+    assert blocked_results[0][1]["skipped"] is True
+    assert blocked_results[0][1]["requires_replan"] is True
+    assert sent_messages[-1][0] == "llm_result"
+
+
+def test_failed_step_clears_stale_success_history_before_recording(monkeypatch) -> None:
+    step_context = _make_step_context(
+        "step-1",
+        "Click the submit button",
+        "Submit",
+        "Submit",
+    )
+    success_record = {
+        "tool": "action_click",
+        "action": "click",
+        "locator": 'get_by_role("button", name="Submit")',
+        "result": {"success": True, "skipped": False},
+        "step_context": step_context,
+        "action_context": {"locator": 'get_by_role("button", name="Submit")'},
+        "tool_args": {"locator": 'get_by_role("button", name="Submit")'},
+        "step_id": step_context["step_id"],
+        "step_number": step_context["step_number"],
+    }
+    loop, sent_messages, blocked_results, executed_actions, call_counter = _build_loop_for_multi_action_safety_test(
+        monkeypatch,
+        step_context,
+        [],
+    )
+
+    loop._recording_steps = [step_context]
+    loop.step_state_by_id = {"step-1": step_context}
+    loop.step_context_by_id = loop.step_state_by_id
+    loop.plan_confirmed = True
+    loop._awaiting_step_record = True
+    loop.last_successful_action = success_record
+    loop.successful_action_by_step_id = {"step-1": success_record}
+    loop.successful_actions_by_step_id = {"step-1": [success_record]}
+
+    loop._mark_step_failed(step_context, "assertion failed")
+
+    result = asyncio.run(
+        loop._tool_send_to_overlay(
+            {
+                "message_type": "step_recorded",
+                "payload": {
+                    "step_id": "step-1",
+                    "step_number": 1,
+                },
+            }
+        )
+    )
+
+    assert result == {
+        "sent": False,
+        "skipped": True,
+        "reason": "No successful confirmed action to record.",
+    }
+    assert loop.last_successful_action is None
+    assert loop.successful_action_by_step_id == {}
+    assert loop.successful_actions_by_step_id == {}
+    assert loop._last_action_context is None
+    assert sent_messages == []
+    assert blocked_results == []
+    assert executed_actions == []
+    assert call_counter["count"] == 0

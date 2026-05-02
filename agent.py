@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+from copy import deepcopy
 import json
 import os
 import re
@@ -14,6 +15,7 @@ from browser import get_page
 from llm import LLMClient
 from runtime.context_manager import ContextManager
 from runtime.model_router import ModelRouter
+from runtime.recovery_manager import classify_failure
 from runtime.phase_tracker import PhaseTracker
 from runtime.tool_registry import ToolRegistry, filter_tools_for_phase
 from runtime.skill_manager import SkillManager
@@ -106,6 +108,11 @@ class AgentLoop:
         self._last_action_context: dict[str, Any] | None = None
         self._awaiting_step_record = False
         self._pending_failure_followup = False
+        self.last_plan_ready_payload: dict[str, Any] | None = None
+        self.last_plan_step_ids: list[str] = []
+        self.last_plan_summary: str | None = None
+        self.last_plan_original_user_intent: str | None = None
+        self._plan_correction_pending = False
         self._run_completion_requested = False
         self.run_stop_requested = False
         self._llm_call_counter = 0
@@ -137,6 +144,8 @@ class AgentLoop:
         self._awaiting_step_record = False
         self.run_stop_requested = False
         self._run_completion_requested = False
+        self._plan_correction_pending = False
+        self._clear_plan_review_context()
         self._llm_call_counter = 0
 
     async def _send(self, msg_type: str, **kwargs: Any) -> None:
@@ -574,7 +583,22 @@ class AgentLoop:
                     tool_failed = result.get("success") is False and not result.get("skipped") and (
                         self._is_browser_state_tool(tool_name) or tool_name == "ask_user"
                     )
+                    recovery_decision = None
                     if tool_failed and tool_name in self.EXECUTION_TOOLS:
+                        if step_context is None:
+                            raise RuntimeError(
+                                f"Unable to resolve failed step safely for {tool_name}"
+                            )
+                        failed_step_id = str(step_context.get("step_id") or "").strip()
+                        if not failed_step_id:
+                            raise RuntimeError(
+                                f"Unable to resolve failed step id safely for {tool_name}"
+                            )
+                        recovery_decision = classify_failure(
+                            tool_name,
+                            step_id=failed_step_id,
+                            result=result,
+                        )
                         self._mark_step_failed(step_context, result.get("error") or "execution tool failed")
                     had_tool_failure = had_tool_failure or tool_failed
                     is_plan_rejected = (
@@ -617,25 +641,17 @@ class AgentLoop:
                         return
                     if is_plan_rejected:
                         correction = str(result.get("correction") or "").strip() or "the user requested a correction"
-                        note = (
-                            f"User corrected the plan: {correction}. "
-                            "Revise the plan and ask for confirmation again before executing."
-                        )
-                        self.llm.messages.append({"role": "user", "content": note})
+                        note = self._append_plan_correction_message(correction)
                         print(f"[AGENT] plan corrected: {self._summarize(note, limit=140)}")
                         self._append_skipped_tool_responses(tool_calls, index + 1, batch_stop_reason)
                         break
-                    if tool_name in state_changing_tools and tool_failed:
+                    if recovery_decision is not None and recovery_decision.stop_batch:
                         print(f"[AGENT] {tool_name} failed; stopping batch for LLM recovery")
                         self._append_skipped_tool_responses(tool_calls, index + 1, batch_stop_reason)
                         break
                     if tool_name in state_changing_tools and result.get("success") is True and not result.get("skipped"):
                         pause_for_fresh_page = True
                         self.phase = "recovering" if had_tool_failure else "executing"
-                    if tool_failed and self._is_browser_state_tool(tool_name):
-                        print(f"[AGENT] {tool_name} failed; stopping batch for LLM recovery")
-                        self._append_skipped_tool_responses(tool_calls, index + 1, batch_stop_reason)
-                        break
 
                 if had_tool_failure:
                     self._pending_failure_followup = True
@@ -650,6 +666,8 @@ class AgentLoop:
                     continue
         except Exception as exc:  # noqa: BLE001
             failed_step_id = str(self.active_failed_step_id or self.active_step_id or "").strip() or None
+            self._clear_plan_review_context()
+            self._plan_correction_pending = False
             self.phase_tracker.set_phase(
                 "failed",
                 reason="unhandled_exception",
@@ -978,12 +996,137 @@ class AgentLoop:
         self.phase = "recovering"
         self.completed_step_ids.discard(step_id)
         self.skipped_step_ids.discard(step_id)
-        self.last_successful_action = None
         self._last_action_context = None
         self._awaiting_step_record = False
         self.current_step_index = max(0, int(context.get("step_number") or 1) - 1)
+        self._clear_failed_step_success_state(context)
         print(f"[AGENT] step recovery_pending: {step_id}")
         return context
+
+    def _clear_failed_step_success_state(self, step: dict[str, Any] | str | None) -> None:
+        context = self._get_step_context(step) if not isinstance(step, dict) else step
+        if context is None:
+            return
+
+        step_id = str(context.get("step_id") or "").strip()
+        if not step_id:
+            return
+
+        step_number = self._coerce_step_number(context.get("step_number"))
+        last_action = getattr(self, "last_successful_action", None) or {}
+        last_action_step = last_action.get("step_context") or {}
+        last_action_step_id = str(last_action_step.get("step_id") or last_action.get("step_id") or "").strip()
+        last_action_step_number = self._coerce_step_number(
+            last_action_step.get("step_number") or last_action.get("step_number")
+        )
+        if last_action_step_id == step_id or (
+            step_number is not None and last_action_step_number is not None and last_action_step_number == step_number
+        ):
+            self.last_successful_action = None
+
+        history_by_step_id = getattr(self, "successful_actions_by_step_id", None)
+        if not isinstance(history_by_step_id, dict):
+            history_by_step_id = {}
+            self.successful_actions_by_step_id = history_by_step_id
+        history_by_step_id.pop(step_id, None)
+        successful_action_by_step_id = getattr(self, "successful_action_by_step_id", None)
+        if not isinstance(successful_action_by_step_id, dict):
+            successful_action_by_step_id = {}
+            self.successful_action_by_step_id = successful_action_by_step_id
+        successful_action_by_step_id.pop(step_id, None)
+        self._last_action_context = None
+
+    def _clear_plan_review_context(self) -> None:
+        self.last_plan_ready_payload = None
+        self.last_plan_step_ids = []
+        self.last_plan_summary = None
+        self.last_plan_original_user_intent = None
+
+    def _remember_plan_review_context(self, payload: dict[str, Any]) -> None:
+        plan_ready_payload = deepcopy(payload) if isinstance(payload, dict) else {}
+        steps = plan_ready_payload.get("steps") if isinstance(plan_ready_payload.get("steps"), list) else []
+        plan_step_ids: list[str] = []
+        for step in steps:
+            if not isinstance(step, dict):
+                continue
+            step_id = str(step.get("step_id") or step.get("id") or "").strip()
+            if step_id:
+                plan_step_ids.append(step_id)
+
+        source_steps = list(getattr(self, "current_steps", []))
+        if not source_steps:
+            source_steps = list(steps)
+        intent_parts: list[str] = []
+        for source_step in source_steps:
+            if not isinstance(source_step, dict):
+                continue
+            intent_text = self._normalize_space(str(source_step.get("intent") or "")).strip()
+            if intent_text:
+                intent_parts.append(intent_text)
+
+        self.last_plan_ready_payload = plan_ready_payload
+        self.last_plan_step_ids = plan_step_ids
+        self.last_plan_summary = str(plan_ready_payload.get("summary") or "").strip() or None
+        self.last_plan_original_user_intent = " | ".join(intent_parts).strip() or None
+
+    def _build_plan_step_context_lines(self) -> list[str]:
+        plan_ready_payload = getattr(self, "last_plan_ready_payload", None)
+        if not isinstance(plan_ready_payload, dict):
+            return []
+
+        steps = plan_ready_payload.get("steps")
+        if not isinstance(steps, list):
+            return []
+
+        step_lines: list[str] = []
+        for index, step in enumerate(steps, start=1):
+            if not isinstance(step, dict):
+                continue
+            step_intent = self._normalize_space(
+                str(step.get("intent") or step.get("title") or step.get("text") or step.get("label") or "")
+            ).strip()
+            step_lines.append(f"{index}. {step_intent}" if step_intent else f"{index}.")
+            children = step.get("children")
+            if not isinstance(children, list):
+                continue
+            for child in children:
+                if not isinstance(child, dict):
+                    continue
+                child_operation_id = str(child.get("operation_id") or "").strip()
+                child_type = str(child.get("type") or "").strip()
+                child_description = self._normalize_space(str(child.get("description") or "")).strip()
+                child_parts = [part for part in (child_operation_id, child_type, child_description) if part]
+                if child_parts:
+                    step_lines.append(f"   - {' '.join(child_parts)}")
+        return step_lines
+
+    def _build_plan_correction_message(self, correction: str) -> str:
+        correction_text = self._normalize_space(correction) or "the user requested a correction"
+        lines = [
+            "User corrected the current plan.",
+            f'Correction: "{correction_text}"',
+        ]
+        original_user_intent = str(self.last_plan_original_user_intent or "").strip()
+        if original_user_intent:
+            lines.append(f'Original user intent: "{original_user_intent}"')
+        previous_summary = str(self.last_plan_summary or "").strip()
+        if previous_summary:
+            lines.append(f'Previous plan summary: "{previous_summary}"')
+        step_lines = self._build_plan_step_context_lines()
+        if step_lines:
+            lines.append("Previous plan steps:")
+            lines.extend(step_lines)
+        else:
+            lines.append("Previous plan steps: none available.")
+        lines.append("Revise the plan. Do not execute. Send a new plan_ready for confirmation.")
+        return "\n".join(lines)
+
+    def _append_plan_correction_message(self, correction: str) -> str:
+        message = self._build_plan_correction_message(correction)
+        self._plan_correction_pending = True
+        self.llm.messages.append({"role": "user", "content": message})
+        self._clear_plan_review_context()
+        return message
 
     def _mark_step_skipped(self, step: dict[str, Any] | str | None, reason: Any) -> dict[str, Any] | None:
         context = self._get_step_context(step) if not isinstance(step, dict) else step
@@ -2211,16 +2354,23 @@ class AgentLoop:
             "diagnostics": [],
         }
 
-    def _build_plan_ready_payload(self, payload: dict[str, Any]) -> dict[str, Any]:
+    def _build_plan_ready_payload(
+        self,
+        payload: dict[str, Any],
+        prefer_plan_step_source: bool = False,
+    ) -> dict[str, Any]:
         plan_ready_payload = dict(payload)
         steps = payload.get("steps")
         if not isinstance(steps, list):
             return plan_ready_payload
 
         current_steps = list(getattr(self, "current_steps", []))
+        use_plan_step_source = bool(prefer_plan_step_source)
         if len(current_steps) == 1 and len(steps) > 1:
-            source_step = current_steps[0] if isinstance(current_steps[0], dict) else {}
             first_plan_step = steps[0] if isinstance(steps[0], dict) else {"text": str(steps[0] or "").strip()}
+            source_step = first_plan_step if use_plan_step_source else (
+                current_steps[0] if isinstance(current_steps[0], dict) else {}
+            )
             plan_ready_payload["steps"] = [self._build_plan_ready_parent_step(first_plan_step, source_step, 0)]
             return plan_ready_payload
 
@@ -2228,6 +2378,8 @@ class AgentLoop:
         for index, step in enumerate(steps):
             parent_step = dict(step) if isinstance(step, dict) else {"text": str(step or "").strip()}
             source_step = current_steps[index] if index < len(current_steps) and isinstance(current_steps[index], dict) else {}
+            if use_plan_step_source:
+                source_step = parent_step
             planned_steps.append(self._build_plan_ready_parent_step(parent_step, source_step, index))
 
         plan_ready_payload["steps"] = planned_steps
@@ -2951,9 +3103,15 @@ class AgentLoop:
                     )
             return {"sent": True, "payload": payload}
         if message_type == "plan_ready":
-            payload = self._build_plan_ready_payload(payload)
+            plan_correction_pending = bool(getattr(self, "_plan_correction_pending", False))
+            payload = self._build_plan_ready_payload(
+                payload,
+                prefer_plan_step_source=plan_correction_pending,
+            )
+            self._plan_correction_pending = False
         await self._send(message_type, **payload)
         if message_type == "plan_ready":
+            self._remember_plan_review_context(payload)
             plan_step_id = str(
                 payload.get("step_id")
                 or payload.get("id")
@@ -2973,6 +3131,8 @@ class AgentLoop:
                 self.phase_tracker.set_phase("executing", reason="confirmed", step_id=plan_step_id)
                 self._pending_failure_followup = False
                 self._awaiting_step_record = False
+                self._plan_correction_pending = False
+                self._clear_plan_review_context()
                 answer = str(confirmation.get("answer") or "confirmed").strip() or "confirmed"
                 print("[AGENT] plan confirmed; entering execution phase")
                 return {"confirmed": True, "answer": answer, "phase": "executing"}

@@ -201,6 +201,25 @@ def test_all_steps_resolved_requires_awaiting_step_record_to_clear():
     assert loop._all_steps_resolved() is True
 
 
+def test_pending_recovery_blocks_completion() -> None:
+    loop = AgentLoop.__new__(AgentLoop)
+    step_context = _make_step_context()
+    step_context["status"] = "recorded"
+    loop._recording_steps = [step_context]
+    loop.plan_confirmed = True
+    loop._awaiting_step_record = False
+    loop.pending_recovery = True
+    loop._pending_failure_followup = False
+    loop.active_step_id = None
+    loop.active_failed_step_id = None
+
+    assert loop._all_steps_resolved() is False
+
+    loop.pending_recovery = False
+
+    assert loop._all_steps_resolved() is True
+
+
 def test_completion_guard_stops_before_second_model_call(monkeypatch):
     loop, sent_messages, transition_phases, call_counter = _build_loop_for_completion_test(
         monkeypatch
