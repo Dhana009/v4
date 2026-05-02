@@ -13,6 +13,8 @@ from browser import get_page
 from llm import LLMClient
 from runtime.context_manager import ContextManager
 from runtime.model_router import ModelRouter
+from runtime.phase_tracker import PhaseTracker
+from runtime.tool_registry import ToolRegistry
 from runtime.skill_manager import SkillManager
 from runtime.telemetry import record_model_call_end, record_model_call_start
 
@@ -68,7 +70,17 @@ class AgentLoop:
         self.context_manager = ContextManager()
         self.model_router = ModelRouter()
         self.skill_manager = SkillManager()
+        self.phase_tracker = PhaseTracker()
         self.tools = self._build_tool_definitions()
+        tool_diagnostics = ToolRegistry().analyze(self.tools)
+        print(
+            "[TOOL_DIAGNOSTICS] "
+            f"tools={tool_diagnostics.tool_count} "
+            f"estimated_tokens={tool_diagnostics.estimated_total_tool_tokens} "
+            f"largest={tool_diagnostics.largest_tool_name} "
+            f"largest_tokens={tool_diagnostics.largest_tool_tokens} "
+            f"policy={tool_diagnostics.suggested_future_policy}"
+        )
         self.phase = "planning"
         self.plan_confirmed = False
         self.current_steps: list[dict[str, Any]] = []
@@ -96,6 +108,7 @@ class AgentLoop:
         self.phase = "planning"
         self.plan_confirmed = False
         self.current_steps = list(steps or [])
+        self.phase_tracker.current_phase = "idle"
         self.step_state_by_id = {}
         self.step_context_by_id = {}
         self.active_step_id = None
@@ -123,6 +136,7 @@ class AgentLoop:
     async def run(self, steps: list[dict]) -> None:
         try:
             self._reset_lifecycle_state(steps)
+            self.phase_tracker.set_phase("planning", reason="run_started")
             self._prepare_recording_steps(steps)
             loaded_skill_names, system_prompt, loaded_skills = self._load_skills_for_steps(steps)
             self.llm.system_prompt = system_prompt
@@ -376,6 +390,14 @@ class AgentLoop:
                         }
                     )
                     if self._run_completion_requested:
+                        self.phase_tracker.set_phase(
+                            "completed",
+                            reason="all_steps_resolved",
+                            step_id=str(
+                                (result.get("payload") or {}).get("step_id")
+                                or ""
+                            ).strip() or None,
+                        )
                         if index + 1 < len(tool_calls):
                             self._append_skipped_tool_responses(
                                 tool_calls,
@@ -410,10 +432,22 @@ class AgentLoop:
 
                 if had_tool_failure:
                     self._pending_failure_followup = True
+                    failed_step_id = str(self.active_failed_step_id or self.active_step_id or "").strip() or None
+                    self.phase_tracker.set_phase(
+                        "recovery",
+                        reason="tool_failed",
+                        step_id=failed_step_id,
+                    )
                     self.phase = "recovering"
                     print("[AGENT] Tool failure observed in batch; awaiting LLM recovery")
                     continue
         except Exception as exc:  # noqa: BLE001
+            failed_step_id = str(self.active_failed_step_id or self.active_step_id or "").strip() or None
+            self.phase_tracker.set_phase(
+                "failed",
+                reason="unhandled_exception",
+                step_id=failed_step_id,
+            )
             print(f"[AGENT] Failed: {type(exc).__name__}: {exc}")
             await self._send("error", message=f"Agent failed: {type(exc).__name__}: {exc}")
 
@@ -723,6 +757,7 @@ class AgentLoop:
         self.pending_recovery = True
         self.active_failed_step_id = step_id
         self.active_step_id = step_id
+        self.phase_tracker.set_phase("recovery", reason="tool_failed", step_id=step_id)
         self.phase = "recovering"
         self.completed_step_ids.discard(step_id)
         self.skipped_step_ids.discard(step_id)
@@ -1143,6 +1178,7 @@ class AgentLoop:
             print("[AGENT] stored successful action without step id")
         self._last_action_context = action_context
         self._awaiting_step_record = True
+        self.phase_tracker.set_phase("recording", reason="action_success", step_id=step_id)
 
     def _action_name_for_tool(self, tool_name: str) -> str:
         if tool_name == "page_navigate":
@@ -2208,16 +2244,47 @@ class AgentLoop:
                 self.last_successful_action = None
             self._awaiting_step_record = False
             self._last_action_context = None
-            if recorded_target_step is not None and self._all_steps_resolved():
-                self._run_completion_requested = True
+            if recorded_target_step is not None:
+                recorded_step_id = str(
+                    payload.get("step_id")
+                    or (recorded_target_step or {}).get("step_id")
+                    or payload.get("id")
+                    or payload.get("stepId")
+                    or ""
+                ).strip() or None
+                if self._all_steps_resolved():
+                    self._run_completion_requested = True
+                    self.phase_tracker.set_phase(
+                        "completed",
+                        reason="all_steps_resolved",
+                        step_id=recorded_step_id,
+                    )
+                elif not self.pending_recovery and not self._pending_failure_followup:
+                    self.phase_tracker.set_phase(
+                        "executing",
+                        reason="step_recorded",
+                        step_id=recorded_step_id,
+                    )
             return {"sent": True, "payload": payload}
         await self._send(message_type, **payload)
         if message_type == "plan_ready":
+            plan_step_id = str(
+                payload.get("step_id")
+                or payload.get("id")
+                or payload.get("stepId")
+                or ""
+            ).strip() or None
+            self.phase_tracker.set_phase(
+                "awaiting_confirmation",
+                reason="plan_ready",
+                step_id=plan_step_id,
+            )
             print("[AGENT] plan_ready sent; waiting for user confirmation")
             confirmation = await self._wait_for_plan_confirmation()
             if confirmation.get("confirmed"):
                 self.plan_confirmed = True
                 self.phase = "executing"
+                self.phase_tracker.set_phase("executing", reason="confirmed", step_id=plan_step_id)
                 self._pending_failure_followup = False
                 self._awaiting_step_record = False
                 answer = str(confirmation.get("answer") or "confirmed").strip() or "confirmed"
@@ -2226,6 +2293,7 @@ class AgentLoop:
 
             self.plan_confirmed = False
             self.phase = "planning"
+            self.phase_tracker.set_phase("planning", reason="correction", step_id=plan_step_id)
             self.last_successful_action = None
             self._last_action_context = None
             self._awaiting_step_record = False
