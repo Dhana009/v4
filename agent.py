@@ -181,6 +181,7 @@ class AgentLoop:
                     metadata={
                         "skill_count": len(loaded_skill_names),
                         "tool_count": len(filtered_tools),
+                        "phase": current_phase,
                     },
                 )
                 self._llm_call_counter += 1

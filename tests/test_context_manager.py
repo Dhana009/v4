@@ -5,6 +5,21 @@ from copy import deepcopy
 from runtime.context_manager import ContextManager
 from runtime.history_manager import COMPACTION_SUMMARY_MESSAGE
 
+PLANNING_PHASE_INSTRUCTION = (
+    "Phase: planning. You may inspect page state, extract DOM, find and validate "
+    "locators, ask clarification, and send plan_ready. Do not call execution tools. "
+    "Do not claim the step is completed."
+)
+EXECUTING_PHASE_INSTRUCTION = (
+    "Phase: executing. Execute only the confirmed plan. Do not change user intent. "
+    "If execution succeeds, proceed toward recording. If execution fails, report "
+    "failure or recovery."
+)
+RECOVERY_PHASE_INSTRUCTION = (
+    "Phase: recovery. Stay anchored to the failed step or operation. Suggest or "
+    "perform only recovery actions allowed by runtime."
+)
+
 
 def _build_small_history() -> list[dict[str, object]]:
     return [
@@ -64,7 +79,7 @@ def _non_system_messages(messages: list[dict[str, object]]) -> list[dict[str, ob
     return [message for message in messages if message.get("role") != "system"]
 
 
-def test_small_history_is_unchanged():
+def test_planning_phase_inserts_planning_instruction():
     manager = ContextManager()
     messages = _build_small_history()
     before = deepcopy(messages)
@@ -73,20 +88,70 @@ def test_small_history_is_unchanged():
         messages,
         purpose="main_orchestrator",
         context_mode="normal",
-        metadata={"skill_count": 1, "tool_count": 0},
+        metadata={"skill_count": 1, "tool_count": 0, "phase": "planning"},
     )
 
-    assert bundle.messages == messages
-    assert [message["role"] for message in bundle.messages] == [message["role"] for message in messages]
+    assert bundle.messages[1]["role"] == "system"
+    assert bundle.messages[1]["content"] == PLANNING_PHASE_INSTRUCTION
+    assert bundle.messages[2]["role"] == "user"
+    assert bundle.messages[2]["content"] == "click the submit button"
+    assert [message["role"] for message in bundle.messages] == ["system", "system", "user", "assistant"]
     assert messages == before
     assert bundle.metadata["managed_history_enabled"] is True
+    assert bundle.metadata["phase"] == "planning"
+    assert bundle.metadata["phase_instruction_applied"] is True
     assert bundle.metadata["compaction_applied"] is False
     assert bundle.metadata["original_message_count"] == len(messages)
-    assert bundle.metadata["final_message_count"] == len(messages)
-    assert bundle.metadata["original_estimated_tokens"] == bundle.metadata["final_estimated_tokens"]
+    assert bundle.metadata["final_message_count"] == len(messages) + 1
     assert bundle.estimated_message_tokens == bundle.metadata["final_estimated_tokens"]
-    assert bundle.message_count == len(messages)
+    assert bundle.message_count == len(messages) + 1
     assert bundle.context_mode == "normal"
+
+
+def test_executing_phase_inserts_executing_instruction():
+    manager = ContextManager()
+    messages = _build_small_history()
+    before = deepcopy(messages)
+
+    bundle = manager.prepare_messages(
+        messages,
+        purpose="main_orchestrator",
+        context_mode="normal",
+        metadata={"skill_count": 1, "tool_count": 0, "phase": "executing"},
+    )
+
+    assert bundle.messages[1]["role"] == "system"
+    assert bundle.messages[1]["content"] == EXECUTING_PHASE_INSTRUCTION
+    assert messages == before
+    assert bundle.metadata["phase"] == "executing"
+    assert bundle.metadata["phase_instruction_applied"] is True
+    assert bundle.metadata["final_message_count"] == len(messages) + 1
+    assert bundle.message_count == len(messages) + 1
+
+
+def test_missing_or_unknown_phase_uses_planning_safe_instruction():
+    manager = ContextManager()
+    messages = _build_small_history()
+
+    missing_bundle = manager.prepare_messages(
+        messages,
+        purpose="main_orchestrator",
+        context_mode="normal",
+        metadata={"skill_count": 1, "tool_count": 0},
+    )
+    unknown_bundle = manager.prepare_messages(
+        messages,
+        purpose="main_orchestrator",
+        context_mode="normal",
+        metadata={"skill_count": 1, "tool_count": 0, "phase": "mystery"},
+    )
+
+    assert missing_bundle.messages[1]["content"] == PLANNING_PHASE_INSTRUCTION
+    assert missing_bundle.metadata["phase"] == "planning"
+    assert missing_bundle.metadata["phase_instruction_applied"] is True
+    assert unknown_bundle.messages[1]["content"] == PLANNING_PHASE_INSTRUCTION
+    assert unknown_bundle.metadata["phase"] == "planning"
+    assert unknown_bundle.metadata["phase_instruction_applied"] is True
 
 
 def test_large_history_compacts_with_protected_preservation():
@@ -101,15 +166,19 @@ def test_large_history_compacts_with_protected_preservation():
     )
 
     assert bundle.metadata["managed_history_enabled"] is True
+    assert bundle.metadata["phase"] == "recovery"
+    assert bundle.metadata["phase_instruction_applied"] is True
     assert bundle.metadata["compaction_applied"] is True
     assert bundle.metadata["original_message_count"] == len(messages)
     assert bundle.metadata["final_message_count"] == len(bundle.messages)
     assert bundle.metadata["final_message_count"] < bundle.metadata["original_message_count"]
     assert bundle.messages[0]["role"] == "system"
-    assert bundle.messages[1]["role"] == "user"
-    assert bundle.messages[1]["content"] == "original user intent: click the submit button"
-    assert bundle.messages[2]["role"] == "system"
-    assert bundle.messages[2]["content"] == COMPACTION_SUMMARY_MESSAGE
+    assert bundle.messages[1]["role"] == "system"
+    assert bundle.messages[1]["content"] == RECOVERY_PHASE_INSTRUCTION
+    assert bundle.messages[2]["role"] == "user"
+    assert bundle.messages[2]["content"] == "original user intent: click the submit button"
+    assert bundle.messages[3]["role"] == "system"
+    assert bundle.messages[3]["content"] == COMPACTION_SUMMARY_MESSAGE
     assert any(
         message.get("role") == "assistant"
         and message.get("tool_calls")
