@@ -550,6 +550,21 @@ class AgentLoop:
                         self._append_tool_response(tool_call.id, blocked_result)
                         continue
 
+                    if self._should_block_additional_execution_action(tool_name, args):
+                        print(f"[AGENT] blocked additional execution action before recording: {tool_name}")
+                        blocked_result = {
+                            "success": False,
+                            "blocked": True,
+                            "reason": "multi_action_recording_not_supported",
+                            "message": (
+                                "Only one execution action can be recorded per step until "
+                                "multi-action recording is implemented."
+                            ),
+                        }
+                        print(f"[TOOL RESULT] {self._summarize(blocked_result, limit=100)}")
+                        self._append_tool_response(tool_call.id, blocked_result)
+                        continue
+
                     result = await self._dispatch_tool(tool_name, args)
                     print(f"[TOOL RESULT] {self._summarize(result, limit=100)}")
                     step_context = self._resolve_step_context(tool_name, args, result)
@@ -1251,6 +1266,22 @@ class AgentLoop:
         result = action.get("result") or {}
         return result.get("success") is True and not result.get("skipped")
 
+    def _should_block_additional_execution_action(
+        self,
+        tool_name: str,
+        args: dict[str, Any],
+    ) -> bool:
+        if tool_name not in self.EXECUTION_TOOLS:
+            return False
+        if not getattr(self, "_awaiting_step_record", False):
+            return False
+
+        active_step_id = str(getattr(self, "active_step_id", "") or "").strip()
+        step_context = self.step_state_by_id.get(active_step_id) if active_step_id else None
+        if step_context is None:
+            step_context = self._resolve_step_context(tool_name, args, {})
+        return self._has_successful_action_to_record(step_context, args)
+
     def _get_successful_action_for_step(
         self,
         step_context: dict[str, Any] | None = None,
@@ -1810,6 +1841,57 @@ class AgentLoop:
             return matches[0]
         return "unknown"
 
+    def _infer_planned_operation_sequence(self, intent: str) -> list[str]:
+        normalized = self._normalize_space(str(intent or "")).lower()
+        if not normalized:
+            return []
+
+        operation_patterns = (
+            ("assert", r"\b(?:validate|check|assert|verify)\b"),
+            ("click", r"\b(?:click|tap|press)\b"),
+            ("fill", r"\b(?:fill|type|enter|input)\b"),
+        )
+        matched_operations: list[tuple[int, str]] = []
+        for operation_type, pattern in operation_patterns:
+            match = re.search(pattern, normalized)
+            if match:
+                matched_operations.append((match.start(), operation_type))
+
+        matched_operations.sort(key=lambda item: item[0])
+        return [operation_type for _, operation_type in matched_operations]
+
+    def _build_planned_child_description(self, operation_type: str, target: str, intent: str) -> str:
+        target_text = self._normalize_space(str(target or "")).strip()
+        intent_text = self._normalize_space(str(intent or "")).lower()
+
+        if operation_type == "assert":
+            if target_text:
+                if any(keyword in intent_text for keyword in ("disabled", "enabled", "checked", "hidden")):
+                    if "disabled" in intent_text:
+                        return f"{target_text} is disabled"
+                    if "enabled" in intent_text:
+                        return f"{target_text} is enabled"
+                    if "checked" in intent_text:
+                        return f"{target_text} is checked"
+                    if "hidden" in intent_text:
+                        return f"{target_text} is hidden"
+                return f"{target_text} is visible"
+            return "Assert"
+
+        if operation_type == "click":
+            return target_text or "Click"
+
+        if operation_type == "fill":
+            return target_text or "Fill"
+
+        if operation_type == "navigate":
+            return target_text or "Navigate"
+
+        if operation_type == "hover":
+            return target_text or "Hover"
+
+        return target_text or operation_type
+
     def _build_planned_children(
         self,
         step: dict[str, Any],
@@ -1834,7 +1916,6 @@ class AgentLoop:
             plan_data.get("target")
             or plan_data.get("element_name")
             or step_data.get("element_name")
-            or intent
             or ""
         ).strip()
         locator = str(
@@ -1845,18 +1926,61 @@ class AgentLoop:
         ).strip()
         if locator in {"*", 'page.locator("")'}:
             locator = ""
-        description = intent or target or action_hint or operation_type
+        operation_types = self._infer_planned_operation_sequence(intent or operation_hint)
+        if not operation_types:
+            operation_types = [operation_type]
 
         return [
             {
-                "operation_id": "op_1",
-                "type": operation_type,
-                "description": description,
+                "operation_id": f"op_{index}",
+                "type": current_operation_type,
+                "description": self._build_planned_child_description(current_operation_type, target, intent),
                 "target": target,
                 "locator": locator,
                 "status": "planned",
             }
+            for index, current_operation_type in enumerate(operation_types, start=1)
         ]
+
+    def _build_plan_ready_parent_step(
+        self,
+        plan_step: dict[str, Any],
+        source_step: dict[str, Any],
+        step_index: int,
+    ) -> dict[str, Any]:
+        parent_step = dict(plan_step) if isinstance(plan_step, dict) else {"text": str(plan_step or "").strip()}
+        source_step_data = source_step if isinstance(source_step, dict) else {}
+
+        step_id = str(
+            parent_step.get("step_id")
+            or parent_step.get("id")
+            or source_step_data.get("step_id")
+            or source_step_data.get("id")
+            or step_index + 1
+        ).strip()
+        intent = str(
+            source_step_data.get("intent")
+            or parent_step.get("intent")
+            or parent_step.get("description")
+            or parent_step.get("text")
+            or ""
+        ).strip()
+        if not intent:
+            intent = str(parent_step.get("action") or "").strip()
+
+        parent_step["step_id"] = step_id
+        parent_step["intent"] = intent
+        parent_step["status"] = "planned"
+        parent_step["children"] = self._build_planned_children(source_step_data, parent_step)
+
+        display_text = intent or str(parent_step.get("text") or "").strip()
+        if display_text:
+            parent_step["text"] = display_text
+            parent_step["label"] = display_text
+            parent_step["title"] = display_text
+        parent_step["kind"] = "step"
+        parent_step["type"] = "step"
+        return parent_step
 
     def _build_recorded_children(
         self,
@@ -1921,31 +2045,17 @@ class AgentLoop:
             return plan_ready_payload
 
         current_steps = list(getattr(self, "current_steps", []))
+        if len(current_steps) == 1 and len(steps) > 1:
+            source_step = current_steps[0] if isinstance(current_steps[0], dict) else {}
+            first_plan_step = steps[0] if isinstance(steps[0], dict) else {"text": str(steps[0] or "").strip()}
+            plan_ready_payload["steps"] = [self._build_plan_ready_parent_step(first_plan_step, source_step, 0)]
+            return plan_ready_payload
+
         planned_steps: list[dict[str, Any]] = []
         for index, step in enumerate(steps):
             parent_step = dict(step) if isinstance(step, dict) else {"text": str(step or "").strip()}
             source_step = current_steps[index] if index < len(current_steps) and isinstance(current_steps[index], dict) else {}
-            step_id = str(
-                parent_step.get("step_id")
-                or parent_step.get("id")
-                or source_step.get("step_id")
-                or source_step.get("id")
-                or index + 1
-            ).strip()
-            intent = str(
-                source_step.get("intent")
-                or parent_step.get("intent")
-                or parent_step.get("description")
-                or parent_step.get("text")
-                or ""
-            ).strip()
-            if not intent:
-                intent = str(parent_step.get("action") or "").strip()
-            parent_step["step_id"] = step_id
-            parent_step["intent"] = intent
-            parent_step["status"] = "planned"
-            parent_step["children"] = self._build_planned_children(source_step, parent_step)
-            planned_steps.append(parent_step)
+            planned_steps.append(self._build_plan_ready_parent_step(parent_step, source_step, index))
 
         plan_ready_payload["steps"] = planned_steps
         return plan_ready_payload

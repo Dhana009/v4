@@ -97,6 +97,51 @@ def test_fill_intent_creates_child_operation_type_fill() -> None:
     assert child["locator"] == 'get_by_placeholder("Email address")'
 
 
+def test_validate_and_click_intent_creates_assert_then_click_children() -> None:
+    loop = _make_loop()
+    step = _make_source_step(
+        "Validate this section and click the CTA",
+        {"text": "CTA", "aria_label": "CTA"},
+    )
+
+    children = loop._build_planned_children(step, {"element_name": "CTA"})
+
+    assert len(children) == 2
+    assert [child["operation_id"] for child in children] == ["op_1", "op_2"]
+    assert [child["type"] for child in children] == ["assert", "click"]
+    assert [child["status"] for child in children] == ["planned", "planned"]
+
+
+def test_click_and_assert_intent_creates_click_then_assert_children() -> None:
+    loop = _make_loop()
+    step = _make_source_step(
+        "Click the CTA and verify the success message",
+        {"text": "CTA", "aria_label": "CTA"},
+    )
+
+    children = loop._build_planned_children(step, {"element_name": "CTA"})
+
+    assert len(children) == 2
+    assert [child["operation_id"] for child in children] == ["op_1", "op_2"]
+    assert [child["type"] for child in children] == ["click", "assert"]
+    assert [child["status"] for child in children] == ["planned", "planned"]
+
+
+def test_fill_and_click_intent_creates_fill_then_click_children() -> None:
+    loop = _make_loop()
+    step = _make_source_step(
+        "Fill the email field and click the CTA",
+        {"placeholder": "Email address"},
+    )
+
+    children = loop._build_planned_children(step, {"element_name": "Email address"})
+
+    assert len(children) == 2
+    assert [child["operation_id"] for child in children] == ["op_1", "op_2"]
+    assert [child["type"] for child in children] == ["fill", "click"]
+    assert [child["status"] for child in children] == ["planned", "planned"]
+
+
 def test_unknown_intent_creates_child_operation_type_unknown() -> None:
     loop = _make_loop()
     step = _make_source_step("Review the page for issues", {"text": "Overview"})
@@ -136,6 +181,53 @@ def test_existing_plan_ready_fields_are_preserved() -> None:
     assert step["status"] == "planned"
 
 
+def test_multi_action_intent_collapses_top_level_steps_into_one_parent() -> None:
+    loop = _make_loop()
+    loop.current_steps = [
+        _make_source_step(
+            "Check that Get started is visible and click it",
+            {"text": "Get started", "aria_label": "Get started"},
+        )
+    ]
+    payload = {
+        "summary": "I will check that Get started is visible and click it",
+        "steps": [
+            {
+                "number": 1,
+                "action": "assert",
+                "element_name": "Get started",
+                "code": "await expect(getStarted).toBeVisible();",
+            },
+            {
+                "number": 2,
+                "action": "click",
+                "element_name": "Get started",
+                "code": "await getStarted.click();",
+            },
+        ],
+        "instruction": "Confirm to proceed",
+    }
+
+    augmented = loop._build_plan_ready_payload(payload)
+    parent = augmented["steps"][0]
+    child_descriptions = [child["description"] for child in parent["children"]]
+
+    assert len(augmented["steps"]) == 1
+    assert parent["number"] == 1
+    assert parent["step_id"] == "step-1"
+    assert parent["intent"] == "Check that Get started is visible and click it"
+    assert parent["status"] == "planned"
+    assert parent["text"] == "Check that Get started is visible and click it"
+    assert parent["label"] == "Check that Get started is visible and click it"
+    assert parent["title"] == "Check that Get started is visible and click it"
+    assert augmented["summary"] == "I will check that Get started is visible and click it"
+    assert [child["operation_id"] for child in parent["children"]] == ["op_1", "op_2"]
+    assert [child["type"] for child in parent["children"]] == ["assert", "click"]
+    assert [child["description"] for child in parent["children"]] == ["Get started is visible", "Get started"]
+    assert all("Children:" not in description for description in child_descriptions)
+    assert all(description != parent["intent"] for description in child_descriptions)
+
+
 def test_children_field_is_added_without_breaking_existing_structure() -> None:
     loop = _make_loop()
     loop.current_steps = [
@@ -149,6 +241,7 @@ def test_children_field_is_added_without_breaking_existing_structure() -> None:
     augmented = loop._build_plan_ready_payload(payload)
     step = augmented["steps"][0]
 
+    assert len(augmented["steps"]) == 1
     assert step["number"] == 1
     assert step["action"] == "click"
     assert step["element_name"] == "Submit"
@@ -193,6 +286,7 @@ def test_plan_ready_send_augments_payload_without_real_runtime() -> None:
     assert sent_messages[0][0] == "plan_ready"
     assert sent_messages[0][1]["summary"] == "I will click the submit button"
     assert sent_messages[0][1]["instruction"] == "Confirm to proceed"
+    assert len(sent_messages[0][1]["steps"]) == 1
     assert sent_messages[0][1]["steps"][0]["children"][0]["type"] == "click"
     assert sent_messages[0][1]["steps"][0]["children"][0]["status"] == "planned"
     assert loop.plan_confirmed is True

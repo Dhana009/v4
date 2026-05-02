@@ -1,13 +1,13 @@
 <claude-mem-context>
 # Memory Context
 
-# [agent v4] recent context, 2026-05-02 9:23am GMT+5:30
+# [agent v4] recent context, 2026-05-02 10:40am GMT+5:30
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (23,635t read) | 716,884t work | 97% savings
+Stats: 50 obs (28,611t read) | 882,962t work | 97% savings
 
 ### May 1, 2026
 S95 Fix step_recorded payload contract in agent.py so browser overlay panel receives usable data (May 1 at 3:58 PM)
@@ -21,35 +21,7 @@ S101 Fix Phase 3D frontend UI/state bugs in AutoWorkbench IDE panel (spaces, pic
 S102 Fix backend multi-step recording bug in agent.py — replace global last_successful_action with per-step successful_action_by_step_id dict (May 2 at 3:14 AM)
 S103 Launch AutoWorkbench agent v4 once and run a smoke test of the clarification UI roundtrip (May 2 at 3:33 AM)
 S104 Add agent phase diagnostics in shadow mode to agent v4 — PhaseTracker implementation in runtime/phase_tracker.py and agent.py wiring (May 2 at 7:34 AM)
-944 8:41a ⚖️ Codegen Skill No Longer Auto-Loads on Recording Phase Alone
-945 " 🔵 Codegen Auto-Load on Recording Phase Still Present in agent.py Before Fix
-946 " 🔵 Recovery Phase Lifecycle: pending_recovery, active_failed_step_id, and Phase Transitions in agent.py
-947 8:42a 🔴 Removed Auto-Codegen on Recording Phase; Added _requires_complex_codegen Metadata Gate
-948 " 🟣 Tests Updated: test_simple_click_recording_does_not_add_codegen and test_generate_intent_loads_codegen
-949 " 🟣 Codegen Skill Loading Gated Behind _requires_complex_codegen — 21 Tests Pass
-950 8:43a ✅ agent.py Net Change: +209/-22 Lines for Progressive Skill Loading v1 + Codegen Gate
-951 " 🟣 Added test_complex_codegen_metadata_allows_recording_codegen to Verify Explicit Metadata Gate
-952 " 🟣 Final Verification: 22 Tests Pass — Codegen Skill Loading Fully Controlled
-953 8:47a 🔵 plan_ready payload structure and confirmation flow in agent v4
-954 " 🔵 agent.py plan_ready code path and send_to_overlay handler confirmed
-955 8:48a 🔵 Frontend plan_ready field consumption confirmed — children field is safe to add
-956 " 🔵 tests/test_plan_model.py does not exist yet; plan_ready payload shape fully confirmed
-957 " 🔵 send_to_overlay tool schema and plan_ready augmentation insertion point confirmed
-958 " 🔵 Implementation plan fully scoped — helper placement and augmentation point finalized
-959 8:49a 🟣 Parent/child plan model added to agent.py with plan_steps augmentation
-960 " 🔴 agent.py plan_ready augmentation patch applied via write_file after apply_patch failed
-961 8:51a 🟣 plan_ready payload augmentation fully wired in agent.py
-962 " 🔴 3 test failures in test_plan_model.py due to locator assertion mismatch
-963 8:52a 🔴 test_plan_model.py locator test failures fixed by correcting element_info shape
-964 " 🟣 Parent/child plan model complete — all 29 tests passing including 7 new test_plan_model tests
-965 " ✅ Final git status confirms only agent.py modified and test_plan_model.py created
-966 9:02a ⚖️ New task: add parent/child structure to step_recorded payload in agent v4
-967 " 🔵 Read-only investigation: step_recorded status compatibility in agent v4
-968 " ⚖️ Parent/child step_recorded payload v1 design for agent v4
-969 9:04a 🔵 step_recorded canonical status is "recorded" everywhere in agent v4
-970 " 🔵 _build_planned_children helper already exists in agent v4 for operation type classification
-971 " 🔵 Frontend step_recorded handler ignores unknown payload fields — children array is safe to add
-972 " 🟣 Added parent/child structure to step_recorded payload in agent.py
+972 9:04a 🟣 Added parent/child structure to step_recorded payload in agent.py
 973 " 🟣 _build_recorded_children and parent/child payload fields successfully added to agent.py
 974 9:05a 🔵 Internal step status lifecycle uses "recorded"/"skipped" set — not affected by payload status change to "success"
 975 " 🟣 Created tests/test_recorded_step_model.py for parent/child step_recorded payload
@@ -71,6 +43,34 @@ S104 Add agent phase diagnostics in shadow mode to agent v4 — PhaseTracker imp
 991 " 🟣 code_update auto-emission after step_recorded complete — 31/31 tests pass, all variables verified
 992 9:20a 🟣 Complete git diff of all agent.py changes across both sessions: parent/child model + code_update
 993 " 🔵 Final line-number verification: all agent.py and test implementations confirmed in place
+994 9:23a ⚖️ Wrap-up verification task: add [CODE_UPDATE] log line to confirm code_update emission order
+995 9:24a 🔵 code_update emission path confirmed correct in agent.py — only log line addition needed
+996 " 🔵 Completion guard runs after code_update — _run_completion_requested set inside _tool_send_to_overlay after cleanup
+997 " 🟣 Added [CODE_UPDATE] log line to agent.py and log-order assertion to test_code_update.py
+998 " 🟣 All 31 tests pass with [CODE_UPDATE] log line and ordering assertion — agent v4 code_update flow fully verified
+1000 9:45a 🔵 Frontend Read-Only Investigation: Parent/Child Plan & Recorded Steps Support
+1003 9:46a 🔵 agent v4 Frontend Event Handling: Exact Code Paths for plan_ready, step_recorded, code_update
+1004 9:47a 🔵 agent v4 Frontend: Complete Status String Map and Exact Rendering Architecture
+1005 " 🔵 agent v4 CSS: Badge and State Pill Color System for Frontend Status Strings
+1010 " 🔵 agent v4 Frontend: Complete Function Registry and Children/Raw Field Preservation Confirmed
+1014 " 🔵 agent v4 style-ide.css: Complete CSS Class Inventory for IDE Panel Components
+1015 " ⚖️ Task: Add Child Operation Rendering to Plan Review UI in agent v4
+1016 9:55a 🟣 Plan Review UI: Child Operations Rendering
+1017 9:58a 🟣 Autoworkbench Plan Review UI: Child Operation Rows Implemented and Built
+1018 10:00a 🔴 Multi-Action plan_ready Normalization Bug: Duplicate Parent Steps
+1019 " 🔵 plan_ready Normalization: Root Cause of Duplicate Parent Steps Identified
+1020 " 🔵 _prepare_recording_steps Called at Line 330 Before plan_ready
+1021 10:03a 🔴 Fixed Multi-Action plan_ready: One Intent Now Produces One Parent Step
+1022 10:04a 🔴 Fix multi-action plan_ready normalization: one user intent → one parent step
+1023 10:06a 🔵 agent.py plan_ready normalization: existing architecture for _build_plan_ready_parent_step and _build_planned_children
+1024 10:07a 🔴 Fixed plan_ready normalization: one user intent now collapses multiple LLM steps into one parent step
+1025 10:08a 🔴 plan_ready multi-action collapse: all 35 tests pass after fix verified
+1033 10:36a ⚖️ Planned feature: ordered per-step action history for multi-operation recording
+1036 " 🔵 agent.py successful action state: current fields, storage locations, and clearing points
+1039 " 🔵 Full architecture map for ordered action history feature: insertion, clearing, and consumer upgrade points
+1040 10:37a 🔵 Confirmed: _build_recorded_children and safety block for multi-action execution are already in agent.py
+1041 " 🔵 Safety block _should_block_additional_execution_action confirmed active; _mark_step_failed clears action state
+1042 10:38a 🔵 _build_recorded_children signature and structure confirmed: single-op only, must be extended for multi-action
 
-Access 717k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 883k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

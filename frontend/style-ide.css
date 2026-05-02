@@ -150,7 +150,9 @@
 /* plan list */
 .ide-plan { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 5px; }
 .ide-plan li {
-  display: flex; gap: 8px; align-items: flex-start;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
   padding: 6px 8px;
   background: #faf7f3; border: 1px solid #ede8e0; border-radius: 2px;
   font-size: 12px; line-height: 1.4;
@@ -159,6 +161,11 @@
 .ide-plan li.p-active { border-left-color: #4a9eff; background: rgba(74,158,255,.05); }
 .ide-plan li.p-done   { border-left-color: #34d39c; opacity: 0.7; }
 .ide-plan li.p-err    { border-left-color: #f06b6b; }
+.ide-plan-parent-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
 .ide-plan-num { font-size: 9.5px; font-weight: 700; color: #9e9890; padding-top: 1px; min-width: 14px; }
 .ide-plan-text { flex: 1; color: #1e2030; }
 .ide-plan-tag {
@@ -171,6 +178,54 @@
 .ide-plan-tag.t-nav    { color: #c8880a; border-color: rgba(200,136,10,.3); background: rgba(200,136,10,.06); }
 .ide-plan-tag.t-hover  { color: #8a50c8; border-color: rgba(138,80,200,.3); background: rgba(138,80,200,.06); }
 .ide-plan-tag.t-step   { color: #6e6860; border-color: rgba(110,104,96,.3); background: rgba(110,104,96,.06); }
+.ide-plan-children {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-left: 18px;
+  padding-left: 10px;
+  border-left: 1px solid #e6dfd2;
+}
+.ide-plan-child {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 4px 6px;
+  background: #f7f3ee;
+  border: 1px solid #e8e0d5;
+  border-radius: 2px;
+  font-size: 10.5px;
+  line-height: 1.35;
+  color: #4a4640;
+}
+.ide-plan-child-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ide-plan-child-op {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: #9e9890;
+}
+.ide-plan-child-desc {
+  color: #2e2a25;
+  overflow-wrap: anywhere;
+}
+.ide-plan-child-locator {
+  display: block;
+  font-size: 9.5px;
+  line-height: 1.35;
+  color: #7e7870;
+  background: #f0ece4;
+  padding: 2px 4px;
+  border-radius: 2px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
 
 /* timeline */
 .ide-tl { padding: 4px 10px; }

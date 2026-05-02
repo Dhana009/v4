@@ -44,6 +44,59 @@ function IDECard({ color, title, children, footer }) {
   );
 }
 
+function getPlanStepChildren(step) {
+  if (!step || typeof step !== "object") {
+    return [];
+  }
+
+  if (Array.isArray(step.children)) {
+    return step.children;
+  }
+
+  const raw = step.raw;
+  if (raw && typeof raw === "object" && Array.isArray(raw.children)) {
+    return raw.children;
+  }
+
+  return [];
+}
+
+function normalizePlanChild(child, index) {
+  if (child == null) {
+    return null;
+  }
+
+  const source = typeof child === "object" ? child : { text: child };
+  const operationId = firstText(
+    source.operation_id,
+    source.operationId,
+    source.op_id,
+    source.opId,
+    source.id,
+    source.step_id,
+    source.stepId
+  );
+  const kind = normalizeStepAction(source.type || source.kind || source.action);
+  const description = pickRecordedText(
+    source.description,
+    source.target,
+    source.text,
+    source.label,
+    source.title,
+    source.intent,
+    `Child ${index + 1}`
+  );
+  const locator = firstText(source.locator, source.selector, source.xpath, source.css, source.path);
+
+  return {
+    key: operationId ? `${operationId}-${index + 1}` : `plan-child-${index + 1}`,
+    operationId,
+    kind,
+    description: description || `Child ${index + 1}`,
+    locator: locator && locator.length <= 56 ? locator : "",
+  };
+}
+
 function normalizePanelState(state) {
   const key = String(state || "idle").trim().toLowerCase().replace(/[\s-]+/g, "_");
   switch (key) {
@@ -299,6 +352,7 @@ function IDEPlanReview({
               const kind = it.kind || it.type || "step";
               const text = it.text || it.label || it.title || `Step ${i + 1}`;
               const status = firstText(it.status, it.state, it.cls).toLowerCase();
+              const childRows = getPlanStepChildren(it).map((child, childIndex) => normalizePlanChild(child, childIndex)).filter(Boolean);
               const cls =
                 it.cls ||
                 (it.recorded === true || it.completed === true || ["done", "completed", "recorded", "passed"].includes(status)
@@ -308,9 +362,25 @@ function IDEPlanReview({
                     : "");
               return (
                 <li key={i} className={cls}>
-                  <span className="ide-plan-num">{i + 1}.</span>
-                  <span className="ide-plan-text">{text}</span>
-                  <IDEPlanTag kind={kind} />
+                  <div className="ide-plan-parent-row">
+                    <span className="ide-plan-num">{i + 1}.</span>
+                    <span className="ide-plan-text">{text}</span>
+                    <IDEPlanTag kind={kind} />
+                  </div>
+                  {childRows.length > 0 && (
+                    <div className="ide-plan-children">
+                      {childRows.map((child) => (
+                        <div key={child.key} className="ide-plan-child">
+                          <div className="ide-plan-child-head">
+                            {child.operationId && <span className="ide-plan-child-op">{child.operationId}</span>}
+                            <IDEPlanTag kind={child.kind} />
+                          </div>
+                          <div className="ide-plan-child-desc">{child.description}</div>
+                          {child.locator && <code className="ide-plan-child-locator">{child.locator}</code>}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </li>
               );
             })}

@@ -24599,6 +24599,52 @@
       footer && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { padding: "0 10px 10px", display: "flex", gap: 6 }, children: footer })
     ] });
   }
+  function getPlanStepChildren(step) {
+    if (!step || typeof step !== "object") {
+      return [];
+    }
+    if (Array.isArray(step.children)) {
+      return step.children;
+    }
+    const raw = step.raw;
+    if (raw && typeof raw === "object" && Array.isArray(raw.children)) {
+      return raw.children;
+    }
+    return [];
+  }
+  function normalizePlanChild(child, index) {
+    if (child == null) {
+      return null;
+    }
+    const source = typeof child === "object" ? child : { text: child };
+    const operationId = firstText(
+      source.operation_id,
+      source.operationId,
+      source.op_id,
+      source.opId,
+      source.id,
+      source.step_id,
+      source.stepId
+    );
+    const kind = normalizeStepAction(source.type || source.kind || source.action);
+    const description = pickRecordedText(
+      source.description,
+      source.target,
+      source.text,
+      source.label,
+      source.title,
+      source.intent,
+      `Child ${index + 1}`
+    );
+    const locator = firstText(source.locator, source.selector, source.xpath, source.css, source.path);
+    return {
+      key: operationId ? `${operationId}-${index + 1}` : `plan-child-${index + 1}`,
+      operationId,
+      kind,
+      description: description || `Child ${index + 1}`,
+      locator: locator && locator.length <= 56 ? locator : ""
+    };
+  }
   function normalizePanelState(state) {
     const key = String(state || "idle").trim().toLowerCase().replace(/[\s-]+/g, "_");
     switch (key) {
@@ -24816,14 +24862,25 @@
             const kind = it.kind || it.type || "step";
             const text = it.text || it.label || it.title || `Step ${i + 1}`;
             const status = firstText(it.status, it.state, it.cls).toLowerCase();
+            const childRows = getPlanStepChildren(it).map((child, childIndex) => normalizePlanChild(child, childIndex)).filter(Boolean);
             const cls = it.cls || (it.recorded === true || it.completed === true || ["done", "completed", "recorded", "passed"].includes(status) ? "done" : status === "active" ? "active" : "");
             return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("li", { className: cls, children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "ide-plan-num", children: [
-                i + 1,
-                "."
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-plan-parent-row", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "ide-plan-num", children: [
+                  i + 1,
+                  "."
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ide-plan-text", children: text }),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEPlanTag, { kind })
               ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ide-plan-text", children: text }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEPlanTag, { kind })
+              childRows.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-plan-children", children: childRows.map((child) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-plan-child", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-plan-child-head", children: [
+                  child.operationId && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ide-plan-child-op", children: child.operationId }),
+                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEPlanTag, { kind: child.kind })
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-plan-child-desc", children: child.description }),
+                child.locator && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "ide-plan-child-locator", children: child.locator })
+              ] }, child.key)) })
             ] }, i);
           }) }) }) : null,
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(

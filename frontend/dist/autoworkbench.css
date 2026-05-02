@@ -1526,8 +1526,8 @@
 }
 .ide-plan li {
   display: flex;
-  gap: 8px;
-  align-items: flex-start;
+  flex-direction: column;
+  gap: 6px;
   padding: 6px 8px;
   background: #faf7f3;
   border: 1px solid #ede8e0;
@@ -1546,6 +1546,11 @@
 }
 .ide-plan li.p-err {
   border-left-color: #f06b6b;
+}
+.ide-plan-parent-row {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
 }
 .ide-plan-num {
   font-size: 9.5px;
@@ -1596,6 +1601,54 @@
   color: #6e6860;
   border-color: rgba(110, 104, 96, .3);
   background: rgba(110, 104, 96, .06);
+}
+.ide-plan-children {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-left: 18px;
+  padding-left: 10px;
+  border-left: 1px solid #e6dfd2;
+}
+.ide-plan-child {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 4px 6px;
+  background: #f7f3ee;
+  border: 1px solid #e8e0d5;
+  border-radius: 2px;
+  font-size: 10.5px;
+  line-height: 1.35;
+  color: #4a4640;
+}
+.ide-plan-child-head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.ide-plan-child-op {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  text-transform: uppercase;
+  color: #9e9890;
+}
+.ide-plan-child-desc {
+  color: #2e2a25;
+  overflow-wrap: anywhere;
+}
+.ide-plan-child-locator {
+  display: block;
+  font-size: 9.5px;
+  line-height: 1.35;
+  color: #7e7870;
+  background: #f0ece4;
+  padding: 2px 4px;
+  border-radius: 2px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
 }
 .ide-tl {
   padding: 4px 10px;
