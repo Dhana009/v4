@@ -886,6 +886,187 @@ Expected Outcome Capture v1 is complete when:
 8. Later: add observed_outcome capture.
 ```
 
+PRD Addendum — Replay Precondition Guard v1
+1. Problem
+
+Replay cannot safely execute a recorded step only because the locator/action exists.
+
+A recorded step belongs to a specific application state. That state may include:
+
+URL
+page title
+modal open/closed state
+dropdown/menu state
+target element visibility
+form/page content state
+tab/window context
+iframe context
+
+URL alone is not enough.
+
+Example:
+
+Step 1: Click “Open Modal”
+Expected outcome: modal opens
+
+Step 2: Fill input inside modal
+Precondition: modal is already open
+
+Both steps may have the same URL. If the user clicks Replay Step 1 while already inside the modal, the original “Open Modal” button may not be visible or may no longer be actionable. Blind replay can fail incorrectly or falsely pass.
+
+Therefore, replay must validate the recorded step’s precondition before executing.
+
+2. Core Principle
+
+Replay must prefer clear failure over false success.
+
+If the current app state does not match the recorded precondition, replay must not blindly execute.
+
+Replay should return a clear failure:
+
+replay_precondition_failed
+
+instead of pretending the step passed.
+
+3. Replay Precondition Model
+
+Each recorded step should support a derived or stored replay precondition.
+
+For v1, derive it from existing recorded data:
+
+{
+  "replay_precondition": {
+    "before_url": "...",
+    "before_title": "...",
+    "target_locator": "...",
+    "target_must_be_visible": true,
+    "expected_context": "page | modal | dropdown | unknown"
+  }
+}
+
+In v1, this does not need to be a separate persisted field if it can be derived from:
+
+observed_outcome.before_url
+observed_outcome.before_title
+locator
+expected_outcome.type
+4. Replay One Behavior
+
+Replay One is diagnostic and should not auto-navigate by default.
+
+Before replaying a single step:
+
+1. Check current URL/title against recorded before_url/before_title when available.
+2. Check target locator exists and is actionable/visible.
+3. If the precondition does not match, block replay with replay_precondition_failed.
+4. Do not mutate the recorded step.
+5. Do not enter live recovery.
+
+Example failure payload:
+
+{
+  "ok": false,
+  "reason": "replay_precondition_failed",
+  "step_id": "pending-step-...",
+  "expected": {
+    "before_url": "https://playwright.dev/",
+    "before_title": "Fast and reliable end-to-end testing for modern web apps | Playwright"
+  },
+  "actual": {
+    "url": "https://playwright.dev/docs/intro",
+    "title": "Installation | Playwright"
+  },
+  "message": "Cannot replay this step from the current app state. Return to the recorded start state or use Replay All."
+}
+5. Replay All Behavior
+
+Replay All is flow-level replay.
+
+Replay All should attempt to start from the beginning of the recorded flow.
+
+For v1:
+
+1. Find the first recorded step.
+2. If the first step has observed_outcome.before_url, navigate to that URL before replaying.
+3. Replay steps in recorded archive order.
+4. Before each step, validate replay precondition.
+5. If a precondition fails, stop and return replay_precondition_failed.
+6. Do not silently continue after a precondition mismatch.
+
+Replay All may auto-navigate only for simple same-tab URL restoration.
+
+Replay All must not attempt unsafe automatic recovery such as:
+
+closing modals
+opening dropdowns
+resetting forms
+switching tabs
+repairing iframes
+undoing app-side mutations
+
+If those states are required and cannot be safely restored, Replay All should fail clearly.
+
+6. Same-URL UI State Handling
+
+For same-URL states like modal/dropdown/drawer:
+
+URL match is not enough.
+
+Replay should also validate that the target element for the step is present and actionable.
+
+Examples:
+
+If replaying “Open Modal” but modal is already open and the open button is not visible:
+→ replay_precondition_failed
+
+If replaying “Fill modal input” but modal is closed:
+→ replay_precondition_failed
+
+If replaying “Open dropdown” but dropdown is already open or trigger is hidden:
+→ replay_precondition_failed
+
+V1 should not attempt to fix these automatically.
+
+7. V1 Scope
+
+Replay Precondition Guard v1 includes:
+
+Replay One precondition check
+Replay All start URL restore for first step
+Replay All per-step precondition check
+target locator/actionability validation
+clear replay_precondition_failed result
+backend logs for pass/fail
+no mutation of recorded artifacts
+8. Out of Scope for v1
+
+Do not implement in v1:
+
+automatic modal close/open recovery
+automatic dropdown state repair
+new-tab restoration
+iframe replay repair
+form reset
+auth/session reset
+visual diffing
+LLM replay repair
+save repaired version
+branching snapshot versioning
+9. Acceptance Criteria
+
+Replay Precondition Guard v1 is complete when:
+
+1. Replay One blocks if current URL/title does not match recorded before state.
+2. Replay One blocks if target locator is missing/not actionable.
+3. Replay All navigates to the first step’s recorded before_url when available.
+4. Replay All stops on the first precondition failure.
+5. Replay All does not falsely pass when current state is wrong.
+6. Same-URL modal/dropdown cases fail clearly instead of silently passing.
+7. replay_precondition_failed is visible in backend result/logs.
+8. recorded steps, code updates, and snapshots are not mutated by replay.
+10. Short Summary
+Replay Precondition Guard ensures replay starts from the correct recorded app state before executing a step. It prevents false replay success by checking URL/title and target actionability, while safely failing on unsupported same-page state mismatches like modal/dropdown conditions.
+
 ---
 
 ## Short PRD summary line

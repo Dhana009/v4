@@ -1,13 +1,13 @@
 <claude-mem-context>
 # Memory Context
 
-# [agent v4] recent context, 2026-05-02 7:01pm GMT+5:30
+# [agent v4] recent context, 2026-05-03 12:13pm GMT+5:30
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (35,465t read) | 1,146,660t work | 97% savings
+Stats: 50 obs (28,037t read) | 914,296t work | 97% savings
 
 ### May 1, 2026
 S96 Implement lifecycle guard in agent.py to enforce Planning → Confirmation → Execution → Record → Recovery control flow (May 1 at 4:06 PM)
@@ -21,36 +21,7 @@ S102 Fix backend multi-step recording bug in agent.py — replace global last_su
 S103 Launch AutoWorkbench agent v4 once and run a smoke test of the clarification UI roundtrip (May 2 at 3:33 AM)
 S104 Add agent phase diagnostics in shadow mode to agent v4 — PhaseTracker implementation in runtime/phase_tracker.py and agent.py wiring (May 2 at 3:57 AM)
 S106 Read-only investigation of recorded parent/child display wording in AutoWorkbench (agent v4) — tracing why parent title and children repeat the same full intent text (May 2 at 11:40 AM)
-1122 12:14p 🔵 AutoWorkbench Agent v4 — No Capability Gap Logging System Exists
-1142 12:29p ⚖️ Capability Gap Logging v1 — Read-Only Implementation Plan
-1143 " 🔵 Exact Code Locations for Capability Gap Logging v1 Hook Points in agent.py
-1144 12:30p 🔵 Test Patterns and AgentLoop Stub Setup for Capability Gap Logging v1 Tests
-1145 12:31p 🔵 Confirmed Lifecycle Reset Location for capability_gaps Initialization in agent.py
-1146 12:32p 🔵 Exact Line Numbers for All Four v1 Gap Hook Insertion Points and Sibling Test Anchors
-1148 " 🔵 Zero Existing Tests for Capability Gap Logic — All Four Are Net-New
-1161 12:44p ⚖️ Save/Replay Readiness Investigation Scoped — Read-Only Plan for Next PRD Block
-1163 " 🔵 Save/Replay Buttons Exist in Frontend But Backend Has Zero Implementation
-1166 12:45p 🔵 Full Save/Replay Readiness Map: Frontend Wired, Backend Entirely Absent
-1167 12:46p 🔵 Save/Replay Readiness Investigation — Autoworkbench Agent v4
-1170 " 🔵 Autoworkbench Agent v4 — Detailed Code-Level Save/Replay Gap Findings
-1171 12:47p 🔵 Frontend Recorded Step Normalization and Merge Contract — main.jsx
-1179 12:53p ⚖️ Save v1 Architecture Decision — Frontend-Side Export vs Backend Snapshot
-1180 " 🔵 Save v1 Frontend Attachment Points and Export Helper Gap Confirmed
-1193 1:06p ⚖️ Replay One v1 — Read-Only Implementation Plan for Autoworkbench Agent v4
-1194 " 🔵 Backend Snapshot Builder and Spec Snapshot Module Confirmed — Replay v1 Ready State
-1195 1:07p 🔵 Complete Tool Dispatch Map Confirmed for Replay v1 — All Action Primitives Located
-1196 1:08p 🔵 _resolve_locator Full Implementation Confirmed — Supports All Playwright Locator Patterns
-1198 1:09p 🔵 Replay v1 Implementation Planning — Read-Only Investigation
-1200 " 🔵 Autoworkbench Agent v4 — Replay v1 Codebase Architecture Map
-1201 1:11p 🔵 Replay v1 — Deep Contract Map: Tool Dispatch, Frontend Message Loop, and Child Execution Model
-1209 1:22p ⚖️ Replay All v1 Architecture Planning for AutoWorkbench
-1212 1:23p 🔵 Agent v4 Replay One v1 — Runtime Architecture Mapped for Repair Planning
-1213 " ⚖️ Replay Failure Should Use Separate replay_repair Phase, Not Live Recovery
-1214 1:24p 🔵 Full RecoveryManager and ContextManager Source Code Inspected for Replay Repair Planning
-1215 " ⚖️ Replay One v1 Must Not Call _mark_step_failed on Replay Failure
-1216 1:25p 🔵 Complete Agent v4 Lifecycle State Fields and Test Fixture Patterns Mapped
-1221 1:26p ⚖️ Replay All v1 — Read-Only Architecture Planning for AutoWorkbench
-1231 " ⚖️ Replay Failure & Repair Architecture Planning for agent v4
+1231 1:26p ⚖️ Replay Failure & Repair Architecture Planning for agent v4
 1300 " ⚖️ Expected Outcome Capture v1 — Save & Replay Integration Plan for agent v4
 1222 " 🔵 AutoWorkbench agent v4 — Live Code Map for Replay All Planning
 1223 " 🔵 AutoWorkbench agent v4 — Deep Code Map of Replay/Recording Surfaces
@@ -71,6 +42,36 @@ S106 Read-only investigation of recorded parent/child display wording in AutoWor
 1304 6:56p 🔵 expected_outcome & observed_outcome — PRD Spec Exists, No Code Implementation Yet
 1305 " 🔵 PRD v2.3 Expected Outcome Full Schema — Data Model, Replay Rules, and MVP Acceptance Criteria
 1306 6:57p 🔵 Exact Code Insertion Points for expected_outcome in agent v4 Confirmed
+1308 7:02p 🔵 Read-only investigation: observed_outcome v1 capture points in agent v4
+1310 " 🔵 agent v4 skill architecture boundaries and safe change order confirmed
+1313 " 🔵 agent v4 AgentLoop instance state map and action execution flow traced
+1314 " 🔵 Compact state shape and v1 detectable outcome types identified for observed_outcome
+1315 7:04p 🔵 Read-only investigation for observed_outcome v1 capture points in autoworkbench replay system
+1316 " 🔵 agent.py action execution loop: safe observed_outcome capture points identified
+1317 " 🔵 AgentLoop test harness pattern: _make_loop() factory initializes all replay-related state fields
+### May 3, 2026
+1453 12:01p 🟣 Replay Precondition Failure Visibility — Backend Logs + Frontend UI
+1454 " 🔵 Pre-edit State: Replay Precondition Infrastructure Already Exists in agent.py
+1455 12:02p 🔵 Detailed Pre-Edit State: What Exists vs What Needs Adding
+1456 " 🟣 agent.py: Added failure_type and [REPLAY_PRECONDITION] failed Log Lines
+1457 " 🟣 frontend/src/main.jsx: Precondition-Aware Replay Timeline Messages and Per-Step Status State
+1458 " 🔵 Frontend Search Shows "Replay blocked" Text Not Appearing in main.jsx After Writes
+1459 12:04p 🔵 Frontend Edits Confirmed Not Persisted — "Replay blocked" Text Missing from main.jsx
+1460 " 🟣 agent.py: Refactored Precondition Logging into Dedicated Helper and Added failure_type to Replay All Events
+1461 12:05p 🟣 frontend/src/main.jsx: resolveReplayPreconditionFeedback() Helper and lastReplayByStepId State Added
+1462 " 🔵 apply_patch Failed on main.jsx — normalizeTimelineEntry and extractText Are Not Adjacent in File
+1463 12:06p 🟣 frontend/src/main.jsx: resolveReplayPreconditionFeedback() and lastReplayByStepId State Successfully Added
+1464 " 🟣 Replay Precondition Failure Visibility — Backend Logs + Frontend UI
+1465 " 🟣 Frontend Replay Event Handlers Wired to Precondition Feedback + Step Status Tracking
+1466 12:08p 🟣 Replay Precondition Failure Verbose Logging + Short Messages in agent.py
+1467 " 🟣 IDERecordedStepCard Now Displays Per-Step Replay Status Badge
+1468 " 🟣 Test Assertions Updated for Short Precondition Messages and Terminal Log Format
+1469 " 🔵 updateLastReplayByStepId is a useCallback at line 1191 in main.jsx
+1470 " 🔵 Final State Verification: All Replay Precondition Changes Confirmed in Place
+1471 12:09p 🟣 Replay Precondition Visibility — All Tests Pass, Frontend Build Succeeds
+1472 " 🔵 Complete Symbol Reference Map for Replay Precondition Feedback in Frontend
+1473 " 🔴 Git Status: Replay Precondition Visibility — All Changed Files Identified
+1474 " ✅ Replay Precondition Visibility — Final Diff Stats
 
-Access 1147k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 914k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

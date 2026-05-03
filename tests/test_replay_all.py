@@ -7,6 +7,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
+import agent as agent_module
 import server
 from agent import AgentLoop
 from runtime.phase_tracker import PhaseTracker
@@ -18,6 +19,24 @@ class FakeQueue:
 
     async def put(self, item: dict[str, object]) -> None:
         self.items.append(item)
+
+
+class FakePage:
+    def __init__(self, url: str, title: str) -> None:
+        self.url = url
+        self.title_value = title
+        self.goto_calls: list[tuple[str, str]] = []
+
+    async def goto(self, url: str, wait_until: str = "domcontentloaded") -> None:
+        self.goto_calls.append((url, wait_until))
+        self.url = url
+        if "docs" in url:
+            self.title_value = "Installation | Playwright"
+        else:
+            self.title_value = "Playwright"
+
+    async def title(self) -> str:
+        return self.title_value
 
 
 def _make_loop() -> AgentLoop:
@@ -72,14 +91,24 @@ def _make_loop() -> AgentLoop:
     return loop
 
 
-def _make_recorded_payload(step_id: str, step_number: int) -> dict[str, object]:
-    return {
+def _make_recorded_payload(
+    step_id: str,
+    step_number: int,
+    *,
+    before_url: str | None = None,
+    before_title: str | None = None,
+    locator: str | None = None,
+    child_locator: str | None = None,
+) -> dict[str, object]:
+    step_locator = f"#step-{step_number}" if locator is None else locator
+    child_step_locator = step_locator if child_locator is None else child_locator
+    payload: dict[str, object] = {
         "step_id": step_id,
         "step_number": step_number,
         "intent": f"Intent {step_number}",
         "action": "click",
         "element_name": f"Step {step_number}",
-        "locator": f'#step-{step_number}',
+        "locator": step_locator,
         "generated_line": f"await step{step_number}.click();",
         "status": "success",
         "children": [
@@ -88,12 +117,20 @@ def _make_recorded_payload(step_id: str, step_number: int) -> dict[str, object]:
                 "type": "click",
                 "description": f"Step {step_number}",
                 "target": f"Step {step_number}",
-                "locator": f'#step-{step_number}',
+                "locator": child_step_locator,
                 "status": "success",
                 "code_lines": [f"await step{step_number}.click();"],
             }
         ],
     }
+    if before_url is not None or before_title is not None:
+        observed_outcome: dict[str, object] = {}
+        if before_url is not None:
+            observed_outcome["before_url"] = before_url
+        if before_title is not None:
+            observed_outcome["before_title"] = before_title
+        payload["observed_outcome"] = observed_outcome
+    return payload
 
 
 def _make_success_result(step_id: str) -> dict[str, object]:
@@ -250,7 +287,7 @@ def test_replay_all_emits_compact_backend_logs(capsys: pytest.CaptureFixture[str
     assert "[REPLAY_ALL] completed total=2 passed=2 failed=0" in captured
 
 
-def test_replay_all_uses_auto_recorded_archive_order() -> None:
+def test_replay_all_uses_auto_recorded_archive_order(monkeypatch) -> None:
     loop = _make_loop()
     step_one_context = {
         "step_id": "step-1",
@@ -340,6 +377,9 @@ def test_replay_all_uses_auto_recorded_archive_order() -> None:
     loop.replay_action_history_by_step_id["step-2"] = [step_two_record]
     asyncio.run(loop._auto_record_successful_step())
 
+    fake_page = FakePage("https://playwright.dev/", "Playwright")
+    monkeypatch.setattr(agent_module, "get_page", lambda: fake_page)
+
     calls: list[str] = []
 
     async def fake_replay_one(step_id: str) -> dict[str, object]:
@@ -361,6 +401,233 @@ def test_replay_all_uses_auto_recorded_archive_order() -> None:
         "replayed_count": 2,
         "passed_count": 2,
         "failed_count": 0,
+    }
+
+
+def test_replay_all_restores_first_before_url_before_replaying(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch,
+) -> None:
+    loop = _make_loop()
+    loop.recorded_step_payloads = [
+        _make_recorded_payload(
+            "step-1",
+            1,
+            before_url="https://playwright.dev/",
+            before_title="Playwright",
+            locator='get_by_label("First")',
+            child_locator='get_by_label("First")',
+        ),
+        _make_recorded_payload("step-2", 2),
+    ]
+    loop.replay_recorded_step_payloads_by_step_id = {
+        "step-1": loop.recorded_step_payloads[0],
+        "step-2": loop.recorded_step_payloads[1],
+    }
+    loop.replay_action_history_by_step_id = {
+        "step-1": [
+            {
+                "tool": "action_click",
+                "action": "click",
+                "locator": 'get_by_label("First")',
+                "result": {"success": True, "skipped": False},
+                "action_context": {"locator": 'get_by_label("First")'},
+                "tool_args": {"locator": 'get_by_label("First")'},
+                "step_id": "step-1",
+                "step_number": 1,
+            }
+        ],
+        "step-2": [
+            {
+                "tool": "action_click",
+                "action": "click",
+                "locator": "",
+                "result": {"success": True, "skipped": False},
+                "action_context": {},
+                "tool_args": {},
+                "step_id": "step-2",
+                "step_number": 2,
+            }
+        ],
+    }
+
+    fake_page = FakePage("https://playwright.dev/docs/intro", "Installation | Playwright")
+    monkeypatch.setattr(agent_module, "get_page", lambda: fake_page)
+
+    calls: list[str] = []
+
+    async def fake_send(msg_type: str, **kwargs: object) -> None:  # noqa: ARG001
+        return None
+
+    async def fake_replay_one(step_id: str) -> dict[str, object]:
+        calls.append(step_id)
+        return _make_success_result(step_id)
+
+    loop._send = fake_send
+    loop.replay_one = fake_replay_one
+
+    result = asyncio.run(loop.replay_all())
+    captured = capsys.readouterr().out
+
+    assert fake_page.goto_calls == [("https://playwright.dev/", "domcontentloaded")]
+    assert "[REPLAY_ALL] restoring_start_url url=https://playwright.dev/" in captured
+    assert calls == ["step-1", "step-2"]
+    assert result == {
+        "type": "replay_all_result",
+        "ok": True,
+        "stop_on_error": True,
+        "step_ids": ["step-1", "step-2"],
+        "replayed_count": 2,
+        "passed_count": 2,
+        "failed_count": 0,
+    }
+
+
+def test_replay_all_stops_on_precondition_failure(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch,
+) -> None:
+    loop = _make_loop()
+    loop.recorded_step_payloads = [
+        _make_recorded_payload(
+            "step-1",
+            1,
+            before_url="https://playwright.dev/",
+            before_title="Playwright",
+            locator='get_by_label("First")',
+            child_locator='get_by_label("First")',
+        ),
+        _make_recorded_payload(
+            "step-2",
+            2,
+            before_url="https://playwright.dev/",
+            before_title="Playwright",
+            locator="",
+            child_locator="",
+        ),
+    ]
+    loop.replay_recorded_step_payloads_by_step_id = {
+        "step-1": loop.recorded_step_payloads[0],
+        "step-2": loop.recorded_step_payloads[1],
+    }
+    loop.replay_action_history_by_step_id = {
+        "step-1": [
+            {
+                "tool": "action_click",
+                "action": "click",
+                "locator": 'get_by_label("First")',
+                "result": {"success": True, "skipped": False},
+                "action_context": {"locator": 'get_by_label("First")'},
+                "tool_args": {"locator": 'get_by_label("First")'},
+                "step_id": "step-1",
+                "step_number": 1,
+            }
+        ],
+        "step-2": [
+            {
+                "tool": "action_click",
+                "action": "click",
+                "locator": 'get_by_label("Second")',
+                "result": {"success": True, "skipped": False},
+                "action_context": {"locator": 'get_by_label("Second")'},
+                "tool_args": {"locator": 'get_by_label("Second")'},
+                "step_id": "step-2",
+                "step_number": 2,
+            }
+        ],
+    }
+
+    fake_page = FakePage("https://playwright.dev/docs/intro", "Installation | Playwright")
+    monkeypatch.setattr(agent_module, "get_page", lambda: fake_page)
+
+    executed_actions: list[str] = []
+    validate_calls: list[str] = []
+    messages: list[dict[str, object]] = []
+
+    async def fake_capture_browser_state() -> dict[str, str]:
+        return {
+            "url": fake_page.url,
+            "title": fake_page.title_value,
+        }
+
+    async def fake_validate_target_locator(locator: str) -> dict[str, object]:
+        validate_calls.append(locator)
+        if locator == 'get_by_label("Second")':
+            return {"valid": False, "count": 0}
+        return {"valid": True, "count": 1}
+
+    async def fake_click(args: dict[str, object]) -> dict[str, object]:
+        executed_actions.append(str(args.get("locator") or ""))
+        return {"success": True, "error": None}
+
+    async def fake_send(msg_type: str, **kwargs: object) -> None:
+        messages.append({"type": msg_type, **kwargs})
+
+    loop._capture_browser_state = fake_capture_browser_state
+    loop._validate_replay_target_locator = fake_validate_target_locator
+    loop._tool_action_click = fake_click
+    loop._send = fake_send
+
+    result = asyncio.run(loop.replay_all())
+    captured = capsys.readouterr().out
+
+    assert fake_page.goto_calls == [("https://playwright.dev/", "domcontentloaded")]
+    assert executed_actions == ['get_by_label("First")']
+    assert validate_calls == ['get_by_label("First")', 'get_by_label("Second")']
+    assert (
+        "[REPLAY_PRECONDITION] failed step_id=step-2 reason=locator_missing "
+        'locator=get_by_label("Second")'
+    ) in captured
+    assert messages == [
+        {"type": "replay_started", "scope": "all", "step_count": 2},
+        {
+            "type": "replay_result",
+            "step_id": "step-1",
+            "ok": True,
+            "status": "success",
+            "operation_count": 1,
+        },
+        {
+            "type": "replay_result",
+            "step_id": "step-2",
+            "ok": False,
+            "status": "failed",
+            "operation_count": 0,
+            "reason": "replay_precondition_failed",
+            "failure_type": "locator_missing",
+            "expected": {
+                "before_url": "https://playwright.dev/",
+                "before_title": "Playwright",
+            },
+            "actual": {
+                "url": "https://playwright.dev/",
+                "title": "Playwright",
+            },
+            "message": "Element not found",
+            "error": "Element not found",
+        },
+        {
+            "type": "replay_all_result",
+            "ok": False,
+            "stop_on_error": True,
+            "step_ids": ["step-1", "step-2"],
+            "replayed_count": 2,
+            "passed_count": 1,
+            "failed_count": 1,
+            "failed_step_id": "step-2",
+            "error": "Element not found",
+        },
+    ]
+    assert result == {
+        "type": "replay_all_result",
+        "ok": False,
+        "stop_on_error": True,
+        "step_ids": ["step-1", "step-2"],
+        "replayed_count": 2,
+        "passed_count": 1,
+        "failed_count": 1,
+        "failed_step_id": "step-2",
+        "error": "Element not found",
     }
 
 

@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import asyncio
+from copy import deepcopy
 from types import SimpleNamespace
 
+import pytest
 from fastapi.testclient import TestClient
 
 import server
@@ -113,6 +115,45 @@ def _make_hover_record(step_context: dict[str, object]) -> dict[str, object]:
         "step_id": step_context["step_id"],
         "step_number": step_context["step_number"],
     }
+
+
+def _make_replay_recorded_payload(
+    *,
+    before_url: str | None = None,
+    before_title: str | None = None,
+    locator: str | None = None,
+    child_locator: str = 'get_by_label("Get started")',
+) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "step_id": "step-1",
+        "step_number": 1,
+        "intent": "Check that Get started is visible and click it",
+        "action": "click",
+        "element_name": "Get started",
+        "generated_line": "await getStarted.click();",
+        "status": "success",
+        "children": [
+            {
+                "operation_id": "op_1",
+                "type": "click",
+                "description": "Get started",
+                "target": "Get started",
+                "locator": child_locator,
+                "status": "success",
+                "code_lines": ["await getStarted.click();"],
+            }
+        ],
+    }
+    if locator is not None:
+        payload["locator"] = locator
+    if before_url is not None or before_title is not None:
+        observed_outcome: dict[str, object] = {}
+        if before_url is not None:
+            observed_outcome["before_url"] = before_url
+        if before_title is not None:
+            observed_outcome["before_title"] = before_title
+        payload["observed_outcome"] = observed_outcome
+    return payload
 
 
 def _make_loop() -> AgentLoop:
@@ -234,6 +275,193 @@ def test_replay_one_resolves_recorded_step_by_step_id_and_executes_operations_in
         "status": "success",
         "operation_count": 2,
     }
+    assert executed_actions == ["assert", "click"]
+
+
+def test_replay_one_blocks_url_mismatch_without_mutating_artifacts(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    loop = _make_loop()
+    recorded_payload = _make_replay_recorded_payload(
+        before_url="https://playwright.dev/",
+        before_title="Playwright",
+        locator="",
+        child_locator='get_by_label("Get started")',
+    )
+    original_recorded_step_payloads = [deepcopy(recorded_payload)]
+    original_replay_recorded_step_payloads_by_step_id = {"step-1": deepcopy(recorded_payload)}
+    original_replay_action_history_by_step_id = {"step-1": [_make_click_record(_make_step_context())]}
+
+    loop.recorded_step_payloads = deepcopy(original_recorded_step_payloads)
+    loop.replay_recorded_step_payloads_by_step_id = deepcopy(original_replay_recorded_step_payloads_by_step_id)
+    loop.replay_action_history_by_step_id = deepcopy(original_replay_action_history_by_step_id)
+
+    async def fake_capture_browser_state() -> dict[str, str]:
+        return {
+            "url": "https://playwright.dev/docs/intro",
+            "title": "Installation | Playwright",
+        }
+
+    async def forbidden_validate_target_locator(locator: str) -> dict[str, object]:  # noqa: ARG001
+        raise AssertionError("locator validation should not run after a URL mismatch")
+
+    loop._capture_browser_state = fake_capture_browser_state
+    loop._validate_replay_target_locator = forbidden_validate_target_locator
+
+    result = asyncio.run(loop.replay_one("step-1"))
+    captured = capsys.readouterr().out
+
+    assert result == {
+        "type": "replay_one_result",
+        "ok": False,
+        "step_id": "step-1",
+        "reason": "replay_precondition_failed",
+        "failure_type": "wrong_start_page",
+        "expected": {
+            "before_url": "https://playwright.dev/",
+            "before_title": "Playwright",
+        },
+        "actual": {
+            "url": "https://playwright.dev/docs/intro",
+            "title": "Installation | Playwright",
+        },
+        "message": "Wrong start page",
+        "error": "Wrong start page",
+    }
+    assert (
+        "[REPLAY_PRECONDITION] failed step_id=step-1 reason=url_mismatch "
+        "expected_url=https://playwright.dev/ actual_url=https://playwright.dev/docs/intro"
+    ) in captured
+    assert loop.recorded_step_payloads == original_recorded_step_payloads
+    assert loop.replay_recorded_step_payloads_by_step_id == original_replay_recorded_step_payloads_by_step_id
+    assert loop.replay_action_history_by_step_id == original_replay_action_history_by_step_id
+
+
+def test_replay_one_allows_matching_url_and_executes_operations_in_order() -> None:
+    loop = _make_loop()
+    step_context = _make_step_context()
+    assert_record = _make_assert_record(step_context)
+    click_record = _make_click_record(step_context)
+    recorded_payload = _make_replay_recorded_payload(
+        before_url="https://playwright.dev/",
+        before_title="Playwright",
+        locator="",
+        child_locator='get_by_label("Get started")',
+    )
+    loop.recorded_step_payloads = [deepcopy(recorded_payload)]
+    loop.replay_recorded_step_payloads_by_step_id = {"step-1": deepcopy(recorded_payload)}
+    loop.replay_action_history_by_step_id = {"step-1": [assert_record, click_record]}
+
+    precondition_calls: list[str] = []
+    executed_actions: list[str] = []
+
+    async def fake_capture_browser_state() -> dict[str, str]:
+        precondition_calls.append("capture")
+        return {
+            "url": "https://playwright.dev/",
+            "title": "Playwright",
+        }
+
+    async def fake_validate_target_locator(locator: str) -> dict[str, object]:
+        precondition_calls.append(locator)
+        assert locator == 'get_by_label("Get started")'
+        return {"valid": True, "count": 1}
+
+    async def fake_assert(args: dict[str, object]) -> dict[str, object]:
+        executed_actions.append("assert")
+        assert str(args.get("locator") or "") == 'get_by_label("Get started")'
+        assert str(args.get("assertion") or "") == "visible"
+        return {"success": True, "error": None}
+
+    async def fake_click(args: dict[str, object]) -> dict[str, object]:
+        executed_actions.append("click")
+        assert str(args.get("locator") or "") == 'get_by_label("Get started")'
+        return {"success": True, "error": None}
+
+    loop._capture_browser_state = fake_capture_browser_state
+    loop._validate_replay_target_locator = fake_validate_target_locator
+    loop._tool_action_assert = fake_assert
+    loop._tool_action_click = fake_click
+
+    result = asyncio.run(loop.replay_one("step-1"))
+
+    assert result == {
+        "type": "replay_one_result",
+        "ok": True,
+        "step_id": "step-1",
+        "status": "success",
+        "operation_count": 2,
+    }
+    assert precondition_calls == ["capture", 'get_by_label("Get started")']
+    assert executed_actions == ["assert", "click"]
+
+
+def test_replay_one_missing_before_url_keeps_current_behavior(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    loop = _make_loop()
+    step_context = _make_step_context()
+    assert_record = _make_assert_record(step_context)
+    click_record = _make_click_record(step_context)
+    recorded_payload = _make_replay_recorded_payload(locator=None)
+    recorded_payload["locator"] = ""
+    recorded_payload["children"] = [
+        {
+            "operation_id": "op_1",
+            "type": "assert",
+            "description": "Get started is visible",
+            "target": "Get started",
+            "locator": 'get_by_label("Get started")',
+            "status": "success",
+            "code_lines": ["await expect(getStarted).toBeVisible();"],
+        },
+        {
+            "operation_id": "op_2",
+            "type": "click",
+            "description": "Get started",
+            "target": "Get started",
+            "locator": 'get_by_label("Get started")',
+            "status": "success",
+            "code_lines": ["await getStarted.click();"],
+        },
+    ]
+    recorded_payload.pop("observed_outcome", None)
+    loop.recorded_step_payloads = [deepcopy(recorded_payload)]
+    loop.replay_recorded_step_payloads_by_step_id = {"step-1": deepcopy(recorded_payload)}
+    loop.replay_action_history_by_step_id = {"step-1": [assert_record, click_record]}
+
+    executed_actions: list[str] = []
+
+    async def forbidden_capture_browser_state() -> dict[str, str]:
+        raise AssertionError("browser state should not be read when before_url is missing")
+
+    async def forbidden_validate_target_locator(locator: str) -> dict[str, object]:  # noqa: ARG001
+        raise AssertionError("locator validation should not run when before_url is missing")
+
+    async def fake_assert(args: dict[str, object]) -> dict[str, object]:
+        executed_actions.append("assert")
+        return {"success": True, "error": None}
+
+    async def fake_click(args: dict[str, object]) -> dict[str, object]:
+        executed_actions.append("click")
+        return {"success": True, "error": None}
+
+    loop._capture_browser_state = forbidden_capture_browser_state
+    loop._validate_replay_target_locator = forbidden_validate_target_locator
+    loop._tool_action_assert = fake_assert
+    loop._tool_action_click = fake_click
+
+    result = asyncio.run(loop.replay_one("step-1"))
+    captured = capsys.readouterr().out
+
+    assert result == {
+        "type": "replay_one_result",
+        "ok": True,
+        "step_id": "step-1",
+        "status": "success",
+        "operation_count": 2,
+    }
+    assert "[REPLAY_PRECONDITION] missing before_url step_id=step-1" in captured
     assert executed_actions == ["assert", "click"]
 
 
@@ -485,5 +713,76 @@ def test_replay_one_websocket_route_does_not_use_control_queue(monkeypatch) -> N
         "operation_count": 2,
     }
     assert created["agent"].step_ids == ["step-1"]
+    assert created["agent"].control_queue is fake_queue
+    assert fake_queue.items == []
+
+
+def test_replay_one_websocket_route_preserves_precondition_failure_details(monkeypatch) -> None:
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-test-123")
+
+    fake_queue = FakeQueue()
+    created: dict[str, object] = {}
+
+    async def fake_launch_browser() -> None:
+        return None
+
+    class FakeAgentLoop:
+        def __init__(self, ws, control_queue) -> None:
+            self.ws = ws
+            self.control_queue = control_queue
+            created["agent"] = self
+
+        async def run(self, steps) -> None:  # noqa: ARG002
+            return None
+
+        async def replay_one(self, step_id: str) -> dict[str, object]:
+            return {
+                "type": "replay_one_result",
+                "ok": False,
+                "step_id": step_id,
+                "reason": "replay_precondition_failed",
+                "failure_type": "wrong_start_page",
+                "expected": {
+                    "before_url": "https://playwright.dev/",
+                    "before_title": "Playwright",
+                },
+                "actual": {
+                    "url": "https://playwright.dev/docs/intro",
+                    "title": "Installation | Playwright",
+                },
+                "message": "Wrong start page",
+                "error": "Wrong start page",
+            }
+
+    monkeypatch.setattr(server, "launch_browser", fake_launch_browser)
+    monkeypatch.setattr(server, "AgentLoop", FakeAgentLoop)
+    monkeypatch.setattr(server.asyncio, "Queue", lambda: fake_queue)
+
+    with TestClient(server.app) as client:
+        with client.websocket_connect("/ws") as websocket:
+            initial_message = websocket.receive_json()
+            assert initial_message["type"] == "status"
+            assert "Browser launched" in initial_message["message"]
+
+            websocket.send_json({"type": "replay_one", "step_id": "step-1"})
+            response = websocket.receive_json()
+
+    assert response == {
+        "type": "replay_one_result",
+        "ok": False,
+        "step_id": "step-1",
+        "reason": "replay_precondition_failed",
+        "failure_type": "wrong_start_page",
+        "expected": {
+            "before_url": "https://playwright.dev/",
+            "before_title": "Playwright",
+        },
+        "actual": {
+            "url": "https://playwright.dev/docs/intro",
+            "title": "Installation | Playwright",
+        },
+        "message": "Wrong start page",
+        "error": "Wrong start page",
+    }
     assert created["agent"].control_queue is fake_queue
     assert fake_queue.items == []

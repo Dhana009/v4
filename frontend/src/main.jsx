@@ -176,9 +176,7 @@ function normalizeBackendMessage(raw) {
         ? parsed.payload
         : parsed.data !== undefined
           ? parsed.data
-          : parsed.message !== undefined
-            ? parsed.message
-            : parsed;
+          : parsed;
     return { type, payload, raw: parsed };
   }
 
@@ -1007,6 +1005,40 @@ function normalizeTimelineEntry(label, level = "ok") {
   };
 }
 
+function resolveReplayPreconditionFeedback(payload) {
+  if (!payload || typeof payload !== "object") {
+    return null;
+  }
+
+  const reason = firstNonEmptyText(payload.reason).toLowerCase();
+  if (reason !== "replay_precondition_failed") {
+    return null;
+  }
+
+  const stepId = firstNonEmptyText(payload.step_id, payload.stepId);
+  const failureType = firstNonEmptyText(payload.failure_type, payload.failureType).toLowerCase().replace(/[\s-]+/g, "_");
+  const expected = payload.expected && typeof payload.expected === "object" ? payload.expected : null;
+  const actual = payload.actual && typeof payload.actual === "object" ? payload.actual : null;
+  const message = firstNonEmptyText(payload.message, payload.error);
+  const wrongStartPage = failureType === "wrong_start_page" || Boolean(expected?.before_url && actual?.url);
+  const locatorMissing = failureType === "locator_missing";
+  const timelineDetail = wrongStartPage
+    ? "Wrong page"
+    : locatorMissing
+      ? "Element not found"
+      : message && message !== "Replay blocked"
+        ? message
+        : "";
+  const cardDetail = wrongStartPage ? "Wrong page" : locatorMissing ? "Element missing" : "";
+
+  return {
+    stepId,
+    timelineLabel: timelineDetail ? `Replay blocked · ${timelineDetail}` : "Replay blocked",
+    cardDetail,
+    message: timelineDetail || message || "Replay blocked",
+  };
+}
+
 function normalizeClarificationOption(option, index) {
   if (option == null) {
     return null;
@@ -1115,6 +1147,7 @@ function useAutoWorkbenchTransport(config) {
   const [lastSavedSnapshot, setLastSavedSnapshot] = useState(null);
   const [pendingSteps, setPendingSteps] = useState(() => normalizePendingSteps(config.pendingSteps));
   const [recordedSteps, setRecordedSteps] = useState(() => normalizeRecordedSteps(config.recordedSteps));
+  const [lastReplayByStepId, setLastReplayByStepId] = useState({});
   const [interactionMode, setInteractionMode] = useState(
     () => normalizeInteractionMode(config.interactionMode ?? config.mode ?? config.runState ?? config.state) || "planning"
   );
@@ -1151,6 +1184,18 @@ function useAutoWorkbenchTransport(config) {
       pendingStepsRef.current = next;
       return next;
     });
+  }, []);
+
+  const updateLastReplayByStepId = useCallback((stepId, replayStatus) => {
+    const replayStepId = firstNonEmptyText(stepId);
+    if (!replayStepId) {
+      return;
+    }
+
+    setLastReplayByStepId((current) => ({
+      ...current,
+      [replayStepId]: replayStatus,
+    }));
   }, []);
 
   const appendTimeline = useCallback((label, level = "ok") => {
@@ -1685,6 +1730,10 @@ function useAutoWorkbenchTransport(config) {
             payload && typeof payload === "object" ? payload.operation_count ?? payload.operationCount : Number.NaN
           );
           if (isOk) {
+            updateLastReplayByStepId(replayStepId, {
+              status: "passed",
+              short_reason: "Replay passed",
+            });
             appendTimeline(
               `Replay step succeeded for ${replayStepId || "step"}${
                 Number.isFinite(operationCount) ? ` · ${operationCount} operations` : ""
@@ -1692,70 +1741,62 @@ function useAutoWorkbenchTransport(config) {
               "ok"
             );
           } else {
-            const failedOperationId = firstNonEmptyText(
-              payload && typeof payload === "object" ? payload.failed_operation_id : "",
-              payload && typeof payload === "object" ? payload.failedOperationId : ""
-            );
-            const errorText = firstNonEmptyText(
-              payload && typeof payload === "object" ? payload.error : "",
-              "Replay failed"
-            );
-            setLastError(errorText);
-            appendTimeline(
-              `Replay step failed for ${replayStepId || "step"}${
-                failedOperationId ? ` · ${failedOperationId}` : ""
-              } · ${errorText}`,
-              "err"
-            );
+            const replayFeedback = resolveReplayPreconditionFeedback(payload);
+            if (replayFeedback) {
+              updateLastReplayByStepId(replayStepId, {
+                status: "blocked",
+                short_reason: replayFeedback.cardDetail,
+              });
+              setLastError(replayFeedback.message);
+              appendTimeline(replayFeedback.timelineLabel, "err");
+            } else {
+              const failedOperationId = firstNonEmptyText(
+                payload && typeof payload === "object" ? payload.failed_operation_id : "",
+                payload && typeof payload === "object" ? payload.failedOperationId : ""
+              );
+              const errorText = firstNonEmptyText(
+                payload && typeof payload === "object" ? payload.error : "",
+                "Replay failed"
+              );
+              updateLastReplayByStepId(replayStepId, {
+                status: "failed",
+                short_reason: "",
+              });
+              setLastError(errorText);
+              appendTimeline(
+                `Replay step failed for ${replayStepId || "step"}${
+                  failedOperationId ? ` · ${failedOperationId}` : ""
+                } · ${errorText}`,
+                "err"
+              );
+            }
           }
           break;
         }
         case "replay_all_result": {
           const isOk = payload && typeof payload === "object" && payload.ok === true;
-          const replayedCount = resolveFiniteNumber(
-            payload && typeof payload === "object" ? payload.replayed_count ?? payload.replayedCount : Number.NaN
-          );
           const passedCount = resolveFiniteNumber(
             payload && typeof payload === "object" ? payload.passed_count ?? payload.passedCount : Number.NaN
           );
           const failedCount = resolveFiniteNumber(
             payload && typeof payload === "object" ? payload.failed_count ?? payload.failedCount : Number.NaN
           );
-          const failedStepId = firstNonEmptyText(
-            payload && typeof payload === "object" ? payload.failed_step_id : "",
-            payload && typeof payload === "object" ? payload.failedStepId : ""
-          );
-          const failedOperationId = firstNonEmptyText(
-            payload && typeof payload === "object" ? payload.failed_operation_id : "",
-            payload && typeof payload === "object" ? payload.failedOperationId : ""
-          );
           const errorText = firstNonEmptyText(
             payload && typeof payload === "object" ? payload.error : "",
             "Replay all failed"
           );
           if (isOk) {
-            const replayedLabel = Number.isFinite(replayedCount)
-              ? `${replayedCount} step${replayedCount === 1 ? "" : "s"}`
-              : "replay";
             const passedLabel = Number.isFinite(passedCount) ? `${passedCount} passed` : "";
-            appendTimeline(
-              ["Replay all completed", replayedLabel, passedLabel].filter(Boolean).join(" · "),
-              "ok"
-            );
+            appendTimeline(["Replay all completed", passedLabel].filter(Boolean).join(" · "), "ok");
           } else {
             setLastError(errorText);
-            appendTimeline(
-              [
-                "Replay all failed",
-                failedStepId,
-                failedOperationId,
-                Number.isFinite(failedCount) ? `${failedCount} failed` : "",
-                errorText,
-              ]
-                .filter(Boolean)
-                .join(" · "),
-              "err"
-            );
+            const stoppedLabel =
+              payload && typeof payload === "object" && payload.stop_on_error === true
+                ? "Replay all stopped"
+                : "Replay all completed";
+            const passedLabel = Number.isFinite(passedCount) ? `${passedCount} passed` : "";
+            const failedLabel = Number.isFinite(failedCount) ? `${failedCount} failed` : "";
+            appendTimeline([stoppedLabel, passedLabel, failedLabel].filter(Boolean).join(" · "), "err");
           }
           break;
         }
@@ -1766,6 +1807,10 @@ function useAutoWorkbenchTransport(config) {
           );
           const isOk = payload && typeof payload === "object" && payload.ok === true;
           if (isOk) {
+            updateLastReplayByStepId(replayStepId, {
+              status: "passed",
+              short_reason: "Replay passed",
+            });
             const operationCount = resolveFiniteNumber(
               payload && typeof payload === "object" ? payload.operation_count ?? payload.operationCount : Number.NaN
             );
@@ -1776,19 +1821,33 @@ function useAutoWorkbenchTransport(config) {
               "ok"
             );
           } else {
-            const failedOperationId = firstNonEmptyText(
-              payload && typeof payload === "object" ? payload.failed_operation_id : "",
-              payload && typeof payload === "object" ? payload.failedOperationId : ""
-            );
-            const errorText = firstNonEmptyText(
-              payload && typeof payload === "object" ? payload.error : "",
-              "Replay failed"
-            );
-            setLastError(errorText);
-            appendTimeline(
-              `Replay failed for ${replayStepId || "step"}${failedOperationId ? ` · ${failedOperationId}` : ""} · ${errorText}`,
-              "err"
-            );
+            const replayFeedback = resolveReplayPreconditionFeedback(payload);
+            if (replayFeedback) {
+              updateLastReplayByStepId(replayStepId, {
+                status: "blocked",
+                short_reason: replayFeedback.cardDetail,
+              });
+              setLastError(replayFeedback.message);
+              appendTimeline(replayFeedback.timelineLabel, "err");
+            } else {
+              const failedOperationId = firstNonEmptyText(
+                payload && typeof payload === "object" ? payload.failed_operation_id : "",
+                payload && typeof payload === "object" ? payload.failedOperationId : ""
+              );
+              const errorText = firstNonEmptyText(
+                payload && typeof payload === "object" ? payload.error : "",
+                "Replay failed"
+              );
+              updateLastReplayByStepId(replayStepId, {
+                status: "failed",
+                short_reason: "",
+              });
+              setLastError(errorText);
+              appendTimeline(
+                `Replay failed for ${replayStepId || "step"}${failedOperationId ? ` · ${failedOperationId}` : ""} · ${errorText}`,
+                "err"
+              );
+            }
           }
           break;
         }
@@ -1976,6 +2035,7 @@ function useAutoWorkbenchTransport(config) {
     plan,
     pendingSteps,
     recordedSteps,
+    lastReplayByStepId,
     planCorrectionText,
     clarificationQuestion,
     clarificationOptions,

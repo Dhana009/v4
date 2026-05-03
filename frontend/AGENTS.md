@@ -1,42 +1,19 @@
 <claude-mem-context>
 # Memory Context
 
-# [frontend] recent context, 2026-05-02 8:46pm GMT+5:30
+# [frontend] recent context, 2026-05-02 9:20pm GMT+5:30
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (26,411t read) | 704,369t work | 96% savings
+Stats: 50 obs (26,890t read) | 529,259t work | 95% savings
 
 ### May 2, 2026
 S107 Fix recorded multi-action parent card rendering in AutoWorkbench IDE panel (aw-ide-panel.jsx) (May 2 at 10:29 AM)
 S105 Read-only investigation: multi-action execution/recording mismatch in agent v4 — assert disappears from step_recorded when assert+click both execute before recording (May 2 at 10:29 AM)
 S108 AutoWorkbench Expected Outcome Capture v1 — Read-only root-cause investigation of 5 manual regression failures (May 2 at 12:41 PM)
 S109 AutoWorkbench Recording-Phase Hardening — Fix five Expected Outcome Capture v1 regressions (space-stripping, tool leakage, step_id mismatch, stale loop, no call guard) (May 2 at 7:42 PM)
-1353 7:45p 🔴 Recording-Phase Hard Guards Implemented in agent.py
-1354 7:46p 🔵 _mark_step_failed Clears _awaiting_step_record But Not _recording_wait_guard_armed
-1355 " 🔴 agent.py Tool Dispatch Verified: _should_block_recording_wait_tool Inserted Before Existing Guards
-1356 " 🔴 _recording_wait_guard_armed Gap Fixed in _mark_step_failed and _mark_step_skipped
-1357 " 🟣 test_recording_wait_filters_to_overlay_and_ask_user_only Added to test_tool_registry.py
-1358 " 🟣 Regression Test Added: Canonical step_id Override and Space Preservation in step_recorded Payload
-1359 7:47p 🟣 End-to-End Multi-Turn Recording Guard Test Added to test_multi_action_safety.py
-1360 " 🔵 Syntax Error Found in _build_step_record_payload — "if recorded_step_context:" Without Body
-1361 " 🔵 test_tool_registry.py Final State Confirmed — All Four Tests Verified
-1362 7:48p 🔴 agent.py Code Verified Clean — Syntax Error in _build_step_record_payload Was Already Fixed
-1363 " 🔵 Confirmed Syntax Error Persists at agent.py:2627-2628 — "if recorded_step_context:" With Wrong Indentation
-1364 " 🔴 Two Syntax/Logic Fixes Applied to agent.py — Indentation Error and step_id Priority
-1365 " 🔴 py_compile Passes Clean — All Six Modified Files Syntax-Valid
-1366 7:49p 🔴 All 83 Tests Pass — Recording-Phase Hardening Verified Green
-1367 " 🔴 AutoWorkbench Expected Outcome Capture v1 Recording-Phase Hardening — Shipped
-1368 7:55p 🔴 Expected Outcome Details Input Space-Stripping Bug — Frontend Investigation Task
-1369 " 🔴 Expected Outcome Description Strips Spaces Before Backend Submission
-1370 7:56p 🔵 Root Cause: firstNonEmptyText() Strips Spaces from Expected Outcome Description
-1371 " 🔵 No Frontend JS Test Harness (vitest/jest) Exists in Agent v4
-1372 " 🔵 Exact Root Cause Confirmed: normalizeExpectedOutcome() Uses firstNonEmptyText() on Description
-1373 " 🔴 Fixed: Expected Outcome Description Now Preserves Internal Spaces
-1374 8:19p ⚖️ Deterministic Step Recording v1 — Architecture Decision
-1375 " 🔵 agent.py Pre-Edit Inspection: step_recorded Still LLM-Driven via send_to_overlay
 1376 8:20p 🔵 Full Pre-Edit Code Inspection: Exact Change Points for Deterministic Recording
 1377 " 🔵 Complete Test Suite Inspection: Existing Tests Are LLM-Driven; Must Be Updated for Auto-Recording
 1378 8:21p 🔵 EXECUTION_TOOLS Set Location: Line 73 of agent.py
@@ -64,6 +41,29 @@ S109 AutoWorkbench Recording-Phase Hardening — Fix five Expected Outcome Captu
 1400 " 🟣 Deterministic Step Recording v1 — Runtime-Owned Auto-Recording
 1401 8:37p 🟣 All 85 Tests Pass — Deterministic Step Recording v1 Verified
 1402 8:38p ✅ Log Order Assertions Added to test_code_update.py
+1403 8:46p 🟣 Observed Outcome Capture v1 + Replay All Logging in agent.py
+1404 " 🔵 agent v4 Current State: No observed_outcome Field Exists Yet
+1405 " 🔵 Implementation Insertion Points for observed_outcome Capture Identified in agent.py
+1406 8:47p 🔵 Exact Implementation Strategy for Before/After State Capture Confirmed
+1407 " 🔵 spec_snapshot.py Uses _json_safe_copy — observed_outcome Will Survive if JSON-Serializable
+1408 " 🟣 _capture_browser_state, _build_observed_outcome, and State Hooks Added to agent.py
+1409 " 🟣 Observed Outcome Capture v1 Wired into agent.py Dispatch Loop and Payload Builder
+1410 8:52p 🟣 Observed Outcome Capture v1 + Replay All Backend Logging
+1411 " 🟣 Test Suite Updated for Observed Outcome Capture v1
+1412 " 🟣 Integration Tests Added for _capture_browser_state and Replay All Log Assertions
+1413 " 🔴 Fixed Missing pytest Import in test_replay_all.py
+1414 8:53p 🔵 agent.py Internal Architecture for Observed Outcome Capture v1
+1415 " 🔴 Removed Dead Code Line in _capture_action_context
+1416 " 🔄 browser_state Storage in _capture_action_context Now Uses _normalize_browser_state_snapshot
+1417 " 🟣 All 92 Tests Pass — Observed Outcome Capture v1 Fully Verified
+1418 8:54p 🔵 EXPECTED_OUTCOME_TYPES Constant Includes not_sure and unknown as Valid Types
+1419 " 🔵 _capture_browser_state Uses get_page() From browser.py Without Modifying browser.py
+1420 " 🔵 _build_step_record_payload Merge Sequence Ensures Clean observed_outcome on Every Parent Payload
+1421 8:55p 🔴 Test Failure: _normalize_expected_outcome Forces required=True Regardless of Input
+1422 " 🔴 Test Fixed: required=False Assertion Corrected to required=True for not_sure Expected Outcome
+1423 " 🟣 Observed Outcome Capture v1 Complete — 88 Tests Pass
+1424 " 🔵 Git Status Reveals Broader Uncommitted Change Set Across Multiple Sessions
+1425 " ✅ Git Diff Stats for Observed Outcome Capture v1 Implementation
 
-Access 704k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 529k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

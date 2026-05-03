@@ -25228,6 +25228,35 @@
     if (normalized === "nav") return "navigate";
     return normalized;
   }
+  function resolveReplayStatusDisplay(replayStatus) {
+    if (!replayStatus || typeof replayStatus !== "object") {
+      return null;
+    }
+    const status = firstText(replayStatus.status, replayStatus.state).toLowerCase();
+    const shortReason = firstText(replayStatus.short_reason, replayStatus.shortReason, replayStatus.detail);
+    if (status === "passed") {
+      return {
+        label: "Replay passed",
+        kind: "passed",
+        note: ""
+      };
+    }
+    if (status === "blocked") {
+      return {
+        label: "Replay blocked",
+        kind: "failed",
+        note: shortReason && shortReason !== "Replay blocked" ? shortReason : ""
+      };
+    }
+    if (status === "failed") {
+      return {
+        label: "Replay failed",
+        kind: "failed",
+        note: shortReason && shortReason !== "Replay failed" ? shortReason : ""
+      };
+    }
+    return null;
+  }
   var EXPECTED_OUTCOME_TYPES = [
     "navigation",
     "modal",
@@ -25304,6 +25333,7 @@
     index = 0,
     compact = false,
     showGeneratedLine = true,
+    replayStatus = null,
     onReplay,
     onCopy
   }) {
@@ -25316,6 +25346,9 @@
     const expectedOutcome = formatExpectedOutcomeSummary(step.expected_outcome ?? step.expectedOutcome);
     const status = firstText(step.status, "recorded").toLowerCase();
     const statusKind = status === "passed" ? "passed" : status === "failed" ? "failed" : "recorded";
+    const replayDisplay = resolveReplayStatusDisplay(
+      replayStatus || step.replay_status || step.replayStatus || step.last_replay || step.lastReplay || null
+    );
     const codeLine = firstText(step.generated_line);
     const childRows = getPlanStepChildren(step);
     const hasChildren = childRows.length > 0;
@@ -25350,6 +25383,10 @@
           ] })
         ] })
       ] }),
+      replayDisplay && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-recorded-step-note", style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEBadge, { kind: replayDisplay.kind, children: replayDisplay.label }),
+        replayDisplay.note && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: replayDisplay.note })
+      ] }),
       !hasChildren && target && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-recorded-step-target", children: target }),
       expectedOutcome && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-recorded-step-outcome", children: [
         "expected_outcome: ",
@@ -25374,7 +25411,13 @@
       ] })
     ] }) });
   }
-  function IDERecordedStepsSection({ recordedSteps = [], onReplayRecordedStep, onReplayAllRecordedSteps, onCopyRecordedStep }) {
+  function IDERecordedStepsSection({
+    recordedSteps = [],
+    lastReplayByStepId = {},
+    onReplayRecordedStep,
+    onReplayAllRecordedSteps,
+    onCopyRecordedStep
+  }) {
     const steps = Array.isArray(recordedSteps) ? recordedSteps : [];
     const footer = onReplayAllRecordedSteps ? [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
@@ -25389,20 +25432,30 @@
         "replay-all"
       )
     ] : null;
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECard, { color: steps.length ? "green" : null, title: "// recorded steps", footer, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-scrollbox ide-scrollbox-recorded", style: { maxHeight: 300 }, children: steps.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-list", children: steps.map((step, i) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-      IDERecordedStepCard,
-      {
-        step,
-        index: i,
-        compact: false,
-        showGeneratedLine: true,
-        onReplay: onReplayRecordedStep,
-        onCopy: onCopyRecordedStep
-      },
-      step.id || `${step.step_number || i}`
-    )) }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-empty-state", children: "No recorded steps yet." }) }) });
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECard, { color: steps.length ? "green" : null, title: "// recorded steps", footer, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-scrollbox ide-scrollbox-recorded", style: { maxHeight: 300 }, children: steps.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-list", children: steps.map((step, i) => {
+      const stepKey = firstText(step.id, step.step_id, step.stepId);
+      return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+        IDERecordedStepCard,
+        {
+          step,
+          index: i,
+          compact: false,
+          showGeneratedLine: true,
+          replayStatus: stepKey ? lastReplayByStepId[stepKey] : null,
+          onReplay: onReplayRecordedStep,
+          onCopy: onCopyRecordedStep
+        },
+        step.id || `${step.step_number || i}`
+      );
+    }) }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-empty-state", children: "No recorded steps yet." }) }) });
   }
-  function IDERecordedOutput({ recordedSteps = [], onReplayRecordedStep, onReplayAllRecordedSteps, onCopyRecordedStep }) {
+  function IDERecordedOutput({
+    recordedSteps = [],
+    lastReplayByStepId = {},
+    onReplayRecordedStep,
+    onReplayAllRecordedSteps,
+    onCopyRecordedStep
+  }) {
     const [activeTab, setActiveTab] = import_react.default.useState("steps");
     const steps = Array.isArray(recordedSteps) ? recordedSteps : [];
     const visibleSteps = activeTab === "steps" ? steps.slice(-3).reverse() : [];
@@ -25483,18 +25536,22 @@
         )
       ] }),
       activeTab === "steps" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-scrollbox ide-scrollbox-recorded", style: { maxHeight: 216 }, children: [
-        visibleSteps.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-list", children: visibleSteps.map((step, i) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-          IDERecordedStepCard,
-          {
-            step,
-            index: i,
-            compact: true,
-            showGeneratedLine: false,
-            onReplay: onReplayRecordedStep,
-            onCopy: onCopyRecordedStep
-          },
-          step.id || `${step.step_number || i}`
-        )) }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-empty-state", children: "No recorded steps yet." }),
+        visibleSteps.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-list", children: visibleSteps.map((step, i) => {
+          const stepKey = firstText(step.id, step.step_id, step.stepId);
+          return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+            IDERecordedStepCard,
+            {
+              step,
+              index: i,
+              compact: true,
+              showGeneratedLine: false,
+              replayStatus: stepKey ? lastReplayByStepId[stepKey] : null,
+              onReplay: onReplayRecordedStep,
+              onCopy: onCopyRecordedStep
+            },
+            step.id || `${step.step_number || i}`
+          );
+        }) }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-empty-state", children: "No recorded steps yet." }),
         steps.length > visibleSteps.length && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-more-note", children: [
           "+ ",
           steps.length - visibleSteps.length,
@@ -25781,6 +25838,7 @@
     const plan = runtime.plan || null;
     const pendingSteps = Array.isArray(runtime.pendingSteps) ? runtime.pendingSteps : [];
     const recordedSteps = Array.isArray(runtime.recordedSteps) ? runtime.recordedSteps : [];
+    const lastReplayByStepId = runtime.lastReplayByStepId && typeof runtime.lastReplayByStepId === "object" ? runtime.lastReplayByStepId : {};
     const planCorrectionText = typeof runtime.planCorrectionText === "string" ? runtime.planCorrectionText : "";
     const clarificationQuestion = typeof runtime.clarificationQuestion === "string" ? runtime.clarificationQuestion : "";
     const clarificationOptions = Array.isArray(runtime.clarificationOptions) ? runtime.clarificationOptions : [];
@@ -25869,6 +25927,7 @@
             IDERecordedOutput,
             {
               recordedSteps,
+              lastReplayByStepId,
               onReplayRecordedStep: runtime.onReplayRecordedStep,
               onReplayAllRecordedSteps: runtime.onReplayAllRecordedSteps,
               onCopyRecordedStep: runtime.onCopyRecordedStep
@@ -25895,6 +25954,7 @@
             IDERecordedStepsSection,
             {
               recordedSteps,
+              lastReplayByStepId,
               onReplayRecordedStep: runtime.onReplayRecordedStep,
               onReplayAllRecordedSteps: runtime.onReplayAllRecordedSteps,
               onCopyRecordedStep: runtime.onCopyRecordedStep
@@ -26071,7 +26131,7 @@
     }
     if (parsed && typeof parsed === "object") {
       const type = String(parsed.type || parsed.event || parsed.name || parsed.kind || "status");
-      const payload = parsed.payload !== void 0 ? parsed.payload : parsed.data !== void 0 ? parsed.data : parsed.message !== void 0 ? parsed.message : parsed;
+      const payload = parsed.payload !== void 0 ? parsed.payload : parsed.data !== void 0 ? parsed.data : parsed;
       return { type, payload, raw: parsed };
     }
     return {
@@ -26726,6 +26786,30 @@
       txt: label
     };
   }
+  function resolveReplayPreconditionFeedback(payload) {
+    if (!payload || typeof payload !== "object") {
+      return null;
+    }
+    const reason = firstNonEmptyText(payload.reason).toLowerCase();
+    if (reason !== "replay_precondition_failed") {
+      return null;
+    }
+    const stepId = firstNonEmptyText(payload.step_id, payload.stepId);
+    const failureType = firstNonEmptyText(payload.failure_type, payload.failureType).toLowerCase().replace(/[\s-]+/g, "_");
+    const expected = payload.expected && typeof payload.expected === "object" ? payload.expected : null;
+    const actual = payload.actual && typeof payload.actual === "object" ? payload.actual : null;
+    const message = firstNonEmptyText(payload.message, payload.error);
+    const wrongStartPage = failureType === "wrong_start_page" || Boolean(expected?.before_url && actual?.url);
+    const locatorMissing = failureType === "locator_missing";
+    const timelineDetail = wrongStartPage ? "Wrong page" : locatorMissing ? "Element not found" : message && message !== "Replay blocked" ? message : "";
+    const cardDetail = wrongStartPage ? "Wrong page" : locatorMissing ? "Element missing" : "";
+    return {
+      stepId,
+      timelineLabel: timelineDetail ? `Replay blocked \xB7 ${timelineDetail}` : "Replay blocked",
+      cardDetail,
+      message: timelineDetail || message || "Replay blocked"
+    };
+  }
   function normalizeClarificationOption(option, index) {
     if (option == null) {
       return null;
@@ -26822,6 +26906,7 @@
     const [lastSavedSnapshot, setLastSavedSnapshot] = (0, import_react2.useState)(null);
     const [pendingSteps, setPendingSteps] = (0, import_react2.useState)(() => normalizePendingSteps(config.pendingSteps));
     const [recordedSteps, setRecordedSteps] = (0, import_react2.useState)(() => normalizeRecordedSteps(config.recordedSteps));
+    const [lastReplayByStepId, setLastReplayByStepId] = (0, import_react2.useState)({});
     const [interactionMode, setInteractionMode] = (0, import_react2.useState)(
       () => normalizeInteractionMode(config.interactionMode ?? config.mode ?? config.runState ?? config.state) || "planning"
     );
@@ -26853,6 +26938,16 @@
         pendingStepsRef.current = next;
         return next;
       });
+    }, []);
+    const updateLastReplayByStepId = (0, import_react2.useCallback)((stepId, replayStatus) => {
+      const replayStepId = firstNonEmptyText(stepId);
+      if (!replayStepId) {
+        return;
+      }
+      setLastReplayByStepId((current) => ({
+        ...current,
+        [replayStepId]: replayStatus
+      }));
     }, []);
     const appendTimeline = (0, import_react2.useCallback)((label, level = "ok") => {
       const entry = normalizeTimelineEntry(label, level);
@@ -27325,69 +27420,66 @@
               payload && typeof payload === "object" ? payload.operation_count ?? payload.operationCount : Number.NaN
             );
             if (isOk) {
+              updateLastReplayByStepId(replayStepId, {
+                status: "passed",
+                short_reason: "Replay passed"
+              });
               appendTimeline(
                 `Replay step succeeded for ${replayStepId || "step"}${Number.isFinite(operationCount) ? ` \xB7 ${operationCount} operations` : ""}`,
                 "ok"
               );
             } else {
-              const failedOperationId = firstNonEmptyText(
-                payload && typeof payload === "object" ? payload.failed_operation_id : "",
-                payload && typeof payload === "object" ? payload.failedOperationId : ""
-              );
-              const errorText = firstNonEmptyText(
-                payload && typeof payload === "object" ? payload.error : "",
-                "Replay failed"
-              );
-              setLastError(errorText);
-              appendTimeline(
-                `Replay step failed for ${replayStepId || "step"}${failedOperationId ? ` \xB7 ${failedOperationId}` : ""} \xB7 ${errorText}`,
-                "err"
-              );
+              const replayFeedback = resolveReplayPreconditionFeedback(payload);
+              if (replayFeedback) {
+                updateLastReplayByStepId(replayStepId, {
+                  status: "blocked",
+                  short_reason: replayFeedback.cardDetail
+                });
+                setLastError(replayFeedback.message);
+                appendTimeline(replayFeedback.timelineLabel, "err");
+              } else {
+                const failedOperationId = firstNonEmptyText(
+                  payload && typeof payload === "object" ? payload.failed_operation_id : "",
+                  payload && typeof payload === "object" ? payload.failedOperationId : ""
+                );
+                const errorText = firstNonEmptyText(
+                  payload && typeof payload === "object" ? payload.error : "",
+                  "Replay failed"
+                );
+                updateLastReplayByStepId(replayStepId, {
+                  status: "failed",
+                  short_reason: ""
+                });
+                setLastError(errorText);
+                appendTimeline(
+                  `Replay step failed for ${replayStepId || "step"}${failedOperationId ? ` \xB7 ${failedOperationId}` : ""} \xB7 ${errorText}`,
+                  "err"
+                );
+              }
             }
             break;
           }
           case "replay_all_result": {
             const isOk = payload && typeof payload === "object" && payload.ok === true;
-            const replayedCount = resolveFiniteNumber(
-              payload && typeof payload === "object" ? payload.replayed_count ?? payload.replayedCount : Number.NaN
-            );
             const passedCount = resolveFiniteNumber(
               payload && typeof payload === "object" ? payload.passed_count ?? payload.passedCount : Number.NaN
             );
             const failedCount = resolveFiniteNumber(
               payload && typeof payload === "object" ? payload.failed_count ?? payload.failedCount : Number.NaN
             );
-            const failedStepId = firstNonEmptyText(
-              payload && typeof payload === "object" ? payload.failed_step_id : "",
-              payload && typeof payload === "object" ? payload.failedStepId : ""
-            );
-            const failedOperationId = firstNonEmptyText(
-              payload && typeof payload === "object" ? payload.failed_operation_id : "",
-              payload && typeof payload === "object" ? payload.failedOperationId : ""
-            );
             const errorText = firstNonEmptyText(
               payload && typeof payload === "object" ? payload.error : "",
               "Replay all failed"
             );
             if (isOk) {
-              const replayedLabel = Number.isFinite(replayedCount) ? `${replayedCount} step${replayedCount === 1 ? "" : "s"}` : "replay";
               const passedLabel = Number.isFinite(passedCount) ? `${passedCount} passed` : "";
-              appendTimeline(
-                ["Replay all completed", replayedLabel, passedLabel].filter(Boolean).join(" \xB7 "),
-                "ok"
-              );
+              appendTimeline(["Replay all completed", passedLabel].filter(Boolean).join(" \xB7 "), "ok");
             } else {
               setLastError(errorText);
-              appendTimeline(
-                [
-                  "Replay all failed",
-                  failedStepId,
-                  failedOperationId,
-                  Number.isFinite(failedCount) ? `${failedCount} failed` : "",
-                  errorText
-                ].filter(Boolean).join(" \xB7 "),
-                "err"
-              );
+              const stoppedLabel = payload && typeof payload === "object" && payload.stop_on_error === true ? "Replay all stopped" : "Replay all completed";
+              const passedLabel = Number.isFinite(passedCount) ? `${passedCount} passed` : "";
+              const failedLabel = Number.isFinite(failedCount) ? `${failedCount} failed` : "";
+              appendTimeline([stoppedLabel, passedLabel, failedLabel].filter(Boolean).join(" \xB7 "), "err");
             }
             break;
           }
@@ -27398,6 +27490,10 @@
             );
             const isOk = payload && typeof payload === "object" && payload.ok === true;
             if (isOk) {
+              updateLastReplayByStepId(replayStepId, {
+                status: "passed",
+                short_reason: "Replay passed"
+              });
               const operationCount = resolveFiniteNumber(
                 payload && typeof payload === "object" ? payload.operation_count ?? payload.operationCount : Number.NaN
               );
@@ -27406,19 +27502,33 @@
                 "ok"
               );
             } else {
-              const failedOperationId = firstNonEmptyText(
-                payload && typeof payload === "object" ? payload.failed_operation_id : "",
-                payload && typeof payload === "object" ? payload.failedOperationId : ""
-              );
-              const errorText = firstNonEmptyText(
-                payload && typeof payload === "object" ? payload.error : "",
-                "Replay failed"
-              );
-              setLastError(errorText);
-              appendTimeline(
-                `Replay failed for ${replayStepId || "step"}${failedOperationId ? ` \xB7 ${failedOperationId}` : ""} \xB7 ${errorText}`,
-                "err"
-              );
+              const replayFeedback = resolveReplayPreconditionFeedback(payload);
+              if (replayFeedback) {
+                updateLastReplayByStepId(replayStepId, {
+                  status: "blocked",
+                  short_reason: replayFeedback.cardDetail
+                });
+                setLastError(replayFeedback.message);
+                appendTimeline(replayFeedback.timelineLabel, "err");
+              } else {
+                const failedOperationId = firstNonEmptyText(
+                  payload && typeof payload === "object" ? payload.failed_operation_id : "",
+                  payload && typeof payload === "object" ? payload.failedOperationId : ""
+                );
+                const errorText = firstNonEmptyText(
+                  payload && typeof payload === "object" ? payload.error : "",
+                  "Replay failed"
+                );
+                updateLastReplayByStepId(replayStepId, {
+                  status: "failed",
+                  short_reason: ""
+                });
+                setLastError(errorText);
+                appendTimeline(
+                  `Replay failed for ${replayStepId || "step"}${failedOperationId ? ` \xB7 ${failedOperationId}` : ""} \xB7 ${errorText}`,
+                  "err"
+                );
+              }
             }
             break;
           }
@@ -27586,6 +27696,7 @@
       plan,
       pendingSteps,
       recordedSteps,
+      lastReplayByStepId,
       planCorrectionText,
       clarificationQuestion,
       clarificationOptions,

@@ -761,6 +761,41 @@ function normalizeStepAction(kind) {
   return normalized;
 }
 
+function resolveReplayStatusDisplay(replayStatus) {
+  if (!replayStatus || typeof replayStatus !== "object") {
+    return null;
+  }
+
+  const status = firstText(replayStatus.status, replayStatus.state).toLowerCase();
+  const shortReason = firstText(replayStatus.short_reason, replayStatus.shortReason, replayStatus.detail);
+
+  if (status === "passed") {
+    return {
+      label: "Replay passed",
+      kind: "passed",
+      note: "",
+    };
+  }
+
+  if (status === "blocked") {
+    return {
+      label: "Replay blocked",
+      kind: "failed",
+      note: shortReason && shortReason !== "Replay blocked" ? shortReason : "",
+    };
+  }
+
+  if (status === "failed") {
+    return {
+      label: "Replay failed",
+      kind: "failed",
+      note: shortReason && shortReason !== "Replay failed" ? shortReason : "",
+    };
+  }
+
+  return null;
+}
+
 const EXPECTED_OUTCOME_TYPES = [
   "navigation",
   "modal",
@@ -839,6 +874,7 @@ function IDERecordedStepCard({
   index = 0,
   compact = false,
   showGeneratedLine = true,
+  replayStatus = null,
   onReplay,
   onCopy,
 }) {
@@ -851,6 +887,9 @@ function IDERecordedStepCard({
   const expectedOutcome = formatExpectedOutcomeSummary(step.expected_outcome ?? step.expectedOutcome);
   const status = firstText(step.status, "recorded").toLowerCase();
   const statusKind = status === "passed" ? "passed" : status === "failed" ? "failed" : "recorded";
+  const replayDisplay = resolveReplayStatusDisplay(
+    replayStatus || step.replay_status || step.replayStatus || step.last_replay || step.lastReplay || null
+  );
   const codeLine = firstText(step.generated_line);
   const childRows = getPlanStepChildren(step);
   const hasChildren = childRows.length > 0;
@@ -892,6 +931,12 @@ function IDERecordedStepCard({
             </div>
           </div>
         </div>
+        {replayDisplay && (
+          <div className="ide-recorded-step-note" style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+            <IDEBadge kind={replayDisplay.kind}>{replayDisplay.label}</IDEBadge>
+            {replayDisplay.note && <span>{replayDisplay.note}</span>}
+          </div>
+        )}
         {!hasChildren && target && <div className="ide-recorded-step-target">{target}</div>}
         {expectedOutcome && <div className="ide-recorded-step-outcome">expected_outcome: {expectedOutcome}</div>}
         {!hasChildren && locator && <code className="ide-recorded-step-locator">{locator}</code>}
@@ -930,7 +975,13 @@ function IDERecordedStepCard({
   );
 }
 
-function IDERecordedStepsSection({ recordedSteps = [], onReplayRecordedStep, onReplayAllRecordedSteps, onCopyRecordedStep }) {
+function IDERecordedStepsSection({
+  recordedSteps = [],
+  lastReplayByStepId = {},
+  onReplayRecordedStep,
+  onReplayAllRecordedSteps,
+  onCopyRecordedStep,
+}) {
   const steps = Array.isArray(recordedSteps) ? recordedSteps : [];
   const footer = onReplayAllRecordedSteps
     ? [
@@ -951,17 +1002,21 @@ function IDERecordedStepsSection({ recordedSteps = [], onReplayRecordedStep, onR
       <div className="ide-scrollbox ide-scrollbox-recorded" style={{ maxHeight: 300 }}>
         {steps.length > 0 ? (
           <div className="ide-step-list">
-            {steps.map((step, i) => (
-              <IDERecordedStepCard
-                key={step.id || `${step.step_number || i}`}
-                step={step}
-                index={i}
-                compact={false}
-                showGeneratedLine
-                onReplay={onReplayRecordedStep}
-                onCopy={onCopyRecordedStep}
-              />
-            ))}
+            {steps.map((step, i) => {
+              const stepKey = firstText(step.id, step.step_id, step.stepId);
+              return (
+                <IDERecordedStepCard
+                  key={step.id || `${step.step_number || i}`}
+                  step={step}
+                  index={i}
+                  compact={false}
+                  showGeneratedLine
+                  replayStatus={stepKey ? lastReplayByStepId[stepKey] : null}
+                  onReplay={onReplayRecordedStep}
+                  onCopy={onCopyRecordedStep}
+                />
+              );
+            })}
           </div>
         ) : (
           <div className="ide-empty-state">No recorded steps yet.</div>
@@ -971,7 +1026,13 @@ function IDERecordedStepsSection({ recordedSteps = [], onReplayRecordedStep, onR
   );
 }
 
-function IDERecordedOutput({ recordedSteps = [], onReplayRecordedStep, onReplayAllRecordedSteps, onCopyRecordedStep }) {
+function IDERecordedOutput({
+  recordedSteps = [],
+  lastReplayByStepId = {},
+  onReplayRecordedStep,
+  onReplayAllRecordedSteps,
+  onCopyRecordedStep,
+}) {
   const [activeTab, setActiveTab] = React.useState("steps");
   const steps = Array.isArray(recordedSteps) ? recordedSteps : [];
   const visibleSteps = activeTab === "steps" ? steps.slice(-3).reverse() : [];
@@ -1054,17 +1115,21 @@ function IDERecordedOutput({ recordedSteps = [], onReplayRecordedStep, onReplayA
         <div className="ide-scrollbox ide-scrollbox-recorded" style={{ maxHeight: 216 }}>
           {visibleSteps.length > 0 ? (
             <div className="ide-step-list">
-              {visibleSteps.map((step, i) => (
-                <IDERecordedStepCard
-                  key={step.id || `${step.step_number || i}`}
-                  step={step}
-                  index={i}
-                  compact
-                  showGeneratedLine={false}
-                  onReplay={onReplayRecordedStep}
-                  onCopy={onCopyRecordedStep}
-                />
-              ))}
+              {visibleSteps.map((step, i) => {
+                const stepKey = firstText(step.id, step.step_id, step.stepId);
+                return (
+                  <IDERecordedStepCard
+                    key={step.id || `${step.step_number || i}`}
+                    step={step}
+                    index={i}
+                    compact
+                    showGeneratedLine={false}
+                    replayStatus={stepKey ? lastReplayByStepId[stepKey] : null}
+                    onReplay={onReplayRecordedStep}
+                    onCopy={onCopyRecordedStep}
+                  />
+                );
+              })}
             </div>
           ) : (
             <div className="ide-empty-state">No recorded steps yet.</div>
@@ -1435,6 +1500,8 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
   const plan = runtime.plan || null;
   const pendingSteps = Array.isArray(runtime.pendingSteps) ? runtime.pendingSteps : [];
   const recordedSteps = Array.isArray(runtime.recordedSteps) ? runtime.recordedSteps : [];
+  const lastReplayByStepId =
+    runtime.lastReplayByStepId && typeof runtime.lastReplayByStepId === "object" ? runtime.lastReplayByStepId : {};
   const planCorrectionText = typeof runtime.planCorrectionText === "string" ? runtime.planCorrectionText : "";
   const clarificationQuestion = typeof runtime.clarificationQuestion === "string" ? runtime.clarificationQuestion : "";
   const clarificationOptions = Array.isArray(runtime.clarificationOptions) ? runtime.clarificationOptions : [];
@@ -1518,6 +1585,7 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
             />
             <IDERecordedOutput
               recordedSteps={recordedSteps}
+              lastReplayByStepId={lastReplayByStepId}
               onReplayRecordedStep={runtime.onReplayRecordedStep}
               onReplayAllRecordedSteps={runtime.onReplayAllRecordedSteps}
               onCopyRecordedStep={runtime.onCopyRecordedStep}
@@ -1540,6 +1608,7 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
             />
             <IDERecordedStepsSection
               recordedSteps={recordedSteps}
+              lastReplayByStepId={lastReplayByStepId}
               onReplayRecordedStep={runtime.onReplayRecordedStep}
               onReplayAllRecordedSteps={runtime.onReplayAllRecordedSteps}
               onCopyRecordedStep={runtime.onCopyRecordedStep}

@@ -394,6 +394,204 @@ class AgentLoop:
             return f"{text[:197]}..."
         return text
 
+    def _get_replay_recorded_start_state(self, recorded_step_payload: dict[str, Any]) -> tuple[str, str]:
+        observed_outcome = recorded_step_payload.get("observed_outcome")
+        if not isinstance(observed_outcome, dict):
+            return "", ""
+
+        before_url = str(observed_outcome.get("before_url") or "").strip()
+        before_title = str(observed_outcome.get("before_title") or "").strip()
+        return before_url, before_title
+
+    def _get_replay_precondition_target_locator(
+        self,
+        recorded_step_payload: dict[str, Any],
+        action_history: list[dict[str, Any]],
+    ) -> str:
+        locator = str(recorded_step_payload.get("locator") or "").strip()
+        if locator:
+            return locator
+
+        recorded_children = recorded_step_payload.get("children")
+        if isinstance(recorded_children, list):
+            for child in recorded_children:
+                if not isinstance(child, dict):
+                    continue
+                locator = str(child.get("locator") or "").strip()
+                if locator:
+                    return locator
+
+        for action_record in action_history:
+            if not isinstance(action_record, dict):
+                continue
+            replay_args: dict[str, Any] = {}
+            tool_args = action_record.get("tool_args")
+            if isinstance(tool_args, dict):
+                replay_args.update(tool_args)
+            action_context = action_record.get("action_context")
+            if isinstance(action_context, dict):
+                for key, value in action_context.items():
+                    if key not in replay_args:
+                        replay_args[key] = value
+            locator = str(replay_args.get("locator") or action_record.get("locator") or "").strip()
+            if locator:
+                return locator
+
+        return ""
+
+    async def _validate_replay_target_locator(self, locator: str) -> dict[str, Any]:
+        locator_text = str(locator or "").strip()
+        if not locator_text:
+            return {"valid": False, "count": 0}
+
+        try:
+            page = get_page()
+        except Exception:  # noqa: BLE001
+            return {"valid": False, "count": 0}
+
+        try:
+            locator_count = await self._resolve_locator(page, locator_text).count()
+        except Exception:  # noqa: BLE001
+            locator_count = 0
+
+        return {"valid": locator_count > 0, "count": locator_count}
+
+    def _log_replay_precondition_failure(
+        self,
+        step_id: str,
+        reason: str,
+        expected_url: str,
+        actual_url: str,
+        locator: str = "",
+    ) -> None:
+        if reason == "url_mismatch":
+            print(
+                "[REPLAY_PRECONDITION] failed "
+                f"step_id={step_id} "
+                "reason=url_mismatch "
+                f"expected_url={expected_url} "
+                f"actual_url={actual_url}"
+            )
+            return
+
+        if reason == "locator_missing":
+            print(
+                "[REPLAY_PRECONDITION] failed "
+                f"step_id={step_id} "
+                "reason=locator_missing "
+                f"locator={locator}"
+            )
+            return
+
+        print(
+            "[REPLAY_PRECONDITION] failed "
+            f"step_id={step_id} "
+            "reason=unknown "
+            f"expected_url={expected_url} "
+            f"actual_url={actual_url}"
+        )
+
+    def _build_replay_precondition_failure_result(
+        self,
+        step_id: str,
+        before_url: str,
+        before_title: str,
+        current_url: str,
+        current_title: str,
+        message: str,
+        *,
+        failure_type: str,
+        log_reason: str,
+        locator: str = "",
+    ) -> dict[str, Any]:
+        safe_message = self._safe_replay_error_message(message)
+        self._log_replay_precondition_failure(step_id, log_reason, before_url, current_url, locator)
+        return {
+            "type": "replay_one_result",
+            "ok": False,
+            "step_id": step_id,
+            "reason": "replay_precondition_failed",
+            "failure_type": failure_type,
+            "expected": {
+                "before_url": before_url,
+                "before_title": before_title,
+            },
+            "actual": {
+                "url": current_url,
+                "title": current_title,
+            },
+            "message": safe_message,
+            "error": safe_message,
+        }
+
+    async def _check_replay_precondition(
+        self,
+        step_id: str,
+        recorded_step_payload: dict[str, Any],
+        action_history: list[dict[str, Any]],
+    ) -> dict[str, Any] | None:
+        before_url, before_title = self._get_replay_recorded_start_state(recorded_step_payload)
+        if not before_url:
+            print(f"[REPLAY_PRECONDITION] missing before_url step_id={step_id}")
+            return None
+
+        current_state = await self._capture_browser_state()
+        current_url = str((current_state or {}).get("url") or "").strip()
+        current_title = str((current_state or {}).get("title") or "").strip()
+        if current_state is None:
+            return self._build_replay_precondition_failure_result(
+                step_id,
+                before_url,
+                before_title,
+                current_url,
+                current_title,
+                "Replay blocked",
+                failure_type="unknown",
+                log_reason="unknown",
+            )
+
+        if current_url != before_url:
+            return self._build_replay_precondition_failure_result(
+                step_id,
+                before_url,
+                before_title,
+                current_url,
+                current_title,
+                "Wrong start page",
+                failure_type="wrong_start_page",
+                log_reason="url_mismatch",
+            )
+
+        target_locator = self._get_replay_precondition_target_locator(recorded_step_payload, action_history)
+        if not target_locator:
+            return self._build_replay_precondition_failure_result(
+                step_id,
+                before_url,
+                before_title,
+                current_url,
+                current_title,
+                "Element not found",
+                failure_type="locator_missing",
+                log_reason="locator_missing",
+                locator=target_locator,
+            )
+
+        locator_validation = await self._validate_replay_target_locator(target_locator)
+        if locator_validation.get("valid") is not True:
+            return self._build_replay_precondition_failure_result(
+                step_id,
+                before_url,
+                before_title,
+                current_url,
+                current_title,
+                "Element not found",
+                failure_type="locator_missing",
+                log_reason="locator_missing",
+                locator=target_locator,
+            )
+
+        return None
+
     def _get_replay_archive_step_ids(self) -> list[str]:
         step_ids: list[str] = []
         seen_step_ids: set[str] = set()
@@ -459,6 +657,14 @@ class AgentLoop:
                 "step_id": replay_step_id,
                 "error": "Recorded action history unavailable for replay",
             }
+
+        precondition_failure = await self._check_replay_precondition(
+            replay_step_id,
+            recorded_step_payload,
+            action_history,
+        )
+        if precondition_failure is not None:
+            return precondition_failure
 
         recorded_children = recorded_step_payload.get("children")
         if not isinstance(recorded_children, list):
@@ -593,6 +799,38 @@ class AgentLoop:
         first_error = ""
         stop_after_failure = bool(stop_on_error)
 
+        if selected_step_ids:
+            first_step_id = selected_step_ids[0]
+            first_step_payload = self._get_replay_recorded_step_payload(first_step_id)
+            if isinstance(first_step_payload, dict):
+                start_before_url, _ = self._get_replay_recorded_start_state(first_step_payload)
+                if start_before_url:
+                    print(f"[REPLAY_ALL] restoring_start_url url={start_before_url}")
+                    try:
+                        page = get_page()
+                        await page.goto(start_before_url, wait_until="domcontentloaded")
+                    except Exception as exc:  # noqa: BLE001
+                        final_result = {
+                            "type": "replay_all_result",
+                            "ok": False,
+                            "stop_on_error": stop_after_failure,
+                            "step_ids": list(selected_step_ids),
+                            "replayed_count": 0,
+                            "passed_count": 0,
+                            "failed_count": 1,
+                            "failed_step_id": first_step_id,
+                            "error": self._safe_replay_error_message(
+                                f"Replay blocked because the replay start URL could not be restored: {type(exc).__name__}"
+                            ),
+                        }
+                        print(
+                            "[REPLAY_ALL] completed "
+                            "total=0 passed=0 failed=1"
+                        )
+                        await self._send("replay_all_result", **final_result)
+                        self._replay_all_result_sent = True
+                        return final_result
+
         for step_id in selected_step_ids:
             try:
                 step_result = await self.replay_one(step_id)
@@ -642,6 +880,9 @@ class AgentLoop:
                     first_error = error_text
                 if failed_operation_id:
                     replay_event["failed_operation_id"] = failed_operation_id
+                for key in ("reason", "failure_type", "expected", "actual", "message"):
+                    if key in step_result:
+                        replay_event[key] = step_result[key]
                 replay_event["error"] = error_text
 
             replayed_count += 1
