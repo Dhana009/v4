@@ -26,6 +26,339 @@ Non-negotiable rule: sub-agents do not execute Playwright actions, record steps,
 
 > PRD v2.3 modular pack. Existing PRD v2.2 wording is preserved where it still applies. New or corrected material is marked as v2.3 guidance.
 
+PRD Addendum — Structured Plan Correction and Intent-Change Pipeline
+1. Problem
+
+LLM Mode must support iterative user correction during planning.
+
+Users will frequently revise plans before execution:
+
+assert first, then click
+remove the click
+only validate the heading
+add one more assertion
+use the second button
+split this into two steps
+merge these steps
+change expected outcome to modal
+
+These corrections are open-ended natural language, but the system must not treat them as uncontrolled replanning.
+
+A corrected plan must not silently drop, reorder, split, merge, or replace operations unless the user explicitly asked for that change.
+
+2. Core Principle
+
+User correction is not raw chat history. It is an intent-change event.
+
+Free-text user correction
+→ interpreted into typed correction event
+→ applied against authoritative active plan object
+→ validated by backend invariants
+→ emitted as corrected plan_ready only after validation
+
+The LLM may interpret the correction, but the backend Step Runner remains the authority for accepting, rejecting, or asking clarification.
+
+3. Active Plan as Source of Truth
+
+When a plan_ready event is emitted, the backend must keep an authoritative active plan object until the plan is confirmed, rejected, corrected, or cancelled.
+
+The active plan should preserve:
+
+{
+  "plan_id": "plan_001",
+  "status": "awaiting_confirmation",
+  "steps": [
+    {
+      "step_id": "pending-step-1",
+      "intent": "check Get started and click it",
+      "children": [
+        {
+          "operation_id": "op_1",
+          "type": "click",
+          "target": "Get started",
+          "locator": "get_by_text(\"Get started\", exact=True)"
+        }
+      ]
+    }
+  ]
+}
+
+The active plan must not exist only as text in LLM message history.
+
+4. Typed Intent-Change Events
+
+User correction text should be classified into one of a small number of event types.
+
+Event type	Example
+confirm_plan	“yes”, “confirmed”
+reject_plan	“no, wrong”
+add_operation	“also check the heading”
+remove_operation	“don’t click”
+reorder_operations	“assert first then click”
+replace_operation	“click Docs instead”
+change_target	“use the header button, not hero button”
+change_expected_outcome	“this should open a modal”
+split_step	“make this two separate steps”
+merge_steps	“combine these”
+skip_step	“skip this step”
+stop_run	“stop/end/cancel”
+clarification_needed	ambiguous correction
+
+The system should route the correction through the correct pipeline based on the classified event type.
+
+5. Correction Pipelines
+Pipeline A — Pure Plan Edit
+
+Used when no browser evidence is required.
+
+Examples:
+
+assert first then click
+remove the click
+rename this step
+make this one parent step
+
+Allowed behavior:
+
+No DOM extraction
+No locator search
+No browser state read unless required
+Use active plan object only
+Pipeline B — Target / Locator Edit
+
+Used when the correction changes the target element.
+
+Examples:
+
+click the header Get started, not the hero Get started
+use the second button
+select the pricing dropdown
+
+Allowed behavior:
+
+Use locator_find / locator_validate only for changed target
+Reuse existing validated locators where possible
+Do not re-run full planning unless required
+Pipeline C — Expected Outcome Edit
+
+Used when the action stays the same but expected result changes.
+
+Examples:
+
+this should open a modal
+this should navigate to docs
+this should show a toast
+
+Allowed behavior:
+
+Update expected_outcome
+No full DOM extraction
+No action execution
+No code update until execution/recording
+Pipeline D — Structural Edit
+
+Used when steps or child operations are reorganized.
+
+Examples:
+
+split this into two steps
+merge these two steps
+move step 3 before step 2
+
+Allowed behavior:
+
+Backend validates graph/step changes
+Preserve step IDs where safe
+Do not silently delete recorded/pending work
+Pipeline E — Ambiguous or High-Risk Edit
+
+Used when intent is unclear.
+
+Examples:
+
+make it better
+change this
+do proper validation
+fix the plan
+
+Allowed behavior:
+
+Ask one precise clarification
+Do not guess
+Do not execute
+Do not silently mutate plan
+6. Backend Validation Invariants
+
+Before any corrected plan_ready is shown to the user, backend must validate it.
+
+Required invariants:
+
+1. Existing child operations cannot disappear silently.
+2. Existing child operations cannot reorder silently.
+3. Parent step cannot split or merge silently.
+4. Operation removal requires explicit user wording such as remove, only, don’t, no need.
+5. Operation reorder requires explicit order wording such as before, after, first, then.
+6. Added operations must be represented as child operations under the correct parent step.
+7. Existing validated locators should be reused unless the target changes.
+8. If the correction is ambiguous, ask clarification instead of guessing.
+9. The corrected plan must preserve user intent order.
+10. The backend must reject or clarify invalid corrected plans before UI confirmation.
+
+Example:
+
+Prior plan:
+
+op_1 click Get started
+
+Correction:
+
+assert first then click
+
+Valid corrected plan:
+
+op_1 assert Get started is visible
+op_2 click Get started
+
+Invalid corrected plan:
+
+op_1 assert Get started is visible
+
+Reason:
+
+Existing click operation was silently dropped.
+7. LLM Responsibility
+
+The LLM may:
+
+interpret natural language correction
+classify correction type
+propose operation diff
+suggest corrected child operation order
+ask clarification when ambiguous
+
+The LLM must not:
+
+silently remove operations
+silently reorder operations
+decide lifecycle truth
+mark steps recorded/skipped/failed
+commit corrected plan without backend validation
+execute actions during correction
+8. Correction Output Shape
+
+The preferred LLM output for correction is a structured edit proposal.
+
+Example:
+
+{
+  "event_type": "reorder_operations",
+  "target_step_id": "pending-step-1",
+  "edit_type": "add_and_reorder",
+  "children": [
+    {
+      "type": "assert",
+      "target": "Get started",
+      "assertion": "visible"
+    },
+    {
+      "type": "click",
+      "target": "Get started"
+    }
+  ],
+  "drop_policy": "forbid_silent_drop"
+}
+
+The backend converts a valid proposal into a corrected plan_ready.
+
+9. Token and Tool Budget for Correction
+
+Correction mode must be cheaper than normal planning.
+
+The model should receive compact correction context only:
+
+active_plan_id
+target_step_id
+previous parent intent
+existing child operations
+existing validated locators
+user correction text
+allowed edit policy
+
+Correction mode should not automatically resend:
+
+full DOM
+full browser state
+full conversation history
+all previous tool outputs
+all skills
+
+Tool usage should be gated by correction type:
+
+Correction type	Default tools
+reorder/remove/rename	no browser tools
+add assertion using same target	no browser tools unless locator missing
+change target	locator_find + locator_validate
+expected outcome change	no browser tools
+ambiguous	ask_user only
+
+Correction should have a bounded call policy:
+
+If corrected plan is invalid, retry once with validation error.
+If still invalid or ambiguous, ask one precise clarification.
+Do not loop indefinitely.
+10. Frontend Requirements
+
+Frontend may continue using a free-text correction input in MVP, but it should send correction with active plan context when available:
+
+{
+  "type": "correction",
+  "message": "assert first then click",
+  "plan_id": "plan_001",
+  "target_step_id": "pending-step-1"
+}
+
+Future UI may support operation-level controls:
+
+move operation up/down
+remove operation
+add assertion
+change target
+change expected outcome
+
+But even before UI controls exist, backend must validate correction safety.
+
+11. Relationship to Replay and Manual Mode
+
+This correction architecture is not only for initial planning.
+
+The same event/diff pipeline should be reused later for:
+
+manual mode edits
+replay repair
+locator replacement
+expected outcome updates
+child operation replay/repair
+save repaired version
+
+Replay repair should also produce typed edit proposals and pass through backend validation before changing recorded artifacts.
+
+12. Acceptance Criteria
+
+Structured Plan Correction is correct when:
+
+1. A correction from click-only to “assert first then click” produces one parent step with assert + click children.
+2. A correction that reorders operations preserves all operations unless explicitly removed.
+3. A correction that removes an operation only succeeds when removal intent is explicit.
+4. Ambiguous correction asks a clarification instead of guessing.
+5. Corrected plan cannot silently drop child operations.
+6. Corrected plan cannot silently split/merge parent steps.
+7. Existing validated locators are reused unless target changes.
+8. Correction mode avoids full DOM extraction unless required.
+9. Correction has bounded retry/call behavior.
+10. UI only shows corrected plan_ready after backend validation passes.
+13. Summary
+Structured Plan Correction converts open-ended user feedback into typed intent-change events. The LLM interprets and proposes edits, but the backend validates and commits. This prevents silent child drops/reorders, reduces token cost, and creates a reusable foundation for planning, manual edits, replay repair, and future operation-level workflows.
+
 
 ## v2.3 LLM runtime clarification
 

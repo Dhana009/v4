@@ -81,6 +81,22 @@ def test_recording_wait_filters_to_overlay_and_ask_user_only() -> None:
     assert tools == before
 
 
+def test_resolved_structured_correction_filters_to_send_to_overlay_only() -> None:
+    tools = _build_tools()
+    before = deepcopy(tools)
+    correction_mode = {
+        "category": "add_and_reorder_operations",
+        "needs_clarification": False,
+        "clarification_resolved": True,
+    }
+
+    filtered_tools = filter_tools_for_phase(tools, "planning", correction_mode=correction_mode)
+
+    assert filtered_tools is not tools
+    assert _tool_names(filtered_tools) == ["send_to_overlay"]
+    assert tools == before
+
+
 def test_unknown_phase_falls_back_to_safe_tools_and_logs_warning(capsys: pytest.CaptureFixture[str]) -> None:
     tools = _build_tools()
 

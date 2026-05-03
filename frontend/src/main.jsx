@@ -1471,11 +1471,20 @@ function useAutoWorkbenchTransport(config) {
       appendTimeline("Correction is empty.", "warn");
       return;
     }
+    const planId = firstNonEmptyText(plan?.raw?.plan_id, plan?.raw?.planId, plan?.raw?.id);
+    const targetStepId = firstNonEmptyText(
+      plan?.raw?.target_step_id,
+      plan?.raw?.targetStepId,
+      plan?.steps?.[0]?.step_id,
+      plan?.steps?.[0]?.stepId
+    );
 
     const sent = sendPayload(
       {
         type: "correction",
         message: correction,
+        planId,
+        targetStepId,
       },
       "WebSocket not connected."
     );
@@ -1487,7 +1496,7 @@ function useAutoWorkbenchTransport(config) {
       setPlanCorrectionText("");
       appendTimeline("Correction sent.", "ok");
     }
-  }, [appendConversation, appendTimeline, planCorrectionText, sendPayload]);
+  }, [appendConversation, appendTimeline, plan, planCorrectionText, sendPayload]);
 
   const handleSendClarificationAnswer = useCallback(
     (answerOverride = "") => {

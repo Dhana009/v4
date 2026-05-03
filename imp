@@ -1,0 +1,5 @@
+1. Stop coding.
+2. Draw the full structured correction state machine.
+3. Define every state, event, allowed tools, exit condition, retry budget, and UI result.
+4. Add tests for the entire lifecycle, not only the latest bug.
+5. Only then implement.

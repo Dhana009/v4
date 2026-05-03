@@ -74,6 +74,7 @@ def filter_tools_for_phase(
     tools: Any,
     phase: str,
     awaiting_step_record: bool = False,
+    correction_mode: dict[str, Any] | None = None,
 ) -> list[Any]:
     normalized_tools = _normalize_tools(tools)
     normalized_phase = str(phase or "").strip().lower()
@@ -81,6 +82,33 @@ def filter_tools_for_phase(
 
     if normalized_phase == "recording" and awaiting_step_record:
         return filter_tools_for_recording_wait(normalized_tools)
+
+    correction_category = ""
+    correction_needs_clarification = False
+    if isinstance(correction_mode, dict):
+        correction_category = str(correction_mode.get("category") or "").strip().lower()
+        correction_needs_clarification = bool(correction_mode.get("needs_clarification"))
+
+    if normalized_phase in {"planning", "awaiting_confirmation"} and correction_category:
+        if correction_needs_clarification or correction_category == "ambiguous":
+            allowed_tool_names = {"ask_user"}
+        else:
+            allowed_tool_names = {"send_to_overlay"}
+        filtered_tools = [
+            tool
+            for index, tool in enumerate(normalized_tools)
+            if _tool_name(tool, index) in allowed_tool_names
+        ]
+        filtered_count = len(filtered_tools)
+        print(
+            "[TOOL_FILTER] "
+            f"phase={normalized_phase or 'unknown'} "
+            f"correction_mode={correction_category or 'unknown'} "
+            f"original={original_count} "
+            f"filtered={filtered_count} "
+            f"removed={original_count - filtered_count}"
+        )
+        return filtered_tools
 
     if normalized_phase in {"executing", "recording", "recovery", "recovering"}:
         filtered_tools = list(normalized_tools)

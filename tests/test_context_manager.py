@@ -108,6 +108,36 @@ def test_planning_phase_inserts_planning_instruction():
     assert bundle.context_mode == "normal"
 
 
+def test_planning_phase_inserts_correction_context_after_phase_instruction():
+    manager = ContextManager()
+    messages = _build_small_history()
+    correction_context = "Structured correction diff context.\nactive_plan_id: \"plan-1\""
+    before = deepcopy(messages)
+
+    bundle = manager.prepare_messages(
+        messages,
+        purpose="main_orchestrator",
+        context_mode="normal",
+        metadata={
+            "skill_count": 1,
+            "tool_count": 0,
+            "phase": "planning",
+            "correction_context": correction_context,
+        },
+    )
+
+    assert bundle.messages[1]["role"] == "system"
+    assert bundle.messages[1]["content"] == PLANNING_PHASE_INSTRUCTION
+    assert bundle.messages[2]["role"] == "system"
+    assert bundle.messages[2]["content"] == correction_context
+    assert bundle.messages[3]["role"] == "user"
+    assert bundle.messages[4]["role"] == "assistant"
+    assert messages == before
+    assert bundle.metadata["phase"] == "planning"
+    assert bundle.metadata["phase_instruction_applied"] is True
+    assert bundle.metadata["final_message_count"] == len(messages) + 2
+
+
 def test_executing_phase_inserts_executing_instruction():
     manager = ContextManager()
     messages = _build_small_history()

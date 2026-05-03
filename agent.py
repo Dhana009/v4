@@ -131,6 +131,8 @@ class AgentLoop:
         self.last_plan_step_ids: list[str] = []
         self.last_plan_summary: str | None = None
         self.last_plan_original_user_intent: str | None = None
+        self._active_plan_state: dict[str, Any] | None = None
+        self._active_plan_correction_state: dict[str, Any] | None = None
         self._plan_correction_pending = False
         self.capability_gaps: list[dict[str, Any]] = []
         self.recorded_step_payloads: list[dict[str, Any]] = []
@@ -172,6 +174,8 @@ class AgentLoop:
         self._recording_wait_guard_armed = False
         self.run_stop_requested = False
         self._run_completion_requested = False
+        self._active_plan_state = None
+        self._active_plan_correction_state = None
         self._plan_correction_pending = False
         self.capability_gaps = []
         self.recorded_step_payloads = []
@@ -1203,11 +1207,26 @@ class AgentLoop:
                     getattr(self, "_awaiting_step_record", False)
                     and getattr(self, "_recording_wait_guard_armed", False)
                 )
+                correction_mode = getattr(self, "_active_plan_correction_state", None)
+                if isinstance(correction_mode, dict) and correction_mode.get("correction_failed"):
+                    failure_message = str(
+                        correction_mode.get("last_validation_feedback")
+                        or "Correction failed safely. The corrected plan could not be validated without risking dropped operations."
+                    ).strip()
+                    print(f"[AGENT] correction failed safely: {self._summarize(failure_message, limit=140)}")
+                    await self._send("llm_result", success=False, message=failure_message)
+                    self._pending_failure_followup = False
+                    self._clear_active_plan_correction_state()
+                    return
                 filtered_tools = filter_tools_for_phase(
                     self.tools,
                     current_phase,
                     awaiting_step_record=awaiting_step_record,
+                    correction_mode=correction_mode if isinstance(correction_mode, dict) else None,
                 )
+                correction_context = ""
+                if isinstance(correction_mode, dict):
+                    correction_context = self._build_plan_correction_context_message()
                 context_bundle = self.context_manager.prepare_messages(
                     self.llm.messages,
                     purpose="main_orchestrator",
@@ -1216,6 +1235,7 @@ class AgentLoop:
                         "skill_count": len(self._loaded_skill_names),
                         "tool_count": len(filtered_tools),
                         "phase": current_phase,
+                        "correction_context": correction_context,
                     },
                 )
                 self._llm_call_counter += 1
@@ -1256,6 +1276,20 @@ class AgentLoop:
 
                 if not message.tool_calls:
                     final_text = (message.content or "").strip()
+                    if isinstance(correction_mode, dict) and not correction_mode.get("correction_failed"):
+                        correction_mode["no_progress_count"] = int(correction_mode.get("no_progress_count") or 0) + 1
+                        failure_message = (
+                            "Correction failed safely. The model did not return a structured correction diff."
+                        )
+                        correction_mode["correction_failed"] = True
+                        correction_mode["clarification_closed"] = True
+                        correction_mode["needs_clarification"] = False
+                        correction_mode["last_validation_feedback"] = failure_message
+                        print(f"[AGENT] correction failed without diff: {self._summarize(failure_message, limit=140)}")
+                        await self._send("llm_result", success=False, message=failure_message)
+                        self._pending_failure_followup = False
+                        self._clear_active_plan_correction_state()
+                        return
                     if self.run_stop_requested:
                         print("[AGENT] LLM final response received")
                         await self._send("llm_result", success=True, message=final_text)
@@ -1375,6 +1409,7 @@ class AgentLoop:
                         break
 
                     args = self._parse_tool_args(tool_call.function.arguments or "{}")
+                    overlay_message_type = str(args.get("message_type") or "").strip()
                     print(
                         f"[TOOL CALL] {tool_name}({self._summarize(args, limit=100)})"
                     )
@@ -1396,7 +1431,7 @@ class AgentLoop:
 
                     if (
                         tool_name == "send_to_overlay"
-                        and str(args.get("message_type") or "").strip() == "step_recorded"
+                        and overlay_message_type == "step_recorded"
                         and not self.plan_confirmed
                     ):
                         blocked_result = {
@@ -1416,7 +1451,7 @@ class AgentLoop:
                         and tool_name not in self.EXECUTION_TOOLS
                         and not (
                             tool_name == "send_to_overlay"
-                            and str(args.get("message_type") or "").strip() == "step_recorded"
+                            and overlay_message_type == "step_recorded"
                         )
                     ):
                         auto_recorded_payload = await self._auto_record_successful_step()
@@ -1503,11 +1538,6 @@ class AgentLoop:
                         )
                         self._mark_step_failed(step_context, result.get("error") or "execution tool failed")
                     had_tool_failure = had_tool_failure or tool_failed
-                    is_plan_rejected = (
-                        tool_name == "send_to_overlay"
-                        and str(args.get("message_type") or "") == "plan_ready"
-                        and result.get("confirmed") is False
-                    )
                     if (
                         result.get("success") is True
                         and not result.get("skipped")
@@ -1525,7 +1555,7 @@ class AgentLoop:
                         saw_successful_execution_action = True
                     if (
                         tool_name == "send_to_overlay"
-                        and str(args.get("message_type") or "").strip() == "step_recorded"
+                        and overlay_message_type == "step_recorded"
                         and result.get("sent") is True
                     ):
                         saw_step_recorded = True
@@ -1536,6 +1566,9 @@ class AgentLoop:
                             "content": json.dumps(result, ensure_ascii=True),
                         }
                     )
+                    clarification_resolution_message = str(result.get("clarification_resolution_message") or "").strip()
+                    if tool_name == "ask_user" and clarification_resolution_message:
+                        self.llm.messages.append({"role": "user", "content": clarification_resolution_message})
                     if self._run_completion_requested:
                         self.phase_tracker.set_phase(
                             "completed",
@@ -1555,11 +1588,55 @@ class AgentLoop:
                         self._pending_failure_followup = False
                         self._reset_lifecycle_state()
                         return
-                    if is_plan_rejected:
-                        correction = str(result.get("correction") or "").strip() or "the user requested a correction"
-                        note = self._append_plan_correction_message(correction)
-                        print(f"[AGENT] plan corrected: {self._summarize(note, limit=140)}")
+                    is_correction_terminal = (
+                        tool_name == "send_to_overlay"
+                        and str(result.get("reason") or "").strip() in {"correction_failed", "correction_diff_required"}
+                    )
+                    if not is_correction_terminal and tool_name == "ask_user":
+                        is_correction_terminal = str(result.get("reason") or "").strip() == "clarification_already_answered"
+                    if is_correction_terminal:
                         self._append_skipped_tool_responses(tool_calls, index + 1, batch_stop_reason)
+                        failure_message = str(result.get("message") or "").strip()
+                        if failure_message:
+                            self.llm.messages.append({"role": "user", "content": failure_message})
+                        print(
+                            "[AGENT] structured correction closed safely: "
+                            f"{self._summarize(failure_message or 'Correction failed safely.', limit=140)}"
+                        )
+                        await self._send(
+                            "llm_result",
+                            success=False,
+                            message=failure_message or "Correction failed safely.",
+                        )
+                        self._pending_failure_followup = False
+                        self._clear_active_plan_correction_state()
+                        return
+                    is_plan_correction_rejected = (
+                        tool_name == "send_to_overlay"
+                        and overlay_message_type in {"plan_ready", "plan_correction_diff"}
+                        and (
+                            result.get("confirmed") is False
+                            or str(result.get("reason") or "").strip() == "invalid_corrected_plan"
+                        )
+                    )
+                    if is_plan_correction_rejected:
+                        self._append_skipped_tool_responses(tool_calls, index + 1, batch_stop_reason)
+                        if result.get("confirmed") is False:
+                            correction = str(result.get("correction") or "").strip() or "the user requested a correction"
+                            note = self._append_plan_correction_message(
+                                correction,
+                                plan_id=str(result.get("plan_id") or "").strip() or None,
+                                target_step_id=str(result.get("target_step_id") or "").strip() or None,
+                            )
+                            print(f"[AGENT] plan corrected: {self._summarize(note, limit=140)}")
+                        else:
+                            validation_feedback = str(result.get("message") or "").strip()
+                            if validation_feedback:
+                                self.llm.messages.append({"role": "user", "content": validation_feedback})
+                            print(
+                                "[AGENT] corrected plan rejected: "
+                                f"{self._summarize(validation_feedback or 'invalid corrected plan', limit=140)}"
+                            )
                         break
                     if recovery_decision is not None and recovery_decision.stop_batch:
                         print(f"[AGENT] {tool_name} failed; stopping batch for LLM recovery")
@@ -2096,6 +2173,987 @@ class AgentLoop:
         self.last_plan_summary = None
         self.last_plan_original_user_intent = None
 
+    def _clear_active_plan_correction_state(self) -> None:
+        self._active_plan_correction_state = None
+        self._plan_correction_pending = False
+
+    def _clear_active_plan_state(self) -> None:
+        self._active_plan_state = None
+        self._clear_active_plan_correction_state()
+
+    def _current_active_plan_state(self) -> dict[str, Any] | None:
+        active_plan_state = getattr(self, "_active_plan_state", None)
+        if isinstance(active_plan_state, dict):
+            return active_plan_state
+        return None
+
+    def _plan_steps_from_state(self, plan_state: dict[str, Any] | None) -> list[dict[str, Any]]:
+        if not isinstance(plan_state, dict):
+            return []
+        steps = plan_state.get("steps")
+        if not isinstance(steps, list):
+            return []
+        return [step for step in steps if isinstance(step, dict)]
+
+    def _plan_child_operations_from_step(self, step: dict[str, Any]) -> list[dict[str, Any]]:
+        if not isinstance(step, dict):
+            return []
+        children = step.get("children")
+        if isinstance(children, list) and children:
+            return [child for child in children if isinstance(child, dict)]
+        return [step]
+
+    def _plan_operation_text(self, operation: dict[str, Any] | None) -> str:
+        if not isinstance(operation, dict):
+            return ""
+        return self._normalize_space(
+            str(
+                operation.get("description")
+                or operation.get("target")
+                or operation.get("locator")
+                or operation.get("text")
+                or operation.get("label")
+                or operation.get("title")
+                or ""
+            )
+        ).strip()
+
+    def _plan_operation_type(self, operation: dict[str, Any] | None) -> str:
+        if not isinstance(operation, dict):
+            return ""
+        return self._normalize_space(str(operation.get("type") or operation.get("action") or "")).lower()
+
+    def _plan_operation_signature(self, operation: dict[str, Any] | None) -> str:
+        if not isinstance(operation, dict):
+            return ""
+        operation_type = self._plan_operation_type(operation)
+        target_text = self._normalize_space(self._plan_operation_text(operation)).lower()
+        locator_text = self._normalize_space(str(operation.get("locator") or "")).lower()
+        if not operation_type and not target_text and not locator_text:
+            return ""
+        if locator_text:
+            return f"{operation_type}|{target_text}|{locator_text}"
+        return f"{operation_type}|{target_text}"
+
+    def _plan_operation_types_from_state(self, plan_state: dict[str, Any] | None) -> list[str]:
+        operation_types: list[str] = []
+        for step in self._plan_steps_from_state(plan_state):
+            for operation in self._plan_child_operations_from_step(step):
+                operation_type = self._plan_operation_type(operation)
+                if operation_type:
+                    operation_types.append(operation_type)
+        return operation_types
+
+    def _plan_operation_signatures_from_state(self, plan_state: dict[str, Any] | None) -> list[str]:
+        operation_signatures: list[str] = []
+        for step in self._plan_steps_from_state(plan_state):
+            for operation in self._plan_child_operations_from_step(step):
+                operation_signature = self._plan_operation_signature(operation)
+                if operation_signature:
+                    operation_signatures.append(operation_signature)
+        return operation_signatures
+
+    def _sequence_contains_subsequence(self, sequence: list[str], subsequence: list[str]) -> bool:
+        if not subsequence:
+            return True
+        if not sequence:
+            return False
+
+        search_index = 0
+        for expected_item in subsequence:
+            found_index = -1
+            for index in range(search_index, len(sequence)):
+                if sequence[index] == expected_item:
+                    found_index = index
+                    break
+            if found_index < 0:
+                return False
+            search_index = found_index + 1
+        return True
+
+    def _build_active_plan_state(
+        self,
+        payload: dict[str, Any],
+        source_plan_state: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        active_plan_state = deepcopy(payload) if isinstance(payload, dict) else {}
+        plan_id = str(
+            active_plan_state.get("plan_id")
+            or active_plan_state.get("planId")
+            or active_plan_state.get("id")
+            or f"plan-{uuid4().hex}"
+        ).strip()
+        active_plan_state["plan_id"] = plan_id
+
+        summary = self._normalize_space(str(active_plan_state.get("summary") or "")).strip() or None
+        if summary is None:
+            if isinstance(source_plan_state, dict):
+                summary = self._normalize_space(str(source_plan_state.get("summary") or "")).strip() or None
+            if summary is None:
+                summary = self.last_plan_summary
+        active_plan_state["summary"] = summary
+
+        original_user_intent = self._normalize_space(str(active_plan_state.get("original_user_intent") or "")).strip() or None
+        if original_user_intent is None:
+            if isinstance(source_plan_state, dict):
+                original_user_intent = self._normalize_space(
+                    str(source_plan_state.get("original_user_intent") or "")
+                ).strip() or None
+            if original_user_intent is None:
+                original_user_intent = self.last_plan_original_user_intent
+        active_plan_state["original_user_intent"] = original_user_intent
+
+        steps = self._plan_steps_from_state(active_plan_state)
+        active_plan_state["steps"] = steps
+        active_plan_state["step_ids"] = [
+            str(step.get("step_id") or step.get("id") or "").strip()
+            for step in steps
+            if str(step.get("step_id") or step.get("id") or "").strip()
+        ]
+        active_plan_state["target_step_id"] = active_plan_state["step_ids"][0] if active_plan_state["step_ids"] else None
+        active_plan_state["source_payload"] = deepcopy(payload) if isinstance(payload, dict) else {}
+        return active_plan_state
+
+    def _classify_plan_correction(
+        self,
+        correction: str,
+        active_plan_state: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        normalized = self._normalize_space(correction).lower()
+        ordered_types = self._infer_planned_operation_sequence(normalized)
+        active_operation_count = len(self._plan_operation_signatures_from_state(active_plan_state))
+
+        explicit_remove = any(
+            marker in normalized
+            for marker in (
+                "don't",
+                "do not",
+                "remove",
+                "only",
+                "no need",
+                "skip",
+                "without",
+            )
+        )
+        explicit_order = any(
+            marker in normalized
+            for marker in (
+                " first",
+                " then",
+                " before",
+                " after",
+                " order",
+                " next",
+                "swap",
+                "reverse",
+            )
+        )
+        explicit_replace = any(
+            marker in normalized
+            for marker in (
+                "replace",
+                "instead of",
+                "instead",
+                "swap",
+                "change it to",
+            )
+        )
+        explicit_target_change = any(
+            marker in normalized
+            for marker in (
+                "use the",
+                "switch",
+                "header button",
+                "button",
+                "link",
+                "target",
+                "selector",
+                "locator",
+            )
+        )
+        explicit_expected_outcome = any(
+            marker in normalized
+            for marker in (
+                "should open",
+                "should show",
+                "should navigate",
+                "expected",
+                "modal",
+                "new tab",
+                "visible",
+                "hidden",
+                "enabled",
+                "disabled",
+            )
+        )
+        explicit_split_merge = any(marker in normalized for marker in ("split", "merge"))
+        explicit_add = any(
+            marker in normalized
+            for marker in (
+                "add",
+                "also",
+                "check",
+                "verify",
+                "validate",
+                "ensure",
+            )
+        )
+        if not explicit_add and "assert" in normalized and not explicit_remove:
+            explicit_add = True
+
+        category = "ambiguous"
+        if not normalized:
+            category = "ambiguous"
+        elif explicit_split_merge:
+            if "split" in normalized and "merge" not in normalized:
+                category = "split_step"
+            elif "merge" in normalized and "split" not in normalized:
+                category = "merge_steps"
+            else:
+                category = "ambiguous"
+        elif explicit_replace:
+            category = "replace_operation"
+        elif explicit_target_change and not explicit_add and not explicit_remove and not explicit_order:
+            category = "change_target"
+        elif explicit_expected_outcome and not explicit_add and not explicit_remove and not explicit_order:
+            category = "change_expected_outcome"
+        elif explicit_order and len(ordered_types) > 1:
+            if active_operation_count > 0 and len(ordered_types) > active_operation_count:
+                category = "add_and_reorder_operations"
+            else:
+                category = "reorder_operations"
+        elif explicit_add and not explicit_remove:
+            category = "add_operation"
+        elif explicit_remove and not explicit_add:
+            category = "remove_operation"
+        elif ordered_types and active_operation_count == len(ordered_types) and ordered_types != self._plan_operation_types_from_state(active_plan_state):
+            category = "reorder_operations"
+
+        return {
+            "category": category,
+            "ordered_types": ordered_types,
+            "explicit_add": explicit_add,
+            "explicit_remove": explicit_remove,
+            "explicit_order": explicit_order,
+            "explicit_replace": explicit_replace,
+            "explicit_target_change": explicit_target_change,
+            "explicit_expected_outcome": explicit_expected_outcome,
+            "explicit_split_merge": explicit_split_merge,
+        }
+
+    def _build_plan_correction_validation_feedback(
+        self,
+        correction_state: dict[str, Any],
+        validation_reason: str,
+        active_plan_state: dict[str, Any] | None = None,
+        proposed_payload: dict[str, Any] | None = None,
+    ) -> str:
+        category = str(correction_state.get("category") or "").strip() or "ambiguous"
+        ordered_types = list(correction_state.get("ordered_types") or [])
+        active_operation_signatures = self._plan_operation_signatures_from_state(active_plan_state)
+        proposed_operation_signatures = self._plan_operation_signatures_from_state(proposed_payload)
+        active_operation_types = self._plan_operation_types_from_state(active_plan_state)
+        active_steps = self._plan_steps_from_state(active_plan_state)
+        active_operation_texts: list[str] = []
+        for step in active_steps:
+            for child in self._plan_child_operations_from_step(step):
+                child_signature = self._plan_operation_signature(child)
+                if child_signature and child_signature not in active_operation_signatures:
+                    continue
+                child_text = self._plan_operation_text(child)
+                active_operation_texts.append(child_text or self._plan_operation_type(child) or "child")
+        validation_reason_text = self._normalize_space(validation_reason).strip()
+
+        if correction_state.get("needs_clarification") or category == "ambiguous":
+            if category in {"add_operation", "add_and_reorder_operations"}:
+                added_types = [operation_type for operation_type in ordered_types if operation_type not in active_operation_types]
+                kept_types = [operation_type for operation_type in active_operation_types if operation_type in ordered_types]
+                if "click" in kept_types and "assert" in added_types:
+                    return "Should I keep the click and add an assertion before it?"
+                if kept_types and added_types:
+                    kept_text = " and ".join(kept_types)
+                    added_text = " and ".join(added_types)
+                    return f"Should I keep the {kept_text} and add the {added_text}?"
+                if ordered_types:
+                    return f"Should I add {' then '.join(ordered_types)} and keep the existing child operations?"
+            if category == "remove_operation":
+                removed_types = [operation_type for operation_type in active_operation_types if operation_type not in ordered_types]
+                if "click" in removed_types:
+                    return "Should I remove the click and keep the remaining child operations?"
+                if removed_types:
+                    removed_text = " and ".join(removed_types)
+                    return f"Should I remove the {removed_text} operation and keep the remaining child operations?"
+            if category in {"reorder_operations", "add_and_reorder_operations"} and ordered_types:
+                return f"Should I keep the same child operations but reorder them as {' then '.join(ordered_types)}?"
+            return "Should I keep the current plan and apply the correction as written?"
+
+        if category in {"add_operation", "add_and_reorder_operations"} and len(proposed_operation_signatures) <= len(active_operation_signatures):
+            missing_active_operation = ""
+            for index, active_signature in enumerate(active_operation_signatures):
+                if active_signature not in proposed_operation_signatures:
+                    missing_active_operation = (
+                        active_operation_texts[index]
+                        if index < len(active_operation_texts) and active_operation_texts[index]
+                        else ""
+                    )
+                    break
+            if missing_active_operation:
+                missing_active_operation_type = ""
+                if index < len(active_steps):
+                    missing_child = None
+                    for child in self._plan_child_operations_from_step(active_steps[index]):
+                        if self._plan_operation_signature(child) == active_signature:
+                            missing_child = child
+                            break
+                    if isinstance(missing_child, dict):
+                        missing_active_operation_type = self._plan_operation_type(missing_child)
+                missing_active_operation_label = missing_active_operation_type or missing_active_operation
+                if ordered_types:
+                    return (
+                        f"Corrected plan is invalid because existing {missing_active_operation_label} operation was dropped. "
+                        f"Return one parent step with {' then '.join(ordered_types)}."
+                    )
+                return f"Corrected plan is invalid because existing {missing_active_operation_label} operation was dropped. Restore the dropped child operation."
+            if ordered_types:
+                return f"Corrected plan is invalid because the added {' then '.join(ordered_types)} operation is missing. Return one parent step with {' then '.join(ordered_types)}."
+            return "Corrected plan is invalid because the added operation is missing. Return one parent step with the requested child operations."
+
+        if category == "remove_operation" and len(proposed_operation_signatures) >= len(active_operation_signatures):
+            return "Corrected plan is invalid because no operation was removed. Remove the explicitly rejected child operation and try again."
+
+        if category in {"reorder_operations", "add_and_reorder_operations"} and ordered_types:
+            ordered_text = " then ".join(ordered_types)
+            if ordered_text:
+                return f"Corrected plan is invalid because the child order does not match the correction. Return one parent step with {ordered_text}."
+
+        if validation_reason_text:
+            return validation_reason_text
+
+        return "Corrected plan is invalid. Preserve the active child operations or ask one clarification."
+
+    def _build_plan_correction_operation_context_lines(
+        self,
+        active_plan_state: dict[str, Any] | None,
+    ) -> list[str]:
+        if not isinstance(active_plan_state, dict):
+            return []
+
+        lines: list[str] = []
+        for step in self._plan_steps_from_state(active_plan_state):
+            if not isinstance(step, dict):
+                continue
+            step_id = str(step.get("step_id") or step.get("id") or "").strip()
+            intent = self._normalize_space(
+                str(step.get("intent") or step.get("title") or step.get("text") or step.get("label") or "")
+            ).strip()
+            header_parts = [part for part in (step_id, intent) if part]
+            if header_parts:
+                lines.append(f'Parent step: {" | ".join(header_parts)}')
+            expected_outcome_text = self._expected_outcome_summary(
+                self._normalize_expected_outcome(
+                    step.get("expected_outcome") or step.get("expectedOutcome"),
+                    self._is_click_like_intent(intent),
+                )
+            )
+            if expected_outcome_text:
+                lines.append(f"  expected_outcome: {expected_outcome_text}")
+            children = self._plan_child_operations_from_step(step)
+            if not children:
+                lines.append("  child operations: none")
+                continue
+            for child in children:
+                if not isinstance(child, dict):
+                    continue
+                child_operation_id = str(child.get("operation_id") or "").strip()
+                child_type = str(child.get("type") or "").strip()
+                child_target = self._normalize_space(str(child.get("target") or child.get("description") or "")).strip()
+                child_locator = self._normalize_space(str(child.get("locator") or "")).strip()
+                child_parts = [part for part in (child_operation_id, child_type) if part]
+                child_text = " ".join(child_parts) if child_parts else "child"
+                if child_target:
+                    child_text += f' target="{child_target}"'
+                if child_locator:
+                    child_text += f' locator="{child_locator}"'
+                lines.append(f"  - {child_text}")
+        return lines
+
+    def _build_plan_correction_context_message(self) -> str:
+        correction_state = getattr(self, "_active_plan_correction_state", None)
+        active_plan_state = self._current_active_plan_state()
+        if not isinstance(correction_state, dict) or not isinstance(active_plan_state, dict):
+            return ""
+
+        correction_text = self._normalize_space(str(correction_state.get("correction_text") or "")).strip()
+        answer_text = self._normalize_space(str(correction_state.get("clarification_answer") or "")).strip()
+        lines = [
+            "Structured correction diff context.",
+            f'active_plan_id: "{str(correction_state.get("plan_id") or "")}"',
+            f'target_step_id: "{str(correction_state.get("target_step_id") or "")}"',
+            f'correction_type: "{str(correction_state.get("category") or "ambiguous")}"',
+            f'Correction: "{correction_text}"',
+        ]
+        if answer_text:
+            lines.append(f'Clarification answer: "{answer_text}"')
+        lines.extend(self._build_plan_correction_operation_context_lines(active_plan_state))
+        lines.append("Mutation rules:")
+        lines.append('- Return a structured correction diff with message_type "plan_correction_diff".')
+        lines.append("- Allowed mutation ops: keep, add, remove, reorder, change_expected_outcome.")
+        lines.append("- List mutations in final child order.")
+        lines.append("- Preserve every existing child operation unless it is explicitly removed or reordered.")
+        lines.append("- Do not reconstruct a full plan_ready in correction mode.")
+        lines.append("- Do not call DOM extraction or locator search for pure plan edits.")
+        lines.append("- Ask one clarification only if the correction is ambiguous.")
+        return "\n".join(lines)
+
+    def _build_plan_correction_clarification_message(
+        self,
+        correction_state: dict[str, Any],
+        answer: str,
+    ) -> str:
+        clarification_question = self._normalize_space(
+            str(correction_state.get("clarification_question") or correction_state.get("last_validation_feedback") or "")
+        ).strip()
+        correction_text = self._normalize_space(str(correction_state.get("correction_text") or "")).strip()
+        category = str(correction_state.get("category") or "").strip() or "ambiguous"
+        answer_text = self._normalize_space(answer).strip() or "answered"
+        lines = [
+            "Structured correction clarification resolved.",
+            f'User answered: "{answer_text}"',
+        ]
+        if clarification_question:
+            lines.append(f'Clarification question: "{clarification_question}"')
+        if correction_text:
+            lines.append(f'Original correction: "{correction_text}"')
+        lines.append(f'Correction type: "{category}"')
+        lines.append("Do not ask the same clarification again.")
+        lines.append("List mutations in final child order.")
+        lines.append("Send a structured correction diff.")
+        return "\n".join(lines)
+
+    def _build_plan_correction_state(
+        self,
+        correction: str,
+        source_plan_state: dict[str, Any] | None = None,
+        target_step_id: str | None = None,
+    ) -> dict[str, Any]:
+        active_plan_state = source_plan_state if isinstance(source_plan_state, dict) else self._current_active_plan_state()
+        correction_classification = self._classify_plan_correction(correction, active_plan_state)
+        correction_text = self._normalize_space(correction).strip()
+        plan_id = str((active_plan_state or {}).get("plan_id") or "").strip() or None
+        active_target_step_id = target_step_id or str((active_plan_state or {}).get("target_step_id") or "").strip() or None
+        if active_target_step_id is None and active_plan_state is not None:
+            step_ids = list((active_plan_state or {}).get("step_ids") or [])
+            active_target_step_id = step_ids[0] if step_ids else None
+
+        return {
+            "plan_id": plan_id,
+            "target_step_id": active_target_step_id,
+            "correction_text": correction_text,
+            "category": correction_classification["category"],
+            "ordered_types": list(correction_classification["ordered_types"]),
+            "explicit_add": bool(correction_classification["explicit_add"]),
+            "explicit_remove": bool(correction_classification["explicit_remove"]),
+            "explicit_order": bool(correction_classification["explicit_order"]),
+            "explicit_replace": bool(correction_classification["explicit_replace"]),
+            "explicit_target_change": bool(correction_classification["explicit_target_change"]),
+            "explicit_expected_outcome": bool(correction_classification["explicit_expected_outcome"]),
+            "explicit_split_merge": bool(correction_classification["explicit_split_merge"]),
+            "retry_count": 0,
+            "needs_clarification": correction_classification["category"] == "ambiguous",
+            "clarification_question": None,
+            "clarification_answer": None,
+            "clarification_resolved": False,
+            "clarification_closed": False,
+            "correction_failed": False,
+            "no_progress_count": 0,
+            "last_validation_reason": None,
+            "last_validation_feedback": None,
+        }
+
+    def _build_plan_correction_added_child(
+        self,
+        operation_spec: dict[str, Any],
+        source_step: dict[str, Any],
+        anchor_child: dict[str, Any] | None,
+        operation_id: str,
+    ) -> dict[str, Any]:
+        operation_type = self._normalize_space(
+            str(operation_spec.get("type") or operation_spec.get("action") or "")
+        ).strip().lower()
+        if not operation_type or operation_type == "unknown":
+            return {}
+
+        target = self._normalize_space(
+            str(
+                operation_spec.get("target")
+                or operation_spec.get("element_name")
+                or (anchor_child or {}).get("target")
+                or (anchor_child or {}).get("description")
+                or source_step.get("element_name")
+                or source_step.get("intent")
+                or ""
+            )
+        ).strip()
+        locator = self._normalize_space(
+            str(
+                operation_spec.get("locator")
+                or (anchor_child or {}).get("locator")
+                or source_step.get("locator")
+                or self._derive_locator_from_step_context(source_step)
+                or ""
+            )
+        ).strip()
+        if locator in {"*", 'page.locator("")'}:
+            locator = ""
+
+        action_context = {}
+        assertion = self._normalize_space(str(operation_spec.get("assertion") or "")).strip().lower()
+        if assertion:
+            action_context["assertion"] = assertion
+        value_text = self._normalize_space(
+            str(operation_spec.get("value") or operation_spec.get("expected_value") or "")
+        ).strip()
+        if value_text:
+            action_context["value"] = value_text
+
+        description = self._normalize_space(str(operation_spec.get("description") or "")).strip()
+        if not description:
+            description = self._build_recorded_child_description(
+                operation_type,
+                operation_type,
+                target,
+                action_context,
+                str(source_step.get("intent") or "").strip(),
+            )
+        if not description:
+            description = self._build_planned_child_description(
+                operation_type,
+                target,
+                str(source_step.get("intent") or "").strip(),
+            )
+
+        child = {
+            "operation_id": operation_id,
+            "type": operation_type,
+            "description": description or target or operation_type,
+            "target": target,
+            "locator": locator,
+            "status": "planned",
+        }
+        if assertion:
+            child["assertion"] = assertion
+        if value_text:
+            child["value"] = value_text
+        return child
+
+    def _build_structured_plan_correction_payload_from_diff(
+        self,
+        diff_payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        active_plan_state = self._current_active_plan_state()
+        correction_state = getattr(self, "_active_plan_correction_state", None)
+        if not isinstance(active_plan_state, dict) or not isinstance(correction_state, dict):
+            return {}
+
+        proposed_diff = deepcopy(diff_payload) if isinstance(diff_payload, dict) else {}
+        mutations = proposed_diff.get("mutations")
+        if not isinstance(mutations, list):
+            return {}
+
+        target_step_id = str(
+            proposed_diff.get("target_step_id")
+            or proposed_diff.get("targetStepId")
+            or correction_state.get("target_step_id")
+            or ""
+        ).strip()
+
+        corrected_payload = deepcopy(active_plan_state)
+        corrected_steps: list[dict[str, Any]] = []
+        target_step_found = False
+
+        for active_step in self._plan_steps_from_state(active_plan_state):
+            step_copy = deepcopy(active_step)
+            step_id = str(step_copy.get("step_id") or step_copy.get("id") or "").strip()
+            if target_step_found or (target_step_id and step_id != target_step_id):
+                corrected_steps.append(step_copy)
+                continue
+
+            target_step_found = True
+            active_children = self._plan_child_operations_from_step(step_copy)
+            child_by_id: dict[str, dict[str, Any]] = {}
+            for child in active_children:
+                child_operation_id = str(child.get("operation_id") or "").strip()
+                if child_operation_id:
+                    child_by_id[child_operation_id] = child
+
+            next_operation_index = 1
+            for child_operation_id in child_by_id:
+                if not child_operation_id.startswith("op_"):
+                    continue
+                try:
+                    next_operation_index = max(next_operation_index, int(child_operation_id.split("_", 1)[1]) + 1)
+                except (IndexError, ValueError):
+                    continue
+
+            def allocate_operation_id() -> str:
+                nonlocal next_operation_index
+                while True:
+                    candidate = f"op_{next_operation_index}"
+                    next_operation_index += 1
+                    if candidate not in child_by_id:
+                        return candidate
+
+            new_children: list[dict[str, Any]] = []
+            changed_expected_outcome = None
+            seen_operation_ids: set[str] = set()
+
+            for mutation in mutations:
+                if not isinstance(mutation, dict):
+                    return {}
+                mutation_op = self._normalize_space(
+                    str(mutation.get("op") or mutation.get("type") or "")
+                ).strip().lower()
+                if mutation_op in {"keep", "reorder", "remove"}:
+                    operation_id = self._normalize_space(
+                        str(mutation.get("operation_id") or mutation.get("operationId") or "")
+                    ).strip()
+                    if not operation_id or operation_id not in child_by_id or operation_id in seen_operation_ids:
+                        return {}
+                    seen_operation_ids.add(operation_id)
+                    if mutation_op != "remove":
+                        new_children.append(deepcopy(child_by_id[operation_id]))
+                    continue
+                if mutation_op == "add":
+                    operation_spec = mutation.get("operation")
+                    if not isinstance(operation_spec, dict):
+                        return {}
+                    anchor_operation_id = self._normalize_space(
+                        str(
+                            mutation.get("relative_to_operation_id")
+                            or mutation.get("relativeToOperationId")
+                            or mutation.get("before_operation_id")
+                            or mutation.get("beforeOperationId")
+                            or mutation.get("after_operation_id")
+                            or mutation.get("afterOperationId")
+                            or ""
+                        )
+                    ).strip()
+                    anchor_child = child_by_id.get(anchor_operation_id) if anchor_operation_id else None
+                    added_operation_id = allocate_operation_id()
+                    added_child = self._build_plan_correction_added_child(
+                        operation_spec,
+                        step_copy,
+                        anchor_child,
+                        added_operation_id,
+                    )
+                    if not added_child:
+                        return {}
+                    new_children.append(added_child)
+                    continue
+                if mutation_op == "change_expected_outcome":
+                    changed_expected_outcome = mutation.get("expected_outcome") or mutation.get("expectedOutcome")
+                    continue
+                if mutation_op in {"split_step", "merge_steps", "replace_target", "ambiguous"}:
+                    return {}
+                return {}
+
+            if changed_expected_outcome is not None:
+                normalized_expected_outcome = self._normalize_expected_outcome(
+                    changed_expected_outcome,
+                    self._is_click_like_intent(
+                        str(step_copy.get("intent") or step_copy.get("title") or step_copy.get("text") or "").strip(),
+                    ),
+                )
+                if normalized_expected_outcome is None:
+                    return {}
+                step_copy["expected_outcome"] = normalized_expected_outcome
+
+            step_copy["children"] = new_children
+            corrected_steps.append(step_copy)
+
+        if target_step_id and not target_step_found:
+            return {}
+
+        corrected_payload["steps"] = corrected_steps
+        return corrected_payload
+
+    def _validate_structured_plan_step(
+        self,
+        active_step: dict[str, Any],
+        proposed_step: dict[str, Any],
+        correction_state: dict[str, Any],
+        active_plan_state: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        active_children = self._plan_child_operations_from_step(active_step)
+        proposed_children = self._plan_child_operations_from_step(proposed_step)
+        category = str(correction_state.get("category") or "").strip()
+        ordered_types = list(correction_state.get("ordered_types") or [])
+        explicit_add = bool(correction_state.get("explicit_add"))
+        explicit_remove = bool(correction_state.get("explicit_remove"))
+        explicit_order = bool(correction_state.get("explicit_order"))
+        explicit_replace = bool(correction_state.get("explicit_replace"))
+        explicit_target_change = bool(correction_state.get("explicit_target_change"))
+        explicit_expected_outcome = bool(correction_state.get("explicit_expected_outcome"))
+        explicit_split_merge = bool(correction_state.get("explicit_split_merge"))
+
+        active_signatures = [
+            self._plan_operation_signature(child)
+            for child in active_children
+            if self._plan_operation_signature(child)
+        ]
+        proposed_signatures = [
+            self._plan_operation_signature(child)
+            for child in proposed_children
+            if self._plan_operation_signature(child)
+        ]
+        active_types = [
+            self._plan_operation_type(child)
+            for child in active_children
+            if self._plan_operation_type(child)
+        ]
+        proposed_types = [
+            self._plan_operation_type(child)
+            for child in proposed_children
+            if self._plan_operation_type(child)
+        ]
+
+        active_count = len(active_signatures)
+        proposed_count = len(proposed_signatures)
+
+        if category == "ambiguous" or correction_state.get("needs_clarification"):
+            return {
+                "valid": False,
+                "reason": "ambiguous correction",
+                "needs_clarification": True,
+            }
+
+        if category in {"split_step", "merge_steps"}:
+            return {
+                "valid": False,
+                "reason": "split and merge corrections are not yet accepted in this path",
+                "needs_clarification": True,
+            }
+
+        if category in {"change_target", "change_expected_outcome", "replace_operation"}:
+            if proposed_count != active_count:
+                return {
+                    "valid": False,
+                    "reason": "replacement or target change must preserve the current child count",
+                }
+            normalized_children = []
+            for index, proposed_child in enumerate(proposed_children):
+                normalized_child = dict(proposed_child)
+                active_child = active_children[index] if index < len(active_children) else {}
+                active_operation_id = str(active_child.get("operation_id") or "").strip()
+                if active_operation_id:
+                    normalized_child["operation_id"] = active_operation_id
+                elif not str(normalized_child.get("operation_id") or "").strip():
+                    normalized_child["operation_id"] = f"op_{index + 1}"
+                normalized_children.append(normalized_child)
+
+            normalized_step = dict(proposed_step)
+            if str(active_step.get("step_id") or "").strip():
+                normalized_step["step_id"] = str(active_step.get("step_id") or "").strip()
+            normalized_step["children"] = normalized_children
+            return {"valid": True, "normalized_step": normalized_step}
+
+        if category == "remove_operation":
+            if proposed_count >= active_count:
+                return {
+                    "valid": False,
+                    "reason": "remove correction did not drop any child operation",
+                }
+            if not self._sequence_contains_subsequence(active_signatures, proposed_signatures):
+                return {
+                    "valid": False,
+                    "reason": "remaining child operations were reordered or changed unexpectedly",
+                }
+        elif category == "add_operation":
+            if proposed_count <= active_count:
+                return {
+                    "valid": False,
+                    "reason": "added child operation is missing",
+                }
+            if not self._sequence_contains_subsequence(proposed_signatures, active_signatures):
+                return {
+                    "valid": False,
+                    "reason": "existing child operations were reordered or changed unexpectedly",
+                }
+        elif category in {"reorder_operations", "add_and_reorder_operations"}:
+            if not all(active_signature in proposed_signatures for active_signature in active_signatures):
+                return {
+                    "valid": False,
+                    "reason": "existing child operation was dropped",
+                }
+            if ordered_types and not self._sequence_contains_subsequence(proposed_types, ordered_types):
+                return {
+                    "valid": False,
+                    "reason": "child order does not match the correction text",
+                }
+            if category == "reorder_operations" and proposed_count != active_count:
+                return {
+                    "valid": False,
+                    "reason": "reorder correction changed the child count",
+                }
+            if category == "add_and_reorder_operations" and proposed_count <= active_count:
+                return {
+                    "valid": False,
+                    "reason": "added child operation is missing",
+                }
+        else:
+            if proposed_count != active_count:
+                return {
+                    "valid": False,
+                    "reason": "plan correction changed the child count without an explicit category",
+                }
+            if not self._sequence_contains_subsequence(proposed_signatures, active_signatures):
+                return {
+                    "valid": False,
+                    "reason": "existing child operations were reordered or changed unexpectedly",
+                }
+
+        normalized_children: list[dict[str, Any]] = []
+        existing_operation_ids = {
+            str(child.get("operation_id") or "").strip()
+            for child in active_children
+            if str(child.get("operation_id") or "").strip()
+        }
+        next_operation_index = 1
+
+        def allocate_operation_id() -> str:
+            nonlocal next_operation_index
+            while True:
+                candidate = f"op_{next_operation_index}"
+                next_operation_index += 1
+                if candidate not in existing_operation_ids:
+                    existing_operation_ids.add(candidate)
+                    return candidate
+
+        if category == "reorder_operations":
+            matched_indices: set[int] = set()
+            for proposed_child in proposed_children:
+                normalized_child = dict(proposed_child)
+                normalized_signature = self._plan_operation_signature(normalized_child)
+                matched_index = -1
+                for index, active_child in enumerate(active_children):
+                    if index in matched_indices:
+                        continue
+                    if self._plan_operation_signature(active_child) == normalized_signature:
+                        matched_index = index
+                        break
+                if matched_index >= 0:
+                    matched_indices.add(matched_index)
+                    active_child = active_children[matched_index]
+                    active_operation_id = str(active_child.get("operation_id") or "").strip()
+                    if active_operation_id:
+                        normalized_child["operation_id"] = active_operation_id
+                    elif not str(normalized_child.get("operation_id") or "").strip():
+                        normalized_child["operation_id"] = allocate_operation_id()
+                else:
+                    normalized_child["operation_id"] = str(normalized_child.get("operation_id") or "").strip() or allocate_operation_id()
+                normalized_children.append(normalized_child)
+        else:
+            matched_indices: set[int] = set()
+            for proposed_child in proposed_children:
+                normalized_child = dict(proposed_child)
+                normalized_signature = self._plan_operation_signature(normalized_child)
+                matched_index = -1
+                for index, active_child in enumerate(active_children):
+                    if index in matched_indices:
+                        continue
+                    active_signature = self._plan_operation_signature(active_child)
+                    active_type = self._plan_operation_type(active_child)
+                    proposed_type = self._plan_operation_type(normalized_child)
+                    if category == "add_operation":
+                        signature_matches = active_signature == normalized_signature
+                    elif category == "remove_operation":
+                        signature_matches = active_signature == normalized_signature
+                    else:
+                        signature_matches = (
+                            active_signature == normalized_signature
+                            or (
+                                category in {"change_target", "change_expected_outcome", "replace_operation"}
+                                and active_type == proposed_type
+                            )
+                        )
+                    if signature_matches:
+                        matched_index = index
+                        break
+                if matched_index >= 0:
+                    matched_indices.add(matched_index)
+                    active_child = active_children[matched_index]
+                    active_operation_id = str(active_child.get("operation_id") or "").strip()
+                    if active_operation_id:
+                        normalized_child["operation_id"] = active_operation_id
+                    elif not str(normalized_child.get("operation_id") or "").strip():
+                        normalized_child["operation_id"] = allocate_operation_id()
+                else:
+                    normalized_child["operation_id"] = str(normalized_child.get("operation_id") or "").strip() or allocate_operation_id()
+                normalized_children.append(normalized_child)
+
+        normalized_step = dict(proposed_step)
+        active_step_id = str(active_step.get("step_id") or active_step.get("id") or "").strip()
+        if active_step_id:
+            normalized_step["step_id"] = active_step_id
+        elif not str(normalized_step.get("step_id") or normalized_step.get("id") or "").strip():
+            normalized_step["step_id"] = str(proposed_step.get("step_id") or proposed_step.get("id") or "").strip() or "1"
+        normalized_step["children"] = normalized_children
+        return {"valid": True, "normalized_step": normalized_step}
+
+    def _validate_structured_plan_correction(
+        self,
+        proposed_payload: dict[str, Any],
+    ) -> dict[str, Any]:
+        active_plan_state = self._current_active_plan_state()
+        correction_state = getattr(self, "_active_plan_correction_state", None)
+        proposed_plan = deepcopy(proposed_payload) if isinstance(proposed_payload, dict) else {}
+
+        if not isinstance(active_plan_state, dict) or not isinstance(correction_state, dict):
+            return {"valid": True, "normalized_payload": proposed_plan}
+
+        active_steps = self._plan_steps_from_state(active_plan_state)
+        proposed_steps = self._plan_steps_from_state(proposed_plan)
+        category = str(correction_state.get("category") or "").strip()
+
+        if correction_state.get("needs_clarification") or category == "ambiguous":
+            return {
+                "valid": False,
+                "reason": "ambiguous correction",
+                "needs_clarification": True,
+            }
+
+        if len(active_steps) != len(proposed_steps) and category not in {"split_step", "merge_steps"}:
+            return {
+                "valid": False,
+                "reason": "parent step count changed",
+            }
+
+        normalized_steps: list[dict[str, Any]] = []
+        for index, active_step in enumerate(active_steps):
+            proposed_step = proposed_steps[index] if index < len(proposed_steps) else {}
+            validation = self._validate_structured_plan_step(
+                active_step,
+                proposed_step,
+                correction_state,
+                active_plan_state=active_plan_state,
+            )
+            if not validation.get("valid"):
+                return validation
+            normalized_steps.append(validation["normalized_step"])
+
+        normalized_payload = deepcopy(proposed_plan)
+        normalized_payload["steps"] = normalized_steps
+        if str(active_plan_state.get("plan_id") or "").strip():
+            normalized_payload["plan_id"] = str(active_plan_state.get("plan_id") or "").strip()
+        if str(active_plan_state.get("summary") or "").strip():
+            normalized_payload["summary"] = str(active_plan_state.get("summary") or "").strip()
+        if str(active_plan_state.get("original_user_intent") or "").strip():
+            normalized_payload["original_user_intent"] = str(active_plan_state.get("original_user_intent") or "").strip()
+        return {
+            "valid": True,
+            "normalized_payload": normalized_payload,
+        }
+
     def _remember_plan_review_context(self, payload: dict[str, Any]) -> None:
         plan_ready_payload = deepcopy(payload) if isinstance(payload, dict) else {}
         steps = plan_ready_payload.get("steps") if isinstance(plan_ready_payload.get("steps"), list) else []
@@ -2122,9 +3180,13 @@ class AgentLoop:
         self.last_plan_step_ids = plan_step_ids
         self.last_plan_summary = str(plan_ready_payload.get("summary") or "").strip() or None
         self.last_plan_original_user_intent = " | ".join(intent_parts).strip() or None
+        self._active_plan_state = self._build_active_plan_state(
+            plan_ready_payload,
+            source_plan_state=self._current_active_plan_state(),
+        )
 
-    def _build_plan_step_context_lines(self) -> list[str]:
-        plan_ready_payload = getattr(self, "last_plan_ready_payload", None)
+    def _build_plan_step_context_lines(self, plan_payload: dict[str, Any] | None = None) -> list[str]:
+        plan_ready_payload = plan_payload if isinstance(plan_payload, dict) else getattr(self, "last_plan_ready_payload", None)
         if not isinstance(plan_ready_payload, dict):
             return []
 
@@ -2160,31 +3222,81 @@ class AgentLoop:
                 child_parts = [part for part in (child_operation_id, child_type, child_description) if part]
                 if child_parts:
                     step_lines.append(f"   - {' '.join(child_parts)}")
+                child_locator = self._normalize_space(str(child.get("locator") or "")).strip()
+                if child_locator:
+                    step_lines.append(f"     locator: {child_locator}")
         return step_lines
 
-    def _build_plan_correction_message(self, correction: str) -> str:
+    def _build_plan_correction_message(
+        self,
+        correction: str,
+        plan_id: str | None = None,
+        target_step_id: str | None = None,
+    ) -> str:
         correction_text = self._normalize_space(correction) or "the user requested a correction"
+        active_plan_state = self._current_active_plan_state()
+        correction_state = self._build_plan_correction_state(
+            correction_text,
+            source_plan_state=active_plan_state,
+            target_step_id=target_step_id,
+        )
+        if plan_id:
+            correction_state["plan_id"] = plan_id
         lines = [
-            "User corrected the current plan.",
+            "Structured plan correction event.",
+            f'active_plan_id: "{str(correction_state.get("plan_id") or "")}"',
+            f'target_step_id: "{str(correction_state.get("target_step_id") or "")}"',
+            f'correction_type: "{str(correction_state.get("category") or "ambiguous")}"',
             f'Correction: "{correction_text}"',
         ]
-        original_user_intent = str(self.last_plan_original_user_intent or "").strip()
+        original_user_intent = str(
+            (active_plan_state or {}).get("original_user_intent")
+            or self.last_plan_original_user_intent
+            or ""
+        ).strip()
         if original_user_intent:
             lines.append(f'Original user intent: "{original_user_intent}"')
-        previous_summary = str(self.last_plan_summary or "").strip()
+        previous_summary = str(
+            (active_plan_state or {}).get("summary")
+            or self.last_plan_summary
+            or ""
+        ).strip()
         if previous_summary:
             lines.append(f'Previous plan summary: "{previous_summary}"')
-        step_lines = self._build_plan_step_context_lines()
+        step_lines = self._build_plan_step_context_lines(active_plan_state)
         if step_lines:
             lines.append("Previous plan steps:")
             lines.extend(step_lines)
         else:
             lines.append("Previous plan steps: none available.")
-        lines.append("Revise the plan. Do not execute. Send a new plan_ready for confirmation.")
+        lines.append("Validation rules:")
+        lines.append("- Do not drop child operations unless the correction explicitly removes them.")
+        lines.append("- Do not reorder child operations unless the correction explicitly states order.")
+        lines.append("- Keep one parent step unless split or merge is explicit.")
+        lines.append("- Ask clarification if the correction is ambiguous.")
+        lines.append("- List mutations in final child order.")
+        lines.append("Return a structured correction diff. Do not execute. Do not reconstruct a full plan_ready.")
         return "\n".join(lines)
 
-    def _append_plan_correction_message(self, correction: str) -> str:
-        message = self._build_plan_correction_message(correction)
+    def _append_plan_correction_message(
+        self,
+        correction: str,
+        plan_id: str | None = None,
+        target_step_id: str | None = None,
+    ) -> str:
+        message = self._build_plan_correction_message(
+            correction,
+            plan_id=plan_id,
+            target_step_id=target_step_id,
+        )
+        correction_state = self._build_plan_correction_state(
+            correction,
+            source_plan_state=self._current_active_plan_state(),
+            target_step_id=target_step_id,
+        )
+        if plan_id:
+            correction_state["plan_id"] = plan_id
+        self._active_plan_correction_state = correction_state
         self._plan_correction_pending = True
         self.llm.messages.append({"role": "user", "content": message})
         self._clear_plan_review_context()
@@ -3704,6 +4816,20 @@ class AgentLoop:
         use_plan_step_source = bool(prefer_plan_step_source)
         if len(current_steps) == 1 and len(steps) > 1:
             first_plan_step = steps[0] if isinstance(steps[0], dict) else {"text": str(steps[0] or "").strip()}
+            if use_plan_step_source and isinstance(current_steps[0], dict):
+                correction_context_step = current_steps[0]
+                correction_context_locator = self._normalize_space(
+                    str(correction_context_step.get("locator") or "")
+                ).strip()
+                if not correction_context_locator:
+                    correction_context_locator = self._derive_locator_from_step_context(correction_context_step)
+                if correction_context_locator and not str(first_plan_step.get("locator") or "").strip():
+                    first_plan_step["locator"] = correction_context_locator
+                if (
+                    isinstance(correction_context_step.get("element_info"), dict)
+                    and not isinstance(first_plan_step.get("element_info"), dict)
+                ):
+                    first_plan_step["element_info"] = deepcopy(correction_context_step.get("element_info"))
             source_step = first_plan_step if use_plan_step_source else (
                 current_steps[0] if isinstance(current_steps[0], dict) else {}
             )
@@ -3715,6 +4841,14 @@ class AgentLoop:
             parent_step = dict(step) if isinstance(step, dict) else {"text": str(step or "").strip()}
             source_step = current_steps[index] if index < len(current_steps) and isinstance(current_steps[index], dict) else {}
             if use_plan_step_source:
+                if isinstance(source_step, dict):
+                    correction_context_locator = self._normalize_space(str(source_step.get("locator") or "")).strip()
+                    if not correction_context_locator:
+                        correction_context_locator = self._derive_locator_from_step_context(source_step)
+                    if correction_context_locator and not str(parent_step.get("locator") or "").strip():
+                        parent_step["locator"] = correction_context_locator
+                    if isinstance(source_step.get("element_info"), dict) and not isinstance(parent_step.get("element_info"), dict):
+                        parent_step["element_info"] = deepcopy(source_step.get("element_info"))
                 source_step = parent_step
             planned_steps.append(self._build_plan_ready_parent_step(parent_step, source_step, index))
 
@@ -3989,12 +5123,13 @@ class AgentLoop:
                             "message_type": {
                                 "type": "string",
                                 "enum": [
-                                    "llm_thinking",
-                                    "plan_ready",
-                                    "clarification_needed",
-                                    "step_recorded",
-                                    "code_update",
-                                    "llm_result",
+                                "llm_thinking",
+                                "plan_ready",
+                                "plan_correction_diff",
+                                "clarification_needed",
+                                "step_recorded",
+                                "code_update",
+                                "llm_result",
                                     "error",
                                 ],
                             },
@@ -4325,6 +5460,60 @@ class AgentLoop:
         await page.screenshot(path=str(path))
         return {"path": str(path), "success": True}
 
+    async def _send_plan_ready_after_confirmation(self, payload: dict[str, Any]) -> dict[str, Any]:
+        await self._send("plan_ready", **payload)
+        self._remember_plan_review_context(payload)
+        plan_step_id = str(
+            payload.get("target_step_id")
+            or payload.get("step_id")
+            or payload.get("id")
+            or payload.get("stepId")
+            or ""
+        ).strip() or None
+        self.phase_tracker.set_phase(
+            "awaiting_confirmation",
+            reason="plan_ready",
+            step_id=plan_step_id,
+        )
+        print("[AGENT] plan_ready sent; waiting for user confirmation")
+        confirmation = await self._wait_for_plan_confirmation()
+        if confirmation.get("confirmed"):
+            self.plan_confirmed = True
+            self.phase = "executing"
+            self.phase_tracker.set_phase("executing", reason="confirmed", step_id=plan_step_id)
+            self._pending_failure_followup = False
+            self._awaiting_step_record = False
+            self._recording_wait_guard_armed = False
+            self._clear_active_plan_state()
+            self._plan_correction_pending = False
+            self._clear_plan_review_context()
+            answer = str(confirmation.get("answer") or "confirmed").strip() or "confirmed"
+            print("[AGENT] plan confirmed; entering execution phase")
+            return {"confirmed": True, "answer": answer, "phase": "executing"}
+
+        self.plan_confirmed = False
+        self.phase = "planning"
+        self.phase_tracker.set_phase("planning", reason="correction", step_id=plan_step_id)
+        self.last_successful_action = None
+        self._last_action_context = None
+        self._awaiting_step_record = False
+        self._recording_wait_guard_armed = False
+        self._pending_failure_followup = False
+        correction = str(confirmation.get("correction") or "").strip() or "the user requested a correction"
+        print("[AGENT] correction received; staying in planning phase")
+        result = {
+            "confirmed": False,
+            "correction": correction,
+            "phase": "planning",
+        }
+        correction_plan_id = str(confirmation.get("plan_id") or payload.get("plan_id") or "").strip()
+        if correction_plan_id:
+            result["plan_id"] = correction_plan_id
+        correction_target_step_id = str(confirmation.get("target_step_id") or plan_step_id or "").strip()
+        if correction_target_step_id:
+            result["target_step_id"] = correction_target_step_id
+        return result
+
     async def _tool_send_to_overlay(self, args: dict[str, Any]) -> dict[str, Any]:
         message_type = str(args.get("message_type") or "").strip()
         payload = args.get("payload") or {}
@@ -4352,6 +5541,61 @@ class AgentLoop:
                     "reason": "No successful confirmed action to record.",
                 }
             return {"sent": True, "payload": recorded_payload}
+
+        correction_state = getattr(self, "_active_plan_correction_state", None)
+        if isinstance(correction_state, dict) and message_type == "llm_thinking":
+            failure_message = (
+                "Correction failed safely. The model did not return a structured correction diff."
+            )
+            correction_state["no_progress_count"] = int(correction_state.get("no_progress_count") or 0) + 1
+            correction_state["correction_failed"] = True
+            correction_state["clarification_closed"] = True
+            correction_state["needs_clarification"] = False
+            correction_state["last_validation_reason"] = "no correction diff"
+            correction_state["last_validation_feedback"] = failure_message
+            print(
+                "[AGENT] correction failed without diff: "
+                f"{self._summarize(failure_message, limit=140)}"
+            )
+            return {
+                "sent": False,
+                "blocked": True,
+                "reason": "correction_failed",
+                "message": failure_message,
+                "requires_replan": False,
+            }
+        if message_type == "plan_correction_diff":
+            if not isinstance(correction_state, dict):
+                return {
+                    "sent": False,
+                    "blocked": True,
+                    "reason": "no_active_correction",
+                    "message": "No active structured correction is available.",
+                    "requires_replan": False,
+                }
+            corrected_payload = self._build_structured_plan_correction_payload_from_diff(payload)
+            if not corrected_payload:
+                failure_message = (
+                    "Correction failed safely. The model did not return a valid structured correction diff."
+                )
+                correction_state["correction_failed"] = True
+                correction_state["clarification_closed"] = True
+                correction_state["needs_clarification"] = False
+                correction_state["last_validation_reason"] = "invalid correction diff"
+                correction_state["last_validation_feedback"] = failure_message
+                print(
+                    "[AGENT] correction diff rejected: "
+                    f"{self._summarize(failure_message, limit=140)}"
+                )
+                return {
+                    "sent": False,
+                    "blocked": True,
+                    "reason": "correction_failed",
+                    "message": failure_message,
+                    "requires_replan": False,
+                }
+            payload = corrected_payload
+
         if message_type == "plan_ready":
             pending_recovery = bool(getattr(self, "pending_recovery", False))
             active_failed_step_id = str(getattr(self, "active_failed_step_id", "") or "").strip()
@@ -4370,52 +5614,118 @@ class AgentLoop:
                         "stop, or ask about the failed step only."
                     ),
                 }
+            if isinstance(correction_state, dict):
+                failure_message = (
+                    "Correction failed safely. The model returned a full plan instead of a structured correction diff."
+                )
+                correction_state["correction_failed"] = True
+                correction_state["clarification_closed"] = True
+                correction_state["needs_clarification"] = False
+                correction_state["last_validation_reason"] = "correction diff required"
+                correction_state["last_validation_feedback"] = failure_message
+                print(
+                    "[AGENT] plan_ready blocked during structured correction: "
+                    f"{self._summarize(failure_message, limit=140)}"
+                )
+                return {
+                    "sent": False,
+                    "blocked": True,
+                    "reason": "correction_diff_required",
+                    "message": failure_message,
+                    "requires_replan": False,
+                }
             plan_correction_pending = bool(getattr(self, "_plan_correction_pending", False))
             payload = self._build_plan_ready_payload(
                 payload,
                 prefer_plan_step_source=plan_correction_pending,
             )
-            self._plan_correction_pending = False
-        await self._send(message_type, **payload)
-        if message_type == "plan_ready":
-            self._remember_plan_review_context(payload)
-            plan_step_id = str(
-                payload.get("step_id")
-                or payload.get("id")
-                or payload.get("stepId")
-                or ""
-            ).strip() or None
-            self.phase_tracker.set_phase(
-                "awaiting_confirmation",
-                reason="plan_ready",
-                step_id=plan_step_id,
-            )
-            print("[AGENT] plan_ready sent; waiting for user confirmation")
-            confirmation = await self._wait_for_plan_confirmation()
-            if confirmation.get("confirmed"):
-                self.plan_confirmed = True
-                self.phase = "executing"
-                self.phase_tracker.set_phase("executing", reason="confirmed", step_id=plan_step_id)
-                self._pending_failure_followup = False
-                self._awaiting_step_record = False
-                self._recording_wait_guard_armed = False
-                self._plan_correction_pending = False
-                self._clear_plan_review_context()
-                answer = str(confirmation.get("answer") or "confirmed").strip() or "confirmed"
-                print("[AGENT] plan confirmed; entering execution phase")
-                return {"confirmed": True, "answer": answer, "phase": "executing"}
+            plan_id = str(payload.get("plan_id") or payload.get("planId") or "").strip()
+            if not plan_id:
+                active_plan_state = self._current_active_plan_state()
+                plan_id = str((active_plan_state or {}).get("plan_id") or "").strip()
+            if not plan_id:
+                plan_id = f"plan-{uuid4().hex}"
+            payload["plan_id"] = plan_id
+            target_step_id = str(payload.get("target_step_id") or payload.get("targetStepId") or "").strip()
+            if not target_step_id:
+                plan_steps = payload.get("steps")
+                if isinstance(plan_steps, list) and plan_steps:
+                    first_step = plan_steps[0] if isinstance(plan_steps[0], dict) else {}
+                    target_step_id = str(first_step.get("step_id") or first_step.get("id") or "").strip()
+            if target_step_id:
+                payload["target_step_id"] = target_step_id
 
-            self.plan_confirmed = False
-            self.phase = "planning"
-            self.phase_tracker.set_phase("planning", reason="correction", step_id=plan_step_id)
-            self.last_successful_action = None
-            self._last_action_context = None
-            self._awaiting_step_record = False
-            self._recording_wait_guard_armed = False
-            self._pending_failure_followup = False
-            correction = str(confirmation.get("correction") or "").strip() or "the user requested a correction"
-            print("[AGENT] correction received; staying in planning phase")
-            return {"confirmed": False, "correction": correction, "phase": "planning"}
+        if isinstance(correction_state, dict):
+            validation_result = self._validate_structured_plan_correction(payload)
+            if not validation_result.get("valid"):
+                validation_reason = str(validation_result.get("reason") or "").strip() or "invalid corrected plan"
+                correction_state["retry_count"] = int(correction_state.get("retry_count") or 0) + 1
+                if correction_state.get("clarification_resolved"):
+                    validation_feedback = (
+                        "Corrected plan is still invalid after clarification. "
+                        f"{validation_reason}"
+                    ).strip()
+                    correction_state["clarification_closed"] = True
+                    correction_state["correction_failed"] = True
+                    correction_state["needs_clarification"] = False
+                    correction_state["last_validation_reason"] = validation_reason
+                    correction_state["last_validation_feedback"] = validation_feedback
+                    print(
+                        "[AGENT] corrected plan rejected after clarification: "
+                        f"{self._summarize(validation_feedback, limit=140)}"
+                    )
+                    return {
+                        "sent": False,
+                        "blocked": True,
+                        "reason": "correction_failed",
+                        "message": validation_feedback,
+                        "requires_replan": False,
+                    }
+                if validation_result.get("needs_clarification") or correction_state["retry_count"] > 1:
+                    correction_state["needs_clarification"] = True
+                    correction_state["clarification_question"] = ""
+                    correction_state["clarification_answer"] = None
+                    correction_state["clarification_resolved"] = False
+                    correction_state["clarification_closed"] = False
+                correction_state["last_validation_reason"] = validation_reason
+                validation_feedback = self._build_plan_correction_validation_feedback(
+                    correction_state,
+                    validation_reason,
+                    active_plan_state=self._current_active_plan_state(),
+                    proposed_payload=payload,
+                )
+                if correction_state.get("needs_clarification"):
+                    correction_state["clarification_question"] = validation_feedback
+                correction_state["last_validation_feedback"] = validation_feedback
+                print(f"[AGENT] corrected plan rejected: {self._summarize(validation_feedback, limit=140)}")
+                return {
+                    "sent": False,
+                    "blocked": True,
+                    "reason": "invalid_corrected_plan",
+                    "message": validation_feedback,
+                    "requires_replan": True,
+                }
+            normalized_payload = validation_result.get("normalized_payload")
+            if isinstance(normalized_payload, dict):
+                payload = normalized_payload
+                if not str(payload.get("plan_id") or "").strip():
+                    active_plan_state = self._current_active_plan_state()
+                    plan_id = str((active_plan_state or {}).get("plan_id") or "").strip()
+                    if plan_id:
+                        payload["plan_id"] = plan_id
+                if not str(payload.get("target_step_id") or "").strip():
+                    target_step_id = str(payload.get("target_step_id") or payload.get("targetStepId") or "").strip()
+                    if target_step_id:
+                        payload["target_step_id"] = target_step_id
+                self._active_plan_state = self._build_active_plan_state(
+                    payload,
+                    source_plan_state=self._current_active_plan_state(),
+                )
+
+        if message_type in {"plan_ready", "plan_correction_diff"}:
+            return await self._send_plan_ready_after_confirmation(payload)
+
+        await self._send(message_type, **payload)
         return {"sent": True}
 
     def _normalize_wait_until(self, value: Any) -> str:
@@ -4454,7 +5764,12 @@ class AgentLoop:
             event_type = str(event.get("type") or "")
             answer = str(event.get("message") or event.get("answer") or "").strip()
             if event_type == "correction":
-                return {"confirmed": False, "correction": answer}
+                return {
+                    "confirmed": False,
+                    "correction": answer,
+                    "plan_id": str(event.get("plan_id") or event.get("planId") or "").strip() or None,
+                    "target_step_id": str(event.get("target_step_id") or event.get("targetStepId") or "").strip() or None,
+                }
             if event_type == "confirmed":
                 return {"confirmed": True, "answer": "confirmed"}
             if event_type == "option_selected":
@@ -4465,6 +5780,37 @@ class AgentLoop:
         options = args.get("options") or []
         if not isinstance(options, list):
             options = []
+        correction_state = getattr(self, "_active_plan_correction_state", None)
+        if isinstance(correction_state, dict):
+            stored_question = self._normalize_space(
+                str(correction_state.get("clarification_question") or correction_state.get("last_validation_feedback") or "")
+            ).strip().lower()
+            normalized_question = self._normalize_space(question).strip().lower()
+            if correction_state.get("clarification_closed") or (
+                correction_state.get("clarification_resolved")
+                and stored_question
+                and normalized_question
+                and normalized_question == stored_question
+            ):
+                print("[AGENT] duplicate clarification blocked; correction already resolved")
+                correction_state["clarification_closed"] = True
+                correction_state["correction_failed"] = True
+                correction_state["needs_clarification"] = False
+                correction_state["last_validation_reason"] = "clarification already answered"
+                correction_state["last_validation_feedback"] = (
+                    "Clarification already answered. Produce a correction diff."
+                )
+                return {
+                    "answer": str(correction_state.get("clarification_answer") or "").strip(),
+                    "event_type": "duplicate_clarification",
+                    "success": False,
+                    "skipped": True,
+                    "blocked": True,
+                    "reason": "clarification_already_answered",
+                    "message": "Clarification already answered. Produce a correction diff.",
+                    "requires_replan": False,
+                    "clarification_resolved": True,
+                }
 
         await self._send(
             "clarification_needed",
@@ -4477,7 +5823,20 @@ class AgentLoop:
             event_type = str(event.get("type") or "")
             if event_type == "option_selected":
                 answer = str(event.get("answer") or event.get("message") or "").strip()
-                return {"answer": answer, "event_type": "option_selected"}
+                result = {"answer": answer, "event_type": "option_selected", "success": True}
+                if isinstance(correction_state, dict) and correction_state.get("needs_clarification"):
+                    correction_state["clarification_answer"] = answer
+                    correction_state["clarification_resolved"] = True
+                    correction_state["clarification_closed"] = False
+                    correction_state["needs_clarification"] = False
+                    correction_state["clarification_question"] = question
+                    result["clarification_resolved"] = True
+                    result["clarification_answer"] = answer
+                    result["clarification_resolution_message"] = self._build_plan_correction_clarification_message(
+                        correction_state,
+                        answer,
+                    )
+                return result
             if event_type == "correction":
                 return {
                     "answer": str(event.get("message") or "").strip(),
