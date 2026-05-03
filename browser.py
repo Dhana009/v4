@@ -846,19 +846,494 @@ async def _install_picker_overlay(page: Page) -> None:
   let selectedBadge = null;
   let selectedTimer = null;
 
-  function snapshot(el) {
+  const MAX_ANCESTOR_DEPTH = 6;
+  const MAX_CANDIDATE_TEXT_LENGTH = 500;
+  const MAX_OPTION_TEXT_LENGTH = 120;
+  const INTERACTIVE_TAGS = new Set(["button", "a", "input", "select", "textarea"]);
+  const INTERACTIVE_ROLES = new Set([
+    "button",
+    "link",
+    "tab",
+    "checkbox",
+    "radio",
+    "switch",
+    "menuitem",
+    "option",
+    "textbox",
+    "combobox",
+    "slider",
+    "spinbutton",
+  ]);
+
+  function normalizeSpace(value, limit = MAX_CANDIDATE_TEXT_LENGTH) {
+    const text = String(value || "").replace(/\s+/g, " ").trim();
+    if (!text) {
+      return "";
+    }
+    return text.length > limit ? text.slice(0, limit) : text;
+  }
+
+  function getTag(el) {
+    return normalizeSpace((el && el.tagName) || "", 48).toLowerCase();
+  }
+
+  function getClassName(el) {
+    if (!el) {
+      return "";
+    }
+    if (typeof el.className === "string") {
+      return normalizeSpace(el.className, 220);
+    }
+    return "";
+  }
+
+  function getRole(el, tag) {
+    if (!el) {
+      return "";
+    }
+    const explicitRole = normalizeSpace(el.getAttribute && el.getAttribute("role"), 80).toLowerCase();
+    if (explicitRole) {
+      return explicitRole;
+    }
+    const inputType = normalizeSpace(el.getAttribute && el.getAttribute("type"), 40).toLowerCase();
+    if (tag === "button") {
+      return "button";
+    }
+    if (tag === "a" && el.hasAttribute && el.hasAttribute("href")) {
+      return "link";
+    }
+    if (tag === "select") {
+      return "combobox";
+    }
+    if (tag === "textarea") {
+      return "textbox";
+    }
+    if (tag === "input") {
+      if (["button", "submit", "reset"].includes(inputType)) return "button";
+      if (inputType === "checkbox") return "checkbox";
+      if (inputType === "radio") return "radio";
+      return "textbox";
+    }
+    if (tag === "li") {
+      return "listitem";
+    }
+    if (tag === "tr") {
+      return "row";
+    }
+    return "";
+  }
+
+  function collectAttributes(el, tag, role, className) {
     const attrs = {};
+    const allowed = new Set([
+      "id",
+      "class",
+      "className",
+      "role",
+      "aria-label",
+      "aria-labelledby",
+      "aria-describedby",
+      "aria-modal",
+      "aria-selected",
+      "aria-expanded",
+      "aria-pressed",
+      "aria-current",
+      "data-testid",
+      "data-test-id",
+      "data-test",
+      "data-qa",
+      "data-cy",
+      "type",
+      "name",
+      "placeholder",
+      "value",
+      "href",
+      "title",
+      "alt",
+      "for",
+      "disabled",
+      "readonly",
+      "checked",
+      "selected",
+      "contenteditable",
+    ]);
     try {
-      for (const a of Array.from(el.attributes || [])) attrs[a.name] = a.value;
+      for (const attr of Array.from(el && el.attributes ? el.attributes : [])) {
+        if (!attr || !attr.name || !allowed.has(attr.name)) {
+          continue;
+        }
+        attrs[attr.name] = attr.value;
+      }
     } catch (_) {}
-    let text = "";
-    try { text = (el.innerText || el.textContent || "").trim().slice(0, 200); } catch (_) {}
+    if (className && !attrs.class) {
+      attrs.class = className;
+    }
+    if (className && !attrs.className) {
+      attrs.className = className;
+    }
+    if (role && !attrs.role) {
+      attrs.role = role;
+    }
+    return attrs;
+  }
+
+  function inferSemanticType(tag, role, category, className) {
+    if (role === "button" || tag === "button") return "button";
+    if (role === "link" || tag === "a") return "link";
+    if (role === "checkbox") return "checkbox";
+    if (role === "radio") return "radio";
+    if (role === "combobox" || tag === "select") return "combobox";
+    if (role === "textbox" || tag === "textarea" || tag === "input") return "textbox";
+    if (category === "exact_element") {
+      if (tag === "code") return "code block";
+      if (tag === "pre") return "pre block";
+      if (tag === "span" || tag === "p" || tag === "label" || tag === "strong" || tag === "em" || tag === "b" || tag === "i") {
+        return "text node parent";
+      }
+      return tag || "exact element";
+    }
+    if (category === "code_block") return "code block";
+    if (category === "pre_block") return "pre block";
+    if (category === "tab_panel") return "tab panel";
+    if (category === "dialog") return "dialog";
+    if (category === "form") return "form";
+    if (category === "section") return "section";
+    if (category === "card") return "card";
+    if (category === "list_item") return "list item";
+    if (category === "table_row") return "table row";
+    if (category === "text_node_parent") return "text node parent";
+    if (className && /(?:code|language|prism|token|codeblock)/i.test(className)) return "code block";
+    return category || "container";
+  }
+
+  function classifyCandidate(el, level, tag, role, attrs, text, className, childCount) {
+    const ariaModal = normalizeSpace(attrs["aria-modal"] || "", 32).toLowerCase() === "true";
+    const codeLike = tag === "code" || tag === "pre" || /(?:code|language|prism|token|codeblock)/i.test(className);
+    if (level === 0) {
+      const exactSemanticType = inferSemanticType(tag, role, "exact_element", className);
+      const exactReason = role || tag ? "clicked element" : "clicked element";
+      return {
+        category: "exact_element",
+        semanticType: exactSemanticType,
+        reason: exactReason,
+      };
+    }
+    if (codeLike) {
+      return {
+        category: tag === "pre" ? "pre_block" : "code_block",
+        semanticType: tag === "pre" ? "pre block" : "code block",
+        reason: tag === "pre" ? "pre ancestor" : "code ancestor",
+      };
+    }
+    if (role === "tabpanel") {
+      return {
+        category: "tab_panel",
+        semanticType: "tab panel",
+        reason: "role=tabpanel",
+      };
+    }
+    if (role === "dialog" || ariaModal || tag === "dialog") {
+      return {
+        category: "dialog",
+        semanticType: "dialog",
+        reason: ariaModal ? "aria-modal=true" : "dialog ancestor",
+      };
+    }
+    if (tag === "form" || role === "form") {
+      return {
+        category: "form",
+        semanticType: "form",
+        reason: "form ancestor",
+      };
+    }
+    if (tag === "li" || role === "listitem" || role === "menuitem" || role === "tab") {
+      return {
+        category: "list_item",
+        semanticType: tag === "li" ? "list item" : role,
+        reason: "list or menu ancestor",
+      };
+    }
+    if (tag === "tr" || role === "row") {
+      return {
+        category: "table_row",
+        semanticType: "table row",
+        reason: "table row ancestor",
+      };
+    }
+    if (tag === "section" || tag === "article" || tag === "main" || tag === "aside") {
+      return {
+        category: "section",
+        semanticType: "section",
+        reason: "section-style container",
+      };
+    }
+    if (tag === "div" && /(?:card|panel|sheet|tile)/i.test(className)) {
+      return {
+        category: "card",
+        semanticType: "card",
+        reason: "card-like class",
+      };
+    }
+    if (tag === "div" && /(?:container|wrapper|content|panel|section)/i.test(className)) {
+      return {
+        category: "container",
+        semanticType: text ? "container" : "container",
+        reason: "container-like class",
+      };
+    }
+    if (text && childCount <= 4 && (tag === "span" || tag === "p" || tag === "label" || tag === "strong" || tag === "em" || tag === "b" || tag === "i")) {
+      return {
+        category: "text_node_parent",
+        semanticType: "text node parent",
+        reason: "text-bearing parent",
+      };
+    }
+    if (text && (tag === "div" || tag === "section" || tag === "article" || tag === "main" || tag === "aside")) {
+      return {
+        category: "container",
+        semanticType: "container",
+        reason: "meaningful container",
+      };
+    }
+    if (INTERACTIVE_TAGS.has(tag) || INTERACTIVE_ROLES.has(role)) {
+      return {
+        category: "container",
+        semanticType: inferSemanticType(tag, role, "container", className),
+        reason: "interactive control",
+      };
+    }
     return {
-      tag: (el.tagName || "").toLowerCase(),
-      id: el.id || "",
-      class: el.className || "",
+      category: "container",
+      semanticType: "container",
+      reason: "generic container",
+    };
+  }
+
+  function buildSelectorHint(tag, role, attrs, semanticType) {
+    const dataTestId = normalizeSpace(attrs["data-testid"] || attrs["data-test-id"] || attrs["data-test"] || attrs["data-qa"] || attrs["data-cy"], 120);
+    if (dataTestId) {
+      return `[data-testid="${dataTestId}"]`;
+    }
+    const ariaLabel = normalizeSpace(attrs["aria-label"], 120);
+    if (ariaLabel && (semanticType === "button" || semanticType === "link" || semanticType === "checkbox" || semanticType === "radio" || semanticType === "combobox" || semanticType === "textbox")) {
+      return `[aria-label="${ariaLabel}"]`;
+    }
+    if (tag === "code" || tag === "pre" || tag === "section" || tag === "article" || tag === "main" || tag === "aside" || tag === "form" || tag === "li" || tag === "tr") {
+      return tag;
+    }
+    if (role) {
+      return `[role="${role}"]`;
+    }
+    if (tag) {
+      return tag;
+    }
+    return "element";
+  }
+
+  function quoteLocator(value) {
+    return JSON.stringify(String(value || ""));
+  }
+
+  function buildLocatorHint(tag, role, attrs, cleanText, semanticType) {
+    const dataTestId = normalizeSpace(attrs["data-testid"] || attrs["data-test-id"] || attrs["data-test"] || attrs["data-qa"] || attrs["data-cy"], 120);
+    if (dataTestId) {
+      return `get_by_test_id(${quoteLocator(dataTestId)})`;
+    }
+    const ariaLabel = normalizeSpace(attrs["aria-label"], 120);
+    if (ariaLabel && (semanticType === "button" || semanticType === "link" || semanticType === "checkbox" || semanticType === "radio" || semanticType === "combobox" || semanticType === "textbox")) {
+      return `get_by_label(${quoteLocator(ariaLabel)})`;
+    }
+    if ((semanticType === "button" || semanticType === "link" || semanticType === "checkbox" || semanticType === "radio" || semanticType === "combobox" || semanticType === "textbox") && cleanText) {
+      const roleName = semanticType === "textbox" ? "textbox" : semanticType;
+      return `get_by_role(${quoteLocator(roleName)}, name=${quoteLocator(cleanText)})`;
+    }
+    if (semanticType === "tab panel" || semanticType === "dialog" || semanticType === "form") {
+      return buildSelectorHint(tag, role, attrs, semanticType);
+    }
+    if ((semanticType === "code block" || semanticType === "pre block") && cleanText && cleanText.length <= MAX_OPTION_TEXT_LENGTH) {
+      return `get_by_text(${quoteLocator(cleanText)}, exact=True)`;
+    }
+    if (cleanText && cleanText.length <= MAX_OPTION_TEXT_LENGTH) {
+      return `get_by_text(${quoteLocator(cleanText)}, exact=True)`;
+    }
+    const selectorHint = buildSelectorHint(tag, role, attrs, semanticType);
+    if (selectorHint) {
+      return selectorHint;
+    }
+    return "";
+  }
+
+  function scoreCandidate(candidate) {
+    if (!candidate) {
+      return -1;
+    }
+    const tag = normalizeSpace(candidate.tag || "", 48).toLowerCase();
+    const role = normalizeSpace(candidate.role || "", 48).toLowerCase();
+    const className = normalizeSpace(candidate.className || "", 220);
+    const text = normalizeSpace(candidate.cleanText || candidate.text || "", MAX_CANDIDATE_TEXT_LENGTH);
+    const attrs = candidate.attributes && typeof candidate.attributes === "object" ? candidate.attributes : {};
+    const semanticType = normalizeSpace(candidate.semanticType || candidate.category || "", 80).toLowerCase();
+    let score = 0;
+
+    if (candidate.level === 0) {
+      score += 100;
+    }
+
+    if (INTERACTIVE_TAGS.has(tag) || INTERACTIVE_ROLES.has(role) || semanticType === "button" || semanticType === "link" || semanticType === "checkbox" || semanticType === "radio" || semanticType === "combobox" || semanticType === "textbox") {
+      score += 300;
+    }
+    if (semanticType === "code block" || semanticType === "pre block" || tag === "code" || tag === "pre" || /(?:code|language|prism|token|codeblock)/i.test(className)) {
+      score += 260;
+    }
+    if (semanticType === "tab panel" || role === "tabpanel") {
+      score += 240;
+    }
+    if (semanticType === "dialog" || role === "dialog" || normalizeSpace(attrs["aria-modal"], 16).toLowerCase() === "true") {
+      score += 230;
+    }
+    if (semanticType === "form" || tag === "form" || role === "form") {
+      score += 220;
+    }
+    if (semanticType === "section") {
+      score += 200;
+    }
+    if (semanticType === "card") {
+      score += 190;
+    }
+    if (semanticType === "list item") {
+      score += 180;
+    }
+    if (semanticType === "table row") {
+      score += 170;
+    }
+    if (semanticType === "text node parent") {
+      score += 150;
+    }
+    if (semanticType === "container") {
+      score += 120;
+    }
+    if (text) {
+      score += Math.min(40, Math.floor(text.length / 10));
+    }
+    if (candidate.id) {
+      score += 20;
+    }
+    if (candidate.ariaLabel) {
+      score += 20;
+    }
+    if (attrs["data-testid"] || attrs["data-test-id"] || attrs["data-test"] || attrs["data-qa"] || attrs["data-cy"]) {
+      score += 25;
+    }
+    score -= Math.min(30, Math.max(0, Number(candidate.level) || 0) * 2);
+    return score;
+  }
+
+  function pickCandidateIndex(candidates) {
+    let bestIndex = 0;
+    let bestScore = -1;
+    for (let index = 0; index < candidates.length; index += 1) {
+      const score = scoreCandidate(candidates[index]);
+      if (score > bestScore) {
+        bestScore = score;
+        bestIndex = index;
+      }
+    }
+    return bestIndex;
+  }
+
+  function buildCandidate(el, level) {
+    if (!el || el.nodeType !== 1) {
+      return null;
+    }
+    const tag = getTag(el);
+    if (!tag || tag === "html" || tag === "body") {
+      return null;
+    }
+    const className = getClassName(el);
+    const role = getRole(el, tag);
+    const attrs = collectAttributes(el, tag, role, className);
+    let text = "";
+    try {
+      text = normalizeSpace(el.innerText || el.textContent || "", MAX_CANDIDATE_TEXT_LENGTH);
+    } catch (_) {}
+    const childCount = el.children ? el.children.length : 0;
+    const classification = classifyCandidate(el, level, tag, role, attrs, text, className, childCount);
+    const semanticType = classification.semanticType || inferSemanticType(tag, role, classification.category, className);
+    const selectorHint = buildSelectorHint(tag, role, attrs, semanticType);
+    const locatorHint = buildLocatorHint(tag, role, attrs, text, semanticType);
+    const reason = classification.reason || "generic container";
+    const candidate = {
+      level,
+      tag,
+      role,
+      ariaLabel: normalizeSpace(attrs["aria-label"] || "", 160),
       text,
+      cleanText: text,
+      className,
+      id: normalizeSpace(attrs.id || "", 120),
       attributes: attrs,
+      selectorHint,
+      locatorHint,
+      reason,
+      category: classification.category || "container",
+      semanticType,
+    };
+    if (candidate.category === "container" && !candidate.text && !candidate.id && !candidate.className && !candidate.role && !candidate.selectorHint && !candidate.locatorHint) {
+      return null;
+    }
+    return candidate;
+  }
+
+  function snapshot(el) {
+    const candidates = [];
+    let current = el;
+    let level = 0;
+    while (current && level <= MAX_ANCESTOR_DEPTH) {
+      const candidate = buildCandidate(current, level);
+      if (candidate) {
+        candidates.push(candidate);
+      }
+      current = current.parentElement;
+      level += 1;
+    }
+
+    const selectedCandidateIndex = candidates.length > 0 ? pickCandidateIndex(candidates) : 0;
+    const selectedCandidate = candidates[selectedCandidateIndex] || candidates[0] || null;
+    if (!selectedCandidate) {
+      return {
+        tag: "element",
+        id: "",
+        class: "",
+        className: "",
+        text: "",
+        clean_text: "",
+        cleanText: "",
+        role: "",
+        ariaLabel: "",
+        semantic_type: "",
+        selector_hint: "",
+        locator_hint: "",
+        attributes: {},
+        selected_candidate_index: 0,
+        candidates: [],
+      };
+    }
+    return {
+      tag: selectedCandidate.tag || "element",
+      id: selectedCandidate.id || "",
+      class: selectedCandidate.className || "",
+      className: selectedCandidate.className || "",
+      text: selectedCandidate.text || "",
+      clean_text: selectedCandidate.cleanText || "",
+      cleanText: selectedCandidate.cleanText || "",
+      role: selectedCandidate.role || "",
+      ariaLabel: selectedCandidate.ariaLabel || "",
+      semantic_type: selectedCandidate.semanticType || selectedCandidate.category || "",
+      selector_hint: selectedCandidate.selectorHint || "",
+      locator_hint: selectedCandidate.locatorHint || "",
+      attributes: selectedCandidate.attributes || {},
+      selected_candidate_index: selectedCandidateIndex,
+      candidates,
     };
   }
 

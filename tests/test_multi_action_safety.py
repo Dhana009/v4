@@ -468,6 +468,134 @@ def test_confirmed_execution_contract_blocks_wrong_assertion_and_allows_correct_
     assert sent_messages[1][1]["lines"][1].endswith('.click();')
 
 
+def test_confirmed_execution_guard_uses_strict_cursor_and_rejects_step1_click_leak(monkeypatch) -> None:
+    raw_steps = [
+        {
+            "id": "step-1",
+            "intent": "Click the first button",
+            "element_info": {
+                "text": "First",
+                "attributes": {"aria-label": "First"},
+            },
+            "expected_outcome": {
+                "type": "navigation",
+                "description": "goes to the first page",
+                "source": "user",
+                "required": True,
+            },
+        },
+        {
+            "id": "step-2",
+            "intent": "Assert the second label is visible",
+            "element_info": {
+                "text": "Second",
+                "attributes": {"aria-label": "Second"},
+            },
+            "expected_outcome": {
+                "type": "no_visible_change",
+                "description": "stays on the current page",
+                "source": "user",
+                "required": False,
+            },
+        },
+    ]
+    loop, _, _, _, _ = _build_loop_for_multi_action_safety_test(monkeypatch, raw_steps[0], [])
+    loop._prepare_recording_steps = AgentLoop._prepare_recording_steps.__get__(loop, AgentLoop)
+    loop._prepare_recording_steps(raw_steps)
+
+    step_one = loop.step_state_by_id["step-1"]
+    step_two = loop.step_state_by_id["step-2"]
+    step_one_click_record = {
+        "tool": "action_click",
+        "action": "click",
+        "locator": 'get_by_label("First")',
+        "result": {"success": True, "skipped": False},
+        "step_context": step_one,
+        "action_context": {"locator": 'get_by_label("First")'},
+        "tool_args": {"locator": 'get_by_label("First")'},
+        "step_id": "step-1",
+        "step_number": 1,
+    }
+    loop._active_plan_state = {
+        "plan_id": "plan-1",
+        "summary": "Click first then assert second",
+        "original_user_intent": "Click the first button and assert the second label",
+        "steps": list(raw_steps),
+    }
+    loop._store_confirmed_execution_plan(
+        {
+            "plan_id": "plan-1",
+            "summary": "Click first then assert second",
+            "original_user_intent": "Click the first button and assert the second label",
+            "steps": [
+                {
+                    "step_id": "step-1",
+                    "step_number": 1,
+                    "intent": step_one["intent"],
+                    "expected_outcome": step_one["expected_outcome"],
+                    "children": [
+                        {
+                            "operation_id": "op_1",
+                            "type": "click",
+                            "description": "First",
+                            "target": "First",
+                            "locator": 'get_by_label("First")',
+                            "status": "planned",
+                        }
+                    ],
+                },
+                {
+                    "step_id": "step-2",
+                    "step_number": 2,
+                    "intent": step_two["intent"],
+                    "expected_outcome": step_two["expected_outcome"],
+                    "children": [
+                        {
+                            "operation_id": "op_1",
+                            "type": "assert",
+                            "description": "Second is visible",
+                            "target": "Second",
+                            "locator": 'get_by_label("Second")',
+                            "status": "planned",
+                            "assertion": "visible",
+                        }
+                    ],
+                },
+            ],
+        }
+    )
+    loop.plan_confirmed = True
+    loop.phase = "executing"
+    loop.phase_tracker.current_phase = "executing"
+    loop.active_step_id = "step-1"
+    loop.current_step_index = 0
+    step_one["status"] = "recorded"
+    step_one["recorded"] = True
+    loop._recorded_step_ids = {"step-1"}
+    loop.completed_step_ids = {"step-1"}
+    loop.successful_action_by_step_id = {"step-1": step_one_click_record}
+    loop.successful_actions_by_step_id = {"step-1": [step_one_click_record]}
+    loop.last_successful_action = step_one_click_record
+
+    confirmed_cursor = loop._current_confirmed_execution_cursor()
+    assert confirmed_cursor["step_id"] == "step-2"
+
+    blocked_result = loop._validate_confirmed_execution_tool_call(
+        "action_click",
+        {
+            "step_id": "step-1",
+            "step_number": 1,
+            "locator": 'get_by_label("First")',
+        },
+    )
+
+    assert blocked_result["blocked"] is True
+    assert blocked_result["step_id"] == "step-2"
+    assert blocked_result["expected_child"]["type"] == "assert"
+    assert loop.confirmed_execution_mismatch_count_by_step_id["step-2"] == 1
+    assert "step-2" not in loop.successful_action_by_step_id
+
+
 def test_auto_record_ends_batch_before_followup_model_turns(monkeypatch) -> None:
     step_context = _make_step_context(
         "pending-step-mooeb8ca-2",

@@ -25204,16 +25204,171 @@
       return null;
     }
     const attributes = info.attributes && typeof info.attributes === "object" ? info.attributes : {};
-    let className = firstText(info.className, info.class, attributes.className, attributes.class);
+    const rawCandidates = Array.isArray(info.candidates) ? info.candidates : [];
+    const candidates = rawCandidates.map((candidate, index) => normalizeElementCandidateForDisplay(candidate, index)).filter(Boolean);
+    const selectedCandidateIndex = resolveSelectedCandidateIndex(info.selected_candidate_index ?? info.selectedCandidateIndex, candidates.length);
+    const selectedCandidate = selectedCandidateIndex === null ? normalizeElementCandidateForDisplay(info, 0) : candidates[selectedCandidateIndex] || normalizeElementCandidateForDisplay(info, 0);
+    const selectedAttributes = selectedCandidate && selectedCandidate.attributes && typeof selectedCandidate.attributes === "object" ? selectedCandidate.attributes : attributes;
+    let className = firstText(
+      selectedCandidate?.className,
+      selectedCandidate?.class,
+      info.className,
+      info.class,
+      selectedAttributes.className,
+      selectedAttributes.class
+    );
     if (!className && Array.isArray(info.classes)) {
       className = info.classes.filter(Boolean).map((value) => String(value).trim()).filter(Boolean).join(" ");
     }
+    const selectedText = firstText(
+      selectedCandidate?.cleanText,
+      selectedCandidate?.clean_text,
+      selectedCandidate?.text,
+      info.cleanText,
+      info.clean_text,
+      info.text,
+      info.innerText,
+      info.content,
+      info.title,
+      info.label,
+      info.value
+    );
+    const selectedSemanticType = firstText(
+      selectedCandidate?.semanticType,
+      selectedCandidate?.semantic_type,
+      selectedCandidate?.category,
+      info.semanticType,
+      info.semantic_type
+    );
+    const selectedDisplayType = selectedSemanticType === "exact_element" || selectedSemanticType === "exact element" ? describeElementTargetKind(selectedCandidate) : selectedSemanticType;
+    const selectedRole = firstText(selectedCandidate?.role, info.role, selectedAttributes.role);
+    const selectedAriaLabel = firstText(
+      selectedCandidate?.ariaLabel,
+      selectedCandidate?.aria_label,
+      info.ariaLabel,
+      info.aria_label,
+      selectedAttributes["aria-label"]
+    );
+    const selectedSelectorHint = firstText(
+      selectedCandidate?.selectorHint,
+      selectedCandidate?.selector_hint,
+      info.selectorHint,
+      info.selector_hint
+    );
+    const selectedLocatorHint = firstText(
+      selectedCandidate?.locatorHint,
+      selectedCandidate?.locator_hint,
+      info.locatorHint,
+      info.locator_hint
+    );
     return {
-      tag: firstText(info.tag, info.tagName, info.nodeName).toLowerCase() || "element",
-      text: firstText(info.text, info.innerText, info.content, info.title, info.label, info.value),
-      id: firstText(info.id, attributes.id),
-      className
+      ...info,
+      tag: firstText(selectedCandidate?.tag, info.tag, info.tagName, info.nodeName).toLowerCase() || "element",
+      text: selectedText,
+      cleanText: selectedText,
+      clean_text: selectedText,
+      id: firstText(selectedCandidate?.id, info.id, selectedAttributes.id),
+      className,
+      class: className,
+      role: selectedRole,
+      ariaLabel: selectedAriaLabel,
+      aria_label: selectedAriaLabel,
+      semanticType: selectedDisplayType,
+      semantic_type: selectedDisplayType,
+      selectorHint: selectedSelectorHint,
+      selector_hint: selectedSelectorHint,
+      locatorHint: selectedLocatorHint,
+      locator_hint: selectedLocatorHint,
+      selected_candidate_index: selectedCandidateIndex,
+      candidates,
+      attributes: selectedAttributes
     };
+  }
+  function resolveSelectedCandidateIndex(value, candidateCount) {
+    const index = Number(value);
+    if (Number.isInteger(index) && index >= 0 && index < candidateCount) {
+      return index;
+    }
+    return candidateCount > 0 ? 0 : null;
+  }
+  function normalizeElementCandidateForDisplay(candidate, fallbackLevel = 0) {
+    if (!candidate || typeof candidate !== "object") {
+      return null;
+    }
+    const attributes = candidate.attributes && typeof candidate.attributes === "object" ? candidate.attributes : {};
+    const className = firstText(candidate.className, candidate.class, attributes.className, attributes.class);
+    const text = firstText(
+      candidate.cleanText,
+      candidate.clean_text,
+      candidate.text,
+      candidate.innerText,
+      candidate.content,
+      candidate.title,
+      candidate.label,
+      candidate.value
+    );
+    const semanticType = firstText(candidate.semanticType, candidate.semantic_type, candidate.category).replace(/_/g, " ");
+    return {
+      ...candidate,
+      level: Number.isFinite(Number(candidate.level)) ? Number(candidate.level) : fallbackLevel,
+      tag: firstText(candidate.tag, candidate.tagName, candidate.nodeName).toLowerCase(),
+      role: firstText(candidate.role, attributes.role),
+      ariaLabel: firstText(candidate.ariaLabel, candidate.aria_label, attributes["aria-label"]),
+      text,
+      cleanText: text,
+      clean_text: text,
+      className,
+      class: className,
+      id: firstText(candidate.id, attributes.id),
+      selectorHint: firstText(candidate.selectorHint, candidate.selector_hint),
+      selector_hint: firstText(candidate.selector_hint, candidate.selectorHint),
+      locatorHint: firstText(candidate.locatorHint, candidate.locator_hint),
+      locator_hint: firstText(candidate.locator_hint, candidate.locatorHint),
+      semanticType,
+      semantic_type: semanticType,
+      reason: firstText(candidate.reason),
+      category: firstText(candidate.category),
+      attributes
+    };
+  }
+  function describeElementTargetKind(candidate) {
+    if (!candidate || typeof candidate !== "object") {
+      return "";
+    }
+    const semanticType = firstText(candidate.semanticType, candidate.semantic_type, candidate.category).replace(/_/g, " ");
+    const category = firstText(candidate.category).replace(/_/g, " ");
+    const role = firstText(candidate.role).toLowerCase();
+    const tag = firstText(candidate.tag, candidate.tagName, candidate.nodeName).toLowerCase();
+    if (category === "exact_element") {
+      if (semanticType && semanticType !== "exact element" && semanticType !== "exact_element" && semanticType !== "text node parent") {
+        return semanticType;
+      }
+      if (tag) {
+        return tag;
+      }
+    }
+    if (semanticType && semanticType !== "exact element" && semanticType !== "exact_element") {
+      return semanticType;
+    }
+    if (role) {
+      return role;
+    }
+    if (tag) {
+      return tag;
+    }
+    return "element";
+  }
+  function describeElementTargetOption(candidate, index) {
+    if (!candidate || typeof candidate !== "object") {
+      return `candidate ${index + 1}`;
+    }
+    const kind = describeElementTargetKind(candidate);
+    const text = firstText(candidate.cleanText, candidate.clean_text, candidate.text);
+    const parts = [index === 0 ? `exact ${kind}` : kind];
+    if (text) {
+      parts.push(shortenText(text, 56));
+    }
+    return parts.join(" \xB7 ");
   }
   function shortenText(text, maxLength = 48) {
     const value = firstText(text);
@@ -25567,6 +25722,7 @@
     activePickerStepId = "",
     onChangeIntent,
     onChangeExpectedOutcome,
+    onChangeElementTarget,
     onAttachElement,
     onDeleteStep
   }) {
@@ -25578,6 +25734,12 @@
     const expectedOutcomeType = firstText(expectedOutcome?.type).toLowerCase().replace(/[\s-]+/g, "_");
     const expectedOutcomeDescription = firstRawText(expectedOutcome?.description);
     const isPicking = activePickerStepId === step.id;
+    const candidateList = Array.isArray(elementInfo?.candidates) ? elementInfo.candidates : [];
+    const selectedCandidateIndex = resolveSelectedCandidateIndex(elementInfo?.selected_candidate_index, candidateList.length);
+    const selectedCandidate = selectedCandidateIndex === null ? elementInfo : candidateList[selectedCandidateIndex] || elementInfo;
+    const exactCandidate = candidateList[0] || null;
+    const currentTargetLabel = describeElementTargetKind(selectedCandidate);
+    const exactTargetLabel = exactCandidate ? describeElementTargetKind(exactCandidate) : "";
     const actionGuess = inferActionKindFromText(intent, elementInfo?.text, elementInfo?.tag, elementInfo?.id);
     const explicitStatus = firstText(step.status, step.state).toLowerCase();
     const needsExpectedOutcome = isClickLikeIntent(intent) && !expectedOutcomeType;
@@ -25586,7 +25748,8 @@
     const stepNumber = String(index + 1).padStart(2, "0");
     const outcomeLine = expectedOutcomeType ? formatExpectedOutcomeSummary(expectedOutcome) : "";
     const validationMessage = needsExpectedOutcome ? "Expected outcome required for click-like steps." : "";
-    const elementSummary = elementInfo ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(PendingChipRow, { elementInfo, intent }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { style: { color: "#8f8a82" }, children: trimmedIntent ? "No element attached." : "Draft step." });
+    const targetSelectValue = selectedCandidateIndex === null ? "" : String(selectedCandidateIndex);
+    const elementSummary = selectedCandidate ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(PendingChipRow, { elementInfo: selectedCandidate, intent }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { style: { color: "#8f8a82" }, children: trimmedIntent ? "No element attached." : "Draft step." });
     return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: `ide-step-card${compact ? " is-compact" : ""}${isPicking ? " is-active" : ""}`, children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-numcol", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "ide-step-num", children: stepNumber }) }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-step-card-main", children: [
@@ -25608,6 +25771,26 @@
           compact ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEBadge, { kind: statusKind, children: statusLabel }) : null
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-elements", children: elementSummary }),
+        candidateList.length > 1 && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-step-target", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-target-label", children: "Selected target" }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-step-target-summary", children: [
+            "Current: ",
+            currentTargetLabel
+          ] }),
+          exactTargetLabel && exactTargetLabel !== currentTargetLabel && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-step-target-picked", children: [
+            "Exact pick: ",
+            exactTargetLabel
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+            "select",
+            {
+              className: "ide-input ide-step-target-select",
+              value: targetSelectValue,
+              onChange: (event) => onChangeElementTarget?.(step.id, Number(event.target.value)),
+              children: candidateList.map((candidate, candidateIndex) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("option", { value: candidateIndex, children: describeElementTargetOption(candidate, candidateIndex) }, `${candidate.level ?? candidateIndex}-${candidate.tag || "element"}-${candidateIndex}`))
+            }
+          )
+        ] }),
         !compact && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-step-outcome", children: [
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-outcome-label", children: "Expected Outcome" }),
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-outcome-chips", children: EXPECTED_OUTCOME_TYPES.map((type) => {
@@ -25680,6 +25863,7 @@
     activePickerStepId = "",
     onChangeIntent,
     onChangeExpectedOutcome,
+    onChangeElementTarget,
     onAddStep,
     onAttachElement,
     onDeleteStep
@@ -25718,6 +25902,7 @@
                 activePickerStepId,
                 onChangeIntent,
                 onChangeExpectedOutcome,
+                onChangeElementTarget,
                 onAttachElement,
                 onDeleteStep
               },
@@ -25919,6 +26104,7 @@
               activePickerStepId,
               onChangeIntent: runtime.onPendingStepIntentChange,
               onChangeExpectedOutcome: runtime.onPendingStepExpectedOutcomeChange,
+              onChangeElementTarget: runtime.onPendingStepElementTargetChange,
               onAttachElement: runtime.onAttachElement,
               onDeleteStep: runtime.onDeletePendingStep
             }
@@ -25945,6 +26131,7 @@
               activePickerStepId,
               onChangeIntent: runtime.onPendingStepIntentChange,
               onChangeExpectedOutcome: runtime.onPendingStepExpectedOutcomeChange,
+              onChangeElementTarget: runtime.onPendingStepElementTargetChange,
               onAddStep: runtime.onAddPendingStep,
               onAttachElement: runtime.onAttachElement,
               onDeleteStep: runtime.onDeletePendingStep
@@ -26274,6 +26461,62 @@
       required: Boolean(required || expectedOutcome.required === true)
     };
   }
+  function resolveSelectedCandidateIndex2(value, candidateCount) {
+    const index = Number(value);
+    if (Number.isInteger(index) && index >= 0 && index < candidateCount) {
+      return index;
+    }
+    return candidateCount > 0 ? 0 : null;
+  }
+  function normalizeElementCandidate(candidate, fallbackLevel = 0) {
+    if (!candidate || typeof candidate !== "object") {
+      return null;
+    }
+    const attributes = candidate.attributes && typeof candidate.attributes === "object" ? candidate.attributes : {};
+    let classValue = firstNonEmptyText(candidate.className, candidate.class, attributes.class, attributes.className);
+    if (!classValue && Array.isArray(candidate.classes)) {
+      classValue = candidate.classes.filter(Boolean).map((value) => String(value).trim()).filter(Boolean).join(" ");
+    }
+    const textValue = firstNonEmptyText(
+      candidate.cleanText,
+      candidate.clean_text,
+      candidate.text,
+      candidate.innerText,
+      candidate.content,
+      candidate.title,
+      candidate.label,
+      candidate.value
+    );
+    const semanticTypeValue = firstNonEmptyText(
+      candidate.semanticType,
+      candidate.semantic_type,
+      candidate.category
+    );
+    const roleValue = firstNonEmptyText(candidate.role, attributes.role);
+    const ariaLabelValue = firstNonEmptyText(candidate.ariaLabel, candidate.aria_label, attributes["aria-label"]);
+    return {
+      ...candidate,
+      level: Number.isFinite(Number(candidate.level)) ? Number(candidate.level) : fallbackLevel,
+      tag: firstNonEmptyText(candidate.tag, candidate.tagName, candidate.nodeName).toLowerCase(),
+      role: roleValue,
+      ariaLabel: ariaLabelValue,
+      text: textValue,
+      cleanText: textValue,
+      clean_text: textValue,
+      id: firstNonEmptyText(candidate.id, attributes.id),
+      className: classValue,
+      class: classValue,
+      selectorHint: firstNonEmptyText(candidate.selectorHint, candidate.selector_hint),
+      selector_hint: firstNonEmptyText(candidate.selector_hint, candidate.selectorHint),
+      locatorHint: firstNonEmptyText(candidate.locatorHint, candidate.locator_hint),
+      locator_hint: firstNonEmptyText(candidate.locator_hint, candidate.locatorHint),
+      semanticType: semanticTypeValue,
+      semantic_type: semanticTypeValue,
+      reason: firstNonEmptyText(candidate.reason),
+      category: firstNonEmptyText(candidate.category),
+      attributes
+    };
+  }
   function resolvePendingStepStatus(step) {
     if (!step || typeof step !== "object") {
       return "draft";
@@ -26402,17 +26645,130 @@
       return null;
     }
     const attributes = info.attributes && typeof info.attributes === "object" ? info.attributes : {};
-    let classValue = firstNonEmptyText(info.class, info.className, attributes.class, attributes.className);
+    const rawCandidates = Array.isArray(info.candidates) ? info.candidates : [];
+    const candidates = rawCandidates.map((candidate, index) => normalizeElementCandidate(candidate, index)).filter(Boolean);
+    const selectedIndex = resolveSelectedCandidateIndex2(info.selected_candidate_index ?? info.selectedCandidateIndex, candidates.length);
+    const selectedCandidate = selectedIndex === null ? normalizeElementCandidate(info, 0) : candidates[selectedIndex] || normalizeElementCandidate(info, 0);
+    const selectedAttributes = selectedCandidate && selectedCandidate.attributes && typeof selectedCandidate.attributes === "object" ? selectedCandidate.attributes : attributes;
+    let classValue = firstNonEmptyText(
+      selectedCandidate?.className,
+      selectedCandidate?.class,
+      info.class,
+      info.className,
+      selectedAttributes.class,
+      selectedAttributes.className
+    );
     if (!classValue && Array.isArray(info.classes)) {
       classValue = info.classes.filter(Boolean).map((value) => String(value).trim()).filter(Boolean).join(" ");
     }
+    const selectedText = firstNonEmptyText(
+      selectedCandidate?.cleanText,
+      selectedCandidate?.clean_text,
+      selectedCandidate?.text,
+      info.clean_text,
+      info.cleanText,
+      info.text,
+      info.innerText,
+      info.content,
+      info.title,
+      info.value,
+      info.label
+    );
+    const selectedSemanticType = firstNonEmptyText(
+      selectedCandidate?.semanticType,
+      selectedCandidate?.semantic_type,
+      selectedCandidate?.category,
+      info.semantic_type,
+      info.semanticType
+    );
+    const selectedSelectorHint = firstNonEmptyText(
+      selectedCandidate?.selectorHint,
+      selectedCandidate?.selector_hint,
+      info.selector_hint,
+      info.selectorHint
+    );
+    const selectedLocatorHint = firstNonEmptyText(
+      selectedCandidate?.locatorHint,
+      selectedCandidate?.locator_hint,
+      info.locator_hint,
+      info.locatorHint
+    );
+    const selectedRole = firstNonEmptyText(selectedCandidate?.role, info.role, selectedAttributes.role);
+    const selectedAriaLabel = firstNonEmptyText(
+      selectedCandidate?.ariaLabel,
+      selectedCandidate?.aria_label,
+      info.ariaLabel,
+      info.aria_label,
+      selectedAttributes["aria-label"]
+    );
     return {
       ...info,
-      tag: firstNonEmptyText(info.tag, info.tagName, info.nodeName).toLowerCase() || "element",
-      text: firstNonEmptyText(info.text, info.innerText, info.content, info.title, info.value, info.label),
-      id: firstNonEmptyText(info.id, attributes.id),
+      tag: firstNonEmptyText(selectedCandidate?.tag, info.tag, info.tagName, info.nodeName).toLowerCase() || "element",
+      text: selectedText,
+      clean_text: selectedText,
+      cleanText: selectedText,
+      id: firstNonEmptyText(selectedCandidate?.id, info.id, selectedAttributes.id),
+      role: selectedRole,
+      ariaLabel: selectedAriaLabel,
+      aria_label: selectedAriaLabel,
+      semantic_type: selectedSemanticType,
+      semanticType: selectedSemanticType,
+      selector_hint: selectedSelectorHint,
+      selectorHint: selectedSelectorHint,
+      locator_hint: selectedLocatorHint,
+      locatorHint: selectedLocatorHint,
+      selected_candidate_index: selectedIndex,
+      candidates,
       className: classValue,
-      attributes
+      class: classValue,
+      attributes: selectedAttributes
+    };
+  }
+  function selectElementInfoCandidate(info, selectedCandidateIndex) {
+    if (!info || typeof info !== "object") {
+      return info;
+    }
+    const candidates = Array.isArray(info.candidates) ? info.candidates : [];
+    if (!candidates.length) {
+      return info;
+    }
+    const selectedIndex = resolveSelectedCandidateIndex2(selectedCandidateIndex, candidates.length);
+    if (selectedIndex === null) {
+      return info;
+    }
+    const selectedCandidate = normalizeElementCandidate(candidates[selectedIndex], selectedIndex);
+    if (!selectedCandidate) {
+      return info;
+    }
+    const attributes = selectedCandidate.attributes && typeof selectedCandidate.attributes === "object" ? selectedCandidate.attributes : {};
+    const selectedText = firstNonEmptyText(selectedCandidate.cleanText, selectedCandidate.text, info.text, info.clean_text, info.cleanText);
+    const selectedSemanticType = firstNonEmptyText(selectedCandidate.semanticType, selectedCandidate.semantic_type, selectedCandidate.category, info.semantic_type, info.semanticType);
+    const selectedSelectorHint = firstNonEmptyText(selectedCandidate.selectorHint, selectedCandidate.selector_hint, info.selector_hint, info.selectorHint);
+    const selectedLocatorHint = firstNonEmptyText(selectedCandidate.locatorHint, selectedCandidate.locator_hint, info.locator_hint, info.locatorHint);
+    const selectedRole = firstNonEmptyText(selectedCandidate.role, info.role, attributes.role);
+    const selectedAriaLabel = firstNonEmptyText(selectedCandidate.ariaLabel, selectedCandidate.aria_label, info.ariaLabel, info.aria_label, attributes["aria-label"]);
+    const classValue = firstNonEmptyText(selectedCandidate.className, selectedCandidate.class, info.class, info.className, attributes.class, attributes.className);
+    return {
+      ...info,
+      ...selectedCandidate,
+      text: selectedText,
+      clean_text: selectedText,
+      cleanText: selectedText,
+      semantic_type: selectedSemanticType,
+      semanticType: selectedSemanticType,
+      selector_hint: selectedSelectorHint,
+      selectorHint: selectedSelectorHint,
+      locator_hint: selectedLocatorHint,
+      locatorHint: selectedLocatorHint,
+      role: selectedRole,
+      ariaLabel: selectedAriaLabel,
+      aria_label: selectedAriaLabel,
+      id: firstNonEmptyText(selectedCandidate.id, info.id, attributes.id),
+      class: classValue,
+      className: classValue,
+      attributes,
+      selected_candidate_index: selectedIndex,
+      candidates
     };
   }
   function normalizePickedElementMessage(message) {
@@ -26435,6 +26791,7 @@
       id: typeof step.id === "string" && step.id.trim() ? step.id : createPendingStep().id,
       intent: nextIntent,
       element_info: step.element_info ?? step.elementInfo ?? null,
+      elementInfo: step.elementInfo ?? step.element_info ?? null,
       expected_outcome: normalizeExpectedOutcome(step.expected_outcome ?? step.expectedOutcome, isClickLikeIntent2(nextIntent)),
       recorded: step.recorded === true
     };
@@ -26599,11 +26956,39 @@
       target_label: elementName || firstNonEmptyText(step.target, step.label) || ""
     };
   }
+  function sortRecordedSteps(steps) {
+    if (!Array.isArray(steps) || steps.length === 0) {
+      return [];
+    }
+    const nextSteps = [...steps];
+    nextSteps.sort((left, right) => {
+      const leftNumber = resolveFiniteNumber(left?.step_number ?? left?.stepNumber ?? left?.number ?? left?.index);
+      const rightNumber = resolveFiniteNumber(right?.step_number ?? right?.stepNumber ?? right?.number ?? right?.index);
+      const leftSortNumber = Number.isFinite(leftNumber) ? leftNumber : Number.POSITIVE_INFINITY;
+      const rightSortNumber = Number.isFinite(rightNumber) ? rightNumber : Number.POSITIVE_INFINITY;
+      if (leftSortNumber !== rightSortNumber) {
+        return leftSortNumber - rightSortNumber;
+      }
+      const leftId = firstNonEmptyText(left?.id, left?.step_id, left?.stepId);
+      const rightId = firstNonEmptyText(right?.id, right?.step_id, right?.stepId);
+      if (leftId && rightId && leftId !== rightId) {
+        return leftId.localeCompare(rightId);
+      }
+      if (leftId && !rightId) {
+        return -1;
+      }
+      if (!leftId && rightId) {
+        return 1;
+      }
+      return 0;
+    });
+    return nextSteps;
+  }
   function normalizeRecordedSteps(steps) {
     if (!Array.isArray(steps) || steps.length === 0) {
       return [];
     }
-    return steps.map(normalizeRecordedStep).filter(Boolean);
+    return sortRecordedSteps(steps.map(normalizeRecordedStep).filter(Boolean));
   }
   function findPendingStepMatch(steps, stepIds, recordedStepNumber, recordedStepIndex) {
     if (!Array.isArray(steps) || steps.length === 0) {
@@ -26760,21 +27145,31 @@
   }
   function mergeRecordedStepList(current, nextStep) {
     const list = Array.isArray(current) ? current : [];
+    const nextStepId = firstNonEmptyText(nextStep?.id, nextStep?.step_id, nextStep?.stepId);
+    const nextStepNumber = resolveFiniteNumber(nextStep?.step_number ?? nextStep?.stepNumber ?? nextStep?.number ?? nextStep?.index);
     const index = list.findIndex((step) => {
-      if (step.id && nextStep.id && step.id === nextStep.id) {
+      const stepId = firstNonEmptyText(step?.id, step?.step_id, step?.stepId);
+      if (stepId && nextStepId) {
+        return stepId === nextStepId;
+      }
+      if (stepId || nextStepId) {
+        return false;
+      }
+      const stepNumber = resolveFiniteNumber(step?.step_number ?? step?.stepNumber ?? step?.number ?? step?.index);
+      if (Number.isFinite(stepNumber) && Number.isFinite(nextStepNumber) && stepNumber === nextStepNumber) {
         return true;
       }
-      return Number.isFinite(step.step_number) && Number.isFinite(nextStep.step_number) && step.step_number === nextStep.step_number;
+      return false;
     });
     if (index === -1) {
-      return [...list, nextStep];
+      return sortRecordedSteps([...list, nextStep]);
     }
     const next = list.slice();
     next[index] = {
       ...next[index],
       ...nextStep
     };
-    return next;
+    return sortRecordedSteps(next);
   }
   function isSocketOpen(socket) {
     return Boolean(socket && socket.readyState === WebSocket.OPEN);
@@ -27017,6 +27412,31 @@
             recorded: false,
             element_info: step.element_info ?? step.elementInfo ?? null,
             expected_outcome: normalizeExpectedOutcome(expectedOutcome, isClickLikeIntent2(nextIntent))
+          };
+          return {
+            ...nextStep,
+            status: resolvePendingStepStatus(nextStep)
+          };
+        })
+      );
+    }, [updatePendingSteps]);
+    const updatePendingStepElementTarget = (0, import_react2.useCallback)((stepId, selectedCandidateIndex) => {
+      updatePendingSteps(
+        (current) => current.map((step) => {
+          if (step.id !== stepId) {
+            return step;
+          }
+          const nextElementInfo = selectElementInfoCandidate(step.element_info ?? step.elementInfo ?? null, selectedCandidateIndex);
+          if (!nextElementInfo) {
+            return step;
+          }
+          const nextIntent = typeof step.intent === "string" ? step.intent : "";
+          const nextStep = {
+            ...step,
+            intent: nextIntent,
+            recorded: false,
+            element_info: nextElementInfo,
+            elementInfo: nextElementInfo
           };
           return {
             ...nextStep,
@@ -27585,9 +28005,11 @@
                     return step;
                   }
                   const nextIntent = typeof step.intent === "string" ? step.intent : "";
+                  const nextElementInfo = selectElementInfoCandidate(elementInfo, elementInfo?.selected_candidate_index);
                   const nextStep = {
                     ...step,
-                    element_info: elementInfo,
+                    element_info: nextElementInfo,
+                    elementInfo: nextElementInfo,
                     recorded: false,
                     status: nextIntent.trim() ? "ready" : "draft"
                   };
@@ -27741,6 +28163,7 @@
       onRecoveryTextChange: setRecoveryText,
       onPendingStepIntentChange: updatePendingStepIntent,
       onPendingStepExpectedOutcomeChange: updatePendingStepExpectedOutcome,
+      onPendingStepElementTargetChange: updatePendingStepElementTarget,
       onAddPendingStep: addPendingStep,
       onDeletePendingStep: removePendingStep,
       onAttachElement: handleAttachElement,
@@ -27765,6 +28188,7 @@
       updatePendingStepIntent,
       addPendingStep,
       removePendingStep,
+      updatePendingStepElementTarget,
       handleRunPendingSteps,
       handleSaveSnapshot,
       handleConfirmPlan,

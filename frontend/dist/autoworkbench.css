@@ -1837,6 +1837,36 @@
   flex-wrap: wrap;
   font-size: 10.5px;
 }
+.ide-step-target {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 6px 8px;
+  background: #f7f3ee;
+  border: 1px solid #e8e0d5;
+  border-radius: 2px;
+}
+.ide-step-target-label {
+  font-size: 9.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: #9e9890;
+}
+.ide-step-target-summary,
+.ide-step-target-picked {
+  font-size: 10.5px;
+  line-height: 1.35;
+  color: #7e7870;
+  overflow-wrap: anywhere;
+}
+.ide-step-target-picked {
+  color: #9e9890;
+}
+.ide-step-target-select {
+  width: 100%;
+  min-width: 0;
+}
 .ide-step-outcome {
   display: flex;
   flex-direction: column;

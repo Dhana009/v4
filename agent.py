@@ -1982,12 +1982,61 @@ class AgentLoop:
         if compact_value in EXPECTED_OUTCOME_TYPES:
             return True
 
+        if compact_value.startswith("expected_outcome"):
+            return True
+
+        if normalized_value == "expected outcome":
+            return True
+
+        if normalized_value == "picker" or normalized_value.startswith("picker:") or normalized_value.startswith("picker -"):
+            return True
+
         for outcome_label in EXPECTED_OUTCOME_TYPES:
             for separator in (" ·", ":", " -", " —"):
                 if normalized_value.startswith(f"{outcome_label}{separator}"):
                     return True
 
         return False
+
+    def _extract_assertion_expected_value(self, value: Any) -> str:
+        candidate_text = self._normalize_space(str(value or "")).strip()
+        if not candidate_text or self._is_outcome_like_label(candidate_text):
+            return ""
+
+        quoted_match = re.search(r'["“”`](.+?)["“”`]', candidate_text)
+        if quoted_match:
+            quoted_text = self._normalize_space(quoted_match.group(1)).strip()
+            if quoted_text and not self._is_outcome_like_label(quoted_text):
+                return quoted_text
+
+        lowered_text = candidate_text.lower()
+        markers = (
+            "exact text equal to",
+            "exact text equals",
+            "text equal to",
+            "text equals",
+            "exactly match",
+            "exactly matches",
+            "match exactly",
+            "equal to",
+            "equals",
+            "contains text",
+            "has text",
+            "includes text",
+            "includes",
+            "include",
+        )
+        for marker in markers:
+            marker_index = lowered_text.find(marker)
+            if marker_index < 0:
+                continue
+            extracted_text = self._normalize_space(
+                candidate_text[marker_index + len(marker) :]
+            ).strip(" :,-–—")
+            if extracted_text and not self._is_outcome_like_label(extracted_text):
+                return extracted_text
+
+        return ""
 
     def _select_plan_correction_child_target(self, candidates: list[tuple[str, Any]]) -> str:
         for field_name, candidate in candidates:
@@ -2002,6 +2051,208 @@ class AgentLoop:
                 continue
             return candidate_text
         return ""
+
+    def _canonicalize_assertion_operation(
+        self,
+        operation_spec: dict[str, Any],
+        source_step: dict[str, Any] | None = None,
+        anchor_child: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        operation_data = operation_spec if isinstance(operation_spec, dict) else {}
+        source_step_data = source_step if isinstance(source_step, dict) else {}
+        anchor_child_data = anchor_child if isinstance(anchor_child, dict) else {}
+
+        operation_type = self._normalize_space(
+            str(operation_data.get("type") or operation_data.get("action") or "")
+        ).strip().lower()
+        if operation_type != "assert":
+            return {}
+
+        source_element_info = self._resolve_selected_element_info(
+            source_step_data.get("element_info") if isinstance(source_step_data.get("element_info"), dict) else {}
+        )
+        source_element_text = self._selected_element_text(source_element_info)
+
+        hint_text_parts = [
+            str(operation_data.get("description") or "").strip(),
+            str(operation_data.get("text") or "").strip(),
+            str(operation_data.get("target") or "").strip(),
+            str(operation_data.get("value") or operation_data.get("expected_value") or operation_data.get("expected_text") or "").strip(),
+            str(anchor_child_data.get("description") or "").strip(),
+            str(anchor_child_data.get("target") or "").strip(),
+            str(source_step_data.get("intent") or "").strip(),
+            str(source_step_data.get("element_name") or "").strip(),
+            source_element_text,
+        ]
+        hint_text = self._normalize_space(" ".join(part for part in hint_text_parts if part)).strip().lower()
+
+        explicit_assertion = self._normalize_space(
+            str(operation_data.get("assertion") or anchor_child_data.get("assertion") or "")
+        ).strip().lower()
+        assertion_aliases = {
+            "exact_text": "has_text",
+            "text_equal": "has_text",
+            "text_equals": "has_text",
+            "contains_text": "has_text",
+            "includes_text": "has_text",
+        }
+        assertion = assertion_aliases.get(explicit_assertion, explicit_assertion)
+
+        exact_text_mode = any(
+            marker in hint_text
+            for marker in (
+                "exact text equal to",
+                "exact text equals",
+                "text equal to",
+                "text equals",
+                "exactly match",
+                "exactly matches",
+                "match exactly",
+                "equal to",
+                "equals",
+            )
+        )
+        contains_text_mode = any(
+            marker in hint_text
+            for marker in (
+                "contains text",
+                "has text",
+                "includes text",
+                "includes",
+                "include",
+            )
+        )
+        visible_mode = any(
+            marker in hint_text
+            for marker in (
+                " visible",
+                "visible",
+                "present",
+                "on screen",
+                "displayed",
+            )
+        )
+        if exact_text_mode or contains_text_mode:
+            assertion = "has_text"
+        elif not assertion:
+            if visible_mode:
+                assertion = "visible"
+            elif self._normalize_space(str(operation_data.get("value") or operation_data.get("expected_value") or "")).strip():
+                assertion = "has_text"
+            else:
+                assertion = "visible"
+
+        if assertion not in {"visible", "hidden", "enabled", "disabled", "checked", "has_text", "has_value"}:
+            assertion = "has_text" if exact_text_mode or contains_text_mode else "visible"
+
+        expected_value = ""
+        direct_value_candidates = [
+            operation_data.get("expected_value"),
+            operation_data.get("expected_text"),
+            operation_data.get("value"),
+            operation_data.get("text"),
+            anchor_child_data.get("expected_value"),
+            anchor_child_data.get("expected_text"),
+            anchor_child_data.get("value"),
+            anchor_child_data.get("text"),
+        ]
+        for candidate in direct_value_candidates:
+            candidate_text = self._normalize_space(str(candidate or "")).strip()
+            if candidate_text and not self._is_outcome_like_label(candidate_text):
+                expected_value = candidate_text
+                break
+
+        if not expected_value:
+            parsed_value_candidates = [
+                operation_data.get("description"),
+                operation_data.get("target"),
+                operation_data.get("element_name"),
+                operation_data.get("intent"),
+                anchor_child_data.get("description"),
+                anchor_child_data.get("target"),
+                source_step_data.get("intent"),
+                source_step_data.get("element_name"),
+                source_element_text,
+            ]
+            for candidate in parsed_value_candidates:
+                parsed_value = self._extract_assertion_expected_value(candidate)
+                if parsed_value:
+                    expected_value = parsed_value
+                    break
+
+        if not expected_value and (exact_text_mode or contains_text_mode or assertion == "has_text"):
+            for candidate in (
+                operation_data.get("target"),
+                operation_data.get("element_name"),
+                anchor_child_data.get("target"),
+                anchor_child_data.get("element_name"),
+                source_step_data.get("element_name"),
+                source_element_text,
+            ):
+                candidate_text = self._normalize_space(str(candidate or "")).strip()
+                if candidate_text and not self._is_outcome_like_label(candidate_text):
+                    expected_value = candidate_text
+                    break
+
+        target = self._select_plan_correction_child_target(
+            [
+                ("operation.target", operation_data.get("target")),
+                ("operation.element_name", operation_data.get("element_name")),
+                ("anchor.target", anchor_child_data.get("target")),
+                ("anchor.description", anchor_child_data.get("description")),
+                ("source.element_name", source_step_data.get("element_name")),
+                ("source.intent", source_step_data.get("intent")),
+            ]
+        )
+        target_text = self._normalize_space(str(target or "")).strip()
+        source_intent_text = self._normalize_space(str(source_step_data.get("intent") or "")).strip()
+        operation_description_text = self._normalize_space(
+            str(operation_data.get("description") or anchor_child_data.get("description") or "")
+        ).strip()
+        if assertion == "has_text" and expected_value:
+            if (
+                not target_text
+                or self._is_outcome_like_label(target_text)
+                or target_text == source_intent_text
+                or target_text == operation_description_text
+                or expected_value in target_text
+                or target_text in expected_value
+            ):
+                target = expected_value
+
+        locator = self._normalize_space(
+            str(
+                operation_data.get("locator")
+                or anchor_child_data.get("locator")
+                or source_step_data.get("locator")
+                or self._derive_locator_from_step_context(source_step_data)
+                or ""
+            )
+        ).strip()
+        if locator in {"*", 'page.locator("")'}:
+            locator = ""
+        if not locator and assertion == "has_text" and expected_value:
+            locator = f'get_by_text("{self._tool_string_escape(expected_value)}", exact=True)'
+
+        description = self._build_plan_correction_child_description(
+            "assert",
+            target,
+            assertion,
+            expected_value,
+            str(operation_data.get("description") or anchor_child_data.get("description") or "").strip(),
+            str(source_step_data.get("intent") or target or "").strip(),
+        )
+
+        normalized_child: dict[str, Any] = {
+            "assertion": assertion,
+            "target": target,
+            "locator": locator,
+            "description": description,
+        }
+        if expected_value:
+            normalized_child["value"] = expected_value
+            normalized_child["expected_value"] = expected_value
+        return normalized_child
 
     def _build_plan_correction_child_description(
         self,
@@ -2081,14 +2332,159 @@ class AgentLoop:
             return f"{summary[:79]}..."
         return summary
 
+    def _resolve_selected_element_info(self, element_info: dict[str, Any]) -> dict[str, Any]:
+        if not isinstance(element_info, dict):
+            return {}
+
+        candidates = element_info.get("candidates")
+        if not isinstance(candidates, list) or not candidates:
+            return element_info
+
+        selected_candidate_index = element_info.get("selected_candidate_index")
+        selected_index: int | None = None
+        if isinstance(selected_candidate_index, int):
+            selected_index = selected_candidate_index
+        else:
+            try:
+                selected_index = int(str(selected_candidate_index or "").strip())
+            except (TypeError, ValueError):
+                selected_index = None
+        if selected_index is None or selected_index < 0 or selected_index >= len(candidates):
+            selected_index = 0
+
+        selected_candidate = candidates[selected_index]
+        if not isinstance(selected_candidate, dict):
+            return element_info
+
+        selected_attributes = selected_candidate.get("attributes") if isinstance(selected_candidate.get("attributes"), dict) else {}
+        merged = dict(element_info)
+        merged["selected_candidate_index"] = selected_index
+        merged["candidates"] = deepcopy(candidates)
+        merged["tag"] = self._normalize_space(str(selected_candidate.get("tag") or merged.get("tag") or "")).strip().lower()
+        merged["id"] = self._normalize_space(
+            str(selected_candidate.get("id") or merged.get("id") or selected_attributes.get("id") or "")
+        ).strip()
+        merged["class"] = self._normalize_space(
+            str(
+                selected_candidate.get("className")
+                or selected_candidate.get("class")
+                or merged.get("className")
+                or merged.get("class")
+                or selected_attributes.get("className")
+                or selected_attributes.get("class")
+                or ""
+            )
+        ).strip()
+        merged["className"] = merged["class"]
+
+        selected_text = self._normalize_space(
+            str(
+                selected_candidate.get("cleanText")
+                or selected_candidate.get("clean_text")
+                or selected_candidate.get("text")
+                or merged.get("clean_text")
+                or merged.get("cleanText")
+                or merged.get("text")
+                or ""
+            )
+        ).strip()
+        merged["text"] = selected_text
+        merged["clean_text"] = selected_text
+        merged["cleanText"] = selected_text
+
+        role_value = self._normalize_space(
+            str(selected_candidate.get("role") or merged.get("role") or selected_attributes.get("role") or "")
+        ).strip()
+        if role_value:
+            merged["role"] = role_value
+
+        aria_label_value = self._normalize_space(
+            str(
+                selected_candidate.get("ariaLabel")
+                or selected_candidate.get("aria_label")
+                or merged.get("ariaLabel")
+                or merged.get("aria_label")
+                or selected_attributes.get("aria-label")
+                or ""
+            )
+        ).strip()
+        if aria_label_value:
+            merged["ariaLabel"] = aria_label_value
+            merged["aria_label"] = aria_label_value
+
+        semantic_value = self._normalize_space(
+            str(
+                selected_candidate.get("semanticType")
+                or selected_candidate.get("semantic_type")
+                or selected_candidate.get("category")
+                or merged.get("semantic_type")
+                or merged.get("semanticType")
+                or ""
+            )
+        ).strip()
+        if semantic_value:
+            merged["semantic_type"] = semantic_value
+            merged["semanticType"] = semantic_value
+
+        selector_value = self._normalize_space(
+            str(
+                selected_candidate.get("selectorHint")
+                or selected_candidate.get("selector_hint")
+                or merged.get("selector_hint")
+                or merged.get("selectorHint")
+                or ""
+            )
+        ).strip()
+        if selector_value:
+            merged["selector_hint"] = selector_value
+            merged["selectorHint"] = selector_value
+
+        locator_value = self._normalize_space(
+            str(
+                selected_candidate.get("locatorHint")
+                or selected_candidate.get("locator_hint")
+                or merged.get("locator_hint")
+                or merged.get("locatorHint")
+                or ""
+            )
+        ).strip()
+        if locator_value:
+            merged["locator_hint"] = locator_value
+            merged["locatorHint"] = locator_value
+
+        merged["attributes"] = deepcopy(
+            selected_attributes or (merged.get("attributes") if isinstance(merged.get("attributes"), dict) else {})
+        )
+        return merged
+
+    def _selected_element_text(self, element_info: dict[str, Any]) -> str:
+        selected_element_info = self._resolve_selected_element_info(element_info)
+        attributes = selected_element_info.get("attributes") if isinstance(selected_element_info.get("attributes"), dict) else {}
+        candidates = [
+            selected_element_info.get("clean_text"),
+            selected_element_info.get("cleanText"),
+            selected_element_info.get("text"),
+            attributes.get("aria-label"),
+            selected_element_info.get("ariaLabel"),
+            selected_element_info.get("aria_label"),
+            attributes.get("placeholder"),
+            attributes.get("data-testid"),
+            selected_element_info.get("id"),
+        ]
+        for candidate in candidates:
+            candidate_text = self._normalize_space(str(candidate or "")).strip()
+            if candidate_text:
+                return candidate_text
+        return ""
+
     def _compact_step_element_summary(self, step: dict[str, Any]) -> str:
-        element_info = step.get("element_info") or {}
+        element_info = self._resolve_selected_element_info(step.get("element_info") or {})
         if not isinstance(element_info, dict):
             return ""
 
         attributes = element_info.get("attributes") if isinstance(element_info.get("attributes"), dict) else {}
         candidates = [
-            self._normalize_space(str(element_info.get("text") or "")).strip(),
+            self._selected_element_text(element_info),
             self._normalize_space(str(attributes.get("aria-label") or "")).strip(),
             self._normalize_space(str(attributes.get("placeholder") or "")).strip(),
             self._normalize_space(str(element_info.get("id") or "")).strip(),
@@ -2166,14 +2562,15 @@ class AgentLoop:
 
         for idx, step in enumerate(self.current_steps, start=1):
             raw_element_info = step.get("element_info") if isinstance(step.get("element_info"), dict) else {}
+            resolved_element_info = self._resolve_selected_element_info(raw_element_info)
             step_id = str(step.get("id") or "").strip() or str(idx)
             intent_text = str(step.get("intent") or "").strip()
             context = {
                 "step_id": step_id,
                 "step_number": idx,
                 "intent": intent_text,
-                "element_info": raw_element_info,
-                "element_name": self._derive_step_context_element_name(step, raw_element_info),
+                "element_info": resolved_element_info,
+                "element_name": self._derive_step_context_element_name(step, resolved_element_info),
                 "locator": None,
                 "last_error": None,
                 "status": "pending",
@@ -2213,6 +2610,14 @@ class AgentLoop:
         return None
 
     def _resolve_recording_target_step(self, payload: dict[str, Any] | None = None) -> dict[str, Any] | None:
+        confirmed_cursor = self._current_confirmed_execution_cursor()
+        if isinstance(confirmed_cursor, dict):
+            step_context = confirmed_cursor.get("step_context")
+            if isinstance(step_context, dict):
+                step_id = str(step_context.get("step_id") or "").strip() or "unknown"
+                print(f"[RECORDING_TARGET] confirmed_mode=true step_id={step_id} source=confirmed_cursor")
+                return step_context
+
         payload = payload or {}
         explicit_step_id = str(payload.get("step_id") or payload.get("id") or payload.get("stepId") or "").strip()
         if explicit_step_id:
@@ -2509,6 +2914,13 @@ class AgentLoop:
         if child_type != "assert":
             return ""
 
+        canonical_child = self._canonicalize_assertion_operation(child_data, source_step=source_step)
+        canonical_assertion = self._normalize_space(
+            str(canonical_child.get("assertion") or "")
+        ).strip().lower()
+        if canonical_assertion:
+            return canonical_assertion
+
         description = self._normalize_space(str(child_data.get("description") or "")).strip().lower()
         target = self._normalize_space(
             str(child_data.get("target") or child_data.get("element_name") or "")
@@ -2561,14 +2973,31 @@ class AgentLoop:
         value_text = self._normalize_space(
             str(child_data.get("value") or child_data.get("expected_value") or "")
         ).strip()
-        description = self._build_plan_correction_child_description(
-            child_type or self._infer_operation_type(target),
-            target,
-            assertion,
-            value_text,
-            str(child_data.get("description") or ""),
-            str((source_step or {}).get("intent") or target or "").strip(),
-        )
+        description = self._normalize_space(str(child_data.get("description") or "")).strip()
+        if child_type == "assert":
+            canonical_child = self._canonicalize_assertion_operation(
+                child_data,
+                source_step=source_step,
+            )
+            if canonical_child:
+                target = str(canonical_child.get("target") or target or "").strip()
+                locator = str(canonical_child.get("locator") or locator or "").strip()
+                assertion = str(canonical_child.get("assertion") or assertion or "").strip().lower()
+                value_text = str(
+                    canonical_child.get("value") or canonical_child.get("expected_value") or value_text or ""
+                ).strip()
+                canonical_description = str(canonical_child.get("description") or "").strip()
+                if canonical_description:
+                    description = canonical_description
+        if not description:
+            description = self._build_plan_correction_child_description(
+                child_type or self._infer_operation_type(target),
+                target,
+                assertion,
+                value_text,
+                str(child_data.get("description") or ""),
+                str((source_step or {}).get("intent") or target or "").strip(),
+            )
         code_lines: list[str] = []
         child_code_lines = child_data.get("code_lines")
         if isinstance(child_code_lines, list):
@@ -2729,6 +3158,74 @@ class AgentLoop:
             )
         return confirmed_plan
 
+    def _current_confirmed_execution_cursor(self) -> dict[str, Any] | None:
+        confirmed_plan_by_step_id = getattr(self, "confirmed_plan_by_step_id", None)
+        if not isinstance(confirmed_plan_by_step_id, dict) or not confirmed_plan_by_step_id:
+            return None
+
+        confirmed_step_ids = getattr(self, "confirmed_plan_step_ids", None)
+        if not isinstance(confirmed_step_ids, list) or not confirmed_step_ids:
+            confirmed_step_ids = list(confirmed_plan_by_step_id.keys())
+
+        recorded_step_ids = getattr(self, "_recorded_step_ids", set())
+        skipped_step_ids = getattr(self, "skipped_step_ids", set())
+
+        for candidate_step_id in confirmed_step_ids:
+            resolved_candidate_step_id = str(candidate_step_id or "").strip()
+            if not resolved_candidate_step_id:
+                continue
+
+            contract = confirmed_plan_by_step_id.get(resolved_candidate_step_id)
+            if not isinstance(contract, dict):
+                continue
+
+            step_context = self.step_state_by_id.get(resolved_candidate_step_id)
+            if not isinstance(step_context, dict):
+                step_context = contract
+
+            step_status = str(step_context.get("status") or "").strip().lower()
+            if (
+                step_status in {"recorded", "skipped"}
+                or resolved_candidate_step_id in recorded_step_ids
+                or resolved_candidate_step_id in skipped_step_ids
+            ):
+                continue
+
+            current_contract, next_child, next_child_result = self._confirmed_execution_next_child_for_step(
+                resolved_candidate_step_id
+            )
+            if not isinstance(current_contract, dict):
+                current_contract = contract
+
+            return {
+                "step_id": resolved_candidate_step_id,
+                "step_context": step_context,
+                "contract": current_contract,
+                "next_child": next_child,
+                "next_child_result": next_child_result,
+            }
+
+        return None
+
+    def _log_confirmed_execution_cursor(self, prefix: str) -> None:
+        confirmed_cursor = self._current_confirmed_execution_cursor()
+        if not isinstance(confirmed_cursor, dict):
+            return
+
+        current_contract = confirmed_cursor.get("contract")
+        if not isinstance(current_contract, dict):
+            current_contract = {}
+        current_step_id = str(confirmed_cursor.get("step_id") or "").strip() or "unknown"
+        current_step_number = self._coerce_step_number(current_contract.get("step_number"))
+        next_child = confirmed_cursor.get("next_child")
+        next_child_description = (
+            self._describe_confirmed_execution_child(next_child) if isinstance(next_child, dict) else "none"
+        )
+        print(
+            f"{prefix} current step_id={current_step_id} "
+            f"step_number={current_step_number or 'unknown'} next_child={next_child_description}"
+        )
+
     def _confirmed_execution_contract_for_step(
         self,
         step: dict[str, Any] | str | None = None,
@@ -2743,26 +3240,15 @@ class AgentLoop:
                 candidate_step_id = str(step.get(key) or "").strip()
                 if candidate_step_id and candidate_step_id not in candidate_step_ids:
                     candidate_step_ids.append(candidate_step_id)
-            candidate_step_number = self._coerce_step_number(step.get("step_number") or step.get("number"))
         else:
             candidate_step_id = str(step or "").strip()
             if candidate_step_id:
                 candidate_step_ids.append(candidate_step_id)
-            candidate_step_number = None
 
         for candidate_step_id in candidate_step_ids:
             contract = confirmed_plan_by_step_id.get(candidate_step_id)
             if isinstance(contract, dict):
                 return contract
-
-        if len(confirmed_plan_by_step_id) == 1:
-            return next(iter(confirmed_plan_by_step_id.values()))
-
-        if candidate_step_number is not None:
-            for contract in confirmed_plan_by_step_id.values():
-                contract_step_number = self._coerce_step_number(contract.get("step_number"))
-                if contract_step_number == candidate_step_number:
-                    return contract
 
         return None
 
@@ -2812,38 +3298,31 @@ class AgentLoop:
         self,
         step: dict[str, Any] | str | None = None,
     ) -> bool:
-        contract, next_child, _ = self._confirmed_execution_next_child_for_step(step)
+        confirmed_cursor = self._current_confirmed_execution_cursor()
+        if not isinstance(confirmed_cursor, dict):
+            return False
+
+        if step is not None:
+            candidate_step_id = ""
+            if isinstance(step, dict):
+                for key in ("step_id", "id", "stepId"):
+                    candidate_step_id = str(step.get(key) or "").strip()
+                    if candidate_step_id:
+                        break
+            else:
+                candidate_step_id = str(step or "").strip()
+            if candidate_step_id and candidate_step_id != str(confirmed_cursor.get("step_id") or "").strip():
+                return False
+
+        contract, next_child, _ = self._confirmed_execution_next_child_for_step(confirmed_cursor.get("step_id"))
         return isinstance(contract, dict) and next_child is None
 
     def _build_confirmed_execution_context_message(self) -> str:
-        confirmed_plan_by_step_id = getattr(self, "confirmed_plan_by_step_id", None)
-        if not isinstance(confirmed_plan_by_step_id, dict) or not confirmed_plan_by_step_id:
+        confirmed_cursor = self._current_confirmed_execution_cursor()
+        if not isinstance(confirmed_cursor, dict):
             return ""
 
-        candidate_step_ids = []
-        current_pending_step = self._current_pending_step()
-        if isinstance(current_pending_step, dict):
-            candidate_step_id = str(current_pending_step.get("step_id") or "").strip()
-            if candidate_step_id:
-                candidate_step_ids.append(candidate_step_id)
-        for candidate in (
-            getattr(self, "active_step_id", None),
-            getattr(self, "active_failed_step_id", None),
-            *getattr(self, "confirmed_plan_step_ids", []),
-        ):
-            candidate_step_id = str(candidate or "").strip()
-            if candidate_step_id and candidate_step_id not in candidate_step_ids:
-                candidate_step_ids.append(candidate_step_id)
-
-        current_contract = None
-        for candidate_step_id in candidate_step_ids:
-            contract = self._confirmed_execution_contract_for_step(candidate_step_id)
-            if isinstance(contract, dict):
-                current_contract = contract
-                break
-
-        if not isinstance(current_contract, dict):
-            current_contract = self._confirmed_execution_contract_for_step(None)
+        current_contract = confirmed_cursor.get("contract")
         if not isinstance(current_contract, dict):
             return ""
 
@@ -2919,6 +3398,15 @@ class AgentLoop:
             str(expected_child.get("assertion") or self._infer_confirmed_execution_child_assertion(expected_child) or "")
         ).strip().lower()
         actual_assertion_text = self._normalize_space(str(actual_assertion or "")).strip().lower()
+        assertion_aliases = {
+            "exact_text": "has_text",
+            "text_equal": "has_text",
+            "text_equals": "has_text",
+            "contains_text": "has_text",
+            "includes_text": "has_text",
+        }
+        expected_assertion = assertion_aliases.get(expected_assertion, expected_assertion)
+        actual_assertion_text = assertion_aliases.get(actual_assertion_text, actual_assertion_text)
         if not expected_assertion:
             return True
         if expected_assertion != actual_assertion_text:
@@ -3109,8 +3597,14 @@ class AgentLoop:
         if tool_name not in self.EXECUTION_TOOLS:
             return None
 
-        step_context = self._resolve_step_context(tool_name, args, result or {})
-        contract, expected_child, expected_child_result = self._confirmed_execution_next_child_for_step(step_context)
+        confirmed_cursor = self._current_confirmed_execution_cursor()
+        if not isinstance(confirmed_cursor, dict):
+            return None
+
+        step_context = confirmed_cursor.get("step_context")
+        contract = confirmed_cursor.get("contract")
+        expected_child = confirmed_cursor.get("next_child")
+        expected_child_result = confirmed_cursor.get("next_child_result")
         if not isinstance(contract, dict):
             return None
 
@@ -3132,6 +3626,9 @@ class AgentLoop:
         expected_value = self._normalize_space(
             str(expected_child.get("value") or expected_child.get("expected_value") or "")
         ).strip()
+
+        self._log_confirmed_execution_cursor("[CONFIRMED_CURSOR]")
+        print(f"[EXECUTION_CONTRACT] expected step_id={step_id} op={expected_tool} actual={actual_tool}")
 
         expected_tool_name = {
             "assert": "action_assert",
@@ -3191,10 +3688,7 @@ class AgentLoop:
                 f"{message} Execution contract violated twice for step {step_id}. "
                 "Failing closed."
             )
-        print(
-            "[EXECUTION_CONTRACT] blocked mismatch "
-            f"step_id={step_id} expected={expected_description} actual={actual_description}"
-        )
+        print(f"[EXECUTION_CONTRACT] blocked mismatch step_id={step_id} expected={expected_tool} actual={actual_tool}")
         return {
             "allowed": False,
             "blocked": True,
@@ -3602,7 +4096,7 @@ class AgentLoop:
                 ("source.intent", source_step.get("intent")),
             ]
         )
-        if not target:
+        if not target and operation_type != "assert":
             return {}
 
         locator = self._normalize_space(
@@ -3617,26 +4111,46 @@ class AgentLoop:
         if locator in {"*", 'page.locator("")'}:
             locator = ""
 
-        action_context = {}
+        canonical_child: dict[str, Any] = {}
         assertion = self._normalize_space(str(operation_spec.get("assertion") or "")).strip().lower()
-        if not assertion and operation_type == "assert":
-            assertion = "visible"
-        if assertion:
-            action_context["assertion"] = assertion
         value_text = self._normalize_space(
             str(operation_spec.get("value") or operation_spec.get("expected_value") or "")
         ).strip()
-        if value_text:
-            action_context["value"] = value_text
-
-        description = self._build_plan_correction_child_description(
-            operation_type,
-            target,
-            assertion,
-            value_text,
-            str(operation_spec.get("description") or ""),
-            str(source_step.get("intent") or "").strip(),
-        )
+        description = str(operation_spec.get("description") or "").strip()
+        if operation_type == "assert":
+            canonical_child = self._canonicalize_assertion_operation(
+                operation_spec,
+                source_step=source_step,
+                anchor_child=anchor_child,
+            )
+            if canonical_child:
+                target = str(canonical_child.get("target") or target or "").strip()
+                locator = str(canonical_child.get("locator") or locator or "").strip()
+                assertion = str(canonical_child.get("assertion") or assertion or "").strip().lower()
+                value_text = str(
+                    canonical_child.get("value") or canonical_child.get("expected_value") or value_text or ""
+                ).strip()
+                description = str(canonical_child.get("description") or description or "").strip()
+        if not assertion and operation_type == "assert":
+            assertion = "visible"
+        if operation_type != "assert" and not description:
+            description = self._build_plan_correction_child_description(
+                operation_type,
+                target,
+                assertion,
+                value_text,
+                str(operation_spec.get("description") or ""),
+                str(source_step.get("intent") or "").strip(),
+            )
+        elif operation_type == "assert" and not description:
+            description = self._build_plan_correction_child_description(
+                operation_type,
+                target,
+                assertion,
+                value_text,
+                str(operation_spec.get("description") or ""),
+                str(source_step.get("intent") or "").strip(),
+            )
         if operation_type == "assert":
             print(
                 "[PLAN_CORRECTION_CHILD] canonicalized assert "
@@ -3655,6 +4169,7 @@ class AgentLoop:
             child["assertion"] = assertion
         if value_text:
             child["value"] = value_text
+            child["expected_value"] = value_text
         return child
 
     def _build_structured_plan_correction_payload_from_diff(
@@ -4238,6 +4753,7 @@ class AgentLoop:
         self._recording_wait_guard_armed = False
         self.current_step_index = max(0, int(context.get("step_number") or 1) - 1)
         print(f"[AGENT] step skipped: {step_id}")
+        self._log_confirmed_execution_cursor("[CONFIRMED_CURSOR]")
         return context
 
     def _has_unresolved_steps(self) -> bool:
@@ -4270,7 +4786,7 @@ class AgentLoop:
     def _step_state_summary(self, step: dict[str, Any] | None) -> dict[str, Any]:
         if step is None:
             return {}
-        element_info = step.get("element_info") if isinstance(step.get("element_info"), dict) else {}
+        element_info = self._resolve_selected_element_info(step.get("element_info") if isinstance(step.get("element_info"), dict) else {})
         return {
             "step_id": str(step.get("step_id") or "").strip(),
             "step_number": step.get("step_number"),
@@ -4372,9 +4888,10 @@ class AgentLoop:
         return any(phrase in normalized for phrase in stop_phrases)
 
     def _derive_step_context_element_name(self, step: dict[str, Any], element_info: dict[str, Any]) -> str:
+        element_info = self._resolve_selected_element_info(element_info)
         attrs = element_info.get("attributes") if isinstance(element_info.get("attributes"), dict) else {}
         candidates = [
-            str(element_info.get("text") or "").strip(),
+            self._selected_element_text(element_info),
             str(attrs.get("aria-label") or "").strip(),
             str(attrs.get("placeholder") or "").strip(),
             str(attrs.get("data-testid") or "").strip(),
@@ -4386,12 +4903,12 @@ class AgentLoop:
         return "step"
 
     def _step_context_text(self, step: dict[str, Any]) -> str:
-        element_info = step.get("element_info") or {}
+        element_info = self._resolve_selected_element_info(step.get("element_info") or {})
         attrs = element_info.get("attributes") or {}
         parts = [
             str(step.get("intent") or "").strip(),
             str(step.get("element_name") or "").strip(),
-            str(element_info.get("text") or "").strip(),
+            self._selected_element_text(element_info),
             str(attrs.get("aria-label") or "").strip(),
             str(attrs.get("placeholder") or "").strip(),
             str(attrs.get("data-testid") or "").strip(),
@@ -4438,6 +4955,12 @@ class AgentLoop:
         args: dict[str, Any],
         result: dict[str, Any],
     ) -> dict[str, Any] | None:
+        confirmed_cursor = self._current_confirmed_execution_cursor()
+        if isinstance(confirmed_cursor, dict):
+            step_context = confirmed_cursor.get("step_context")
+            if isinstance(step_context, dict):
+                return step_context
+
         explicit_step_id = str(args.get("step_id") or result.get("step_id") or "").strip()
         if explicit_step_id and explicit_step_id in self.step_context_by_id:
             return self.step_context_by_id[explicit_step_id]
@@ -4492,6 +5015,9 @@ class AgentLoop:
         step_context: dict[str, Any] | None = None,
         payload: dict[str, Any] | None = None,
     ) -> bool:
+        confirmed_cursor = self._current_confirmed_execution_cursor()
+        if isinstance(confirmed_cursor, dict):
+            return self._confirmed_execution_step_ready_to_record(confirmed_cursor.get("step_context"))
         if self._confirmed_execution_contract_for_step(step_context or payload) is not None:
             return self._confirmed_execution_step_ready_to_record(step_context or payload)
         action = self._get_successful_action_for_step(step_context, payload)
@@ -4534,7 +5060,12 @@ class AgentLoop:
         payload: dict[str, Any],
         step_context: dict[str, Any] | None = None,
     ) -> dict[str, Any] | None:
-        target_step = step_context or self._resolve_recording_target_step(payload)
+        confirmed_cursor = self._current_confirmed_execution_cursor()
+        confirmed_mode = isinstance(confirmed_cursor, dict)
+        if confirmed_mode:
+            target_step = confirmed_cursor.get("step_context")
+        else:
+            target_step = step_context or self._resolve_recording_target_step(payload)
         if not self._has_successful_action_to_record(target_step, payload):
             step_ref = str(
                 (target_step or {}).get("step_id")
@@ -4569,12 +5100,12 @@ class AgentLoop:
             if not step_id or target_step_id == step_id:
                 recorded_target_step = target_step
         step_number = self._coerce_step_number(recorded_payload.get("step_number"))
-        if recorded_target_step is None and (step_id or step_number is not None):
+        if not confirmed_mode and recorded_target_step is None and (step_id or step_number is not None):
             recorded_target_step = self._find_step_for_recording(
                 step_id or None,
                 step_number,
             )
-        if recorded_target_step is None:
+        if not confirmed_mode and recorded_target_step is None:
             unresolved_steps = [
                 step
                 for step in self._recording_steps
@@ -4582,6 +5113,8 @@ class AgentLoop:
             ]
             if len(unresolved_steps) == 1:
                 recorded_target_step = unresolved_steps[0]
+        if confirmed_mode and recorded_target_step is None:
+            recorded_target_step = target_step
         if recorded_target_step is not None:
             self._mark_step_recorded(recorded_target_step, recorded_payload)
             code_update_payload = self._build_code_update_payload(recorded_payload, step_id)
@@ -4654,7 +5187,11 @@ class AgentLoop:
         return recorded_payload
 
     async def _auto_record_successful_step(self) -> dict[str, Any] | None:
-        target_step = self._resolve_recording_target_step()
+        confirmed_cursor = self._current_confirmed_execution_cursor()
+        if isinstance(confirmed_cursor, dict):
+            target_step = confirmed_cursor.get("step_context")
+        else:
+            target_step = self._resolve_recording_target_step()
         if target_step is None:
             return None
 
@@ -4693,6 +5230,13 @@ class AgentLoop:
         step_context: dict[str, Any] | None = None,
         payload: dict[str, Any] | None = None,
     ) -> dict[str, Any] | None:
+        confirmed_cursor = self._current_confirmed_execution_cursor()
+        if isinstance(confirmed_cursor, dict):
+            strict_step_id = str(confirmed_cursor.get("step_id") or "").strip()
+            if not strict_step_id:
+                return None
+            return self.successful_action_by_step_id.get(strict_step_id)
+
         payload = payload or {}
         step_context = step_context or {}
 
@@ -4754,6 +5298,19 @@ class AgentLoop:
         step_context: dict[str, Any] | None = None,
         payload: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
+        confirmed_cursor = self._current_confirmed_execution_cursor()
+        if isinstance(confirmed_cursor, dict):
+            strict_step_id = str(confirmed_cursor.get("step_id") or "").strip()
+            if not strict_step_id:
+                return []
+            history_by_step_id = getattr(self, "successful_actions_by_step_id", None)
+            if not isinstance(history_by_step_id, dict):
+                return []
+            action_history = history_by_step_id.get(strict_step_id)
+            if isinstance(action_history, list):
+                return action_history
+            return []
+
         payload = payload or {}
         step_context = step_context or {}
         history_by_step_id = getattr(self, "successful_actions_by_step_id", None)
@@ -4968,6 +5525,12 @@ class AgentLoop:
         return ""
 
     def _current_pending_step(self) -> dict[str, Any] | None:
+        confirmed_cursor = self._current_confirmed_execution_cursor()
+        if isinstance(confirmed_cursor, dict):
+            step_context = confirmed_cursor.get("step_context")
+            if isinstance(step_context, dict):
+                return step_context
+
         self._advance_recording_cursor()
         if self._recording_step_index >= len(self._recording_steps):
             return None
@@ -4985,6 +5548,24 @@ class AgentLoop:
         step_id: str | None = None,
         step_number: int | None = None,
     ) -> dict[str, Any] | None:
+        confirmed_cursor = self._current_confirmed_execution_cursor()
+        if isinstance(confirmed_cursor, dict):
+            current_step_context = confirmed_cursor.get("step_context")
+            current_step_id = str(confirmed_cursor.get("step_id") or "").strip()
+            current_contract = confirmed_cursor.get("contract")
+            current_step_number = self._coerce_step_number(
+                current_contract.get("step_number") if isinstance(current_contract, dict) else None
+            )
+            if step_id:
+                if step_id != current_step_id:
+                    return None
+                return current_step_context if isinstance(current_step_context, dict) else None
+            if step_number is not None:
+                if current_step_number != step_number:
+                    return None
+                return current_step_context if isinstance(current_step_context, dict) else None
+            return current_step_context if isinstance(current_step_context, dict) else None
+
         if step_id:
             for step in self._recording_steps:
                 if (
@@ -5060,6 +5641,7 @@ class AgentLoop:
             self.phase = "executing"
         print(f"[AGENT] marked step recorded: {step_id}")
         self._advance_recording_cursor()
+        self._log_confirmed_execution_cursor("[CONFIRMED_CURSOR]")
         return context
 
     def _derive_element_name(
@@ -5068,10 +5650,10 @@ class AgentLoop:
         action_context: dict[str, Any],
         locator: str,
     ) -> str:
-        element_info = step.get("element_info") or {}
+        element_info = self._resolve_selected_element_info(step.get("element_info") or {})
         attrs = element_info.get("attributes") or {}
         candidates = [
-            str(element_info.get("text") or "").strip(),
+            self._selected_element_text(element_info),
             str(attrs.get("aria-label") or "").strip(),
             str(attrs.get("placeholder") or "").strip(),
             str(attrs.get("data-testid") or "").strip(),
@@ -5150,6 +5732,8 @@ class AgentLoop:
             if not locator_expr:
                 locator_expr = "page.locator(\"\")"
             assertion = str(action_context.get("assertion") or "").strip()
+            if assertion in {"exact_text", "text_equal", "text_equals", "contains_text", "includes_text"}:
+                assertion = "has_text"
             if assertion == "visible":
                 return f"await expect({locator_expr}).toBeVisible();"
             if assertion == "hidden":
@@ -5218,8 +5802,14 @@ class AgentLoop:
             for key, value in payload.items()
             if value not in (None, "", [], {})
         }
-        step_context = step_context or self._resolve_recording_target_step(clean_payload)
-        confirmed_contract = self._confirmed_execution_contract_for_step(step_context or clean_payload)
+        confirmed_cursor = self._current_confirmed_execution_cursor()
+        confirmed_mode = isinstance(confirmed_cursor, dict)
+        if confirmed_mode:
+            step_context = confirmed_cursor.get("step_context")
+            confirmed_contract = confirmed_cursor.get("contract")
+        else:
+            step_context = step_context or self._resolve_recording_target_step(clean_payload)
+            confirmed_contract = self._confirmed_execution_contract_for_step(step_context or clean_payload)
         confirmed_child_results: dict[str, Any] = {}
         if isinstance(confirmed_contract, dict):
             if not self._confirmed_execution_step_ready_to_record(step_context or clean_payload):
@@ -5376,7 +5966,7 @@ class AgentLoop:
         return merged
 
     def _derive_locator_from_step_context(self, step: dict[str, Any]) -> str:
-        element_info = step.get("element_info") or {}
+        element_info = self._resolve_selected_element_info(step.get("element_info") or {})
         if not isinstance(element_info, dict):
             return ""
 
@@ -5391,7 +5981,7 @@ class AgentLoop:
     def _normalize_steps(self, steps: list[dict]) -> list[dict[str, Any]]:
         normalized: list[dict[str, Any]] = []
         for idx, step in enumerate(steps, start=1):
-            element_info = step.get("element_info") or {}
+            element_info = self._resolve_selected_element_info(step.get("element_info") or {})
             attrs = element_info.get("attributes") or {}
             normalized.append(
                 {
@@ -5534,17 +6124,49 @@ class AgentLoop:
                 planned_child_count=len(operation_types),
             )
 
-        return [
-            {
+        planned_children: list[dict[str, Any]] = []
+        for index, current_operation_type in enumerate(operation_types, start=1):
+            child_target = target
+            child_locator = locator
+            child_description = self._build_planned_child_description(current_operation_type, child_target, intent)
+            child_value = ""
+            child_assertion = ""
+            if current_operation_type == "assert":
+                canonical_child = self._canonicalize_assertion_operation(
+                    {
+                        "type": current_operation_type,
+                        "target": target,
+                        "locator": locator,
+                        "description": intent,
+                        "intent": intent,
+                    },
+                    source_step=step_data,
+                    anchor_child=plan_data,
+                )
+                if canonical_child:
+                    child_target = str(canonical_child.get("target") or child_target or "").strip()
+                    child_locator = str(canonical_child.get("locator") or child_locator or "").strip()
+                    child_description = str(canonical_child.get("description") or child_description or "").strip()
+                    child_assertion = str(canonical_child.get("assertion") or "").strip().lower()
+                    child_value = str(
+                        canonical_child.get("value") or canonical_child.get("expected_value") or ""
+                    ).strip()
+            child_payload: dict[str, Any] = {
                 "operation_id": f"op_{index}",
                 "type": current_operation_type,
-                "description": self._build_planned_child_description(current_operation_type, target, intent),
-                "target": target,
-                "locator": locator,
+                "description": child_description,
+                "target": child_target,
+                "locator": child_locator,
                 "status": "planned",
             }
-            for index, current_operation_type in enumerate(operation_types, start=1)
-        ]
+            if child_assertion:
+                child_payload["assertion"] = child_assertion
+            if child_value:
+                child_payload["value"] = child_value
+                child_payload["expected_value"] = child_value
+            planned_children.append(child_payload)
+
+        return planned_children
 
     def _build_plan_ready_parent_step(
         self,
@@ -5617,6 +6239,8 @@ class AgentLoop:
             return target_text or value_text or intent_text
 
         if operation_name == "assert" or assertion_text:
+            if assertion_text in {"exact_text", "text_equal", "text_equals", "contains_text", "includes_text"}:
+                assertion_text = "has_text"
             if assertion_text == "visible":
                 return f"{target_text} is visible" if target_text else intent_text
             if assertion_text == "hidden":
@@ -5629,6 +6253,8 @@ class AgentLoop:
                 return f"{target_text} is checked" if target_text else intent_text
             if assertion_text == "has_text":
                 if target_text and value_text:
+                    if target_text == value_text:
+                        return f"Text equals {value_text}"
                     return f"{target_text} has text {value_text}"
                 return target_text or value_text or intent_text
             if assertion_text == "has_value":
@@ -6690,6 +7316,17 @@ class AgentLoop:
                         "stop, or ask about the failed step only."
                     ),
                 }
+            current_phase = self._current_phase()
+            if current_phase in {"executing", "recording"}:
+                print("[PLAN_READY_GUARD] blocked during execution")
+                return {
+                    "sent": False,
+                    "blocked": True,
+                    "reason": "plan_ready_blocked_during_execution",
+                    "message": (
+                        "Plan changes are blocked during execution. Continue the confirmed plan or fail safely."
+                    ),
+                }
             if isinstance(correction_state, dict):
                 no_progress_count = int(correction_state.get("no_progress_count") or 0) + 1
                 schema_retry_count = int(correction_state.get("schema_retry_count") or 0) + 1
@@ -6986,10 +7623,15 @@ class AgentLoop:
         return ""
 
     def _build_locator_candidates(self, element_data: dict[str, Any]) -> list[dict[str, str]]:
-        text = self._normalize_space(str(element_data.get("text") or ""))
+        element_data = self._resolve_selected_element_info(element_data)
+        text = self._selected_element_text(element_data)
         tag = re.sub(r"[^a-zA-Z0-9:_-]", "", str(element_data.get("tag") or "").strip())
-        role = str(element_data.get("role") or "").strip() or self._infer_role(element_data)
-        class_name = str(element_data.get("class") or "").strip()
+        attributes = element_data.get("attributes") if isinstance(element_data.get("attributes"), dict) else {}
+        role = (
+            str(element_data.get("role") or attributes.get("role") or "").strip()
+            or self._infer_role(element_data)
+        )
+        class_name = str(element_data.get("class") or element_data.get("className") or attributes.get("class") or "").strip()
         classes = [
             re.sub(r"[^a-zA-Z0-9_-]", "", item)
             for item in class_name.split()
@@ -6998,7 +7640,25 @@ class AgentLoop:
         partial_text = text[:50].strip()
         candidates: list[dict[str, str]] = []
 
-        data_testid = str(element_data.get("data_testid") or "").strip()
+        locator_hint = str(element_data.get("locator_hint") or element_data.get("locatorHint") or "").strip()
+        if locator_hint:
+            candidates.append(
+                {
+                    "strategy": "locator_hint",
+                    "locator": locator_hint,
+                }
+            )
+
+        data_testid = str(
+            element_data.get("data_testid")
+            or element_data.get("dataTestid")
+            or attributes.get("data-testid")
+            or attributes.get("data-test-id")
+            or attributes.get("data-test")
+            or attributes.get("data-qa")
+            or attributes.get("data-cy")
+            or ""
+        ).strip()
         if data_testid:
             candidates.append(
                 {
@@ -7007,7 +7667,9 @@ class AgentLoop:
                 }
             )
 
-        aria_label = self._normalize_space(str(element_data.get("aria_label") or ""))
+        aria_label = self._normalize_space(
+            str(element_data.get("aria_label") or element_data.get("ariaLabel") or attributes.get("aria-label") or "")
+        )
         if aria_label:
             candidates.append(
                 {
@@ -7016,11 +7678,11 @@ class AgentLoop:
                 }
             )
 
-        element_id = str(element_data.get("id") or "").strip()
+        element_id = str(element_data.get("id") or attributes.get("id") or "").strip()
         if element_id:
             candidates.append({"strategy": "id", "locator": f"#{self._css_escape(element_id)}"})
 
-        placeholder = self._normalize_space(str(element_data.get("placeholder") or ""))
+        placeholder = self._normalize_space(str(element_data.get("placeholder") or attributes.get("placeholder") or ""))
         if placeholder:
             candidates.append(
                 {
@@ -7141,6 +7803,7 @@ class AgentLoop:
         return ""
 
     def _build_suggested_scope(self, element_info: dict[str, Any]) -> str:
+        element_info = self._resolve_selected_element_info(element_info)
         tag = re.sub(r"[^a-zA-Z0-9:_-]", "", str(element_info.get("tag") or "").strip())
         if not tag:
             return "page"

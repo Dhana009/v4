@@ -3,3 +3,16 @@
 3. Define every state, event, allowed tools, exit condition, retry budget, and UI result.
 4. Add tests for the entire lifecycle, not only the latest bug.
 5. Only then implement.
+
+
+1. Single click records click
+2. Single corrected assert + click records both
+3. Multi-step flow records:
+   01 click Agents
+   02 assert Playwright Test Agents
+   03 click Claude Code
+   04 assert command text
+4. No assert step records click code
+5. UI order is 01, 02, 03, 04
+6. No 10+ LLM loop
+7. No plan_ready appears during normal execution

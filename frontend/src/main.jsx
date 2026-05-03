@@ -363,6 +363,71 @@ function normalizeExpectedOutcome(expectedOutcome, required = false) {
   };
 }
 
+function resolveSelectedCandidateIndex(value, candidateCount) {
+  const index = Number(value);
+  if (Number.isInteger(index) && index >= 0 && index < candidateCount) {
+    return index;
+  }
+  return candidateCount > 0 ? 0 : null;
+}
+
+function normalizeElementCandidate(candidate, fallbackLevel = 0) {
+  if (!candidate || typeof candidate !== "object") {
+    return null;
+  }
+
+  const attributes = candidate.attributes && typeof candidate.attributes === "object" ? candidate.attributes : {};
+  let classValue = firstNonEmptyText(candidate.className, candidate.class, attributes.class, attributes.className);
+  if (!classValue && Array.isArray(candidate.classes)) {
+    classValue = candidate.classes
+      .filter(Boolean)
+      .map((value) => String(value).trim())
+      .filter(Boolean)
+      .join(" ");
+  }
+
+  const textValue = firstNonEmptyText(
+    candidate.cleanText,
+    candidate.clean_text,
+    candidate.text,
+    candidate.innerText,
+    candidate.content,
+    candidate.title,
+    candidate.label,
+    candidate.value
+  );
+  const semanticTypeValue = firstNonEmptyText(
+    candidate.semanticType,
+    candidate.semantic_type,
+    candidate.category
+  );
+  const roleValue = firstNonEmptyText(candidate.role, attributes.role);
+  const ariaLabelValue = firstNonEmptyText(candidate.ariaLabel, candidate.aria_label, attributes["aria-label"]);
+
+  return {
+    ...candidate,
+    level: Number.isFinite(Number(candidate.level)) ? Number(candidate.level) : fallbackLevel,
+    tag: firstNonEmptyText(candidate.tag, candidate.tagName, candidate.nodeName).toLowerCase(),
+    role: roleValue,
+    ariaLabel: ariaLabelValue,
+    text: textValue,
+    cleanText: textValue,
+    clean_text: textValue,
+    id: firstNonEmptyText(candidate.id, attributes.id),
+    className: classValue,
+    class: classValue,
+    selectorHint: firstNonEmptyText(candidate.selectorHint, candidate.selector_hint),
+    selector_hint: firstNonEmptyText(candidate.selector_hint, candidate.selectorHint),
+    locatorHint: firstNonEmptyText(candidate.locatorHint, candidate.locator_hint),
+    locator_hint: firstNonEmptyText(candidate.locator_hint, candidate.locatorHint),
+    semanticType: semanticTypeValue,
+    semantic_type: semanticTypeValue,
+    reason: firstNonEmptyText(candidate.reason),
+    category: firstNonEmptyText(candidate.category),
+    attributes,
+  };
+}
+
 function formatExpectedOutcomeSummary(expectedOutcome) {
   if (!expectedOutcome || typeof expectedOutcome !== "object") {
     return "";
@@ -539,18 +604,138 @@ function normalizeElementInfo(info) {
   }
 
   const attributes = info.attributes && typeof info.attributes === "object" ? info.attributes : {};
-  let classValue = firstNonEmptyText(info.class, info.className, attributes.class, attributes.className);
+  const rawCandidates = Array.isArray(info.candidates) ? info.candidates : [];
+  const candidates = rawCandidates.map((candidate, index) => normalizeElementCandidate(candidate, index)).filter(Boolean);
+  const selectedIndex = resolveSelectedCandidateIndex(info.selected_candidate_index ?? info.selectedCandidateIndex, candidates.length);
+  const selectedCandidate = selectedIndex === null ? normalizeElementCandidate(info, 0) : candidates[selectedIndex] || normalizeElementCandidate(info, 0);
+  const selectedAttributes = selectedCandidate && selectedCandidate.attributes && typeof selectedCandidate.attributes === "object" ? selectedCandidate.attributes : attributes;
+  let classValue = firstNonEmptyText(
+    selectedCandidate?.className,
+    selectedCandidate?.class,
+    info.class,
+    info.className,
+    selectedAttributes.class,
+    selectedAttributes.className
+  );
   if (!classValue && Array.isArray(info.classes)) {
     classValue = info.classes.filter(Boolean).map((value) => String(value).trim()).filter(Boolean).join(" ");
   }
 
+  const selectedText = firstNonEmptyText(
+    selectedCandidate?.cleanText,
+    selectedCandidate?.clean_text,
+    selectedCandidate?.text,
+    info.clean_text,
+    info.cleanText,
+    info.text,
+    info.innerText,
+    info.content,
+    info.title,
+    info.value,
+    info.label
+  );
+  const selectedSemanticType = firstNonEmptyText(
+    selectedCandidate?.semanticType,
+    selectedCandidate?.semantic_type,
+    selectedCandidate?.category,
+    info.semantic_type,
+    info.semanticType
+  );
+  const selectedSelectorHint = firstNonEmptyText(
+    selectedCandidate?.selectorHint,
+    selectedCandidate?.selector_hint,
+    info.selector_hint,
+    info.selectorHint
+  );
+  const selectedLocatorHint = firstNonEmptyText(
+    selectedCandidate?.locatorHint,
+    selectedCandidate?.locator_hint,
+    info.locator_hint,
+    info.locatorHint
+  );
+  const selectedRole = firstNonEmptyText(selectedCandidate?.role, info.role, selectedAttributes.role);
+  const selectedAriaLabel = firstNonEmptyText(
+    selectedCandidate?.ariaLabel,
+    selectedCandidate?.aria_label,
+    info.ariaLabel,
+    info.aria_label,
+    selectedAttributes["aria-label"]
+  );
+
   return {
     ...info,
-    tag: firstNonEmptyText(info.tag, info.tagName, info.nodeName).toLowerCase() || "element",
-    text: firstNonEmptyText(info.text, info.innerText, info.content, info.title, info.value, info.label),
-    id: firstNonEmptyText(info.id, attributes.id),
+    tag: firstNonEmptyText(selectedCandidate?.tag, info.tag, info.tagName, info.nodeName).toLowerCase() || "element",
+    text: selectedText,
+    clean_text: selectedText,
+    cleanText: selectedText,
+    id: firstNonEmptyText(selectedCandidate?.id, info.id, selectedAttributes.id),
+    role: selectedRole,
+    ariaLabel: selectedAriaLabel,
+    aria_label: selectedAriaLabel,
+    semantic_type: selectedSemanticType,
+    semanticType: selectedSemanticType,
+    selector_hint: selectedSelectorHint,
+    selectorHint: selectedSelectorHint,
+    locator_hint: selectedLocatorHint,
+    locatorHint: selectedLocatorHint,
+    selected_candidate_index: selectedIndex,
+    candidates,
+    className: classValue,
+    class: classValue,
+    attributes: selectedAttributes,
+  };
+}
+
+function selectElementInfoCandidate(info, selectedCandidateIndex) {
+  if (!info || typeof info !== "object") {
+    return info;
+  }
+
+  const candidates = Array.isArray(info.candidates) ? info.candidates : [];
+  if (!candidates.length) {
+    return info;
+  }
+
+  const selectedIndex = resolveSelectedCandidateIndex(selectedCandidateIndex, candidates.length);
+  if (selectedIndex === null) {
+    return info;
+  }
+
+  const selectedCandidate = normalizeElementCandidate(candidates[selectedIndex], selectedIndex);
+  if (!selectedCandidate) {
+    return info;
+  }
+
+  const attributes = selectedCandidate.attributes && typeof selectedCandidate.attributes === "object" ? selectedCandidate.attributes : {};
+  const selectedText = firstNonEmptyText(selectedCandidate.cleanText, selectedCandidate.text, info.text, info.clean_text, info.cleanText);
+  const selectedSemanticType = firstNonEmptyText(selectedCandidate.semanticType, selectedCandidate.semantic_type, selectedCandidate.category, info.semantic_type, info.semanticType);
+  const selectedSelectorHint = firstNonEmptyText(selectedCandidate.selectorHint, selectedCandidate.selector_hint, info.selector_hint, info.selectorHint);
+  const selectedLocatorHint = firstNonEmptyText(selectedCandidate.locatorHint, selectedCandidate.locator_hint, info.locator_hint, info.locatorHint);
+  const selectedRole = firstNonEmptyText(selectedCandidate.role, info.role, attributes.role);
+  const selectedAriaLabel = firstNonEmptyText(selectedCandidate.ariaLabel, selectedCandidate.aria_label, info.ariaLabel, info.aria_label, attributes["aria-label"]);
+  const classValue = firstNonEmptyText(selectedCandidate.className, selectedCandidate.class, info.class, info.className, attributes.class, attributes.className);
+
+  return {
+    ...info,
+    ...selectedCandidate,
+    text: selectedText,
+    clean_text: selectedText,
+    cleanText: selectedText,
+    semantic_type: selectedSemanticType,
+    semanticType: selectedSemanticType,
+    selector_hint: selectedSelectorHint,
+    selectorHint: selectedSelectorHint,
+    locator_hint: selectedLocatorHint,
+    locatorHint: selectedLocatorHint,
+    role: selectedRole,
+    ariaLabel: selectedAriaLabel,
+    aria_label: selectedAriaLabel,
+    id: firstNonEmptyText(selectedCandidate.id, info.id, attributes.id),
+    class: classValue,
     className: classValue,
     attributes,
+    selected_candidate_index: selectedIndex,
+    candidates,
   };
 }
 
@@ -592,6 +777,7 @@ function normalizePendingStep(step) {
     id: typeof step.id === "string" && step.id.trim() ? step.id : createPendingStep().id,
     intent: nextIntent,
     element_info: step.element_info ?? step.elementInfo ?? null,
+    elementInfo: step.elementInfo ?? step.element_info ?? null,
     expected_outcome: normalizeExpectedOutcome(step.expected_outcome ?? step.expectedOutcome, isClickLikeIntent(nextIntent)),
     recorded: step.recorded === true,
   };
@@ -785,12 +971,43 @@ function normalizeRecordedStep(step, index) {
   };
 }
 
+function sortRecordedSteps(steps) {
+  if (!Array.isArray(steps) || steps.length === 0) {
+    return [];
+  }
+
+  const nextSteps = [...steps];
+  nextSteps.sort((left, right) => {
+    const leftNumber = resolveFiniteNumber(left?.step_number ?? left?.stepNumber ?? left?.number ?? left?.index);
+    const rightNumber = resolveFiniteNumber(right?.step_number ?? right?.stepNumber ?? right?.number ?? right?.index);
+    const leftSortNumber = Number.isFinite(leftNumber) ? leftNumber : Number.POSITIVE_INFINITY;
+    const rightSortNumber = Number.isFinite(rightNumber) ? rightNumber : Number.POSITIVE_INFINITY;
+    if (leftSortNumber !== rightSortNumber) {
+      return leftSortNumber - rightSortNumber;
+    }
+
+    const leftId = firstNonEmptyText(left?.id, left?.step_id, left?.stepId);
+    const rightId = firstNonEmptyText(right?.id, right?.step_id, right?.stepId);
+    if (leftId && rightId && leftId !== rightId) {
+      return leftId.localeCompare(rightId);
+    }
+    if (leftId && !rightId) {
+      return -1;
+    }
+    if (!leftId && rightId) {
+      return 1;
+    }
+    return 0;
+  });
+  return nextSteps;
+}
+
 function normalizeRecordedSteps(steps) {
   if (!Array.isArray(steps) || steps.length === 0) {
     return [];
   }
 
-  return steps.map(normalizeRecordedStep).filter(Boolean);
+  return sortRecordedSteps(steps.map(normalizeRecordedStep).filter(Boolean));
 }
 
 function findPendingStepMatch(steps, stepIds, recordedStepNumber, recordedStepIndex) {
@@ -974,15 +1191,25 @@ function updatePlanAfterRecordedStep(currentPlan, matchInfo, nextRecordedStep) {
 
 function mergeRecordedStepList(current, nextStep) {
   const list = Array.isArray(current) ? current : [];
+  const nextStepId = firstNonEmptyText(nextStep?.id, nextStep?.step_id, nextStep?.stepId);
+  const nextStepNumber = resolveFiniteNumber(nextStep?.step_number ?? nextStep?.stepNumber ?? nextStep?.number ?? nextStep?.index);
   const index = list.findIndex((step) => {
-    if (step.id && nextStep.id && step.id === nextStep.id) {
+    const stepId = firstNonEmptyText(step?.id, step?.step_id, step?.stepId);
+    if (stepId && nextStepId) {
+      return stepId === nextStepId;
+    }
+    if (stepId || nextStepId) {
+      return false;
+    }
+    const stepNumber = resolveFiniteNumber(step?.step_number ?? step?.stepNumber ?? step?.number ?? step?.index);
+    if (Number.isFinite(stepNumber) && Number.isFinite(nextStepNumber) && stepNumber === nextStepNumber) {
       return true;
     }
-    return Number.isFinite(step.step_number) && Number.isFinite(nextStep.step_number) && step.step_number === nextStep.step_number;
+    return false;
   });
 
   if (index === -1) {
-    return [...list, nextStep];
+    return sortRecordedSteps([...list, nextStep]);
   }
 
   const next = list.slice();
@@ -990,7 +1217,7 @@ function mergeRecordedStepList(current, nextStep) {
     ...next[index],
     ...nextStep,
   };
-  return next;
+  return sortRecordedSteps(next);
 }
 
 function isSocketOpen(socket) {
@@ -1275,6 +1502,34 @@ function useAutoWorkbenchTransport(config) {
           expected_outcome: normalizeExpectedOutcome(expectedOutcome, isClickLikeIntent(nextIntent)),
         };
 
+        return {
+          ...nextStep,
+          status: resolvePendingStepStatus(nextStep),
+        };
+      })
+    );
+  }, [updatePendingSteps]);
+
+  const updatePendingStepElementTarget = useCallback((stepId, selectedCandidateIndex) => {
+    updatePendingSteps((current) =>
+      current.map((step) => {
+        if (step.id !== stepId) {
+          return step;
+        }
+
+        const nextElementInfo = selectElementInfoCandidate(step.element_info ?? step.elementInfo ?? null, selectedCandidateIndex);
+        if (!nextElementInfo) {
+          return step;
+        }
+
+        const nextIntent = typeof step.intent === "string" ? step.intent : "";
+        const nextStep = {
+          ...step,
+          intent: nextIntent,
+          recorded: false,
+          element_info: nextElementInfo,
+          elementInfo: nextElementInfo,
+        };
         return {
           ...nextStep,
           status: resolvePendingStepStatus(nextStep),
@@ -1903,13 +2158,17 @@ function useAutoWorkbenchTransport(config) {
                 if (index !== match.index) {
                   return step;
                 }
+
                 const nextIntent = typeof step.intent === "string" ? step.intent : "";
+                const nextElementInfo = selectElementInfoCandidate(elementInfo, elementInfo?.selected_candidate_index);
                 const nextStep = {
                   ...step,
-                  element_info: elementInfo,
+                  element_info: nextElementInfo,
+                  elementInfo: nextElementInfo,
                   recorded: false,
                   status: nextIntent.trim() ? "ready" : "draft",
                 };
+
                 return {
                   ...nextStep,
                   expected_outcome: normalizeExpectedOutcome(
@@ -2080,6 +2339,7 @@ function useAutoWorkbenchTransport(config) {
     onRecoveryTextChange: setRecoveryText,
     onPendingStepIntentChange: updatePendingStepIntent,
     onPendingStepExpectedOutcomeChange: updatePendingStepExpectedOutcome,
+    onPendingStepElementTargetChange: updatePendingStepElementTarget,
     onAddPendingStep: addPendingStep,
     onDeletePendingStep: removePendingStep,
     onAttachElement: handleAttachElement,
@@ -2104,6 +2364,7 @@ function useAutoWorkbenchTransport(config) {
     updatePendingStepIntent,
     addPendingStep,
     removePendingStep,
+    updatePendingStepElementTarget,
     handleRunPendingSteps,
     handleSaveSnapshot,
     handleConfirmPlan,

@@ -946,6 +946,126 @@ def test_plan_correction_added_assert_child_canonicalizes_has_text_description()
     assert children[0]["locator"] == 'get_by_text("Submit", exact=True)'
 
 
+def test_plan_ready_exact_text_assertion_uses_expected_value_and_ignores_metadata_target() -> None:
+    loop = _make_loop()
+    exact_text = "npx playwright init-agents --loop=opencode"
+    exact_locator = f'get_by_text("{exact_text}", exact=True)'
+    source_step = {
+        "step_id": "step-1",
+        "intent": f"Assert exact text equal to {exact_text}",
+        "element_name": "expected outcome",
+        "element_info": {
+            "text": f"VS Code Claude Code OpenCode {exact_text}",
+            "attributes": {"aria-label": "expected outcome"},
+        },
+        "expected_outcome": {
+            "type": "not_sure",
+            "description": "expected_outcome: navigation",
+            "source": "user",
+            "required": False,
+        },
+    }
+
+    parent_step = loop._build_plan_ready_parent_step(
+        {
+            "step_id": "step-1",
+            "intent": source_step["intent"],
+            "target": "expected_outcome: not_sure",
+            "locator": exact_locator,
+        },
+        source_step,
+        0,
+    )
+
+    children = parent_step["children"]
+    assert len(children) == 1
+    child = children[0]
+    assert child["type"] == "assert"
+    assert child["assertion"] == "has_text"
+    assert child["value"] == exact_text
+    assert child["expected_value"] == exact_text
+    assert child["target"] == exact_text
+    assert child["locator"] == exact_locator
+    assert child["description"] == f"Text equals {exact_text}"
+    assert "expected outcome" not in child["description"].lower()
+    assert "expected_outcome" not in child
+
+
+def test_plan_correction_added_exact_text_assert_child_ignores_expected_outcome_metadata() -> None:
+    loop = _make_loop()
+    exact_text = "npx playwright init-agents --loop=opencode"
+    exact_locator = f'get_by_text("{exact_text}", exact=True)'
+    sent_messages: list[tuple[str, dict[str, object]]] = []
+    active_plan = _make_active_plan_state(
+        "Assert the command text",
+        [
+            _make_operation(
+                "op_1",
+                "click",
+                "Run",
+                target="Run",
+                locator='get_by_label("Run")',
+            ),
+        ],
+        summary="I will click Run",
+    )
+    loop._active_plan_state = active_plan
+    loop._active_plan_correction_state = loop._build_plan_correction_state(
+        f"assert exact text equal to {exact_text}",
+        source_plan_state=active_plan,
+    )
+
+    async def fake_send(message_type: str, **kwargs: object) -> None:
+        sent_messages.append((message_type, kwargs))
+
+    async def fake_wait_for_plan_confirmation() -> dict[str, object]:
+        return {"confirmed": True, "answer": "confirmed"}
+
+    loop._send = fake_send
+    loop._wait_for_plan_confirmation = fake_wait_for_plan_confirmation
+
+    result = asyncio.run(
+        loop._tool_send_to_overlay(
+            {
+                "message_type": "plan_correction_diff",
+                "payload": {
+                    "target_step_id": "step-1",
+                    "mutations": [
+                        {
+                            "op": "add",
+                            "position": "before",
+                            "relative_to_operation_id": "op_1",
+                            "operation": {
+                                "type": "assert",
+                                "target": "expected_outcome: not_sure",
+                                "locator": exact_locator,
+                                "description": f"Assert exact text equal to {exact_text}",
+                            },
+                        },
+                        {
+                            "op": "keep",
+                            "operation_id": "op_1",
+                        },
+                    ],
+                },
+            }
+        )
+    )
+
+    assert result == {"confirmed": True, "answer": "confirmed", "phase": "executing"}
+    assert len(sent_messages) == 1
+    children = sent_messages[0][1]["steps"][0]["children"]
+    assert [child["type"] for child in children] == ["assert", "click"]
+    assert children[0]["assertion"] == "has_text"
+    assert children[0]["value"] == exact_text
+    assert children[0]["expected_value"] == exact_text
+    assert children[0]["target"] == "Run"
+    assert children[0]["locator"] == exact_locator
+    assert children[0]["description"] == f"Run has text {exact_text}"
+    assert "expected outcome" not in children[0]["description"].lower()
+    assert "expected_outcome" not in children[0]
+
+
 def test_plan_correction_diff_allows_explicit_removal() -> None:
     loop = _make_loop()
     sent_messages: list[tuple[str, dict[str, object]]] = []
@@ -1947,6 +2067,217 @@ def test_plan_correction_normal_plan_ready_outside_correction_still_works() -> N
     assert len(sent_messages) == 1
     assert sent_messages[0][0] == "plan_ready"
     assert loop._active_plan_correction_state is None
+
+
+def test_confirmed_plan_storage_preserves_all_steps_and_cursor_starts_at_first_step() -> None:
+    loop = _make_loop()
+    current_steps = [
+        {
+            "id": "step-1",
+            "intent": "Click the first button",
+            "element_info": {
+                "text": "First",
+                "attributes": {"aria-label": "First"},
+            },
+            "expected_outcome": {
+                "type": "navigation",
+                "description": "goes to the first page",
+                "source": "user",
+                "required": True,
+            },
+        },
+        {
+            "id": "step-2",
+            "intent": "Assert the second label is visible",
+            "element_info": {
+                "text": "Second",
+                "attributes": {"aria-label": "Second"},
+            },
+            "expected_outcome": {
+                "type": "no_visible_change",
+                "description": "stays on the current page",
+                "source": "user",
+                "required": False,
+            },
+        },
+        {
+            "id": "step-3",
+            "intent": "Click the third button",
+            "element_info": {
+                "text": "Third",
+                "attributes": {"aria-label": "Third"},
+            },
+            "expected_outcome": {
+                "type": "navigation",
+                "description": "goes to the third page",
+                "source": "user",
+                "required": True,
+            },
+        },
+        {
+            "id": "step-4",
+            "intent": "Assert the fourth label is visible",
+            "element_info": {
+                "text": "Fourth",
+                "attributes": {"aria-label": "Fourth"},
+            },
+            "expected_outcome": {
+                "type": "no_visible_change",
+                "description": "stays on the current page",
+                "source": "user",
+                "required": False,
+            },
+        },
+    ]
+    loop._prepare_recording_steps(current_steps)
+    loop._active_plan_state = {
+        "plan_id": "plan-4",
+        "summary": "Perform four steps",
+        "original_user_intent": "Perform four steps",
+        "step_ids": ["step-1", "step-2", "step-3", "step-4"],
+        "target_step_id": "step-1",
+        "steps": list(current_steps),
+    }
+
+    confirmed_plan = loop._store_confirmed_execution_plan(
+        {
+            "plan_id": "plan-4",
+            "summary": "Perform four steps",
+            "original_user_intent": "Perform four steps",
+            "steps": [
+                {
+                    "step_id": "step-1",
+                    "step_number": 1,
+                    "intent": current_steps[0]["intent"],
+                    "expected_outcome": current_steps[0]["expected_outcome"],
+                    "children": [
+                        _make_operation("op_1", "click", "First", target="First", locator='get_by_label("First")'),
+                    ],
+                },
+                {
+                    "step_id": "step-2",
+                    "step_number": 2,
+                    "intent": current_steps[1]["intent"],
+                    "expected_outcome": current_steps[1]["expected_outcome"],
+                    "children": [
+                        _make_operation(
+                            "op_1",
+                            "assert",
+                            "Second is visible",
+                            target="Second",
+                            locator='get_by_label("Second")',
+                            assertion="visible",
+                        ),
+                    ],
+                },
+                {
+                    "step_id": "step-3",
+                    "step_number": 3,
+                    "intent": current_steps[2]["intent"],
+                    "expected_outcome": current_steps[2]["expected_outcome"],
+                    "children": [
+                        _make_operation("op_1", "click", "Third", target="Third", locator='get_by_label("Third")'),
+                    ],
+                },
+                {
+                    "step_id": "step-4",
+                    "step_number": 4,
+                    "intent": current_steps[3]["intent"],
+                    "expected_outcome": current_steps[3]["expected_outcome"],
+                    "children": [
+                        _make_operation(
+                            "op_1",
+                            "assert",
+                            "Fourth is visible",
+                            target="Fourth",
+                            locator='get_by_label("Fourth")',
+                            assertion="visible",
+                        ),
+                    ],
+                },
+            ],
+        }
+    )
+
+    confirmed_cursor = loop._current_confirmed_execution_cursor()
+
+    assert confirmed_plan["step_ids"] == ["step-1", "step-2", "step-3", "step-4"]
+    assert loop.confirmed_plan_step_ids == ["step-1", "step-2", "step-3", "step-4"]
+    assert list(loop.confirmed_plan_by_step_id.keys()) == ["step-1", "step-2", "step-3", "step-4"]
+    assert loop.confirmed_plan_by_step_id["step-2"]["children"][0]["type"] == "assert"
+    assert loop.confirmed_plan_by_step_id["step-4"]["children"][0]["type"] == "assert"
+    assert confirmed_cursor["step_id"] == "step-1"
+    assert confirmed_cursor["next_child"]["type"] == "click"
+
+
+def test_plan_ready_blocked_during_execution_does_not_overwrite_confirmed_contract() -> None:
+    loop = _make_loop()
+    sent_messages: list[tuple[str, dict[str, object]]] = []
+    stored_confirmed_plan = {
+        "step_id": "step-1",
+        "step_number": 1,
+        "parent_intent": "Click the first button",
+        "expected_outcome": {
+            "type": "navigation",
+            "description": "goes to the first page",
+            "source": "user",
+            "required": True,
+        },
+        "children": [
+            {
+                "operation_id": "op_1",
+                "type": "click",
+                "description": "First",
+                "target": "First",
+                "locator": 'get_by_label("First")',
+                "status": "planned",
+            }
+        ],
+        "plan_id": "plan-keep",
+        "summary": "Keep this plan",
+        "original_user_intent": "Keep this plan",
+    }
+    loop.plan_confirmed = True
+    loop.phase = "executing"
+    loop.phase_tracker.current_phase = "executing"
+    loop.confirmed_plan_by_step_id = {"step-1": stored_confirmed_plan}
+    loop.confirmed_plan_step_ids = ["step-1"]
+    loop.confirmed_child_results_by_step_id = {"step-1": {}}
+    loop.confirmed_execution_mismatch_count_by_step_id = {"step-1": 0}
+
+    async def fake_send(message_type: str, **kwargs: object) -> None:
+        sent_messages.append((message_type, kwargs))
+
+    loop._send = fake_send
+
+    result = asyncio.run(
+        loop._tool_send_to_overlay(
+            {
+                "message_type": "plan_ready",
+                "payload": _make_plan_payload(
+                    [
+                        {
+                            "number": 1,
+                            "action": "click",
+                            "element_name": "First",
+                            "code": 'await getByLabel("First").click();',
+                        }
+                    ],
+                    "I will click the first button",
+                ),
+            }
+        )
+    )
+
+    assert result == {
+        "sent": False,
+        "blocked": True,
+        "reason": "plan_ready_blocked_during_execution",
+        "message": "Plan changes are blocked during execution. Continue the confirmed plan or fail safely.",
+    }
+    assert sent_messages == []
+    assert loop.confirmed_plan_by_step_id["step-1"] is stored_confirmed_plan
+    assert loop.confirmed_plan_step_ids == ["step-1"]
 
 
 def test_plan_correction_invalid_diff_after_schema_retry_fails_closed() -> None:

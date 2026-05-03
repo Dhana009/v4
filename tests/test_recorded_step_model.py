@@ -674,6 +674,381 @@ def test_step_recorded_payload_refuses_click_only_recording_when_confirmed_asser
     assert payload == {}
 
 
+def test_confirmed_execution_contract_accepts_exact_text_alias_with_has_text_actual() -> None:
+    loop = _make_loop()
+    exact_text = "npx playwright init-agents --loop=opencode"
+    exact_locator = f'get_by_text("{exact_text}", exact=True)'
+    step_context = _make_step_context(
+        expected_outcome={
+            "type": "no_visible_change",
+            "description": "stays on the current page",
+            "source": "user",
+            "required": False,
+        }
+    )
+    step_context["intent"] = f"Assert exact text equal to {exact_text}"
+    step_context["element_name"] = exact_text
+    step_context["element_info"] = {
+        "text": f"VS Code Claude Code OpenCode {exact_text}",
+        "attributes": {"aria-label": exact_text},
+    }
+    loop._recording_steps = [step_context]
+    loop.step_state_by_id = {"step-1": step_context}
+    loop.step_context_by_id = loop.step_state_by_id
+    loop.plan_confirmed = True
+    loop.confirmed_plan_by_step_id = {
+        "step-1": {
+            "step_id": "step-1",
+            "step_number": 1,
+            "parent_intent": step_context["intent"],
+            "expected_outcome": step_context["expected_outcome"],
+            "children": [
+                {
+                    "operation_id": "op_1",
+                    "type": "assert",
+                    "target": exact_text,
+                    "locator": exact_locator,
+                    "assertion": "exact_text",
+                    "value": exact_text,
+                    "expected_value": exact_text,
+                    "status": "planned",
+                }
+            ],
+            "plan_id": "plan-1",
+            "summary": "Assert command text",
+            "original_user_intent": step_context["intent"],
+        }
+    }
+    loop.confirmed_plan_step_ids = ["step-1"]
+    loop.confirmed_child_results_by_step_id = {"step-1": {}}
+    loop.confirmed_execution_mismatch_count_by_step_id = {"step-1": 0}
+
+    allowed_result = loop._validate_confirmed_execution_tool_call(
+        "action_assert",
+        {
+            "locator": exact_locator,
+            "assertion": "has_text",
+            "expected_value": exact_text,
+        },
+    )
+
+    assert allowed_result["allowed"] is True
+    assert allowed_result["step_id"] == "step-1"
+    assert allowed_result["expected_child"]["assertion"] == "exact_text"
+
+
+def test_step_recorded_payload_advances_confirmed_cursor_and_keeps_step_two_assert_isolated() -> None:
+    loop = _make_loop()
+    raw_steps = [
+        {
+            "id": "step-1",
+            "intent": "Click the first button",
+            "element_info": {
+                "text": "First",
+                "attributes": {"aria-label": "First"},
+            },
+            "expected_outcome": {
+                "type": "navigation",
+                "description": "goes to the first page",
+                "source": "user",
+                "required": True,
+            },
+        },
+        {
+            "id": "step-2",
+            "intent": "Assert the second label is visible",
+            "element_info": {
+                "text": "Second",
+                "attributes": {"aria-label": "Second"},
+            },
+            "expected_outcome": {
+                "type": "no_visible_change",
+                "description": "stays on the current page",
+                "source": "user",
+                "required": False,
+            },
+        },
+    ]
+    loop._prepare_recording_steps(raw_steps)
+
+    step_one = loop.step_state_by_id["step-1"]
+    step_two = loop.step_state_by_id["step-2"]
+    step_one_click_record = _make_action_record(
+        step_one,
+        "action_click",
+        "click",
+        'get_by_label("First")',
+    )
+    step_two_assert_record = _make_action_record(
+        step_two,
+        "action_assert",
+        "assert",
+        'get_by_label("Second")',
+        assertion="visible",
+    )
+    loop._active_plan_state = {
+        "plan_id": "plan-2",
+        "summary": "Click first then assert second",
+        "original_user_intent": "Click the first button and assert the second label",
+        "steps": list(raw_steps),
+    }
+    loop._store_confirmed_execution_plan(
+        {
+            "plan_id": "plan-2",
+            "summary": "Click first then assert second",
+            "original_user_intent": "Click the first button and assert the second label",
+            "steps": [
+                {
+                    "step_id": "step-1",
+                    "step_number": 1,
+                    "intent": step_one["intent"],
+                    "expected_outcome": step_one["expected_outcome"],
+                    "children": [
+                        _make_planned_child(
+                            "op_1",
+                            "click",
+                            "First",
+                            target="First",
+                            locator='get_by_label("First")',
+                        ),
+                    ],
+                },
+                {
+                    "step_id": "step-2",
+                    "step_number": 2,
+                    "intent": step_two["intent"],
+                    "expected_outcome": step_two["expected_outcome"],
+                    "children": [
+                        _make_planned_child(
+                            "op_1",
+                            "assert",
+                            "Second is visible",
+                            target="Second",
+                            locator='get_by_label("Second")',
+                            assertion="visible",
+                        ),
+                    ],
+                },
+            ],
+        }
+    )
+    loop.successful_action_by_step_id = {
+        "step-1": step_one_click_record,
+        "step-2": step_two_assert_record,
+    }
+    loop.successful_actions_by_step_id = {
+        "step-1": [step_one_click_record],
+        "step-2": [step_two_assert_record],
+    }
+    loop.last_successful_action = step_one_click_record
+    loop._mark_step_recorded(
+        step_one,
+        {
+            "step_number": 1,
+            "action": "click",
+            "locator": 'get_by_label("First")',
+        },
+    )
+
+    confirmed_cursor = loop._current_confirmed_execution_cursor()
+
+    assert confirmed_cursor["step_id"] == "step-2"
+    assert confirmed_cursor["next_child"]["type"] == "assert"
+
+    loop.confirmed_child_results_by_step_id["step-2"] = {
+        "op_1": {**step_two_assert_record, "status": "success"},
+    }
+
+    payload = loop._build_step_record_payload(
+        {
+            "step_id": "step-2",
+            "step_number": 2,
+        },
+        step_two,
+    )
+
+    assert payload["step_id"] == "step-2"
+    assert payload["step_number"] == 2
+    assert payload["action"] == "assert"
+    assert payload["locator"] == 'get_by_label("Second")'
+    assert payload["generated_line"].startswith("await expect(")
+    assert [child["type"] for child in payload["children"]] == ["assert"]
+    assert [child["code_lines"][0].startswith("await expect(") for child in payload["children"]] == [True]
+
+
+def test_blocked_mismatch_cannot_later_become_click_only_success() -> None:
+    loop = _make_loop()
+    raw_steps = [
+        {
+            "id": "step-1",
+            "intent": "Click the first button",
+            "element_info": {
+                "text": "First",
+                "attributes": {"aria-label": "First"},
+            },
+            "expected_outcome": {
+                "type": "navigation",
+                "description": "goes to the first page",
+                "source": "user",
+                "required": True,
+            },
+        },
+        {
+            "id": "step-2",
+            "intent": "Assert the second label is visible",
+            "element_info": {
+                "text": "Second",
+                "attributes": {"aria-label": "Second"},
+            },
+            "expected_outcome": {
+                "type": "no_visible_change",
+                "description": "stays on the current page",
+                "source": "user",
+                "required": False,
+            },
+        },
+        {
+            "id": "step-3",
+            "intent": "Click the third button",
+            "element_info": {
+                "text": "Third",
+                "attributes": {"aria-label": "Third"},
+            },
+            "expected_outcome": {
+                "type": "navigation",
+                "description": "goes to the third page",
+                "source": "user",
+                "required": True,
+            },
+        },
+    ]
+    loop._prepare_recording_steps(raw_steps)
+
+    step_one = loop.step_state_by_id["step-1"]
+    step_two = loop.step_state_by_id["step-2"]
+    step_three = loop.step_state_by_id["step-3"]
+    step_one_click_record = _make_action_record(
+        step_one,
+        "action_click",
+        "click",
+        'get_by_label("First")',
+    )
+    step_three_click_record = _make_action_record(
+        step_three,
+        "action_click",
+        "click",
+        'get_by_label("Third")',
+    )
+    loop._active_plan_state = {
+        "plan_id": "plan-3",
+        "summary": "Click first then assert second",
+        "original_user_intent": "Click the first button and assert the second label",
+        "steps": list(raw_steps),
+    }
+    loop._store_confirmed_execution_plan(
+        {
+            "plan_id": "plan-3",
+            "summary": "Click first then assert second",
+            "original_user_intent": "Click the first button and assert the second label",
+            "steps": [
+                {
+                    "step_id": "step-1",
+                    "step_number": 1,
+                    "intent": step_one["intent"],
+                    "expected_outcome": step_one["expected_outcome"],
+                    "children": [
+                        _make_planned_child(
+                            "op_1",
+                            "click",
+                            "First",
+                            target="First",
+                            locator='get_by_label("First")',
+                        ),
+                    ],
+                },
+                {
+                    "step_id": "step-2",
+                    "step_number": 2,
+                    "intent": step_two["intent"],
+                    "expected_outcome": step_two["expected_outcome"],
+                    "children": [
+                        _make_planned_child(
+                            "op_1",
+                            "assert",
+                            "Second is visible",
+                            target="Second",
+                            locator='get_by_label("Second")',
+                            assertion="visible",
+                        ),
+                    ],
+                },
+                {
+                    "step_id": "step-3",
+                    "step_number": 3,
+                    "intent": step_three["intent"],
+                    "expected_outcome": step_three["expected_outcome"],
+                    "children": [
+                        _make_planned_child(
+                            "op_1",
+                            "click",
+                            "Third",
+                            target="Third",
+                            locator='get_by_label("Third")',
+                        ),
+                    ],
+                },
+            ],
+        }
+    )
+    loop.successful_action_by_step_id = {
+        "step-1": step_one_click_record,
+        "step-3": step_three_click_record,
+    }
+    loop.successful_actions_by_step_id = {
+        "step-1": [step_one_click_record],
+        "step-3": [step_three_click_record],
+    }
+    loop.last_successful_action = step_three_click_record
+    loop._mark_step_recorded(
+        step_one,
+        {
+            "step_number": 1,
+            "action": "click",
+            "locator": 'get_by_label("First")',
+        },
+    )
+
+    blocked_result = loop._validate_confirmed_execution_tool_call(
+        "action_click",
+        {
+            "step_id": "step-2",
+            "step_number": 2,
+            "locator": 'get_by_label("Second")',
+        },
+    )
+
+    assert blocked_result["blocked"] is True
+    assert blocked_result["step_id"] == "step-2"
+    assert blocked_result["expected_child"]["type"] == "assert"
+    assert loop.confirmed_execution_mismatch_count_by_step_id["step-2"] == 1
+    assert loop.last_successful_action["step_id"] == "step-3"
+    assert "step-2" not in loop.successful_action_by_step_id
+
+    loop.confirmed_child_results_by_step_id["step-2"] = {
+        "op_1": {"status": "blocked"},
+    }
+
+    payload = loop._build_step_record_payload(
+        {
+            "step_id": "step-2",
+            "step_number": 2,
+        },
+        step_two,
+    )
+
+    assert payload == {}
+
+
 def test_auto_recorded_step_is_archived_and_replayable() -> None:
     loop = _make_loop()
     step_context = {

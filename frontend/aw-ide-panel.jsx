@@ -733,17 +733,185 @@ function normalizeElementInfoForDisplay(info) {
   }
 
   const attributes = info.attributes && typeof info.attributes === "object" ? info.attributes : {};
-  let className = firstText(info.className, info.class, attributes.className, attributes.class);
+  const rawCandidates = Array.isArray(info.candidates) ? info.candidates : [];
+  const candidates = rawCandidates.map((candidate, index) => normalizeElementCandidateForDisplay(candidate, index)).filter(Boolean);
+  const selectedCandidateIndex = resolveSelectedCandidateIndex(info.selected_candidate_index ?? info.selectedCandidateIndex, candidates.length);
+  const selectedCandidate = selectedCandidateIndex === null ? normalizeElementCandidateForDisplay(info, 0) : candidates[selectedCandidateIndex] || normalizeElementCandidateForDisplay(info, 0);
+  const selectedAttributes = selectedCandidate && selectedCandidate.attributes && typeof selectedCandidate.attributes === "object" ? selectedCandidate.attributes : attributes;
+  let className = firstText(
+    selectedCandidate?.className,
+    selectedCandidate?.class,
+    info.className,
+    info.class,
+    selectedAttributes.className,
+    selectedAttributes.class
+  );
   if (!className && Array.isArray(info.classes)) {
     className = info.classes.filter(Boolean).map((value) => String(value).trim()).filter(Boolean).join(" ");
   }
 
+  const selectedText = firstText(
+    selectedCandidate?.cleanText,
+    selectedCandidate?.clean_text,
+    selectedCandidate?.text,
+    info.cleanText,
+    info.clean_text,
+    info.text,
+    info.innerText,
+    info.content,
+    info.title,
+    info.label,
+    info.value
+  );
+  const selectedSemanticType = firstText(
+    selectedCandidate?.semanticType,
+    selectedCandidate?.semantic_type,
+    selectedCandidate?.category,
+    info.semanticType,
+    info.semantic_type
+  );
+  const selectedDisplayType =
+    selectedSemanticType === "exact_element" || selectedSemanticType === "exact element"
+      ? describeElementTargetKind(selectedCandidate)
+      : selectedSemanticType;
+  const selectedRole = firstText(selectedCandidate?.role, info.role, selectedAttributes.role);
+  const selectedAriaLabel = firstText(
+    selectedCandidate?.ariaLabel,
+    selectedCandidate?.aria_label,
+    info.ariaLabel,
+    info.aria_label,
+    selectedAttributes["aria-label"]
+  );
+  const selectedSelectorHint = firstText(
+    selectedCandidate?.selectorHint,
+    selectedCandidate?.selector_hint,
+    info.selectorHint,
+    info.selector_hint
+  );
+  const selectedLocatorHint = firstText(
+    selectedCandidate?.locatorHint,
+    selectedCandidate?.locator_hint,
+    info.locatorHint,
+    info.locator_hint
+  );
+
   return {
-    tag: firstText(info.tag, info.tagName, info.nodeName).toLowerCase() || "element",
-    text: firstText(info.text, info.innerText, info.content, info.title, info.label, info.value),
-    id: firstText(info.id, attributes.id),
+    ...info,
+    tag: firstText(selectedCandidate?.tag, info.tag, info.tagName, info.nodeName).toLowerCase() || "element",
+    text: selectedText,
+    cleanText: selectedText,
+    clean_text: selectedText,
+    id: firstText(selectedCandidate?.id, info.id, selectedAttributes.id),
     className,
+    class: className,
+    role: selectedRole,
+    ariaLabel: selectedAriaLabel,
+    aria_label: selectedAriaLabel,
+    semanticType: selectedDisplayType,
+    semantic_type: selectedDisplayType,
+    selectorHint: selectedSelectorHint,
+    selector_hint: selectedSelectorHint,
+    locatorHint: selectedLocatorHint,
+    locator_hint: selectedLocatorHint,
+    selected_candidate_index: selectedCandidateIndex,
+    candidates,
+    attributes: selectedAttributes,
   };
+}
+
+function resolveSelectedCandidateIndex(value, candidateCount) {
+  const index = Number(value);
+  if (Number.isInteger(index) && index >= 0 && index < candidateCount) {
+    return index;
+  }
+  return candidateCount > 0 ? 0 : null;
+}
+
+function normalizeElementCandidateForDisplay(candidate, fallbackLevel = 0) {
+  if (!candidate || typeof candidate !== "object") {
+    return null;
+  }
+
+  const attributes = candidate.attributes && typeof candidate.attributes === "object" ? candidate.attributes : {};
+  const className = firstText(candidate.className, candidate.class, attributes.className, attributes.class);
+  const text = firstText(
+    candidate.cleanText,
+    candidate.clean_text,
+    candidate.text,
+    candidate.innerText,
+    candidate.content,
+    candidate.title,
+    candidate.label,
+    candidate.value
+  );
+  const semanticType = firstText(candidate.semanticType, candidate.semantic_type, candidate.category).replace(/_/g, " ");
+
+  return {
+    ...candidate,
+    level: Number.isFinite(Number(candidate.level)) ? Number(candidate.level) : fallbackLevel,
+    tag: firstText(candidate.tag, candidate.tagName, candidate.nodeName).toLowerCase(),
+    role: firstText(candidate.role, attributes.role),
+    ariaLabel: firstText(candidate.ariaLabel, candidate.aria_label, attributes["aria-label"]),
+    text,
+    cleanText: text,
+    clean_text: text,
+    className,
+    class: className,
+    id: firstText(candidate.id, attributes.id),
+    selectorHint: firstText(candidate.selectorHint, candidate.selector_hint),
+    selector_hint: firstText(candidate.selector_hint, candidate.selectorHint),
+    locatorHint: firstText(candidate.locatorHint, candidate.locator_hint),
+    locator_hint: firstText(candidate.locator_hint, candidate.locatorHint),
+    semanticType,
+    semantic_type: semanticType,
+    reason: firstText(candidate.reason),
+    category: firstText(candidate.category),
+    attributes,
+  };
+}
+
+function describeElementTargetKind(candidate) {
+  if (!candidate || typeof candidate !== "object") {
+    return "";
+  }
+
+  const semanticType = firstText(candidate.semanticType, candidate.semantic_type, candidate.category).replace(/_/g, " ");
+  const category = firstText(candidate.category).replace(/_/g, " ");
+  const role = firstText(candidate.role).toLowerCase();
+  const tag = firstText(candidate.tag, candidate.tagName, candidate.nodeName).toLowerCase();
+  if (category === "exact_element") {
+    if (semanticType && semanticType !== "exact element" && semanticType !== "exact_element" && semanticType !== "text node parent") {
+      return semanticType;
+    }
+    if (tag) {
+      return tag;
+    }
+  }
+  if (semanticType && semanticType !== "exact element" && semanticType !== "exact_element") {
+    return semanticType;
+  }
+  if (role) {
+    return role;
+  }
+  if (tag) {
+    return tag;
+  }
+
+  return "element";
+}
+
+function describeElementTargetOption(candidate, index) {
+  if (!candidate || typeof candidate !== "object") {
+    return `candidate ${index + 1}`;
+  }
+
+  const kind = describeElementTargetKind(candidate);
+  const text = firstText(candidate.cleanText, candidate.clean_text, candidate.text);
+  const parts = [index === 0 ? `exact ${kind}` : kind];
+  if (text) {
+    parts.push(shortenText(text, 56));
+  }
+  return parts.join(" · ");
 }
 
 function shortenText(text, maxLength = 48) {
@@ -1156,6 +1324,7 @@ function IDEPendingStepCard({
   activePickerStepId = "",
   onChangeIntent,
   onChangeExpectedOutcome,
+  onChangeElementTarget,
   onAttachElement,
   onDeleteStep,
 }) {
@@ -1167,6 +1336,12 @@ function IDEPendingStepCard({
   const expectedOutcomeType = firstText(expectedOutcome?.type).toLowerCase().replace(/[\s-]+/g, "_");
   const expectedOutcomeDescription = firstRawText(expectedOutcome?.description);
   const isPicking = activePickerStepId === step.id;
+  const candidateList = Array.isArray(elementInfo?.candidates) ? elementInfo.candidates : [];
+  const selectedCandidateIndex = resolveSelectedCandidateIndex(elementInfo?.selected_candidate_index, candidateList.length);
+  const selectedCandidate = selectedCandidateIndex === null ? elementInfo : candidateList[selectedCandidateIndex] || elementInfo;
+  const exactCandidate = candidateList[0] || null;
+  const currentTargetLabel = describeElementTargetKind(selectedCandidate);
+  const exactTargetLabel = exactCandidate ? describeElementTargetKind(exactCandidate) : "";
   const actionGuess = inferActionKindFromText(intent, elementInfo?.text, elementInfo?.tag, elementInfo?.id);
   const explicitStatus = firstText(step.status, step.state).toLowerCase();
   const needsExpectedOutcome = isClickLikeIntent(intent) && !expectedOutcomeType;
@@ -1175,9 +1350,10 @@ function IDEPendingStepCard({
   const stepNumber = String(index + 1).padStart(2, "0");
   const outcomeLine = expectedOutcomeType ? formatExpectedOutcomeSummary(expectedOutcome) : "";
   const validationMessage = needsExpectedOutcome ? "Expected outcome required for click-like steps." : "";
+  const targetSelectValue = selectedCandidateIndex === null ? "" : String(selectedCandidateIndex);
 
-  const elementSummary = elementInfo ? (
-    <PendingChipRow elementInfo={elementInfo} intent={intent} />
+  const elementSummary = selectedCandidate ? (
+    <PendingChipRow elementInfo={selectedCandidate} intent={intent} />
   ) : (
     <span style={{ color: "#8f8a82" }}>{trimmedIntent ? "No element attached." : "Draft step."}</span>
   );
@@ -1207,6 +1383,26 @@ function IDEPendingStepCard({
           {compact ? <IDEBadge kind={statusKind}>{statusLabel}</IDEBadge> : null}
         </div>
         <div className="ide-step-elements">{elementSummary}</div>
+        {candidateList.length > 1 && (
+          <div className="ide-step-target">
+            <div className="ide-step-target-label">Selected target</div>
+            <div className="ide-step-target-summary">Current: {currentTargetLabel}</div>
+            {exactTargetLabel && exactTargetLabel !== currentTargetLabel && (
+              <div className="ide-step-target-picked">Exact pick: {exactTargetLabel}</div>
+            )}
+            <select
+              className="ide-input ide-step-target-select"
+              value={targetSelectValue}
+              onChange={(event) => onChangeElementTarget?.(step.id, Number(event.target.value))}
+            >
+              {candidateList.map((candidate, candidateIndex) => (
+                <option key={`${candidate.level ?? candidateIndex}-${candidate.tag || "element"}-${candidateIndex}`} value={candidateIndex}>
+                  {describeElementTargetOption(candidate, candidateIndex)}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
         {!compact && (
           <div className="ide-step-outcome">
             <div className="ide-step-outcome-label">Expected Outcome</div>
@@ -1287,6 +1483,7 @@ function IDEPendingSteps({
   activePickerStepId = "",
   onChangeIntent,
   onChangeExpectedOutcome,
+  onChangeElementTarget,
   onAddStep,
   onAttachElement,
   onDeleteStep,
@@ -1348,6 +1545,7 @@ function IDEPendingSteps({
                   activePickerStepId={activePickerStepId}
                   onChangeIntent={onChangeIntent}
                   onChangeExpectedOutcome={onChangeExpectedOutcome}
+                  onChangeElementTarget={onChangeElementTarget}
                   onAttachElement={onAttachElement}
                   onDeleteStep={onDeleteStep}
                 />
@@ -1580,6 +1778,7 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
               activePickerStepId={activePickerStepId}
               onChangeIntent={runtime.onPendingStepIntentChange}
               onChangeExpectedOutcome={runtime.onPendingStepExpectedOutcomeChange}
+              onChangeElementTarget={runtime.onPendingStepElementTargetChange}
               onAttachElement={runtime.onAttachElement}
               onDeleteStep={runtime.onDeletePendingStep}
             />
@@ -1602,6 +1801,7 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
               activePickerStepId={activePickerStepId}
               onChangeIntent={runtime.onPendingStepIntentChange}
               onChangeExpectedOutcome={runtime.onPendingStepExpectedOutcomeChange}
+              onChangeElementTarget={runtime.onPendingStepElementTargetChange}
               onAddStep={runtime.onAddPendingStep}
               onAttachElement={runtime.onAttachElement}
               onDeleteStep={runtime.onDeletePendingStep}
