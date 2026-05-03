@@ -95,6 +95,10 @@ def _build_loop_for_multi_action_safety_test(
     loop._run_completion_requested = False
     loop.run_stop_requested = False
     loop._llm_call_counter = 0
+    loop.confirmed_plan_by_step_id = {}
+    loop.confirmed_plan_step_ids = []
+    loop.confirmed_child_results_by_step_id = {}
+    loop.confirmed_execution_mismatch_count_by_step_id = {}
     loop.tools = []
     loop.llm = SimpleNamespace(
         messages=[],
@@ -146,6 +150,10 @@ def _build_loop_for_multi_action_safety_test(
         loop._run_completion_requested = False
         loop.run_stop_requested = False
         loop._llm_call_counter = 0
+        loop.confirmed_plan_by_step_id = {}
+        loop.confirmed_plan_step_ids = []
+        loop.confirmed_child_results_by_step_id = {}
+        loop.confirmed_execution_mismatch_count_by_step_id = {}
 
     loop._reset_lifecycle_state = fake_reset_lifecycle_state
     loop._prepare_recording_steps = lambda steps: None
@@ -325,6 +333,139 @@ def test_assert_and_click_both_execute_and_record_in_order(monkeypatch) -> None:
     assert sent_messages[0][1]["children"][1]["type"] == "click"
     assert sent_messages[1][0] == "code_update"
     assert len(sent_messages[1][1]["lines"]) == 2
+
+
+def test_confirmed_execution_contract_blocks_wrong_assertion_and_allows_correct_sequence(monkeypatch) -> None:
+    step_context = _make_step_context(
+        "step-1",
+        "Check that Get started is visible and click it",
+        "Get started",
+        "Get started",
+    )
+    wrong_response = SimpleNamespace(
+        choices=[
+            SimpleNamespace(
+                message=SimpleNamespace(
+                    content="",
+                    tool_calls=[
+                        _make_tool_call(
+                            "call-1",
+                            "action_assert",
+                            {
+                                "step_id": "step-1",
+                                "step_number": 1,
+                                "locator": "page.title",
+                                "assertion": "has_text",
+                                "expected_value": "Fast and reliable...",
+                            },
+                        )
+                    ],
+                )
+            )
+        ]
+    )
+    correct_response = SimpleNamespace(
+        choices=[
+            SimpleNamespace(
+                message=SimpleNamespace(
+                    content="",
+                    tool_calls=[
+                        _make_tool_call(
+                            "call-2",
+                            "action_assert",
+                            {
+                                "step_id": "step-1",
+                                "step_number": 1,
+                                "locator": 'get_by_label("Get started")',
+                                "assertion": "visible",
+                            },
+                        ),
+                        _make_tool_call(
+                            "call-3",
+                            "action_click",
+                            {
+                                "step_id": "step-1",
+                                "step_number": 1,
+                                "locator": 'get_by_label("Get started")',
+                            },
+                        ),
+                    ],
+                )
+            )
+        ]
+    )
+
+    loop, sent_messages, blocked_results, executed_actions, call_counter = _build_loop_for_multi_action_safety_test(
+        monkeypatch,
+        step_context,
+        [],
+        responses=[wrong_response, correct_response],
+    )
+    original_reset = loop._reset_lifecycle_state
+
+    def reset_with_confirmed_contract(steps=None):
+        original_reset(steps)
+        if steps is None:
+            return
+        loop.phase = "executing"
+        loop.phase_tracker.current_phase = "executing"
+        loop._active_plan_state = {
+            "plan_id": "plan-1",
+            "summary": "I will check and click Get started",
+            "original_user_intent": step_context["intent"],
+            "steps": [step_context],
+        }
+        loop._store_confirmed_execution_plan(
+            {
+                "plan_id": "plan-1",
+                "summary": "I will check and click Get started",
+                "original_user_intent": step_context["intent"],
+                "steps": [
+                    {
+                        "step_id": "step-1",
+                        "step_number": 1,
+                        "intent": step_context["intent"],
+                        "expected_outcome": step_context["expected_outcome"],
+                        "children": [
+                            {
+                                "operation_id": "op_1",
+                                "type": "assert",
+                                "description": "Get started is visible",
+                                "target": "Get started",
+                                "locator": 'get_by_label("Get started")',
+                                "status": "planned",
+                                "assertion": "visible",
+                            },
+                            {
+                                "operation_id": "op_2",
+                                "type": "click",
+                                "description": "Get started",
+                                "target": "Get started",
+                                "locator": 'get_by_label("Get started")',
+                                "status": "planned",
+                            },
+                        ],
+                    }
+                ],
+            }
+        )
+
+    loop._reset_lifecycle_state = reset_with_confirmed_contract
+
+    asyncio.run(loop.run([step_context]))
+
+    assert call_counter["count"] == 2
+    assert executed_actions == ["action_assert", "action_click"]
+    assert [tool_call_id for tool_call_id, _ in blocked_results] == ["call-1"]
+    assert blocked_results[0][1]["reason"] == "execution_contract_mismatch"
+    assert blocked_results[0][1]["skipped"] is True
+    assert len(sent_messages) == 2
+    assert sent_messages[0][0] == "step_recorded"
+    assert [child["type"] for child in sent_messages[0][1]["children"]] == ["assert", "click"]
+    assert [child["operation_id"] for child in sent_messages[0][1]["children"]] == ["op_1", "op_2"]
+    assert len(sent_messages[1][1]["lines"]) == 2
+    assert sent_messages[1][1]["lines"][0].startswith("await expect(")
+    assert sent_messages[1][1]["lines"][1].endswith('.click();')
 
 
 def test_auto_record_ends_batch_before_followup_model_turns(monkeypatch) -> None:

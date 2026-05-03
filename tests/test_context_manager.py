@@ -242,3 +242,78 @@ def test_original_messages_are_not_mutated():
     )
 
     assert messages == before
+
+
+def test_correction_context_is_injected_into_system_messages():
+    manager = ContextManager()
+    messages = _build_small_history()
+    correction_context = (
+        "Structured correction diff context.\n"
+        "active_plan_id: \"plan-1\"\n"
+        "target_step_id: \"step-1\"\n"
+        "correction_type: \"add_and_reorder_operations\"\n"
+        "Correction: \"assert first then click\"\n"
+        "You MUST respond with send_to_overlay message_type='plan_correction_diff'.\n"
+        "Do NOT respond with plan_ready during correction mode.\n"
+    )
+
+    bundle = manager.prepare_messages(
+        messages,
+        purpose="main_orchestrator",
+        context_mode="normal",
+        metadata={"phase": "planning", "skill_count": 1, "tool_count": 1, "correction_context": correction_context},
+    )
+
+    correction_system_messages = [
+        msg for msg in bundle.messages
+        if msg.get("role") == "system"
+        and "plan_correction_diff" in str(msg.get("content") or "")
+    ]
+    assert len(correction_system_messages) >= 1
+    assert "You MUST respond with send_to_overlay" in str(correction_system_messages[0]["content"])
+    assert "Do NOT respond with plan_ready" in str(correction_system_messages[0]["content"])
+
+
+def test_correction_context_not_injected_when_empty():
+    manager = ContextManager()
+    messages = _build_small_history()
+
+    bundle = manager.prepare_messages(
+        messages,
+        purpose="main_orchestrator",
+        context_mode="normal",
+        metadata={"phase": "planning", "skill_count": 1, "tool_count": 1, "correction_context": ""},
+    )
+
+    correction_system_messages = [
+        msg for msg in bundle.messages
+        if msg.get("role") == "system"
+        and "plan_correction_diff" in str(msg.get("content") or "")
+    ]
+    assert len(correction_system_messages) == 0
+
+
+def test_context_does_not_ask_for_plan_ready_in_correction_mode():
+    manager = ContextManager()
+    messages = _build_small_history()
+    correction_context = (
+        "Structured correction diff context.\n"
+        "active_plan_id: \"plan-1\"\n"
+        "target_step_id: \"step-1\"\n"
+        "correction_type: \"add_operation\"\n"
+        "Correction: \"add assertion\"\n"
+        "You MUST respond with send_to_overlay message_type='plan_correction_diff'.\n"
+    )
+
+    bundle = manager.prepare_messages(
+        messages,
+        purpose="main_orchestrator",
+        context_mode="normal",
+        metadata={"phase": "planning", "skill_count": 1, "tool_count": 1, "correction_context": correction_context},
+    )
+
+    phase_messages = [msg for msg in bundle.messages if msg.get("role") == "system"]
+    correction_messages = [msg for msg in phase_messages if "Structured correction diff context" in str(msg.get("content") or "")]
+    assert len(correction_messages) >= 1
+    correction_text = str(correction_messages[0]["content"])
+    assert "message_type='plan_correction_diff'" in correction_text

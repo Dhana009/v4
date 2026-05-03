@@ -134,6 +134,10 @@ class AgentLoop:
         self._active_plan_state: dict[str, Any] | None = None
         self._active_plan_correction_state: dict[str, Any] | None = None
         self._plan_correction_pending = False
+        self.confirmed_plan_by_step_id: dict[str, dict[str, Any]] = {}
+        self.confirmed_plan_step_ids: list[str] = []
+        self.confirmed_child_results_by_step_id: dict[str, dict[str, Any]] = {}
+        self.confirmed_execution_mismatch_count_by_step_id: dict[str, int] = {}
         self.capability_gaps: list[dict[str, Any]] = []
         self.recorded_step_payloads: list[dict[str, Any]] = []
         self.code_update_payloads: list[dict[str, Any]] = []
@@ -177,6 +181,7 @@ class AgentLoop:
         self._active_plan_state = None
         self._active_plan_correction_state = None
         self._plan_correction_pending = False
+        self._clear_confirmed_execution_contract_state()
         self.capability_gaps = []
         self.recorded_step_payloads = []
         self.code_update_payloads = []
@@ -1213,6 +1218,8 @@ class AgentLoop:
                         correction_mode.get("last_validation_feedback")
                         or "Correction failed safely. The corrected plan could not be validated without risking dropped operations."
                     ).strip()
+                    if "You can edit the pending step" not in failure_message:
+                        failure_message = f"{failure_message} You can edit the pending step or run it again."
                     print(f"[AGENT] correction failed safely: {self._summarize(failure_message, limit=140)}")
                     await self._send("llm_result", success=False, message=failure_message)
                     self._pending_failure_followup = False
@@ -1224,6 +1231,7 @@ class AgentLoop:
                     awaiting_step_record=awaiting_step_record,
                     correction_mode=correction_mode if isinstance(correction_mode, dict) else None,
                 )
+                execution_context = self._build_confirmed_execution_context_message()
                 correction_context = ""
                 if isinstance(correction_mode, dict):
                     correction_context = self._build_plan_correction_context_message()
@@ -1235,6 +1243,7 @@ class AgentLoop:
                         "skill_count": len(self._loaded_skill_names),
                         "tool_count": len(filtered_tools),
                         "phase": current_phase,
+                        "execution_context": execution_context,
                         "correction_context": correction_context,
                     },
                 )
@@ -1278,8 +1287,20 @@ class AgentLoop:
                     final_text = (message.content or "").strip()
                     if isinstance(correction_mode, dict) and not correction_mode.get("correction_failed"):
                         correction_mode["no_progress_count"] = int(correction_mode.get("no_progress_count") or 0) + 1
+                        schema_retry_count = int(correction_mode.get("schema_retry_count") or 0) + 1
+                        correction_mode["schema_retry_count"] = schema_retry_count
+                        if schema_retry_count <= 1:
+                            retry_message = (
+                                "Your previous response did not return a structured correction diff. "
+                                "Return only message_type='plan_correction_diff' with target_step_id and mutations. "
+                                "Do not send plan_ready or llm_thinking."
+                            )
+                            self.llm.messages.append({"role": "user", "content": retry_message})
+                            print("[AGENT] correction schema retry: no tool calls in correction mode")
+                            continue
                         failure_message = (
-                            "Correction failed safely. The model did not return a structured correction diff."
+                            "Correction failed safely. The model did not return a structured correction diff. "
+                            "You can edit the pending step or run it again."
                         )
                         correction_mode["correction_failed"] = True
                         correction_mode["clarification_closed"] = True
@@ -1510,6 +1531,63 @@ class AgentLoop:
                         self._append_tool_response(tool_call.id, blocked_result)
                         continue
 
+                    step_context = self._resolve_step_context(tool_name, args, {})
+                    confirmed_execution_check = None
+                    expected_confirmed_child = None
+                    if tool_name in self.EXECUTION_TOOLS:
+                        confirmed_execution_check = self._validate_confirmed_execution_tool_call(tool_name, args)
+                        if isinstance(confirmed_execution_check, dict):
+                            expected_confirmed_child = confirmed_execution_check.get("expected_child")
+                            if not confirmed_execution_check.get("allowed", False):
+                                blocked_result = dict(confirmed_execution_check)
+                                blocked_result.pop("allowed", None)
+                                print(f"[TOOL RESULT] {self._summarize(blocked_result, limit=100)}")
+                                self._append_tool_response(tool_call.id, blocked_result)
+                                if isinstance(expected_confirmed_child, dict):
+                                    self._record_confirmed_execution_child_result(
+                                        step_context or confirmed_execution_check.get("step_id"),
+                                        expected_confirmed_child,
+                                        tool_name=tool_name,
+                                        args=args,
+                                        result=blocked_result,
+                                        status="blocked",
+                                    )
+                                if blocked_result.get("terminal"):
+                                    contract_stop_reason = (
+                                        "Skipped because confirmed execution contract closed the batch. "
+                                        "Restart the step from the confirmed child only."
+                                    )
+                                    self._append_skipped_tool_responses(
+                                        tool_calls,
+                                        index + 1,
+                                        contract_stop_reason,
+                                    )
+                                    failed_step_id = str(
+                                        confirmed_execution_check.get("step_id")
+                                        or self.active_failed_step_id
+                                        or self.active_step_id
+                                        or ""
+                                    ).strip() or None
+                                    self.phase_tracker.set_phase(
+                                        "failed",
+                                        reason="execution_contract_violation",
+                                        step_id=failed_step_id,
+                                    )
+                                    self.phase = "failed"
+                                    await self._send(
+                                        "llm_result",
+                                        success=False,
+                                        message=str(blocked_result.get("message") or "Execution blocked."),
+                                    )
+                                    self._pending_failure_followup = False
+                                    return
+                                contract_stop_reason = (
+                                    "Skipped because confirmed execution contract blocked the batch. "
+                                    "Retry the confirmed child only."
+                                )
+                                self._append_skipped_tool_responses(tool_calls, index + 1, contract_stop_reason)
+                                break
+
                     browser_state_before = None
                     if tool_name in self.EXECUTION_TOOLS:
                         browser_state_before = await self._capture_browser_state()
@@ -1536,6 +1614,18 @@ class AgentLoop:
                             step_id=failed_step_id,
                             result=result,
                         )
+                        if isinstance(confirmed_execution_check, dict) and confirmed_execution_check.get("allowed", False):
+                            expected_confirmed_child = confirmed_execution_check.get("expected_child")
+                            if isinstance(expected_confirmed_child, dict):
+                                self._record_confirmed_execution_child_result(
+                                    step_context or confirmed_execution_check.get("step_id"),
+                                    expected_confirmed_child,
+                                    tool_name=tool_name,
+                                    args=args,
+                                    result=result,
+                                    status="failed",
+                                    browser_state_before=browser_state_before,
+                                )
                         self._mark_step_failed(step_context, result.get("error") or "execution tool failed")
                     had_tool_failure = had_tool_failure or tool_failed
                     if (
@@ -1544,6 +1634,19 @@ class AgentLoop:
                         and tool_name in self.EXECUTION_TOOLS
                     ):
                         browser_state_after = await self._capture_browser_state()
+                        if isinstance(confirmed_execution_check, dict) and confirmed_execution_check.get("allowed", False):
+                            expected_confirmed_child = confirmed_execution_check.get("expected_child")
+                            if isinstance(expected_confirmed_child, dict):
+                                self._record_confirmed_execution_child_result(
+                                    step_context or confirmed_execution_check.get("step_id"),
+                                    expected_confirmed_child,
+                                    tool_name=tool_name,
+                                    args=args,
+                                    result=result,
+                                    status="success",
+                                    browser_state_before=browser_state_before,
+                                    browser_state_after=browser_state_after,
+                                )
                         self._mark_step_executing(step_context)
                         self._capture_action_context(
                             tool_name,
@@ -1597,6 +1700,8 @@ class AgentLoop:
                     if is_correction_terminal:
                         self._append_skipped_tool_responses(tool_calls, index + 1, batch_stop_reason)
                         failure_message = str(result.get("message") or "").strip()
+                        if "You can edit the pending step" not in failure_message:
+                            failure_message = f"{failure_message} You can edit the pending step or run it again."
                         if failure_message:
                             self.llm.messages.append({"role": "user", "content": failure_message})
                         print(
@@ -1867,6 +1972,76 @@ class AgentLoop:
     def _is_click_like_intent(self, intent: Any) -> bool:
         normalized_intent = self._normalize_space(str(intent or "")).lower()
         return bool(CLICK_LIKE_INTENT_PATTERN.search(normalized_intent))
+
+    def _is_outcome_like_label(self, value: Any) -> bool:
+        normalized_value = self._normalize_space(str(value or "")).strip().lower()
+        if not normalized_value:
+            return False
+
+        compact_value = re.sub(r"[\s-]+", "_", normalized_value)
+        if compact_value in EXPECTED_OUTCOME_TYPES:
+            return True
+
+        for outcome_label in EXPECTED_OUTCOME_TYPES:
+            for separator in (" ·", ":", " -", " —"):
+                if normalized_value.startswith(f"{outcome_label}{separator}"):
+                    return True
+
+        return False
+
+    def _select_plan_correction_child_target(self, candidates: list[tuple[str, Any]]) -> str:
+        for field_name, candidate in candidates:
+            candidate_text = self._normalize_space(str(candidate or "")).strip()
+            if not candidate_text:
+                continue
+            if self._is_outcome_like_label(candidate_text):
+                print(
+                    "[PLAN_CORRECTION_CHILD] ignored outcome-like child field "
+                    f"value={candidate_text} field={field_name}"
+                )
+                continue
+            return candidate_text
+        return ""
+
+    def _build_plan_correction_child_description(
+        self,
+        operation_type: str,
+        target: str,
+        assertion: str,
+        value_text: str,
+        raw_description: str,
+        intent: str,
+    ) -> str:
+        operation_name = self._normalize_space(str(operation_type or "")).strip().lower()
+        target_text = self._normalize_space(str(target or "")).strip()
+        assertion_text = self._normalize_space(str(assertion or "")).strip().lower()
+        value_text = self._normalize_space(str(value_text or "")).strip()
+        intent_text = self._normalize_space(str(intent or "")).strip()
+        raw_description_text = self._normalize_space(str(raw_description or "")).strip()
+
+        if operation_name == "assert":
+            if raw_description_text and self._is_outcome_like_label(raw_description_text):
+                print(
+                    "[PLAN_CORRECTION_CHILD] ignored outcome-like child field "
+                    f"value={raw_description_text} field=description"
+                )
+            action_context: dict[str, Any] = {}
+            if assertion_text:
+                action_context["assertion"] = assertion_text
+            if value_text:
+                action_context["value"] = value_text
+            return self._build_recorded_child_description("assert", "assert", target_text, action_context, intent_text)
+
+        if raw_description_text:
+            if self._is_outcome_like_label(raw_description_text):
+                print(
+                    "[PLAN_CORRECTION_CHILD] ignored outcome-like child field "
+                    f"value={raw_description_text} field=description"
+                )
+            else:
+                return raw_description_text
+
+        return self._build_planned_child_description(operation_name, target_text, intent_text)
 
     def _normalize_expected_outcome(
         self,
@@ -2173,6 +2348,12 @@ class AgentLoop:
         self.last_plan_summary = None
         self.last_plan_original_user_intent = None
 
+    def _clear_confirmed_execution_contract_state(self) -> None:
+        self.confirmed_plan_by_step_id = {}
+        self.confirmed_plan_step_ids = []
+        self.confirmed_child_results_by_step_id = {}
+        self.confirmed_execution_mismatch_count_by_step_id = {}
+
     def _clear_active_plan_correction_state(self) -> None:
         self._active_plan_correction_state = None
         self._plan_correction_pending = False
@@ -2313,6 +2494,726 @@ class AgentLoop:
         active_plan_state["target_step_id"] = active_plan_state["step_ids"][0] if active_plan_state["step_ids"] else None
         active_plan_state["source_payload"] = deepcopy(payload) if isinstance(payload, dict) else {}
         return active_plan_state
+
+    def _infer_confirmed_execution_child_assertion(
+        self,
+        child: dict[str, Any] | None,
+        source_step: dict[str, Any] | None = None,
+    ) -> str:
+        child_data = child if isinstance(child, dict) else {}
+        assertion = self._normalize_space(str(child_data.get("assertion") or "")).strip().lower()
+        if assertion:
+            return assertion
+
+        child_type = self._normalize_space(str(child_data.get("type") or child_data.get("action") or "")).strip().lower()
+        if child_type != "assert":
+            return ""
+
+        description = self._normalize_space(str(child_data.get("description") or "")).strip().lower()
+        target = self._normalize_space(
+            str(child_data.get("target") or child_data.get("element_name") or "")
+        ).strip().lower()
+        source_intent = self._normalize_space(str((source_step or {}).get("intent") or "")).strip().lower()
+        hint_text = " ".join(part for part in (description, target, source_intent) if part).strip()
+
+        for keyword in ("visible", "hidden", "enabled", "disabled", "checked"):
+            if re.search(rf"\b{keyword}\b", hint_text):
+                return keyword
+
+        if "has text" in hint_text or "contains text" in hint_text:
+            return "has_text"
+        if "has value" in hint_text:
+            return "has_value"
+
+        return "visible"
+
+    def _normalize_confirmed_execution_child(
+        self,
+        child: dict[str, Any] | None,
+        source_step: dict[str, Any] | None = None,
+        child_index: int = 1,
+    ) -> dict[str, Any]:
+        child_data = child if isinstance(child, dict) else {}
+        operation_id = str(child_data.get("operation_id") or child_data.get("operationId") or "").strip()
+        if not operation_id:
+            operation_id = f"op_{child_index}"
+
+        child_type = self._normalize_space(str(child_data.get("type") or child_data.get("action") or "")).strip().lower()
+        target = self._select_plan_correction_child_target(
+            [
+                ("child.target", child_data.get("target")),
+                ("child.element_name", child_data.get("element_name")),
+                ("child.label", child_data.get("label")),
+                ("child.description", child_data.get("description")),
+                ("source.element_name", (source_step or {}).get("element_name")),
+                ("source.intent", (source_step or {}).get("intent")),
+            ]
+        )
+        locator = self._normalize_space(str(child_data.get("locator") or "")).strip()
+        if not locator and isinstance(source_step, dict):
+            locator = self._normalize_space(str(source_step.get("locator") or "")).strip()
+            if not locator:
+                locator = self._derive_locator_from_step_context(source_step)
+        if locator in {"*", 'page.locator("")'}:
+            locator = ""
+
+        assertion = self._infer_confirmed_execution_child_assertion(child_data, source_step=source_step)
+        value_text = self._normalize_space(
+            str(child_data.get("value") or child_data.get("expected_value") or "")
+        ).strip()
+        description = self._build_plan_correction_child_description(
+            child_type or self._infer_operation_type(target),
+            target,
+            assertion,
+            value_text,
+            str(child_data.get("description") or ""),
+            str((source_step or {}).get("intent") or target or "").strip(),
+        )
+        code_lines: list[str] = []
+        child_code_lines = child_data.get("code_lines")
+        if isinstance(child_code_lines, list):
+            for code_line in child_code_lines:
+                line_text = str(code_line or "").strip()
+                if line_text:
+                    code_lines.append(line_text)
+        if not code_lines:
+            child_code = self._normalize_space(str(child_data.get("code") or "")).strip()
+            if child_code:
+                code_lines.append(child_code)
+
+        normalized_child: dict[str, Any] = {
+            "operation_id": operation_id,
+            "type": child_type or "unknown",
+            "description": description or target or child_type or "child",
+            "target": target,
+            "locator": locator,
+            "status": self._normalize_space(str(child_data.get("status") or "planned")).strip().lower() or "planned",
+        }
+        if assertion:
+            normalized_child["assertion"] = assertion
+        if value_text:
+            normalized_child["value"] = value_text
+            normalized_child.setdefault("expected_value", value_text)
+        if code_lines:
+            normalized_child["code_lines"] = code_lines
+        return normalized_child
+
+    def _build_confirmed_execution_plan(
+        self,
+        payload: dict[str, Any],
+        source_plan_state: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        confirmed_plan = deepcopy(payload) if isinstance(payload, dict) else {}
+        source_plan = source_plan_state if isinstance(source_plan_state, dict) else self._current_active_plan_state()
+        source_steps = self._plan_steps_from_state(source_plan)
+        source_steps_by_id: dict[str, dict[str, Any]] = {}
+        for index, source_step in enumerate(source_steps, start=1):
+            if not isinstance(source_step, dict):
+                continue
+            source_step_id = str(source_step.get("step_id") or source_step.get("id") or "").strip()
+            if source_step_id:
+                source_steps_by_id[source_step_id] = source_step
+            if index == 1 and "1" not in source_steps_by_id:
+                source_steps_by_id["1"] = source_step
+
+        confirmed_steps = self._plan_steps_from_state(confirmed_plan)
+        confirmed_plan_by_step_id: dict[str, dict[str, Any]] = {}
+        confirmed_step_ids: list[str] = []
+        confirmed_child_results_by_step_id: dict[str, dict[str, Any]] = {}
+        confirmed_execution_mismatch_count_by_step_id: dict[str, int] = {}
+
+        for index, confirmed_step in enumerate(confirmed_steps, start=1):
+            if not isinstance(confirmed_step, dict):
+                continue
+
+            source_step = source_steps_by_id.get(str(confirmed_step.get("step_id") or confirmed_step.get("id") or "").strip())
+            if source_step is None and index - 1 < len(source_steps):
+                source_candidate = source_steps[index - 1]
+                if isinstance(source_candidate, dict):
+                    source_step = source_candidate
+
+            normalized_step = dict(confirmed_step)
+            step_id = str(
+                normalized_step.get("step_id")
+                or normalized_step.get("id")
+                or (source_step or {}).get("step_id")
+                or (source_step or {}).get("id")
+                or index
+            ).strip() or str(index)
+            step_number = (
+                self._coerce_step_number(normalized_step.get("step_number"))
+                or self._coerce_step_number(normalized_step.get("number"))
+                or self._coerce_step_number((source_step or {}).get("step_number"))
+                or index
+            )
+            parent_intent = self._normalize_space(
+                str(
+                    normalized_step.get("intent")
+                    or normalized_step.get("title")
+                    or normalized_step.get("text")
+                    or normalized_step.get("label")
+                    or (source_step or {}).get("intent")
+                    or ""
+                )
+            ).strip()
+            expected_outcome = self._normalize_expected_outcome(
+                normalized_step.get("expected_outcome")
+                or normalized_step.get("expectedOutcome")
+                or (source_step or {}).get("expected_outcome")
+                or (source_step or {}).get("expectedOutcome"),
+                self._is_click_like_intent(parent_intent),
+            )
+            normalized_children: list[dict[str, Any]] = []
+            children = normalized_step.get("children")
+            if not isinstance(children, list):
+                children = []
+            for child_index, child in enumerate(children, start=1):
+                normalized_children.append(
+                    self._normalize_confirmed_execution_child(
+                        child if isinstance(child, dict) else {},
+                        source_step=source_step,
+                        child_index=child_index,
+                    )
+                )
+
+            confirmed_plan_by_step_id[step_id] = {
+                "step_id": step_id,
+                "step_number": step_number,
+                "parent_intent": parent_intent,
+                "expected_outcome": expected_outcome,
+                "children": normalized_children,
+                "plan_id": str(confirmed_plan.get("plan_id") or "").strip() or None,
+                "summary": str(confirmed_plan.get("summary") or "").strip() or None,
+                "original_user_intent": str(confirmed_plan.get("original_user_intent") or "").strip() or None,
+            }
+            if isinstance(source_step, dict) and source_step.get("element_info") is not None:
+                confirmed_plan_by_step_id[step_id]["element_info"] = deepcopy(source_step.get("element_info"))
+            confirmed_step_ids.append(step_id)
+            confirmed_child_results_by_step_id[step_id] = {}
+            confirmed_execution_mismatch_count_by_step_id[step_id] = 0
+
+        confirmed_plan["steps"] = [confirmed_plan_by_step_id[step_id] for step_id in confirmed_step_ids]
+        if str(confirmed_plan.get("plan_id") or "").strip() == "":
+            confirmed_plan["plan_id"] = str((source_plan or {}).get("plan_id") or "").strip() or None
+        if str(confirmed_plan.get("summary") or "").strip() == "":
+            confirmed_plan["summary"] = str((source_plan or {}).get("summary") or "").strip() or None
+        if str(confirmed_plan.get("original_user_intent") or "").strip() == "":
+            confirmed_plan["original_user_intent"] = str((source_plan or {}).get("original_user_intent") or "").strip() or None
+        confirmed_plan["step_ids"] = list(confirmed_step_ids)
+        confirmed_plan["target_step_id"] = confirmed_step_ids[0] if confirmed_step_ids else None
+
+        self.confirmed_plan_by_step_id = confirmed_plan_by_step_id
+        self.confirmed_plan_step_ids = confirmed_step_ids
+        self.confirmed_child_results_by_step_id = confirmed_child_results_by_step_id
+        self.confirmed_execution_mismatch_count_by_step_id = confirmed_execution_mismatch_count_by_step_id
+        return confirmed_plan
+
+    def _store_confirmed_execution_plan(self, payload: dict[str, Any]) -> dict[str, Any]:
+        confirmed_plan = self._build_confirmed_execution_plan(
+            payload,
+            source_plan_state=self._current_active_plan_state(),
+        )
+        step_count = len(self.confirmed_plan_step_ids)
+        print(
+            "[CONFIRMED_PLAN] stored "
+            f"plan_id={str(confirmed_plan.get('plan_id') or '').strip() or 'unknown'} "
+            f"steps={step_count}"
+        )
+        for step_id in self.confirmed_plan_step_ids:
+            contract = self.confirmed_plan_by_step_id.get(step_id) or {}
+            print(
+                "[CONFIRMED_PLAN] "
+                f"stored step_id={step_id} "
+                f"step_number={contract.get('step_number') or 'unknown'} "
+                f"children={len(contract.get('children') or [])}"
+            )
+        return confirmed_plan
+
+    def _confirmed_execution_contract_for_step(
+        self,
+        step: dict[str, Any] | str | None = None,
+    ) -> dict[str, Any] | None:
+        confirmed_plan_by_step_id = getattr(self, "confirmed_plan_by_step_id", None)
+        if not isinstance(confirmed_plan_by_step_id, dict) or not confirmed_plan_by_step_id:
+            return None
+
+        candidate_step_ids: list[str] = []
+        if isinstance(step, dict):
+            for key in ("step_id", "id", "stepId"):
+                candidate_step_id = str(step.get(key) or "").strip()
+                if candidate_step_id and candidate_step_id not in candidate_step_ids:
+                    candidate_step_ids.append(candidate_step_id)
+            candidate_step_number = self._coerce_step_number(step.get("step_number") or step.get("number"))
+        else:
+            candidate_step_id = str(step or "").strip()
+            if candidate_step_id:
+                candidate_step_ids.append(candidate_step_id)
+            candidate_step_number = None
+
+        for candidate_step_id in candidate_step_ids:
+            contract = confirmed_plan_by_step_id.get(candidate_step_id)
+            if isinstance(contract, dict):
+                return contract
+
+        if len(confirmed_plan_by_step_id) == 1:
+            return next(iter(confirmed_plan_by_step_id.values()))
+
+        if candidate_step_number is not None:
+            for contract in confirmed_plan_by_step_id.values():
+                contract_step_number = self._coerce_step_number(contract.get("step_number"))
+                if contract_step_number == candidate_step_number:
+                    return contract
+
+        return None
+
+    def _confirmed_execution_results_for_step(self, step_id: str | None) -> dict[str, Any]:
+        confirmed_child_results_by_step_id = getattr(self, "confirmed_child_results_by_step_id", None)
+        if not isinstance(confirmed_child_results_by_step_id, dict):
+            confirmed_child_results_by_step_id = {}
+            self.confirmed_child_results_by_step_id = confirmed_child_results_by_step_id
+
+        resolved_step_id = str(step_id or "").strip()
+        if not resolved_step_id:
+            return {}
+
+        step_results = confirmed_child_results_by_step_id.get(resolved_step_id)
+        if not isinstance(step_results, dict):
+            step_results = {}
+            confirmed_child_results_by_step_id[resolved_step_id] = step_results
+        return step_results
+
+    def _confirmed_execution_next_child_for_step(
+        self,
+        step: dict[str, Any] | str | None = None,
+    ) -> tuple[dict[str, Any] | None, dict[str, Any] | None, dict[str, Any] | None]:
+        contract = self._confirmed_execution_contract_for_step(step)
+        if not isinstance(contract, dict):
+            return None, None, None
+
+        step_id = str(contract.get("step_id") or "").strip()
+        step_results = self._confirmed_execution_results_for_step(step_id)
+        children = contract.get("children")
+        if not isinstance(children, list):
+            return contract, None, None
+
+        for child in children:
+            if not isinstance(child, dict):
+                continue
+            operation_id = str(child.get("operation_id") or "").strip()
+            if not operation_id:
+                continue
+            child_result = step_results.get(operation_id)
+            if not isinstance(child_result, dict) or str(child_result.get("status") or "").strip().lower() != "success":
+                return contract, child, child_result if isinstance(child_result, dict) else None
+
+        return contract, None, None
+
+    def _confirmed_execution_step_ready_to_record(
+        self,
+        step: dict[str, Any] | str | None = None,
+    ) -> bool:
+        contract, next_child, _ = self._confirmed_execution_next_child_for_step(step)
+        return isinstance(contract, dict) and next_child is None
+
+    def _build_confirmed_execution_context_message(self) -> str:
+        confirmed_plan_by_step_id = getattr(self, "confirmed_plan_by_step_id", None)
+        if not isinstance(confirmed_plan_by_step_id, dict) or not confirmed_plan_by_step_id:
+            return ""
+
+        candidate_step_ids = []
+        current_pending_step = self._current_pending_step()
+        if isinstance(current_pending_step, dict):
+            candidate_step_id = str(current_pending_step.get("step_id") or "").strip()
+            if candidate_step_id:
+                candidate_step_ids.append(candidate_step_id)
+        for candidate in (
+            getattr(self, "active_step_id", None),
+            getattr(self, "active_failed_step_id", None),
+            *getattr(self, "confirmed_plan_step_ids", []),
+        ):
+            candidate_step_id = str(candidate or "").strip()
+            if candidate_step_id and candidate_step_id not in candidate_step_ids:
+                candidate_step_ids.append(candidate_step_id)
+
+        current_contract = None
+        for candidate_step_id in candidate_step_ids:
+            contract = self._confirmed_execution_contract_for_step(candidate_step_id)
+            if isinstance(contract, dict):
+                current_contract = contract
+                break
+
+        if not isinstance(current_contract, dict):
+            current_contract = self._confirmed_execution_contract_for_step(None)
+        if not isinstance(current_contract, dict):
+            return ""
+
+        step_id = str(current_contract.get("step_id") or "").strip()
+        step_results = self._confirmed_execution_results_for_step(step_id)
+        _, next_child, _ = self._confirmed_execution_next_child_for_step(step_id)
+
+        lines = ["Confirmed execution plan:"]
+        step_number = self._coerce_step_number(current_contract.get("step_number"))
+        header_parts = [part for part in (step_id, f"step {step_number}" if step_number else "") if part]
+        if header_parts:
+            lines.append(f'Current step: {" | ".join(header_parts)}')
+        parent_intent = self._normalize_space(str(current_contract.get("parent_intent") or "")).strip()
+        if parent_intent:
+            lines.append(f'Parent intent: "{parent_intent}"')
+        expected_outcome_text = self._expected_outcome_summary(current_contract.get("expected_outcome"))
+        if expected_outcome_text:
+            lines.append(f"Expected outcome: {expected_outcome_text}")
+        children = current_contract.get("children")
+        if isinstance(children, list) and children:
+            lines.append("Children:")
+            for index, child in enumerate(children, start=1):
+                if not isinstance(child, dict):
+                    continue
+                operation_id = str(child.get("operation_id") or "").strip() or f"op_{index}"
+                child_result = step_results.get(operation_id)
+                status = "pending"
+                if isinstance(child_result, dict):
+                    status = str(child_result.get("status") or "").strip().lower() or "pending"
+                    if status == "success":
+                        status = "passed"
+                    elif status == "blocked":
+                        status = "blocked"
+                    elif status == "failed":
+                        status = "failed"
+                elif next_child is not None and operation_id == str(next_child.get("operation_id") or "").strip():
+                    status = "next"
+                elif index == 1:
+                    status = "next"
+                child_description = self._describe_confirmed_execution_child(child)
+                lines.append(f"{index}. {child_description} [{status}]")
+        lines.append("Use these confirmed children in order.")
+        lines.append("Do not replace them with page.title assertions.")
+        lines.append("Do not skip or reorder children.")
+        return "\n".join(lines)
+
+    def _locator_matches_confirmed_execution_child(
+        self,
+        expected_locator: str,
+        actual_locator: str,
+    ) -> bool:
+        expected = self._normalize_space(str(expected_locator or "")).strip()
+        actual = self._normalize_space(str(actual_locator or "")).strip()
+        if not expected:
+            return True
+        if expected == actual:
+            return True
+
+        expected_hint = self._normalize_space(self._locator_label_hint(expected)).strip().lower()
+        actual_hint = self._normalize_space(self._locator_label_hint(actual)).strip().lower()
+        if expected_hint and expected_hint == actual_hint:
+            return True
+
+        return False
+
+    def _assertion_matches_confirmed_execution_child(
+        self,
+        expected_child: dict[str, Any],
+        actual_assertion: str,
+        actual_args: dict[str, Any],
+    ) -> bool:
+        expected_assertion = self._normalize_space(
+            str(expected_child.get("assertion") or self._infer_confirmed_execution_child_assertion(expected_child) or "")
+        ).strip().lower()
+        actual_assertion_text = self._normalize_space(str(actual_assertion or "")).strip().lower()
+        if not expected_assertion:
+            return True
+        if expected_assertion != actual_assertion_text:
+            return False
+
+        if expected_assertion in {"has_text", "has_value"}:
+            expected_value = self._normalize_space(
+                str(expected_child.get("value") or expected_child.get("expected_value") or "")
+            ).strip()
+            actual_value = self._normalize_space(str(actual_args.get("expected_value") or actual_args.get("value") or "")).strip()
+            if expected_value and actual_value and expected_value != actual_value:
+                return False
+
+        return True
+
+    def _value_matches_confirmed_execution_child(
+        self,
+        expected_child: dict[str, Any],
+        actual_args: dict[str, Any],
+    ) -> bool:
+        expected_value = self._normalize_space(
+            str(expected_child.get("value") or expected_child.get("expected_value") or "")
+        ).strip()
+        if not expected_value:
+            return True
+        actual_value = self._normalize_space(str(actual_args.get("value") or actual_args.get("expected_value") or "")).strip()
+        return not actual_value or expected_value == actual_value
+
+    def _describe_confirmed_execution_child(self, child: dict[str, Any] | None) -> str:
+        if not isinstance(child, dict):
+            return "unknown child"
+
+        operation_id = str(child.get("operation_id") or "").strip() or "child"
+        child_type = str(child.get("type") or "").strip() or "unknown"
+        target = self._normalize_space(str(child.get("target") or "")).strip()
+        locator = self._normalize_space(str(child.get("locator") or "")).strip()
+        assertion = self._normalize_space(str(child.get("assertion") or "")).strip().lower()
+        value_text = self._normalize_space(str(child.get("value") or child.get("expected_value") or "")).strip()
+
+        parts = [operation_id, child_type]
+        if target:
+            parts.append(f'target="{target}"')
+        if locator:
+            parts.append(f'locator="{locator}"')
+        if assertion:
+            parts.append(f'assertion="{assertion}"')
+        if value_text:
+            parts.append(f'value="{value_text}"')
+        return " ".join(parts)
+
+    def _describe_confirmed_execution_call(self, tool_name: str, args: dict[str, Any]) -> str:
+        action = self._action_name_for_tool(tool_name) or tool_name
+        locator = self._normalize_space(str(args.get("locator") or "")).strip()
+        assertion = self._normalize_space(str(args.get("assertion") or "")).strip().lower()
+        value_text = self._normalize_space(str(args.get("value") or args.get("expected_value") or "")).strip()
+        parts = [action]
+        if locator:
+            parts.append(f'locator="{locator}"')
+        if assertion:
+            parts.append(f'assertion="{assertion}"')
+        if value_text:
+            parts.append(f'value="{value_text}"')
+        return " ".join(parts)
+
+    def _record_confirmed_execution_child_result(
+        self,
+        step: dict[str, Any] | str | None,
+        child: dict[str, Any] | None,
+        *,
+        tool_name: str,
+        args: dict[str, Any],
+        result: dict[str, Any],
+        status: str,
+        browser_state_before: dict[str, str] | None = None,
+        browser_state_after: dict[str, str] | None = None,
+    ) -> dict[str, Any] | None:
+        contract = self._confirmed_execution_contract_for_step(step)
+        if not isinstance(contract, dict) or not isinstance(child, dict):
+            return None
+
+        step_id = str(contract.get("step_id") or "").strip()
+        operation_id = str(child.get("operation_id") or "").strip()
+        if not step_id or not operation_id:
+            return None
+
+        step_results = self._confirmed_execution_results_for_step(step_id)
+        child_result = step_results.get(operation_id)
+        if not isinstance(child_result, dict):
+            child_result = {}
+            step_results[operation_id] = child_result
+
+        action = self._action_name_for_tool(tool_name)
+        action_context: dict[str, Any] = {
+            "locator": self._normalize_space(str(args.get("locator") or result.get("locator") or child.get("locator") or "")).strip(),
+        }
+        if "assertion" in args:
+            action_context["assertion"] = self._normalize_space(str(args.get("assertion") or "")).strip().lower()
+        if "value" in args:
+            action_context["value"] = args.get("value")
+        if "expected_value" in args:
+            action_context["expected_value"] = args.get("expected_value")
+        if "url" in args:
+            action_context["url"] = self._normalize_space(str(args.get("url") or "")).strip()
+        if "wait_until" in args:
+            action_context["wait_until"] = self._normalize_space(str(args.get("wait_until") or "")).strip()
+        if "filename" in args:
+            action_context["filename"] = self._normalize_space(str(args.get("filename") or "")).strip()
+        if result.get("url") and not action_context.get("url"):
+            action_context["url"] = self._normalize_space(str(result.get("url") or "")).strip()
+
+        child_result.update(
+            {
+                "operation_id": operation_id,
+                "step_id": step_id,
+                "step_number": contract.get("step_number"),
+                "type": child.get("type") or "unknown",
+                "target": child.get("target") or "",
+                "locator": child.get("locator") or action_context.get("locator") or "",
+                "assertion": child.get("assertion") or action_context.get("assertion") or "",
+                "value": child.get("value") or child.get("expected_value") or action_context.get("value") or action_context.get("expected_value") or "",
+                "status": status,
+                "tool": tool_name,
+                "action": action,
+                "action_context": action_context,
+                "tool_args": dict(args),
+                "result": dict(result),
+                "step_context": dict(step) if isinstance(step, dict) else None,
+            }
+        )
+
+        if browser_state_before is not None:
+            child_result["browser_state_before"] = self._normalize_browser_state_snapshot(browser_state_before)
+        if browser_state_after is not None:
+            child_result["browser_state_after"] = self._normalize_browser_state_snapshot(browser_state_after)
+
+        attempts = child_result.get("attempts")
+        if not isinstance(attempts, list):
+            attempts = []
+        attempt: dict[str, Any] = {
+            "status": status,
+            "tool": tool_name,
+            "action": action,
+            "tool_args": dict(args),
+            "result": dict(result),
+        }
+        if action_context:
+            attempt["action_context"] = dict(action_context)
+        if browser_state_before is not None:
+            attempt["browser_state_before"] = self._normalize_browser_state_snapshot(browser_state_before)
+        if browser_state_after is not None:
+            attempt["browser_state_after"] = self._normalize_browser_state_snapshot(browser_state_after)
+        error_text = str(result.get("error") or result.get("message") or "").strip()
+        if error_text:
+            attempt["error"] = error_text
+            child_result["error"] = error_text
+        if status == "blocked":
+            child_result["blocked"] = True
+        elif status == "failed":
+            child_result["blocked"] = False
+        attempts.append(attempt)
+        child_result["attempts"] = attempts
+        child_result["attempt_count"] = len(attempts)
+
+        if status == "success":
+            generated_line = self._build_generated_line(action or child_result.get("type") or "", str(child_result.get("locator") or ""), action_context)
+            if generated_line:
+                child_result["generated_line"] = generated_line
+                child_result["code_lines"] = [generated_line]
+            else:
+                child_result["code_lines"] = list(child_result.get("code_lines") or [])
+            mismatch_counts = getattr(self, "confirmed_execution_mismatch_count_by_step_id", None)
+            if not isinstance(mismatch_counts, dict):
+                mismatch_counts = {}
+                self.confirmed_execution_mismatch_count_by_step_id = mismatch_counts
+            mismatch_counts[step_id] = 0
+        else:
+            child_result["code_lines"] = list(child_result.get("code_lines") or [])
+
+        step_results[operation_id] = child_result
+        return child_result
+
+    def _validate_confirmed_execution_tool_call(
+        self,
+        tool_name: str,
+        args: dict[str, Any],
+        result: dict[str, Any] | None = None,
+    ) -> dict[str, Any] | None:
+        if tool_name not in self.EXECUTION_TOOLS:
+            return None
+
+        step_context = self._resolve_step_context(tool_name, args, result or {})
+        contract, expected_child, expected_child_result = self._confirmed_execution_next_child_for_step(step_context)
+        if not isinstance(contract, dict):
+            return None
+
+        step_id = str(contract.get("step_id") or "").strip()
+        if not step_id or not isinstance(expected_child, dict):
+            return None
+
+        expected_description = self._describe_confirmed_execution_child(expected_child)
+        actual_description = self._describe_confirmed_execution_call(tool_name, args)
+        expected_tool = str(expected_child.get("type") or "").strip().lower()
+        actual_tool = self._action_name_for_tool(tool_name)
+        actual_locator = str(args.get("locator") or (result or {}).get("locator") or "").strip()
+        expected_locator = str(expected_child.get("locator") or "").strip()
+        actual_assertion = self._normalize_space(str(args.get("assertion") or (result or {}).get("assertion") or "")).strip().lower()
+        expected_assertion = self._normalize_space(
+            str(expected_child.get("assertion") or self._infer_confirmed_execution_child_assertion(expected_child, source_step=step_context) or "")
+        ).strip().lower()
+        actual_value = self._normalize_space(str(args.get("value") or args.get("expected_value") or "")).strip()
+        expected_value = self._normalize_space(
+            str(expected_child.get("value") or expected_child.get("expected_value") or "")
+        ).strip()
+
+        expected_tool_name = {
+            "assert": "action_assert",
+            "click": "action_click",
+            "fill": "action_fill",
+        }.get(expected_tool)
+        if expected_tool_name is None:
+            return {
+                "allowed": False,
+                "blocked": True,
+                "skipped": True,
+                "reason": "execution_contract_unsupported",
+                "message": (
+                    "Execution blocked: confirmed plan child type "
+                    f"{expected_tool!r} is not supported by the execution contract."
+                ),
+                "requires_replan": False,
+                "step_id": step_id,
+                "expected_child": deepcopy(expected_child),
+                "actual_tool": tool_name,
+                "actual_description": actual_description,
+                "terminal": True,
+            }
+
+        locator_matches = self._locator_matches_confirmed_execution_child(expected_locator, actual_locator)
+        assertion_matches = self._assertion_matches_confirmed_execution_child(expected_child, actual_assertion, args)
+        value_matches = self._value_matches_confirmed_execution_child(expected_child, args)
+        tool_matches = expected_tool_name == tool_name
+        allowed = tool_matches and locator_matches and assertion_matches and value_matches
+
+        print(
+            "[EXECUTION_CONTRACT] expected "
+            f"{expected_description} actual={actual_description}"
+        )
+        if allowed:
+            return {
+                "allowed": True,
+                "step_id": step_id,
+                "expected_child": deepcopy(expected_child),
+            }
+
+        mismatch_counts = getattr(self, "confirmed_execution_mismatch_count_by_step_id", None)
+        if not isinstance(mismatch_counts, dict):
+            mismatch_counts = {}
+            self.confirmed_execution_mismatch_count_by_step_id = mismatch_counts
+        mismatch_count = int(mismatch_counts.get(step_id) or 0) + 1
+        mismatch_counts[step_id] = mismatch_count
+        terminal = mismatch_count >= 2
+        if not terminal and isinstance(expected_child_result, dict):
+            expected_child_result.setdefault("status", "pending")
+        message = (
+            "Execution blocked: confirmed plan expected "
+            f"{expected_description}, but model tried {actual_description}."
+        )
+        if terminal:
+            message = (
+                f"{message} Execution contract violated twice for step {step_id}. "
+                "Failing closed."
+            )
+        print(
+            "[EXECUTION_CONTRACT] blocked mismatch "
+            f"step_id={step_id} expected={expected_description} actual={actual_description}"
+        )
+        return {
+            "allowed": False,
+            "blocked": True,
+            "skipped": True,
+            "reason": "execution_contract_mismatch",
+            "message": message,
+            "requires_replan": False,
+            "step_id": step_id,
+            "expected_child": deepcopy(expected_child),
+            "actual_tool": tool_name,
+            "actual_description": actual_description,
+            "actual_locator": actual_locator,
+            "actual_assertion": actual_assertion,
+            "actual_value": actual_value,
+            "expected_locator": expected_locator,
+            "expected_assertion": expected_assertion,
+            "expected_value": expected_value,
+            "terminal": terminal,
+        }
 
     def _classify_plan_correction(
         self,
@@ -2596,8 +3497,15 @@ class AgentLoop:
             lines.append(f'Clarification answer: "{answer_text}"')
         lines.extend(self._build_plan_correction_operation_context_lines(active_plan_state))
         lines.append("Mutation rules:")
-        lines.append('- Return a structured correction diff with message_type "plan_correction_diff".')
+        lines.append("- You MUST respond with send_to_overlay message_type='plan_correction_diff'.")
+        lines.append("- Do NOT respond with plan_ready during correction mode.")
+        lines.append("- Do NOT respond with llm_thinking during correction mode.")
+        lines.append("- Do NOT use ask_user unless the correction category is ambiguous.")
         lines.append("- Allowed mutation ops: keep, add, remove, reorder, change_expected_outcome.")
+        lines.append("- Required mutation object shape: {\"op\": \"keep\"|\"add\"|\"remove\"|\"reorder\"|\"change_expected_outcome\", ...}")
+        lines.append("- For \"add\": include operation object with type, target, and optional locator/assertion.")
+        lines.append("- For \"keep\" and \"remove\": reference existing operation_id.")
+        lines.append("- For \"reorder\": reference existing operation_id and include it in final position.")
         lines.append("- List mutations in final child order.")
         lines.append("- Preserve every existing child operation unless it is explicitly removed or reordered.")
         lines.append("- Do not reconstruct a full plan_ready in correction mode.")
@@ -2666,6 +3574,7 @@ class AgentLoop:
             "clarification_closed": False,
             "correction_failed": False,
             "no_progress_count": 0,
+            "schema_retry_count": 0,
             "last_validation_reason": None,
             "last_validation_feedback": None,
         }
@@ -2683,17 +3592,19 @@ class AgentLoop:
         if not operation_type or operation_type == "unknown":
             return {}
 
-        target = self._normalize_space(
-            str(
-                operation_spec.get("target")
-                or operation_spec.get("element_name")
-                or (anchor_child or {}).get("target")
-                or (anchor_child or {}).get("description")
-                or source_step.get("element_name")
-                or source_step.get("intent")
-                or ""
-            )
-        ).strip()
+        target = self._select_plan_correction_child_target(
+            [
+                ("operation.target", operation_spec.get("target")),
+                ("operation.element_name", operation_spec.get("element_name")),
+                ("anchor.target", (anchor_child or {}).get("target")),
+                ("anchor.description", (anchor_child or {}).get("description")),
+                ("source.element_name", source_step.get("element_name")),
+                ("source.intent", source_step.get("intent")),
+            ]
+        )
+        if not target:
+            return {}
+
         locator = self._normalize_space(
             str(
                 operation_spec.get("locator")
@@ -2708,6 +3619,8 @@ class AgentLoop:
 
         action_context = {}
         assertion = self._normalize_space(str(operation_spec.get("assertion") or "")).strip().lower()
+        if not assertion and operation_type == "assert":
+            assertion = "visible"
         if assertion:
             action_context["assertion"] = assertion
         value_text = self._normalize_space(
@@ -2716,20 +3629,18 @@ class AgentLoop:
         if value_text:
             action_context["value"] = value_text
 
-        description = self._normalize_space(str(operation_spec.get("description") or "")).strip()
-        if not description:
-            description = self._build_recorded_child_description(
-                operation_type,
-                operation_type,
-                target,
-                action_context,
-                str(source_step.get("intent") or "").strip(),
-            )
-        if not description:
-            description = self._build_planned_child_description(
-                operation_type,
-                target,
-                str(source_step.get("intent") or "").strip(),
+        description = self._build_plan_correction_child_description(
+            operation_type,
+            target,
+            assertion,
+            value_text,
+            str(operation_spec.get("description") or ""),
+            str(source_step.get("intent") or "").strip(),
+        )
+        if operation_type == "assert":
+            print(
+                "[PLAN_CORRECTION_CHILD] canonicalized assert "
+                f"target={target!r} assertion={assertion or 'visible'!r} locator_present={bool(locator)}"
             )
 
         child = {
@@ -3581,6 +4492,8 @@ class AgentLoop:
         step_context: dict[str, Any] | None = None,
         payload: dict[str, Any] | None = None,
     ) -> bool:
+        if self._confirmed_execution_contract_for_step(step_context or payload) is not None:
+            return self._confirmed_execution_step_ready_to_record(step_context or payload)
         action = self._get_successful_action_for_step(step_context, payload)
         if not action:
             return False
@@ -3630,7 +4543,10 @@ class AgentLoop:
                 or payload.get("stepId")
                 or "unknown"
             ).strip() or "unknown"
-            print(f"[AGENT] no successful action context for recorded step: {step_ref}")
+            if self._confirmed_execution_contract_for_step(target_step or payload) is not None:
+                print(f"[AGENT] confirmed execution contract not ready for recorded step: {step_ref}")
+            else:
+                print(f"[AGENT] no successful action context for recorded step: {step_ref}")
             return None
 
         recorded_payload = self._build_step_record_payload(payload, target_step)
@@ -3999,6 +4915,9 @@ class AgentLoop:
         normalized_browser_state_after = self._normalize_browser_state_snapshot(browser_state_after)
         if normalized_browser_state_after is not None:
             captured["browser_state_after"] = normalized_browser_state_after
+        generated_line = self._build_generated_line(action, str(action_context.get("locator") or ""), action_context)
+        if generated_line:
+            captured["generated_line"] = generated_line
 
         self.last_successful_action = captured
         if step_id:
@@ -4021,8 +4940,17 @@ class AgentLoop:
         else:
             print("[AGENT] stored successful action without step id")
         self._last_action_context = action_context
-        self._awaiting_step_record = True
-        self.phase_tracker.set_phase("recording", reason="action_success", step_id=step_id)
+        confirmed_contract = self._confirmed_execution_contract_for_step(step_context or step_id)
+        if isinstance(confirmed_contract, dict):
+            if self._confirmed_execution_step_ready_to_record(step_context or step_id):
+                self._awaiting_step_record = True
+                self.phase_tracker.set_phase("recording", reason="action_success", step_id=step_id)
+            else:
+                self._awaiting_step_record = False
+                self.phase_tracker.set_phase("executing", reason="child_success", step_id=step_id)
+        else:
+            self._awaiting_step_record = True
+            self.phase_tracker.set_phase("recording", reason="action_success", step_id=step_id)
 
     def _action_name_for_tool(self, tool_name: str) -> str:
         if tool_name == "page_navigate":
@@ -4291,6 +5219,13 @@ class AgentLoop:
             if value not in (None, "", [], {})
         }
         step_context = step_context or self._resolve_recording_target_step(clean_payload)
+        confirmed_contract = self._confirmed_execution_contract_for_step(step_context or clean_payload)
+        confirmed_child_results: dict[str, Any] = {}
+        if isinstance(confirmed_contract, dict):
+            if not self._confirmed_execution_step_ready_to_record(step_context or clean_payload):
+                return {}
+            confirmed_step_id = str(confirmed_contract.get("step_id") or "").strip()
+            confirmed_child_results = self._confirmed_execution_results_for_step(confirmed_step_id)
         action_history = self._get_successful_action_history_for_step(step_context, clean_payload)
         if action_history:
             action_record = action_history[-1]
@@ -4298,6 +5233,20 @@ class AgentLoop:
             action_record = self._get_successful_action_for_step(step_context, clean_payload)
             if action_record:
                 action_history = [action_record]
+            elif isinstance(confirmed_contract, dict):
+                confirmed_step_id = str(confirmed_contract.get("step_id") or "").strip()
+                confirmed_step_results = self._confirmed_execution_results_for_step(confirmed_step_id)
+                confirmed_children = confirmed_contract.get("children")
+                if isinstance(confirmed_children, list):
+                    for confirmed_child in reversed(confirmed_children):
+                        if not isinstance(confirmed_child, dict):
+                            continue
+                        operation_id = str(confirmed_child.get("operation_id") or "").strip()
+                        child_result = confirmed_step_results.get(operation_id)
+                        if isinstance(child_result, dict) and str(child_result.get("status") or "").strip().lower() == "success":
+                            action_record = child_result
+                            action_history = [child_result]
+                            break
         if not action_record:
             step_ref = str(
                 (step_context or {}).get("step_id")
@@ -4384,7 +5333,15 @@ class AgentLoop:
             generated_line = self._build_generated_line(action, locator, action_context)
         if not intent:
             intent = str(step_context.get("intent") if step_context else "").strip()
-        children = self._build_recorded_children(action_history, intent, element_name, locator)
+        children = self._build_recorded_children(
+            action_history,
+            intent,
+            element_name,
+            locator,
+            confirmed_children=(confirmed_contract or {}).get("children") if isinstance(confirmed_contract, dict) else None,
+            confirmed_child_results=confirmed_child_results,
+            confirmed_step=confirmed_contract if isinstance(confirmed_contract, dict) else None,
+        )
         observed_outcome = self._build_observed_outcome(action_history, expected_outcome)
 
         merged: dict[str, Any] = dict(clean_payload)
@@ -4694,7 +5651,106 @@ class AgentLoop:
         intent: str,
         element_name: str,
         locator: str,
+        confirmed_children: list[dict[str, Any]] | None = None,
+        confirmed_child_results: dict[str, Any] | None = None,
+        confirmed_step: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
+        if isinstance(confirmed_children, list) and confirmed_children:
+            recorded_children: list[dict[str, Any]] = []
+            confirmed_results = confirmed_child_results if isinstance(confirmed_child_results, dict) else {}
+            confirmed_step_data = confirmed_step if isinstance(confirmed_step, dict) else {}
+            for index, confirmed_child in enumerate(confirmed_children, start=1):
+                if not isinstance(confirmed_child, dict):
+                    continue
+                operation_id = str(confirmed_child.get("operation_id") or "").strip() or f"op_{index}"
+                child_result = confirmed_results.get(operation_id)
+                if not isinstance(child_result, dict):
+                    child_result = {}
+
+                action_context = dict(child_result.get("action_context") or {})
+                child_locator = str(
+                    child_result.get("locator")
+                    or confirmed_child.get("locator")
+                    or action_context.get("locator")
+                    or locator
+                    or self._derive_locator_from_step_context(confirmed_step_data)
+                    or ""
+                ).strip()
+                child_action = str(
+                    child_result.get("action")
+                    or confirmed_child.get("type")
+                    or self._action_name_for_tool(str(child_result.get("tool") or ""))
+                    or ""
+                ).strip()
+                if not child_action:
+                    child_action = str(confirmed_child.get("type") or "").strip()
+                child_generated_line = str(
+                    child_result.get("generated_line")
+                    or self._build_generated_line(child_action, child_locator, action_context)
+                    or ""
+                ).strip()
+                child_status = str(child_result.get("status") or confirmed_child.get("status") or "pending").strip().lower()
+                if child_status not in {"success", "failed", "blocked", "pending", "skipped"}:
+                    child_status = "pending"
+                description = str(
+                    child_result.get("description")
+                    or confirmed_child.get("description")
+                    or ""
+                ).strip()
+                if not description:
+                    description = self._build_recorded_child_description(
+                        child_action,
+                        child_action,
+                        str(
+                            child_result.get("target")
+                            or confirmed_child.get("target")
+                            or self._locator_label_hint(child_locator)
+                            or element_name
+                            or intent
+                            or ""
+                        ).strip(),
+                        action_context,
+                        intent,
+                    )
+                if not description:
+                    description = str(confirmed_child.get("target") or element_name or intent or child_action or "").strip()
+                target = str(
+                    child_result.get("target")
+                    or confirmed_child.get("target")
+                    or element_name
+                    or self._locator_label_hint(child_locator)
+                    or intent
+                    or child_action
+                    or ""
+                ).strip()
+
+                child_payload: dict[str, Any] = {
+                    "operation_id": operation_id,
+                    "type": str(confirmed_child.get("type") or child_action or "unknown").strip() or "unknown",
+                    "description": description or target or child_action,
+                    "target": target,
+                    "locator": child_locator,
+                    "status": child_status,
+                    "code_lines": [],
+                }
+                if confirmed_child.get("assertion"):
+                    child_payload["assertion"] = confirmed_child.get("assertion")
+                if confirmed_child.get("value") not in (None, "", [], {}):
+                    child_payload["value"] = confirmed_child.get("value")
+                if confirmed_child.get("expected_value") not in (None, "", [], {}):
+                    child_payload["expected_value"] = confirmed_child.get("expected_value")
+                error_text = str(child_result.get("error") or child_result.get("message") or "").strip()
+                if error_text:
+                    child_payload["error"] = error_text
+                if child_status == "success":
+                    code_lines = list(child_result.get("code_lines") or [])
+                    if not code_lines and child_generated_line:
+                        code_lines = [child_generated_line]
+                    child_payload["code_lines"] = code_lines
+                recorded_children.append(child_payload)
+
+            return recorded_children
+
         recorded_children: list[dict[str, Any]] = []
         for index, action_record in enumerate(action_records, start=1):
             if not isinstance(action_record, dict):
@@ -5484,6 +6540,7 @@ class AgentLoop:
             self._pending_failure_followup = False
             self._awaiting_step_record = False
             self._recording_wait_guard_armed = False
+            self._store_confirmed_execution_plan(payload)
             self._clear_active_plan_state()
             self._plan_correction_pending = False
             self._clear_plan_review_context()
@@ -5544,10 +6601,28 @@ class AgentLoop:
 
         correction_state = getattr(self, "_active_plan_correction_state", None)
         if isinstance(correction_state, dict) and message_type == "llm_thinking":
+            no_progress_count = int(correction_state.get("no_progress_count") or 0) + 1
+            schema_retry_count = int(correction_state.get("schema_retry_count") or 0) + 1
+            correction_state["no_progress_count"] = no_progress_count
+            correction_state["schema_retry_count"] = schema_retry_count
+            if schema_retry_count <= 1:
+                retry_message = (
+                    "Your previous response did not return a structured correction diff. "
+                    "Return only message_type='plan_correction_diff' with target_step_id and mutations. "
+                    "Do not send plan_ready or llm_thinking."
+                )
+                print("[AGENT] correction schema retry: llm_thinking blocked in correction mode")
+                return {
+                    "sent": False,
+                    "blocked": True,
+                    "reason": "correction_schema_retry",
+                    "message": retry_message,
+                    "requires_replan": False,
+                }
             failure_message = (
-                "Correction failed safely. The model did not return a structured correction diff."
+                "Correction failed safely. The model did not return a structured correction diff. "
+                "You can edit the pending step or run it again."
             )
-            correction_state["no_progress_count"] = int(correction_state.get("no_progress_count") or 0) + 1
             correction_state["correction_failed"] = True
             correction_state["clarification_closed"] = True
             correction_state["needs_clarification"] = False
@@ -5576,7 +6651,8 @@ class AgentLoop:
             corrected_payload = self._build_structured_plan_correction_payload_from_diff(payload)
             if not corrected_payload:
                 failure_message = (
-                    "Correction failed safely. The model did not return a valid structured correction diff."
+                    "Correction failed safely. The model did not return a valid structured correction diff. "
+                    "You can edit the pending step or run it again."
                 )
                 correction_state["correction_failed"] = True
                 correction_state["clarification_closed"] = True
@@ -5615,8 +6691,29 @@ class AgentLoop:
                     ),
                 }
             if isinstance(correction_state, dict):
+                no_progress_count = int(correction_state.get("no_progress_count") or 0) + 1
+                schema_retry_count = int(correction_state.get("schema_retry_count") or 0) + 1
+                correction_state["no_progress_count"] = no_progress_count
+                correction_state["schema_retry_count"] = schema_retry_count
+                if schema_retry_count <= 1:
+                    retry_message = (
+                        "Correction mode is active. Do not send plan_ready. "
+                        "Return only message_type='plan_correction_diff' with target_step_id and mutations."
+                    )
+                    print(
+                        "[AGENT] plan_ready blocked during structured correction; "
+                        f"schema retry {schema_retry_count}: {self._summarize(retry_message, limit=140)}"
+                    )
+                    return {
+                        "sent": False,
+                        "blocked": True,
+                        "reason": "correction_schema_retry",
+                        "message": retry_message,
+                        "requires_replan": False,
+                    }
                 failure_message = (
-                    "Correction failed safely. The model returned a full plan instead of a structured correction diff."
+                    "Correction failed safely. The model returned a full plan instead of a structured correction diff. "
+                    "You can edit the pending step or run it again."
                 )
                 correction_state["correction_failed"] = True
                 correction_state["clarification_closed"] = True
@@ -5628,12 +6725,12 @@ class AgentLoop:
                     f"{self._summarize(failure_message, limit=140)}"
                 )
                 return {
-                    "sent": False,
-                    "blocked": True,
-                    "reason": "correction_diff_required",
-                    "message": failure_message,
-                    "requires_replan": False,
-                }
+                "sent": False,
+                "blocked": True,
+                "reason": "correction_diff_required",
+                "message": failure_message,
+                "requires_replan": False,
+            }
             plan_correction_pending = bool(getattr(self, "_plan_correction_pending", False))
             payload = self._build_plan_ready_payload(
                 payload,
@@ -5663,7 +6760,7 @@ class AgentLoop:
                 if correction_state.get("clarification_resolved"):
                     validation_feedback = (
                         "Corrected plan is still invalid after clarification. "
-                        f"{validation_reason}"
+                        f"{validation_reason} You can edit the pending step or run it again."
                     ).strip()
                     correction_state["clarification_closed"] = True
                     correction_state["correction_failed"] = True

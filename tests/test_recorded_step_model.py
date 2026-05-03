@@ -35,6 +35,10 @@ def _make_loop() -> AgentLoop:
     loop._run_completion_requested = False
     loop.run_stop_requested = False
     loop._llm_call_counter = 0
+    loop.confirmed_plan_by_step_id = {}
+    loop.confirmed_plan_step_ids = []
+    loop.confirmed_child_results_by_step_id = {}
+    loop.confirmed_execution_mismatch_count_by_step_id = {}
     return loop
 
 
@@ -102,6 +106,47 @@ def _make_assert_success_record(step_context: dict[str, object]) -> dict[str, ob
         locator,
         assertion="visible",
     )
+
+
+def _make_planned_child(
+    operation_id: str,
+    child_type: str,
+    description: str,
+    target: str = "Get started",
+    locator: str = 'get_by_label("Get started")',
+    assertion: str | None = None,
+) -> dict[str, object]:
+    child = {
+        "operation_id": operation_id,
+        "type": child_type,
+        "description": description,
+        "target": target,
+        "locator": locator,
+        "status": "planned",
+    }
+    if assertion is not None:
+        child["assertion"] = assertion
+    return child
+
+
+def _make_confirmed_plan_payload(
+    step_context: dict[str, object],
+    children: list[dict[str, object]],
+) -> dict[str, object]:
+    return {
+        "plan_id": "plan-1",
+        "summary": "I will check and click Get started",
+        "original_user_intent": str(step_context.get("intent") or ""),
+        "steps": [
+            {
+                "step_id": step_context["step_id"],
+                "step_number": step_context["step_number"],
+                "intent": step_context["intent"],
+                "expected_outcome": step_context["expected_outcome"],
+                "children": children,
+            }
+        ],
+    }
 
 
 def test_step_recorded_payload_adds_parent_child_model_and_preserves_flat_fields() -> None:
@@ -452,6 +497,181 @@ def test_step_recorded_payload_uses_ordered_action_history_for_children() -> Non
     assert click_child["description"] == "Get started"
     assert click_child["code_lines"] == [click_line]
     assert "expected_outcome" not in click_child
+
+
+def test_step_recorded_payload_prefers_confirmed_execution_template_when_available() -> None:
+    loop = _make_loop()
+    step_context = _make_step_context(
+        expected_outcome={
+            "type": "navigation",
+            "description": "goes to docs intro page",
+            "source": "user",
+            "required": True,
+        }
+    )
+    step_context["intent"] = "Check that Get started is visible and click it"
+    step_context["element_info"] = {
+        "text": "Get started",
+        "attributes": {"aria-label": "Get started"},
+    }
+    step_context["element_name"] = "Get started"
+    assert_result = _make_assert_success_record(step_context)
+    click_result = _make_action_record(
+        step_context,
+        "action_click",
+        "click",
+        'get_by_label("Get started")',
+    )
+    loop._recording_steps = [step_context]
+    loop.step_state_by_id = {"step-1": step_context}
+    loop.step_context_by_id = loop.step_state_by_id
+    loop.active_step_id = "step-1"
+    loop.plan_confirmed = True
+    loop._active_plan_state = {
+        "plan_id": "plan-1",
+        "summary": "I will check and click Get started",
+        "original_user_intent": step_context["intent"],
+        "steps": [step_context],
+    }
+    loop._store_confirmed_execution_plan(
+        _make_confirmed_plan_payload(
+            step_context,
+            [
+                _make_planned_child("op_1", "assert", "Get started is visible", assertion="visible"),
+                _make_planned_child("op_2", "click", "Get started"),
+            ],
+        )
+    )
+    loop.confirmed_child_results_by_step_id["step-1"] = {
+        "op_1": {**assert_result, "status": "success"},
+        "op_2": {**click_result, "status": "success"},
+    }
+    loop.last_successful_action = click_result
+    loop.successful_action_by_step_id = {"step-1": click_result}
+    loop.successful_actions_by_step_id = {"step-1": [assert_result, click_result]}
+
+    payload = loop._build_step_record_payload(
+        {
+            "step_id": "step-1",
+            "step_number": 1,
+        },
+        step_context,
+    )
+    code_update_payload = loop._build_code_update_payload(payload, "step-1")
+    children = payload["children"]
+    assert_line = loop._build_generated_line(
+        "assert",
+        'get_by_label("Get started")',
+        {"locator": 'get_by_label("Get started")', "assertion": "visible"},
+    )
+    click_line = loop._build_generated_line(
+        "click",
+        'get_by_label("Get started")',
+        {"locator": 'get_by_label("Get started")'},
+    )
+
+    assert payload["step_id"] == "step-1"
+    assert payload["action"] == "click"
+    assert payload["locator"] == 'get_by_label("Get started")'
+    assert payload["status"] == "success"
+    assert isinstance(children, list)
+    assert [child["operation_id"] for child in children] == ["op_1", "op_2"]
+    assert [child["type"] for child in children] == ["assert", "click"]
+    assert [child["status"] for child in children] == ["success", "success"]
+    assert children[0]["assertion"] == "visible"
+    assert children[0]["code_lines"] == [assert_line]
+    assert children[1]["code_lines"] == [click_line]
+    assert code_update_payload["lines"] == [assert_line, click_line]
+    assert code_update_payload["full_spec_preview"] == "\n".join([assert_line, click_line])
+
+
+def test_step_recorded_payload_refuses_click_only_recording_when_confirmed_assert_is_not_complete() -> None:
+    loop = _make_loop()
+    step_context = _make_step_context(
+        expected_outcome={
+            "type": "navigation",
+            "description": "goes to docs intro page",
+            "source": "user",
+            "required": True,
+        }
+    )
+    step_context["intent"] = "Check that Get started is visible and click it"
+    step_context["element_info"] = {
+        "text": "Get started",
+        "attributes": {"aria-label": "Get started"},
+    }
+    step_context["element_name"] = "Get started"
+    click_result = _make_action_record(
+        step_context,
+        "action_click",
+        "click",
+        'get_by_label("Get started")',
+    )
+    loop._recording_steps = [step_context]
+    loop.step_state_by_id = {"step-1": step_context}
+    loop.step_context_by_id = loop.step_state_by_id
+    loop.active_step_id = "step-1"
+    loop.plan_confirmed = True
+    loop._active_plan_state = {
+        "plan_id": "plan-1",
+        "summary": "I will check and click Get started",
+        "original_user_intent": step_context["intent"],
+        "steps": [step_context],
+    }
+    loop._store_confirmed_execution_plan(
+        _make_confirmed_plan_payload(
+            step_context,
+            [
+                _make_planned_child("op_1", "assert", "Get started is visible", assertion="visible"),
+                _make_planned_child("op_2", "click", "Get started"),
+            ],
+        )
+    )
+    loop.confirmed_child_results_by_step_id["step-1"] = {
+        "op_1": {
+            "operation_id": "op_1",
+            "step_id": "step-1",
+            "step_number": 1,
+            "type": "assert",
+            "target": "Get started",
+            "locator": 'get_by_label("Get started")',
+            "assertion": "visible",
+            "status": "blocked",
+            "tool": "action_assert",
+            "action": "assert",
+            "action_context": {
+                "locator": 'page.title',
+                "assertion": "has_text",
+                "expected_value": "Fast and reliable...",
+            },
+            "tool_args": {
+                "locator": 'page.title',
+                "assertion": "has_text",
+                "expected_value": "Fast and reliable...",
+            },
+            "result": {
+                "success": False,
+                "blocked": True,
+                "reason": "execution_contract_mismatch",
+                "message": "Execution blocked: confirmed plan expected assert visible on Get started, but model tried page.title has_text.",
+            },
+            "attempts": [],
+        },
+        "op_2": {**click_result, "status": "success"},
+    }
+    loop.last_successful_action = click_result
+    loop.successful_action_by_step_id = {"step-1": click_result}
+    loop.successful_actions_by_step_id = {"step-1": [click_result]}
+
+    payload = loop._build_step_record_payload(
+        {
+            "step_id": "step-1",
+            "step_number": 1,
+        },
+        step_context,
+    )
+
+    assert payload == {}
 
 
 def test_auto_recorded_step_is_archived_and_replayable() -> None:

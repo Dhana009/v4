@@ -87,6 +87,7 @@ class ContextManager:
         phase_instruction = _build_phase_instruction(context_mode, requested_phase)
         final_messages = list(managed_history.messages)
         recovery_scope_instruction_applied = False
+        execution_context = str(bundle_metadata.get("execution_context") or "").strip()
         correction_context = str(bundle_metadata.get("correction_context") or "").strip()
         phase_insert_index = 0
         for index, message in enumerate(final_messages):
@@ -95,8 +96,12 @@ class ContextManager:
                 break
         if phase_instruction is not None:
             final_messages.insert(phase_insert_index, phase_instruction)
+            insertion_index = phase_insert_index + 1
+            if execution_context:
+                final_messages.insert(insertion_index, {"role": "system", "content": execution_context})
+                insertion_index += 1
             if correction_context:
-                final_messages.insert(phase_insert_index + 1, {"role": "system", "content": correction_context})
+                final_messages.insert(insertion_index, {"role": "system", "content": correction_context})
             if requested_phase == "recovery":
                 if phase_insert_index > 0:
                     first_system_message = final_messages[0] if final_messages else None

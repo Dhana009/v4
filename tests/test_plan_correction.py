@@ -11,6 +11,19 @@ from agent import AgentLoop
 from runtime.phase_tracker import PhaseTracker
 from runtime.tool_registry import filter_tools_for_phase
 
+OUTCOME_LIKE_LABELS = [
+    "navigation",
+    "modal",
+    "dropdown",
+    "new_tab",
+    "toast_or_message",
+    "content_change",
+    "download",
+    "file_picker",
+    "no_visible_change",
+    "not_sure",
+]
+
 
 def _make_current_step(
     intent: str = "Check that Get started is visible and click it",
@@ -47,8 +60,10 @@ def _make_operation(
     description: str,
     target: str = "Get started",
     locator: str = 'get_by_label("Get started")',
+    assertion: str | None = None,
+    value: str | None = None,
 ) -> dict[str, object]:
-    return {
+    operation = {
         "operation_id": operation_id,
         "type": operation_type,
         "description": description,
@@ -56,6 +71,11 @@ def _make_operation(
         "locator": locator,
         "status": "planned",
     }
+    if assertion is not None:
+        operation["assertion"] = assertion
+    if value is not None:
+        operation["value"] = value
+    return operation
 
 
 def _make_active_plan_state(
@@ -152,6 +172,10 @@ def _make_loop() -> AgentLoop:
     loop._run_completion_requested = False
     loop.run_stop_requested = False
     loop._llm_call_counter = 0
+    loop.confirmed_plan_by_step_id = {}
+    loop.confirmed_plan_step_ids = []
+    loop.confirmed_child_results_by_step_id = {}
+    loop.confirmed_execution_mismatch_count_by_step_id = {}
     loop.tools = []
     loop.llm = SimpleNamespace(
         messages=[],
@@ -205,6 +229,10 @@ def _install_common_run_stubs(loop: AgentLoop, sent_messages: list[tuple[str, di
         loop._last_action_context = None
         loop._awaiting_step_record = False
         loop._pending_failure_followup = False
+        loop.confirmed_plan_by_step_id = {}
+        loop.confirmed_plan_step_ids = []
+        loop.confirmed_child_results_by_step_id = {}
+        loop.confirmed_execution_mismatch_count_by_step_id = {}
         loop._clear_plan_review_context()
         loop._clear_active_plan_state()
         loop._run_completion_requested = False
@@ -272,6 +300,12 @@ def _make_waiting_correction_state(loop: AgentLoop) -> dict[str, object]:
         [_make_operation("op_1", "click", "Get started")],
         summary="I will click Get started",
     )
+    active_plan["steps"][0]["expected_outcome"] = {
+        "type": "navigation",
+        "description": "goes to docs intro page",
+        "source": "user",
+        "required": True,
+    }
     loop._active_plan_state = active_plan
     correction_state = loop._build_plan_correction_state(
         "assert first then click",
@@ -464,7 +498,8 @@ def test_plan_correction_triggers_replanned_plan_ready_before_execution(monkeypa
                         "relative_to_operation_id": "op_1",
                         "operation": {
                             "type": "assert",
-                            "target": "Get started",
+                            "target": "navigation",
+                            "description": "navigation",
                             "assertion": "visible",
                         },
                     },
@@ -552,6 +587,12 @@ def test_plan_correction_diff_applies_assert_before_click_and_preserves_click_op
         [_make_operation("op_1", "click", "Get started")],
         summary="I will click Get started",
     )
+    active_plan["steps"][0]["expected_outcome"] = {
+        "type": "navigation",
+        "description": "goes to docs intro page",
+        "source": "user",
+        "required": True,
+    }
     loop._active_plan_state = active_plan
     loop._active_plan_correction_state = loop._build_plan_correction_state(
         "assert first then click",
@@ -601,10 +642,308 @@ def test_plan_correction_diff_applies_assert_before_click_and_preserves_click_op
     assert [child["type"] for child in children] == ["assert", "click"]
     assert [child["operation_id"] for child in children] == ["op_2", "op_1"]
     assert children[0]["assertion"] == "visible"
+    assert children[0]["target"] == "Get started"
+    assert children[0]["description"] == "Get started is visible"
+    assert children[0]["target"] != "navigation"
+    assert children[0]["description"] != "navigation"
     assert children[0]["locator"] == children[1]["locator"]
     assert children[1]["locator"] == 'get_by_label("Get started")'
+    assert sent_messages[0][1]["steps"][0]["expected_outcome"] == {
+        "type": "navigation",
+        "description": "goes to docs intro page",
+        "source": "user",
+        "required": True,
+    }
     assert loop.plan_confirmed is True
     assert loop.phase == "executing"
+
+
+@pytest.mark.parametrize("outcome_label", OUTCOME_LIKE_LABELS)
+def test_plan_correction_added_assert_child_ignores_outcome_like_labels(outcome_label: str) -> None:
+    loop = _make_loop()
+    sent_messages: list[tuple[str, dict[str, object]]] = []
+    active_plan = _make_active_plan_state(
+        "Click the CTA button",
+        [
+            _make_operation(
+                "op_1",
+                "click",
+                "CTA",
+                target="CTA",
+                locator='get_by_text("CTA", exact=True)',
+            ),
+        ],
+        summary="I will click CTA",
+    )
+    active_plan["steps"][0]["expected_outcome"] = {
+        "type": "navigation",
+        "description": "goes to docs intro page",
+        "source": "user",
+        "required": True,
+    }
+    loop._active_plan_state = active_plan
+    loop._active_plan_correction_state = loop._build_plan_correction_state(
+        "assert first then click",
+        source_plan_state=active_plan,
+    )
+
+    async def fake_send(message_type: str, **kwargs: object) -> None:
+        sent_messages.append((message_type, kwargs))
+
+    async def fake_wait_for_plan_confirmation() -> dict[str, object]:
+        return {"confirmed": True, "answer": "confirmed"}
+
+    loop._send = fake_send
+    loop._wait_for_plan_confirmation = fake_wait_for_plan_confirmation
+
+    result = asyncio.run(
+        loop._tool_send_to_overlay(
+            {
+                "message_type": "plan_correction_diff",
+                "payload": {
+                    "target_step_id": "step-1",
+                    "mutations": [
+                        {
+                            "op": "add",
+                            "position": "before",
+                            "relative_to_operation_id": "op_1",
+                            "operation": {
+                                "type": "assert",
+                                "target": outcome_label,
+                                "description": outcome_label,
+                                "assertion": "visible",
+                            },
+                        },
+                        {
+                            "op": "keep",
+                            "operation_id": "op_1",
+                        },
+                    ],
+                },
+            }
+        )
+    )
+
+    assert result == {"confirmed": True, "answer": "confirmed", "phase": "executing"}
+    assert len(sent_messages) == 1
+    assert sent_messages[0][0] == "plan_ready"
+    corrected_children = sent_messages[0][1]["steps"][0]["children"]
+    assert [child["type"] for child in corrected_children] == ["assert", "click"]
+    assert corrected_children[0]["target"] == "CTA"
+    assert corrected_children[0]["description"] == "CTA is visible"
+    assert corrected_children[0]["target"] != outcome_label
+    assert corrected_children[0]["description"] != outcome_label
+    assert corrected_children[0]["locator"] == 'get_by_text("CTA", exact=True)'
+    assert corrected_children[1]["operation_id"] == "op_1"
+    assert sent_messages[0][1]["steps"][0]["expected_outcome"]["type"] == "navigation"
+
+
+def test_plan_correction_added_assert_child_preserves_valid_target_when_description_is_outcome_like() -> None:
+    loop = _make_loop()
+    sent_messages: list[tuple[str, dict[str, object]]] = []
+    active_plan = _make_active_plan_state(
+        "Click the Submit button",
+        [
+            _make_operation(
+                "op_1",
+                "click",
+                "Submit",
+                target="Submit",
+                locator='get_by_text("Submit", exact=True)',
+            ),
+        ],
+        summary="I will click Submit",
+    )
+    loop._active_plan_state = active_plan
+    loop._active_plan_correction_state = loop._build_plan_correction_state(
+        "assert first then click",
+        source_plan_state=active_plan,
+    )
+
+    async def fake_send(message_type: str, **kwargs: object) -> None:
+        sent_messages.append((message_type, kwargs))
+
+    async def fake_wait_for_plan_confirmation() -> dict[str, object]:
+        return {"confirmed": True, "answer": "confirmed"}
+
+    loop._send = fake_send
+    loop._wait_for_plan_confirmation = fake_wait_for_plan_confirmation
+
+    result = asyncio.run(
+        loop._tool_send_to_overlay(
+            {
+                "message_type": "plan_correction_diff",
+                "payload": {
+                    "target_step_id": "step-1",
+                    "mutations": [
+                        {
+                            "op": "add",
+                            "position": "before",
+                            "relative_to_operation_id": "op_1",
+                            "operation": {
+                                "type": "assert",
+                                "target": "Header CTA",
+                                "description": "navigation",
+                                "assertion": "visible",
+                            },
+                        },
+                        {
+                            "op": "keep",
+                            "operation_id": "op_1",
+                        },
+                    ],
+                },
+            }
+        )
+    )
+
+    assert result == {"confirmed": True, "answer": "confirmed", "phase": "executing"}
+    assert len(sent_messages) == 1
+    children = sent_messages[0][1]["steps"][0]["children"]
+    assert [child["type"] for child in children] == ["assert", "click"]
+    assert children[0]["target"] == "Header CTA"
+    assert children[0]["description"] == "Header CTA is visible"
+    assert children[0]["target"] != "navigation"
+    assert children[0]["description"] != "navigation"
+    assert children[0]["locator"] == 'get_by_text("Submit", exact=True)'
+
+
+def test_plan_correction_added_assert_child_ignores_outcome_like_description_when_target_missing() -> None:
+    loop = _make_loop()
+    sent_messages: list[tuple[str, dict[str, object]]] = []
+    active_plan = _make_active_plan_state(
+        "Click the Submit button",
+        [
+            _make_operation(
+                "op_1",
+                "click",
+                "Submit",
+                target="Submit",
+                locator='get_by_text("Submit", exact=True)',
+            ),
+        ],
+        summary="I will click Submit",
+    )
+    loop._active_plan_state = active_plan
+    loop._active_plan_correction_state = loop._build_plan_correction_state(
+        "assert first then click",
+        source_plan_state=active_plan,
+    )
+
+    async def fake_send(message_type: str, **kwargs: object) -> None:
+        sent_messages.append((message_type, kwargs))
+
+    async def fake_wait_for_plan_confirmation() -> dict[str, object]:
+        return {"confirmed": True, "answer": "confirmed"}
+
+    loop._send = fake_send
+    loop._wait_for_plan_confirmation = fake_wait_for_plan_confirmation
+
+    result = asyncio.run(
+        loop._tool_send_to_overlay(
+            {
+                "message_type": "plan_correction_diff",
+                "payload": {
+                    "target_step_id": "step-1",
+                    "mutations": [
+                        {
+                            "op": "add",
+                            "position": "before",
+                            "relative_to_operation_id": "op_1",
+                            "operation": {
+                                "type": "assert",
+                                "description": "modal",
+                                "assertion": "visible",
+                            },
+                        },
+                        {
+                            "op": "keep",
+                            "operation_id": "op_1",
+                        },
+                    ],
+                },
+            }
+        )
+    )
+
+    assert result == {"confirmed": True, "answer": "confirmed", "phase": "executing"}
+    assert len(sent_messages) == 1
+    children = sent_messages[0][1]["steps"][0]["children"]
+    assert [child["type"] for child in children] == ["assert", "click"]
+    assert children[0]["target"] == "Submit"
+    assert children[0]["description"] == "Submit is visible"
+    assert children[0]["description"] != "modal"
+    assert children[0]["locator"] == 'get_by_text("Submit", exact=True)'
+
+
+def test_plan_correction_added_assert_child_canonicalizes_has_text_description() -> None:
+    loop = _make_loop()
+    sent_messages: list[tuple[str, dict[str, object]]] = []
+    active_plan = _make_active_plan_state(
+        "Check the page heading",
+        [
+            _make_operation(
+                "op_1",
+                "click",
+                "Submit",
+                target="Submit",
+                locator='get_by_text("Submit", exact=True)',
+            ),
+        ],
+        summary="I will click Submit",
+    )
+    loop._active_plan_state = active_plan
+    loop._active_plan_correction_state = loop._build_plan_correction_state(
+        "assert first then click",
+        source_plan_state=active_plan,
+    )
+
+    async def fake_send(message_type: str, **kwargs: object) -> None:
+        sent_messages.append((message_type, kwargs))
+
+    async def fake_wait_for_plan_confirmation() -> dict[str, object]:
+        return {"confirmed": True, "answer": "confirmed"}
+
+    loop._send = fake_send
+    loop._wait_for_plan_confirmation = fake_wait_for_plan_confirmation
+
+    result = asyncio.run(
+        loop._tool_send_to_overlay(
+            {
+                "message_type": "plan_correction_diff",
+                "payload": {
+                    "target_step_id": "step-1",
+                    "mutations": [
+                        {
+                            "op": "add",
+                            "position": "before",
+                            "relative_to_operation_id": "op_1",
+                            "operation": {
+                                "type": "assert",
+                                "target": "Page heading",
+                                "assertion": "has_text",
+                                "value": "Welcome",
+                            },
+                        },
+                        {
+                            "op": "keep",
+                            "operation_id": "op_1",
+                        },
+                    ],
+                },
+            }
+        )
+    )
+
+    assert result == {"confirmed": True, "answer": "confirmed", "phase": "executing"}
+    assert len(sent_messages) == 1
+    children = sent_messages[0][1]["steps"][0]["children"]
+    assert [child["type"] for child in children] == ["assert", "click"]
+    assert children[0]["target"] == "Page heading"
+    assert children[0]["assertion"] == "has_text"
+    assert children[0]["value"] == "Welcome"
+    assert children[0]["description"] == "Page heading has text Welcome"
+    assert children[0]["locator"] == 'get_by_text("Submit", exact=True)'
 
 
 def test_plan_correction_diff_allows_explicit_removal() -> None:
@@ -789,7 +1128,7 @@ def test_plan_correction_retry_budget_blocks_silent_drop_then_requires_clarifica
     assert loop._active_plan_correction_state["clarification_closed"] is False
 
 
-def test_plan_correction_llm_thinking_no_progress_fails_closed() -> None:
+def test_plan_correction_llm_thinking_schema_retry_then_fails_closed() -> None:
     loop = _make_loop()
     sent_messages: list[tuple[str, dict[str, object]]] = []
     active_plan = _make_active_plan_state(
@@ -821,12 +1160,29 @@ def test_plan_correction_llm_thinking_no_progress_fails_closed() -> None:
     )
 
     assert result["blocked"] is True
-    assert result["reason"] == "correction_failed"
+    assert result["reason"] == "correction_schema_retry"
+    assert "plan_correction_diff" in str(result.get("message") or "")
     assert sent_messages == []
     assert loop._active_plan_correction_state is not None
+    assert not loop._active_plan_correction_state.get("correction_failed")
+    assert loop._active_plan_correction_state["schema_retry_count"] == 1
+    assert loop._active_plan_correction_state["no_progress_count"] == 1
+
+    second_result = asyncio.run(
+        loop._tool_send_to_overlay(
+            {
+                "message_type": "llm_thinking",
+                "payload": {"note": "thinking again"},
+            }
+        )
+    )
+
+    assert second_result["blocked"] is True
+    assert second_result["reason"] == "correction_failed"
     assert loop._active_plan_correction_state["correction_failed"] is True
     assert loop._active_plan_correction_state["clarification_closed"] is True
-    assert loop._active_plan_correction_state["no_progress_count"] == 1
+    assert loop._active_plan_correction_state["no_progress_count"] == 2
+    assert loop._active_plan_correction_state["schema_retry_count"] == 2
 
 
 def test_plan_correction_validation_allows_explicit_removal() -> None:
@@ -1111,3 +1467,542 @@ def test_plan_correction_clarification_answer_allows_final_corrected_plan_ready(
     assert [child["type"] for child in sent_messages[1][1]["steps"][0]["children"]] == ["assert", "click"]
     assert [child["operation_id"] for child in sent_messages[1][1]["steps"][0]["children"]] == ["op_2", "op_1"]
     assert any("Structured plan correction event." in str(message.get("content") or "") for message in model_messages[1])
+
+
+def test_plan_correction_plan_ready_schema_retry() -> None:
+    loop = _make_loop()
+    sent_messages: list[tuple[str, dict[str, object]]] = []
+    active_plan = _make_active_plan_state(
+        "Click the Get started button",
+        [_make_operation("op_1", "click", "Get started")],
+        summary="I will click Get started",
+    )
+    loop._active_plan_state = active_plan
+    correction_state = loop._build_plan_correction_state(
+        "assert first then click",
+        source_plan_state=active_plan,
+    )
+    loop._active_plan_correction_state = correction_state
+
+    async def fake_send(message_type: str, **kwargs: object) -> None:
+        sent_messages.append((message_type, kwargs))
+
+    loop._send = fake_send
+
+    result = asyncio.run(
+        loop._tool_send_to_overlay(
+            {
+                "message_type": "plan_ready",
+                "payload": _make_plan_payload(
+                    [
+                        {
+                            "number": 1,
+                            "action": "click",
+                            "element_name": "Get started",
+                            "code": "await getStarted.click();",
+                        },
+                    ],
+                    "I will click Get started",
+                ),
+            }
+        )
+    )
+
+    assert result["blocked"] is True
+    assert result["reason"] == "correction_schema_retry"
+    assert "plan_correction_diff" in str(result.get("message") or "")
+    assert loop._active_plan_correction_state is not None
+    assert not loop._active_plan_correction_state.get("correction_failed")
+    assert loop._active_plan_correction_state["schema_retry_count"] == 1
+    assert loop._active_plan_correction_state["no_progress_count"] == 1
+
+
+def test_plan_correction_plan_ready_twice_fails_closed() -> None:
+    loop = _make_loop()
+    sent_messages: list[tuple[str, dict[str, object]]] = []
+    active_plan = _make_active_plan_state(
+        "Click the Get started button",
+        [_make_operation("op_1", "click", "Get started")],
+        summary="I will click Get started",
+    )
+    loop._active_plan_state = active_plan
+    correction_state = loop._build_plan_correction_state(
+        "assert first then click",
+        source_plan_state=active_plan,
+    )
+    loop._active_plan_correction_state = correction_state
+
+    async def fake_send(message_type: str, **kwargs: object) -> None:
+        sent_messages.append((message_type, kwargs))
+
+    loop._send = fake_send
+
+    first_result = asyncio.run(
+        loop._tool_send_to_overlay(
+            {
+                "message_type": "plan_ready",
+                "payload": _make_plan_payload(
+                    [
+                        {
+                            "number": 1,
+                            "action": "click",
+                            "element_name": "Get started",
+                            "code": "await getStarted.click();",
+                        },
+                    ],
+                    "I will click Get started",
+                ),
+            }
+        )
+    )
+
+    assert first_result["blocked"] is True
+    assert first_result["reason"] == "correction_schema_retry"
+    assert loop._active_plan_correction_state["schema_retry_count"] == 1
+
+    second_result = asyncio.run(
+        loop._tool_send_to_overlay(
+            {
+                "message_type": "plan_ready",
+                "payload": _make_plan_payload(
+                    [
+                        {
+                            "number": 1,
+                            "action": "click",
+                            "element_name": "Get started",
+                            "code": "await getStarted.click();",
+                        },
+                    ],
+                    "I will click Get started",
+                ),
+            }
+        )
+    )
+
+    assert second_result["blocked"] is True
+    assert second_result["reason"] == "correction_diff_required"
+    assert loop._active_plan_correction_state["correction_failed"] is True
+    assert loop._active_plan_correction_state["clarification_closed"] is True
+    assert loop._active_plan_correction_state["schema_retry_count"] == 2
+
+
+def test_plan_correction_valid_diff_after_schema_retry_succeeds() -> None:
+    loop = _make_loop()
+    sent_messages: list[tuple[str, dict[str, object]]] = []
+    active_plan = _make_active_plan_state(
+        "Click the Get started button",
+        [_make_operation("op_1", "click", "Get started")],
+        summary="I will click Get started",
+    )
+    loop._active_plan_state = active_plan
+    correction_state = loop._build_plan_correction_state(
+        "assert first then click",
+        source_plan_state=active_plan,
+    )
+    loop._active_plan_correction_state = correction_state
+
+    async def fake_send(message_type: str, **kwargs: object) -> None:
+        sent_messages.append((message_type, kwargs))
+
+    async def fake_wait_for_plan_confirmation() -> dict[str, object]:
+        return {"confirmed": True, "answer": "confirmed"}
+
+    loop._send = fake_send
+    loop._wait_for_plan_confirmation = fake_wait_for_plan_confirmation
+
+    first_result = asyncio.run(
+        loop._tool_send_to_overlay(
+            {
+                "message_type": "llm_thinking",
+                "payload": {"note": "thinking"},
+            }
+        )
+    )
+
+    assert first_result["blocked"] is True
+    assert first_result["reason"] == "correction_schema_retry"
+    assert loop._active_plan_correction_state["schema_retry_count"] == 1
+    assert not loop._active_plan_correction_state.get("correction_failed")
+
+    second_result = asyncio.run(
+        loop._tool_send_to_overlay(
+            {
+                "message_type": "plan_correction_diff",
+                "payload": {
+                    "target_step_id": "step-1",
+                    "mutations": [
+                        {
+                            "op": "add",
+                            "position": "before",
+                            "relative_to_operation_id": "op_1",
+                            "operation": {
+                                "type": "assert",
+                                "target": "Get started",
+                                "assertion": "visible",
+                            },
+                        },
+                        {
+                            "op": "keep",
+                            "operation_id": "op_1",
+                        },
+                    ],
+                },
+            }
+        )
+    )
+
+    assert second_result == {"confirmed": True, "answer": "confirmed", "phase": "executing"}
+    assert len(sent_messages) == 1
+    assert sent_messages[0][0] == "plan_ready"
+    children = sent_messages[0][1]["steps"][0]["children"]
+    assert [child["type"] for child in children] == ["assert", "click"]
+    assert [child["operation_id"] for child in children] == ["op_2", "op_1"]
+    assert all(str(child.get("locator") or "").strip() for child in children)
+    assert loop.plan_confirmed is True
+    assert loop.confirmed_plan_step_ids == ["step-1"]
+    confirmed_plan = loop.confirmed_plan_by_step_id["step-1"]
+    assert confirmed_plan["step_id"] == "step-1"
+    assert confirmed_plan["step_number"] == 1
+    assert confirmed_plan["parent_intent"] == "Click the Get started button"
+    assert [child["type"] for child in confirmed_plan["children"]] == ["assert", "click"]
+    assert [child["operation_id"] for child in confirmed_plan["children"]] == ["op_2", "op_1"]
+
+    stored_confirmed_plan = loop.confirmed_plan_by_step_id["step-1"]
+    loop._clear_active_plan_state()
+    assert loop._current_active_plan_state() is None
+    assert loop.confirmed_plan_by_step_id["step-1"] == stored_confirmed_plan
+
+
+def test_plan_correction_schema_retry_context_message_is_explicit() -> None:
+    loop = _make_loop()
+    active_plan = _make_active_plan_state(
+        "Click the Get started button",
+        [_make_operation("op_1", "click", "Get started")],
+        summary="I will click Get started",
+    )
+    loop._active_plan_state = active_plan
+    loop._active_plan_correction_state = loop._build_plan_correction_state(
+        "assert first then click",
+        source_plan_state=active_plan,
+    )
+
+    context_message = loop._build_plan_correction_context_message()
+
+    assert "You MUST respond with send_to_overlay message_type='plan_correction_diff'" in context_message
+    assert "Do NOT respond with plan_ready" in context_message
+    assert "Do NOT respond with llm_thinking" in context_message
+    assert "Do NOT use ask_user unless" in context_message
+
+
+def test_plan_correction_schema_retry_count_initializes_to_zero() -> None:
+    loop = _make_loop()
+    active_plan = _make_active_plan_state(
+        "Click the Get started button",
+        [_make_operation("op_1", "click", "Get started")],
+        summary="I will click Get started",
+    )
+
+    correction_state = loop._build_plan_correction_state(
+        "assert first then click",
+        source_plan_state=active_plan,
+    )
+
+    assert correction_state["schema_retry_count"] == 0
+    assert correction_state["no_progress_count"] == 0
+
+
+def test_plan_correction_correction_failed_preserves_active_plan_state() -> None:
+    loop = _make_loop()
+    sent_messages: list[tuple[str, dict[str, object]]] = []
+    active_plan = _make_active_plan_state(
+        "Click the Get started button",
+        [_make_operation("op_1", "click", "Get started")],
+        summary="I will click Get started",
+    )
+    loop._active_plan_state = active_plan
+    correction_state = loop._build_plan_correction_state(
+        "assert first then click",
+        source_plan_state=active_plan,
+    )
+    loop._active_plan_correction_state = correction_state
+
+    async def fake_send(message_type: str, **kwargs: object) -> None:
+        sent_messages.append((message_type, kwargs))
+
+    loop._send = fake_send
+
+    loop._active_plan_correction_state["schema_retry_count"] = 2
+    loop._active_plan_correction_state["correction_failed"] = True
+    loop._active_plan_correction_state["clarification_closed"] = True
+    loop._active_plan_correction_state["no_progress_count"] = 2
+
+    failure_message = "Correction failed safely. You can edit the pending step or run it again."
+    loop._active_plan_correction_state["last_validation_feedback"] = failure_message
+
+    original_plan_id = active_plan["plan_id"]
+    original_step_id = active_plan["target_step_id"]
+
+    loop._clear_active_plan_correction_state()
+
+    assert loop._active_plan_correction_state is None
+    assert loop._plan_correction_pending is False
+    assert loop._active_plan_state is not None
+    assert loop._active_plan_state["plan_id"] == original_plan_id
+    assert loop._active_plan_state["target_step_id"] == original_step_id
+
+
+def test_plan_correction_no_tool_calls_schema_retry(monkeypatch) -> None:
+    loop = _make_loop()
+    sent_messages: list[tuple[str, dict[str, object]]] = []
+    call_counter = {"count": 0}
+    confirmation_counter = {"count": 0}
+
+    loop.current_steps = [_make_current_step("Click the Get started button")]
+    _install_common_run_stubs(loop, sent_messages)
+
+    async def fake_wait_for_plan_confirmation() -> dict[str, object]:
+        confirmation_counter["count"] += 1
+        if confirmation_counter["count"] == 1:
+            return {
+                "confirmed": False,
+                "correction": "assert first then click",
+            }
+        loop.run_stop_requested = True
+        return {"confirmed": True, "answer": "confirmed"}
+
+    loop._wait_for_plan_confirmation = fake_wait_for_plan_confirmation
+
+    async def fake_model_call(*args, **kwargs):
+        call_counter["count"] += 1
+        if call_counter["count"] == 1:
+            return _plan_ready_response(
+                "call-1",
+                [
+                    {
+                        "number": 1,
+                        "action": "click",
+                        "element_name": "Get started",
+                        "code": "await getStarted.click();",
+                    },
+                ],
+                "I will click Get started",
+            )
+        if call_counter["count"] == 2:
+            return _final_response("Let me think about this correction.")
+        if call_counter["count"] == 3:
+            diff_payload = {
+                "target_step_id": "step-1",
+                "mutations": [
+                    {
+                        "op": "add",
+                        "position": "before",
+                        "relative_to_operation_id": "op_1",
+                        "operation": {
+                            "type": "assert",
+                            "target": "Get started",
+                            "assertion": "visible",
+                        },
+                    },
+                    {
+                        "op": "keep",
+                        "operation_id": "op_1",
+                    },
+                ],
+            }
+            return _plan_correction_diff_response("call-3", diff_payload)
+        loop.run_stop_requested = True
+        return _final_response("Done")
+
+    loop.model_router = SimpleNamespace(call=fake_model_call)
+    monkeypatch.setattr(agent_module, "record_model_call_start", lambda **kwargs: object())
+    monkeypatch.setattr(agent_module, "record_model_call_end", lambda *args, **kwargs: None)
+
+    asyncio.run(loop.run([_make_current_step("Click the Get started button")]))
+
+    assert call_counter["count"] >= 2
+    retry_messages = [
+        msg for msg in loop.llm.messages
+        if msg.get("role") == "user"
+        and "plan_correction_diff" in str(msg.get("content") or "")
+        and "Do not send plan_ready" in str(msg.get("content") or "")
+    ]
+    assert len(retry_messages) >= 1
+
+
+def test_plan_correction_no_tool_calls_twice_fails_closed(monkeypatch) -> None:
+    loop = _make_loop()
+    sent_messages: list[tuple[str, dict[str, object]]] = []
+    call_counter = {"count": 0}
+
+    loop.current_steps = [_make_current_step("Click the Get started button")]
+    _install_common_run_stubs(loop, sent_messages)
+
+    async def fake_wait_for_plan_confirmation() -> dict[str, object]:
+        return {
+            "confirmed": False,
+            "correction": "assert first then click",
+        }
+
+    loop._wait_for_plan_confirmation = fake_wait_for_plan_confirmation
+
+    async def fake_model_call(*args, **kwargs):
+        call_counter["count"] += 1
+        if call_counter["count"] == 1:
+            return _plan_ready_response(
+                "call-1",
+                [
+                    {
+                        "number": 1,
+                        "action": "click",
+                        "element_name": "Get started",
+                        "code": "await getStarted.click();",
+                    },
+                ],
+                "I will click Get started",
+            )
+        if call_counter["count"] >= 2:
+            return _final_response("I am thinking about this.")
+
+    loop.model_router = SimpleNamespace(call=fake_model_call)
+    monkeypatch.setattr(agent_module, "record_model_call_start", lambda **kwargs: object())
+    monkeypatch.setattr(agent_module, "record_model_call_end", lambda *args, **kwargs: None)
+
+    asyncio.run(loop.run([_make_current_step("Click the Get started button")]))
+
+    assert call_counter["count"] == 3
+    llm_result_messages = [
+        (msg_type, kwargs) for msg_type, kwargs in sent_messages
+        if msg_type == "llm_result"
+    ]
+    assert len(llm_result_messages) >= 1
+    assert any("Correction failed" in str(kwargs.get("message") or "") for _, kwargs in llm_result_messages)
+    assert loop._active_plan_correction_state is None
+
+
+def test_plan_correction_tool_call_sequencing_on_schema_retry() -> None:
+    loop = _make_loop()
+    sent_messages: list[tuple[str, dict[str, object]]] = []
+    active_plan = _make_active_plan_state(
+        "Click the Get started button",
+        [_make_operation("op_1", "click", "Get started")],
+        summary="I will click Get started",
+    )
+    loop._active_plan_state = active_plan
+    correction_state = loop._build_plan_correction_state(
+        "assert first then click",
+        source_plan_state=active_plan,
+    )
+    loop._active_plan_correction_state = correction_state
+
+    async def fake_send(message_type: str, **kwargs: object) -> None:
+        sent_messages.append((message_type, kwargs))
+
+    loop._send = fake_send
+
+    result = asyncio.run(loop._tool_send_to_overlay(
+        {"message_type": "llm_thinking", "payload": {"note": "thinking"}}
+    ))
+
+    assert result["blocked"] is True
+    assert result["reason"] == "correction_schema_retry"
+    assert isinstance(result.get("message"), str)
+    assert "plan_correction_diff" in result["message"]
+
+
+def test_plan_correction_normal_plan_ready_outside_correction_still_works() -> None:
+    loop = _make_loop()
+    sent_messages: list[tuple[str, dict[str, object]]] = []
+    loop.current_steps = [_make_current_step("Click the Get started button")]
+
+    async def fake_send(message_type: str, **kwargs: object) -> None:
+        sent_messages.append((message_type, kwargs))
+
+    async def fake_wait_for_plan_confirmation() -> dict[str, object]:
+        return {"confirmed": True, "answer": "confirmed"}
+
+    loop._send = fake_send
+    loop._wait_for_plan_confirmation = fake_wait_for_plan_confirmation
+
+    result = asyncio.run(
+        loop._tool_send_to_overlay(
+            {
+                "message_type": "plan_ready",
+                "payload": _make_plan_payload(
+                    [
+                        {
+                            "number": 1,
+                            "action": "click",
+                            "element_name": "Get started",
+                            "code": "await getStarted.click();",
+                        },
+                    ],
+                    "I will click Get started",
+                ),
+            }
+        )
+    )
+
+    assert result == {"confirmed": True, "answer": "confirmed", "phase": "executing"}
+    assert loop.plan_confirmed is True
+    assert len(sent_messages) == 1
+    assert sent_messages[0][0] == "plan_ready"
+    assert loop._active_plan_correction_state is None
+
+
+def test_plan_correction_invalid_diff_after_schema_retry_fails_closed() -> None:
+    loop = _make_loop()
+    sent_messages: list[tuple[str, dict[str, object]]] = []
+    active_plan = _make_active_plan_state(
+        "Click the Get started button",
+        [_make_operation("op_1", "click", "Get started")],
+        summary="I will click Get started",
+    )
+    loop._active_plan_state = active_plan
+    correction_state = loop._build_plan_correction_state(
+        "assert first then click",
+        source_plan_state=active_plan,
+    )
+    loop._active_plan_correction_state = correction_state
+
+    async def fake_send(message_type: str, **kwargs: object) -> None:
+        sent_messages.append((message_type, kwargs))
+
+    loop._send = fake_send
+
+    first_result = asyncio.run(
+        loop._tool_send_to_overlay(
+            {
+                "message_type": "llm_thinking",
+                "payload": {"note": "thinking"},
+            }
+        )
+    )
+
+    assert first_result["reason"] == "correction_schema_retry"
+    assert not loop._active_plan_correction_state.get("correction_failed")
+
+    invalid_payload = {
+        "message_type": "plan_correction_diff",
+        "payload": {
+            "target_step_id": "step-1",
+            "mutations": [
+                {
+                    "op": "add",
+                    "position": "before",
+                    "relative_to_operation_id": "op_1",
+                    "operation": {
+                        "type": "assert",
+                        "target": "Get started",
+                        "assertion": "visible",
+                    },
+                },
+            ],
+        },
+    }
+
+    second_result = asyncio.run(loop._tool_send_to_overlay(invalid_payload))
+
+    assert second_result["blocked"] is True
+    assert second_result["reason"] == "invalid_corrected_plan"
+    assert loop._active_plan_correction_state["retry_count"] == 1
+    assert not loop._active_plan_correction_state.get("correction_failed")

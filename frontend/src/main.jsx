@@ -1627,9 +1627,25 @@ function useAutoWorkbenchTransport(config) {
           appendConversation("system", text || "Error");
           appendTimeline(text || "Error", "err");
           break;
-        case "llm_result":
-          appendConversation("agent", text || "LLM result received");
-          appendTimeline(text || "LLM result received", "ok");
+        case "llm_result": {
+          const resultSuccess = message?.success;
+          const resultMessage = message?.message;
+          if (resultSuccess === false || resultSuccess === 0) {
+            const failText = resultMessage || text || "Failed";
+            appendConversation("system", failText);
+            appendTimeline(failText, "err");
+            if (String(failText).includes("Correction failed")) {
+              setRunState("planning");
+              setInteractionMode("planning");
+              setPlanCorrectionText("");
+              setClarificationQuestion("");
+              setClarificationOptions([]);
+              setClarificationAnswerText("");
+            }
+          } else {
+            appendConversation("agent", text || "LLM result received");
+            appendTimeline(text || "LLM result received", "ok");
+          }
           {
             const nextCode = extractCodePreview(payload);
             if (nextCode) {
@@ -1637,6 +1653,7 @@ function useAutoWorkbenchTransport(config) {
             }
           }
           break;
+        }
         case "step_recorded": {
           const recordedStepIds = collectStepReferenceValues(payload);
           const recordedStepNumber = resolveFiniteNumber(

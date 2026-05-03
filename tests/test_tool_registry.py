@@ -113,3 +113,58 @@ def test_unknown_phase_falls_back_to_safe_tools_and_logs_warning(capsys: pytest.
     ]
     assert "[TOOL_FILTER] warning=unknown_phase phase=mystery" in captured
     assert "[TOOL_FILTER] phase=mystery original=10 filtered=6 removed=4" in captured
+
+
+def test_correction_failed_state_filters_to_send_to_overlay_only() -> None:
+    tools = _build_tools()
+    correction_mode = {
+        "category": "add_and_reorder_operations",
+        "needs_clarification": False,
+        "clarification_resolved": False,
+        "correction_failed": False,
+    }
+
+    filtered_tools = filter_tools_for_phase(tools, "planning", correction_mode=correction_mode)
+
+    assert _tool_names(filtered_tools) == ["send_to_overlay"]
+
+
+def test_correction_schema_retry_state_filters_to_send_to_overlay_only() -> None:
+    tools = _build_tools()
+    correction_mode = {
+        "category": "add_and_reorder_operations",
+        "needs_clarification": False,
+        "clarification_resolved": False,
+        "schema_retry_count": 1,
+    }
+
+    filtered_tools = filter_tools_for_phase(tools, "planning", correction_mode=correction_mode)
+
+    assert _tool_names(filtered_tools) == ["send_to_overlay"]
+
+
+def test_ambiguous_correction_still_filters_to_ask_user_only() -> None:
+    tools = _build_tools()
+    correction_mode = {
+        "category": "ambiguous",
+        "needs_clarification": True,
+    }
+
+    filtered_tools = filter_tools_for_phase(tools, "planning", correction_mode=correction_mode)
+
+    assert _tool_names(filtered_tools) == ["ask_user"]
+
+
+def test_no_correction_mode_returns_normal_planning_tools() -> None:
+    tools = _build_tools()
+
+    filtered_tools = filter_tools_for_phase(tools, "planning", correction_mode=None)
+
+    assert _tool_names(filtered_tools) == [
+        "send_to_overlay",
+        "locator_find",
+        "locator_validate",
+        "dom_extract",
+        "ask_user",
+        "browser_get_state",
+    ]

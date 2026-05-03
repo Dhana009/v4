@@ -45,6 +45,10 @@ def _make_loop(monkeypatch, locator: object) -> AgentLoop:
     loop.phase_tracker = SimpleNamespace(get_phase=lambda: "planning")
     loop.phase = "planning"
     loop.active_step_id = "step-1"
+    loop.confirmed_plan_by_step_id = {}
+    loop.confirmed_plan_step_ids = []
+    loop.confirmed_child_results_by_step_id = {}
+    loop.confirmed_execution_mismatch_count_by_step_id = {}
     return loop
 
 
