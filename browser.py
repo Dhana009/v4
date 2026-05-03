@@ -47,6 +47,16 @@ def _read_frontend_asset(relative_path: str) -> str | None:
         return None
 
 
+def _read_remote_debugging_port() -> int | None:
+    raw_port = os.getenv("AUTOWORKBENCH_REMOTE_DEBUGGING_PORT", "").strip()
+    if not raw_port:
+        return None
+    try:
+        return int(raw_port)
+    except ValueError as exc:
+        raise ValueError("AUTOWORKBENCH_REMOTE_DEBUGGING_PORT must be an integer") from exc
+
+
 def _build_missing_assets_injection_script(message: str) -> str:
     return f"""
 (() => {{
@@ -95,13 +105,22 @@ def _build_autoworkbench_injection_script() -> str:
     if css_text is None:
         return _build_missing_assets_injection_script(AUTOWORKBENCH_ASSETS_MISSING_MESSAGE)
 
+    port = _read_port()
+    config = dict(AUTOWORKBENCH_DEFAULT_CONFIG)
+    config.update(
+        {
+            "wsUrl": f"ws://127.0.0.1:{port}/ws",
+            "wsPort": port,
+        }
+    )
+
     return f"""
 (() => {{
   if (window.top !== window) return;
   const ROOT_ID = {json.dumps(AUTOWORKBENCH_ROOT_ID)};
   const STYLE_ID = {json.dumps(AUTOWORKBENCH_STYLE_ID)};
   const CSS_TEXT = {json.dumps(css_text)};
-  const CONFIG = {json.dumps(AUTOWORKBENCH_DEFAULT_CONFIG)};
+  const CONFIG = {json.dumps(config)};
 
   function ensureRoot() {{
     let root = document.getElementById(ROOT_ID);
@@ -184,10 +203,17 @@ async def launch_browser() -> Page:
         chromium = _pw.chromium
 
         user_data_dir = os.path.abspath("./.pw-user-data")
-        _context = await chromium.launch_persistent_context(
-            user_data_dir=user_data_dir,
-            headless=False,
-        )
+        launch_kwargs: dict[str, Any] = {
+            "user_data_dir": user_data_dir,
+            "headless": False,
+        }
+        remote_debugging_port = _read_remote_debugging_port()
+        if remote_debugging_port is not None:
+            launch_kwargs["args"] = [
+                f"--remote-debugging-port={remote_debugging_port}",
+                "--remote-debugging-address=127.0.0.1",
+            ]
+        _context = await chromium.launch_persistent_context(**launch_kwargs)
 
         async def on_page(page: Page) -> None:
             global _active_page

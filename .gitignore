@@ -1,5 +1,6 @@
 .env
 .pw-user-data/
+test-results/
 __pycache__/
 *.py[cod]
 .Python

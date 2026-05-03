@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Forms Playground</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body { margin: 0; min-height: 100%; }
+      body {
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: linear-gradient(180deg, #f5f1ea, #f8fbff);
+        color: #1f2230;
+        padding: 32px 20px 56px;
+      }
+      .frame {
+        width: min(860px, 100%);
+        margin: 0 auto;
+        background: rgba(255, 255, 255, 0.9);
+        border: 1px solid rgba(31, 34, 48, 0.12);
+        border-radius: 24px;
+        padding: 28px;
+        box-shadow: 0 20px 64px rgba(31, 34, 48, 0.12);
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(32px, 4vw, 54px);
+        line-height: 1;
+        letter-spacing: -0.04em;
+      }
+      .grid {
+        display: grid;
+        gap: 18px;
+        margin-top: 24px;
+      }
+      .group {
+        display: grid;
+        gap: 10px;
+        padding: 18px;
+        border-radius: 18px;
+        border: 1px solid rgba(31, 34, 48, 0.12);
+        background: #fff;
+      }
+      button,
+      input,
+      select {
+        font: inherit;
+      }
+      button {
+        min-height: 44px;
+        padding: 0 16px;
+        border-radius: 999px;
+        border: 1px solid rgba(31, 34, 48, 0.14);
+        background: #151a2b;
+        color: #fff;
+        cursor: pointer;
+      }
+      input,
+      select {
+        min-height: 44px;
+        padding: 0 14px;
+        border-radius: 12px;
+        border: 1px solid rgba(31, 34, 48, 0.14);
+        background: #fff;
+      }
+      .weak-buttons {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+      .weak-span,
+      .weak-div {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 0 16px;
+        border-radius: 999px;
+        border: 1px dashed rgba(31, 34, 48, 0.24);
+        background: rgba(31, 34, 48, 0.03);
+        color: #1f2230;
+        cursor: pointer;
+        user-select: none;
+      }
+      .dialog-scrim {
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.38);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+      }
+      .dialog-scrim.open {
+        display: flex;
+      }
+      .dialog {
+        width: min(440px, 100%);
+        background: #fff;
+        border-radius: 20px;
+        padding: 22px;
+        box-shadow: 0 24px 80px rgba(15, 23, 42, 0.24);
+      }
+      .menu {
+        display: none;
+        gap: 8px;
+        padding: 12px;
+        border-radius: 16px;
+        border: 1px solid rgba(31, 34, 48, 0.12);
+        background: #fff;
+        width: fit-content;
+      }
+      .menu.open {
+        display: grid;
+      }
+      .menu button {
+        background: #fff;
+        color: #1f2230;
+      }
+    </style>
+    <script>
+      function toggleModal() {
+        const node = document.getElementById("modal-layer");
+        node.classList.toggle("open");
+      }
+      function toggleDropdown() {
+        const node = document.getElementById("dropdown-menu");
+        const isOpen = node.classList.toggle("open");
+        const trigger = document.getElementById("dropdown-trigger");
+        trigger.setAttribute("aria-expanded", String(isOpen));
+      }
+      function markWeakTarget(label) {
+        const status = document.getElementById("status");
+        status.textContent = label;
+      }
+    </script>
+  </head>
+  <body>
+    <main class="frame">
+      <h1>Forms Playground</h1>
+      <div class="grid">
+        <section class="group" aria-labelledby="modal-section">
+          <h2 id="modal-section">Modal trigger</h2>
+          <button id="modal-trigger" data-testid="modal-trigger" type="button" onclick="toggleModal()">Open modal</button>
+        </section>
+        <section class="group" aria-labelledby="dropdown-section">
+          <h2 id="dropdown-section">Dropdown trigger</h2>
+          <button id="dropdown-trigger" data-testid="dropdown-trigger" type="button" aria-haspopup="menu" aria-expanded="false" onclick="toggleDropdown()">
+            Open dropdown
+          </button>
+          <div id="dropdown-menu" class="menu" role="menu" aria-label="Local options">
+            <button type="button">First option</button>
+            <button type="button">Second option</button>
+          </div>
+        </section>
+        <section class="group" aria-labelledby="input-section">
+          <h2 id="input-section">Simple input</h2>
+          <input id="simple-input" data-testid="simple-input" type="text" aria-label="Simple input" placeholder="Type here" />
+        </section>
+        <section class="group" aria-labelledby="weak-section">
+          <h2 id="weak-section">Weak button-like targets</h2>
+          <div class="weak-buttons">
+            <span id="weak-span-button" data-testid="weak-span-button" class="weak-span" role="button" tabindex="0" onclick="markWeakTarget('span target activated')">
+              Weak span button
+            </span>
+            <div id="weak-div-button" data-testid="weak-div-button" class="weak-div" role="button" tabindex="0" onclick="markWeakTarget('div target activated')">
+              Weak div button
+            </div>
+          </div>
+          <div id="status" aria-live="polite">Ready.</div>
+        </section>
+      </div>
+    </main>
+
+    <div id="modal-layer" class="dialog-scrim" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <div class="dialog">
+        <h2 id="modal-title">Local modal</h2>
+        <p>This dialog is toggled locally and stays on the fixture app.</p>
+        <button type="button" onclick="toggleModal()">Close modal</button>
+      </div>
+    </div>
+  </body>
+</html>

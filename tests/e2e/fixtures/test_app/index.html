@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>AutoWorkbench Test App</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --bg: #f6f1e8;
+        --panel: #fffdf8;
+        --ink: #1f2230;
+        --muted: #6d6a63;
+        --accent: #2563eb;
+        --accent-2: #16a34a;
+        --border: rgba(31, 34, 48, 0.14);
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; min-height: 100%; }
+      body {
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(37, 99, 235, 0.08), transparent 34%),
+          radial-gradient(circle at top right, rgba(22, 163, 74, 0.08), transparent 30%),
+          var(--bg);
+        color: var(--ink);
+      }
+      .shell {
+        min-height: 100vh;
+        display: grid;
+        place-items: center;
+        padding: 40px 24px;
+      }
+      .hero {
+        width: min(760px, 100%);
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 22px;
+        padding: 36px;
+        box-shadow: 0 24px 60px rgba(31, 34, 48, 0.1);
+      }
+      .eyebrow {
+        margin: 0 0 10px;
+        font-size: 12px;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--muted);
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(40px, 6vw, 66px);
+        line-height: 0.98;
+        letter-spacing: -0.04em;
+      }
+      p {
+        margin: 18px 0 0;
+        max-width: 58ch;
+        font-size: 18px;
+        line-height: 1.55;
+        color: var(--muted);
+      }
+      .actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 26px;
+      }
+      .cta,
+      .linkish {
+        appearance: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 48px;
+        padding: 0 18px;
+        border-radius: 999px;
+        border: 1px solid transparent;
+        font: inherit;
+        font-weight: 700;
+        text-decoration: none;
+        cursor: pointer;
+      }
+      .cta {
+        background: var(--ink);
+        color: #fff;
+        box-shadow: 0 10px 24px rgba(31, 34, 48, 0.18);
+      }
+      .linkish {
+        background: #fff;
+        border-color: var(--border);
+        color: var(--ink);
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 48px;
+        padding: 0 18px;
+        border-radius: 999px;
+        border: 1px dashed var(--border);
+        color: var(--muted);
+        text-decoration: none;
+      }
+      .notes {
+        margin-top: 20px;
+        display: grid;
+        gap: 8px;
+        color: var(--muted);
+        font-size: 14px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="hero" aria-labelledby="hero-title">
+        <p class="eyebrow">AutoWorkbench regression fixture</p>
+        <h1 id="hero-title">Make the first click on the real overlay.</h1>
+        <p>
+          This page is intentionally simple so the picker can attach to the visible CTA, the backend can
+          execute the click, and the overlay can record the generated code.
+        </p>
+        <div class="actions">
+          <button id="get-started" class="cta" data-testid="get-started" type="button" onclick="window.location.href='agents.html'">
+            Get started
+          </button>
+          <a id="agents-link" class="linkish" data-testid="agents-link" href="agents.html">Agents</a>
+          <a id="forms-link" class="pill" href="forms.html">Forms</a>
+        </div>
+        <div class="notes">
+          <span>Normal button/link are both present.</span>
+          <span>Everything stays local to this fixture app.</span>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

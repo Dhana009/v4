@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Playwright Test Agents</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body { margin: 0; min-height: 100%; }
+      body {
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        background: linear-gradient(135deg, #f5f0e8, #eef5ff 54%, #f9fbf7);
+        color: #1f2230;
+        padding: 40px 24px;
+      }
+      .card {
+        width: min(840px, 100%);
+        margin: 0 auto;
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid rgba(31, 34, 48, 0.12);
+        border-radius: 24px;
+        padding: 32px;
+        box-shadow: 0 22px 70px rgba(31, 34, 48, 0.12);
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(34px, 5vw, 58px);
+        line-height: 1;
+        letter-spacing: -0.04em;
+      }
+      p {
+        margin: 18px 0 0;
+        max-width: 64ch;
+        font-size: 17px;
+        line-height: 1.55;
+        color: #626062;
+      }
+      .targets {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 24px;
+      }
+      .target {
+        min-height: 46px;
+        padding: 0 18px;
+        border-radius: 999px;
+        border: 1px solid rgba(31, 34, 48, 0.12);
+        background: #fff;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      code {
+        display: block;
+        margin-top: 24px;
+        padding: 18px 20px;
+        border-radius: 16px;
+        background: #151a2b;
+        color: #d6e2ff;
+        overflow-x: auto;
+        font-size: 15px;
+        line-height: 1.6;
+      }
+      .local-links {
+        margin-top: 18px;
+        display: flex;
+        gap: 14px;
+        flex-wrap: wrap;
+      }
+      .local-links a {
+        color: #2563eb;
+        text-decoration-thickness: 2px;
+        text-underline-offset: 3px;
+      }
+    </style>
+  </head>
+  <body>
+    <main class="card">
+      <h1>Playwright Test Agents</h1>
+      <p>
+        The overlay can land here after the first click. OpenCode and Claude Code are present as local targets,
+        and the exact init command text is visible for regression checks.
+      </p>
+      <div class="targets" aria-label="agent targets">
+        <button class="target" type="button" data-testid="opencode-target">OpenCode</button>
+        <button class="target" type="button" data-testid="claude-code-target">Claude Code</button>
+      </div>
+      <code aria-label="init command">npx playwright init-agents --loop=opencode</code>
+      <div class="local-links">
+        <a href="index.html">Back to start</a>
+        <a href="forms.html">Forms playground</a>
+      </div>
+    </main>
+  </body>
+</html>

@@ -1,16 +1,15 @@
 <claude-mem-context>
 # Memory Context
 
-# [agent v4] recent context, 2026-05-03 8:48pm GMT+5:30
+# [agent v4] recent context, 2026-05-03 8:52pm GMT+5:30
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (22,184t read) | 516,158t work | 96% savings
+Stats: 50 obs (22,034t read) | 555,268t work | 96% savings
 
 ### May 2, 2026
-S99 Phase 3D AutoWorkbench IDE UI — fix scroll, pending delete, step_recorded lifecycle, Recorded Output tabs, Steps tab rework, and 5 enhancements (May 2 at 2:13 AM)
 S100 Phase 3D AutoWorkbench IDE UI — continuing session after restart, re-establishing context from prior Phase 3C work (May 2 at 2:25 AM)
 S101 Fix Phase 3D frontend UI/state bugs in AutoWorkbench IDE panel (spaces, picker, plan state, recorded card layout/titles) (May 2 at 2:55 AM)
 S102 Fix backend multi-step recording bug in agent.py — replace global last_successful_action with per-step successful_action_by_step_id dict (May 2 at 3:14 AM)
@@ -20,13 +19,7 @@ S106 Read-only investigation of recorded parent/child display wording in AutoWor
 S110 Read-only investigation: corrected plan UI shows ASSERT child text as "navigation" instead of "Get started is visible" in agent v4 (May 2 at 11:40 AM)
 ### May 3, 2026
 S111 Fix Element Picker target quality and parent/ancestor selection in agent v4 autoworkbench (May 3 at 5:54 PM)
-1810 8:01p ✅ Frontend Build Rebuilt After sortRecordedSteps Change
-1811 8:06p 🟣 Element Picker Ancestor Candidate Collection — Task Initiated
-1812 8:07p 🔵 Element Picker Flow Architecture Mapped in agent v4
-1813 " 🔵 Picker snapshot() in browser.py Only Captures Clicked Element — Root Cause Confirmed
-1814 " 🔵 Full Agent v4 Picker + Element Info Data Flow — Complete Code Path Mapped
-1815 8:08p 🔵 No Frontend JS Test Harness Confirmed; Build-Only Verification for Frontend Changes
-1816 " 🔵 Backend Test Shape Confirmed — element_info Flat Fields Only, No candidates[] References
+S113 Build AutoWorkbench Regression Harness v1 — automated test harness with fixture site, mocked LLM helpers, and six regression tests covering state/recording/correction flows in /Users/apple/personal/agent v4 (May 3 at 8:06 PM)
 1817 8:12p 🟣 Element Picker Ancestor Selection & Target Quality Enhancement
 1818 8:13p 🔵 agent.py _step_state_summary passes element_info dict as-is to LLM context
 1819 " 🔵 Picker lives in browser.py — overlay injected via page.expose_binding and inline JS script
@@ -71,14 +64,13 @@ S111 Fix Element Picker target quality and parent/ancestor selection in agent v4
 1858 " 🟣 Target Selector UI Styles Added to style-ide.css for Picker Candidate Dropdown
 1859 " 🔵 browser.py scoreCandidate Scoring Weights Confirmed — Interactive Elements Beat Code Blocks Beat Containers
 S112 Build AutoWorkbench Regression Harness v1 — automated end-to-end test harness with fixture site, mock LLM helpers, and six regression tests for state/recording/correction flows (May 3 at 8:48 PM)
-**Investigated**: Existing test infrastructure including tests/*, server.py, browser.py, agent.py, frontend/src/main.jsx, frontend/aw-ide-panel.jsx, package.json, and any pytest fixtures/conftest files were examined to understand: how AgentLoop is instantiated in tests, how fake LLM/model responses are mocked, how websocket commands are tested, whether browser/page fixtures already exist, and whether pytest can launch the local server safely.
+1860 8:48p 🔵 AutoWorkbench Debug Skill Loaded
+1861 " 🔵 AutoWorkbench Project Structure and Architecture Mapped
+1862 8:49p 🔵 AutoWorkbench Server, Runtime Seams, and Test Coverage Fully Mapped
+1863 " ⚖️ AutoWorkbench E2E Regression Harness: Architecture Plan
+1864 8:50p 🔵 AutoWorkbench Backend Architecture: Browser Launch, Overlay Injection, WebSocket, and Phase Tracking
+1865 " 🔵 AutoWorkbench Frontend IDE Panel: DOM Structure and Selectors for E2E Testing
+1866 8:51p 🔵 AutoWorkbench Backend Log Markers: All Required E2E Lifecycle Markers Confirmed Present
 
-**Learned**: The AutoWorkbench runtime has a state machine governing phase transitions (pending → plan_ready → executing → confirmed), recorded_steps with parent/child structure, and a correction flow. Existing tests cover multi-action safety, recorded step model, plan correction, code update, completion guard, assertion flow, recovery manager/scope guard, capability gaps, skill loading, context manager, and tool registry. The harness must not duplicate existing helpers and must use fake/stub model responses for all core regression tests.
-
-**Completed**: The main harness shape has been built. The helper file (tests/helpers/autoworkbench_harness.py) seeds all list/dict structures that the runtime writes to, avoiding AttributeError when the fake model steps through flows. Work is at final review stage before completing the implementation.
-
-**Next Steps**: Final review of persistence/summary appenders in the harness helper to ensure every list/dict the runtime writes to is properly initialized. Then: complete fixture site at tests/fixtures/autoworkbench_site/index.html, finalize tests/test_autoworkbench_regression_harness.py with Tests A-F, add tests/README_AUTOWORKBENCH_HARNESS.md, run py_compile verification, and execute the full pytest suite against both new and existing test files.
-
-
-Access 516k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 555k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>
