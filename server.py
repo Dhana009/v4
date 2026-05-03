@@ -14,6 +14,46 @@ from browser import arm_picker, launch_browser
 PORT = int(os.getenv("PORT", "8765"))
 
 
+def _is_closed_websocket_error(exc: BaseException) -> bool:
+    if isinstance(exc, WebSocketDisconnect):
+        return True
+    if isinstance(exc, RuntimeError):
+        error_text = str(exc)
+        return "close message has been sent" in error_text or 'Cannot call "send"' in error_text
+    return exc.__class__.__name__ == "ClientDisconnected"
+
+
+async def _send_replay_json(ws: WebSocket, agent: Any, payload: dict[str, Any]) -> bool:
+    if getattr(agent, "_ws_disconnected", False):
+        if str(payload.get("type") or "").startswith("replay") and not getattr(agent, "_ws_disconnect_logged", False):
+            setattr(agent, "_ws_disconnect_logged", True)
+            print("[WS] disconnected during replay_all; stopping result send")
+        return False
+
+    try:
+        await ws.send_json(payload)
+        return True
+    except WebSocketDisconnect:
+        setattr(agent, "_ws_disconnected", True)
+        setattr(agent, "_ws_disconnect_logged", True)
+        print("[WS] disconnected during replay_all; stopping result send")
+        return False
+    except RuntimeError as exc:
+        if not _is_closed_websocket_error(exc):
+            raise
+        setattr(agent, "_ws_disconnected", True)
+        setattr(agent, "_ws_disconnect_logged", True)
+        print("[WS] disconnected during replay_all; stopping result send")
+        return False
+    except Exception as exc:
+        if exc.__class__.__name__ != "ClientDisconnected":
+            raise
+        setattr(agent, "_ws_disconnected", True)
+        setattr(agent, "_ws_disconnect_logged", True)
+        print("[WS] disconnected during replay_all; stopping result send")
+        return False
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: ARG001
     key = os.getenv("OPENAI_API_KEY", "")
@@ -86,7 +126,8 @@ async def ws_endpoint(ws: WebSocket) -> None:
                         "step_id": step_id,
                         "error": f"Replay failed: {type(exc).__name__}",
                     }
-                await ws.send_json(result)
+                if not await _send_replay_json(ws, agent, result):
+                    break
                 continue
 
             if msg_type == "replay_all":
@@ -98,19 +139,30 @@ async def ws_endpoint(ws: WebSocket) -> None:
                     stop_on_error = stop_on_error_text not in {"false", "0", "no", "off", ""}
                 try:
                     result = await agent.replay_all(stop_on_error=stop_on_error)
+                except WebSocketDisconnect:
+                    print("[WS] disconnected during replay_all; stopping result send")
+                    break
+                except RuntimeError as exc:
+                    if _is_closed_websocket_error(exc):
+                        print("[WS] disconnected during replay_all; stopping result send")
+                        break
+                    raise
                 except Exception as exc:  # noqa: BLE001
-                    await ws.send_json(
-                        {
-                            "type": "replay_all_result",
-                            "ok": False,
-                            "stop_on_error": stop_on_error,
-                            "step_ids": [],
-                            "replayed_count": 0,
-                            "passed_count": 0,
-                            "failed_count": 0,
-                            "error": f"Replay failed: {type(exc).__name__}",
-                        }
-                    )
+                    if getattr(agent, "_ws_disconnected", False) or exc.__class__.__name__ == "ClientDisconnected":
+                        print("[WS] disconnected during replay_all; stopping result send")
+                        break
+                    fallback_result = {
+                        "type": "replay_all_result",
+                        "ok": False,
+                        "stop_on_error": stop_on_error,
+                        "step_ids": [],
+                        "replayed_count": 0,
+                        "passed_count": 0,
+                        "failed_count": 0,
+                        "error": f"Replay failed: {type(exc).__name__}",
+                    }
+                    if not await _send_replay_json(ws, agent, fallback_result):
+                        break
                 else:
                     if not getattr(agent, "_replay_all_result_sent", False):
                         if not isinstance(result, dict):
@@ -124,7 +176,8 @@ async def ws_endpoint(ws: WebSocket) -> None:
                                 "failed_count": 0,
                                 "error": "Replay failed",
                             }
-                        await ws.send_json(result)
+                        if not await _send_replay_json(ws, agent, result):
+                            break
                 continue
 
             if msg_type in {"confirmed", "correction", "option_selected"}:

@@ -1,13 +1,13 @@
 <claude-mem-context>
 # Memory Context
 
-# [agent v4] recent context, 2026-05-03 12:13pm GMT+5:30
+# [agent v4] recent context, 2026-05-03 12:35pm GMT+5:30
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (28,037t read) | 914,296t work | 97% savings
+Stats: 50 obs (23,606t read) | 726,907t work | 97% savings
 
 ### May 1, 2026
 S96 Implement lifecycle guard in agent.py to enforce Planning → Confirmation → Execution → Record → Recovery control flow (May 1 at 4:06 PM)
@@ -21,31 +21,7 @@ S102 Fix backend multi-step recording bug in agent.py — replace global last_su
 S103 Launch AutoWorkbench agent v4 once and run a smoke test of the clarification UI roundtrip (May 2 at 3:33 AM)
 S104 Add agent phase diagnostics in shadow mode to agent v4 — PhaseTracker implementation in runtime/phase_tracker.py and agent.py wiring (May 2 at 3:57 AM)
 S106 Read-only investigation of recorded parent/child display wording in AutoWorkbench (agent v4) — tracing why parent title and children repeat the same full intent text (May 2 at 11:40 AM)
-1231 1:26p ⚖️ Replay Failure & Repair Architecture Planning for agent v4
-1300 " ⚖️ Expected Outcome Capture v1 — Save & Replay Integration Plan for agent v4
-1222 " 🔵 AutoWorkbench agent v4 — Live Code Map for Replay All Planning
-1223 " 🔵 AutoWorkbench agent v4 — Deep Code Map of Replay/Recording Surfaces
-1224 1:27p 🔵 PRD v2.3 Defines Full Replay Event Contract and Replay Execution Flow
-1225 " 🔵 Frontend Build System and State Machine Confirmed — No Test Framework for Frontend
-1228 1:29p 🔵 Prior Rollout Memory Confirms Replay Button Must Stay Placeholder Until Backend Exists
-1236 1:30p ⚖️ Replay All v1 — Read-Only Architecture Planning for AutoWorkbench
-1237 1:33p 🔵 AutoWorkbench Replay All v1 — Existing Contract and Architecture Discovered
-1239 1:43p ⚖️ Save/Replay Artifact Versioning — Read-Only Planning Session Initiated
-1241 " 🔵 AutoWorkbench spec_snapshot.py — Current Snapshot Schema Has No Repair/Version Provenance Fields
-1242 " 🔵 AutoWorkbench Replay One v1 — Agent State Shape and Test Contract Confirmed
-1243 1:44p 🔵 AutoWorkbench Snapshot Versioning Gap — No Repair Provenance Fields Exist Anywhere in the Stack
-1244 " 🔵 agent.py _build_spec_snapshot() — Full Implementation and Extension Points Confirmed
-1245 " 🔵 runtime/spec_snapshot.py — Complete File Confirmed, All 119 Lines, No Hidden Version Fields
-1249 1:46p 🔵 Frontend Message Handlers — replay_one_result and save_snapshot_result Fully Implemented, No replay_all Handler Exists
-1307 6:55p ⚖️ Expected Outcome Capture v1 — Read-Only Backend Model Investigation Initiated
-1302 " 🔵 agent v4 Replay Architecture — Concrete Code Structure Confirmed
-1304 6:56p 🔵 expected_outcome & observed_outcome — PRD Spec Exists, No Code Implementation Yet
-1305 " 🔵 PRD v2.3 Expected Outcome Full Schema — Data Model, Replay Rules, and MVP Acceptance Criteria
-1306 6:57p 🔵 Exact Code Insertion Points for expected_outcome in agent v4 Confirmed
-1308 7:02p 🔵 Read-only investigation: observed_outcome v1 capture points in agent v4
-1310 " 🔵 agent v4 skill architecture boundaries and safe change order confirmed
-1313 " 🔵 agent v4 AgentLoop instance state map and action execution flow traced
-1314 " 🔵 Compact state shape and v1 detectable outcome types identified for observed_outcome
+1310 7:02p 🔵 agent v4 skill architecture boundaries and safe change order confirmed
 1315 7:04p 🔵 Read-only investigation for observed_outcome v1 capture points in autoworkbench replay system
 1316 " 🔵 agent.py action execution loop: safe observed_outcome capture points identified
 1317 " 🔵 AgentLoop test harness pattern: _make_loop() factory initializes all replay-related state fields
@@ -72,6 +48,30 @@ S106 Read-only investigation of recorded parent/child display wording in AutoWor
 1472 " 🔵 Complete Symbol Reference Map for Replay Precondition Feedback in Frontend
 1473 " 🔴 Git Status: Replay Precondition Visibility — All Changed Files Identified
 1474 " ✅ Replay Precondition Visibility — Final Diff Stats
+1475 12:14p 🔵 Replay Precondition UI Still Broken Despite Backend Working — Root Cause Investigation Started
+1476 " 🔵 server.py replay_one Handler Passes Full Result Unchanged — Not the Stripping Culprit
+1477 " 🔵 Root Cause Found: normalizeBackendMessage Extracts payload.message as Payload, Stripping Nested Fields
+1478 " 🔵 normalizeBackendMessage payload Extraction — Confirmed Root Cause via Code Inspection
+1479 12:15p 🔵 handleBackendMessage Uses raw.payload if Object, Else raw — Different from normalizeBackendMessage
+1480 " 🔴 Fixed: normalizeBackendMessage No Longer Uses parsed.message as Payload for Typed Events
+1481 " 🟣 WebSocket Integration Test Added: server.py Preserves Precondition Failure Fields End-to-End
+1482 " 🔴 Replay Precondition UI Fix Verified — 20 Tests Pass, Frontend Builds Clean
+1483 12:16p 🔵 Final State Verified: normalizeBackendMessage Fixed, All Symbols Correctly Scoped
+1484 " ✅ Replay Precondition UI Fix — Complete Changeset Summary
+1485 12:21p 🔵 WebSocket Disconnect Crash During replay_all — Root Cause Identified
+1486 " 🔵 agent._send Does Not Handle WebSocketDisconnect — No Existing Protection
+1487 12:22p 🔵 agent._send Confirmed Bare — No Disconnect Guard, Full Code Path Mapped
+1488 " 🔵 No Existing WebSocket Disconnect Tests — Clean Slate for New Coverage
+1489 " 🔴 WebSocket Disconnect Crash Fix During replay_all Result Sending
+1490 12:26p 🔴 agent.py _send() Hardened Against WebSocket Disconnect
+1491 " 🔴 server.py WebSocket Disconnect Guard for replay_all and replay_one
+1492 " 🟣 Tests Added for WebSocket Disconnect Safety in replay_all
+1493 " 🔵 test_replay_all.py Structure and Insertion Point Investigation
+1494 12:27p 🔴 Both New Disconnect Tests Successfully Inserted into test_replay_all.py
+1495 " 🔴 All 123 Tests Pass After WebSocket Disconnect Fix
+1496 " 🔴 Runtime Variable Safety Check: All New Variables Confirmed Defined Before Use
+1497 " 🔴 WebSocket Disconnect Fix Fully Verified: 96 Tests Pass, Final Diff Confirmed
+1498 12:28p 🔴 Complete Git Diff: WebSocket Disconnect Fix — Full Change Record
 
-Access 914k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 727k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

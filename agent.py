@@ -12,6 +12,7 @@ from uuid import uuid4
 
 from playwright.async_api import TimeoutError as PlaywrightTimeoutError
 from playwright.async_api import expect
+from starlette.websockets import WebSocketDisconnect
 
 from browser import get_page
 from llm import LLMClient
@@ -140,6 +141,8 @@ class AgentLoop:
         self._run_completion_requested = False
         self.run_stop_requested = False
         self._llm_call_counter = 0
+        self._ws_disconnected = False
+        self._ws_disconnect_logged = False
 
     def _reset_lifecycle_state(self, steps: list[dict] | None = None) -> None:
         self.phase = "planning"
@@ -181,9 +184,36 @@ class AgentLoop:
         self._llm_call_counter = 0
 
     async def _send(self, msg_type: str, **kwargs: Any) -> None:
+        if getattr(self, "_ws_disconnected", False):
+            if msg_type.startswith("replay") and not getattr(self, "_ws_disconnect_logged", False):
+                self._ws_disconnect_logged = True
+                print("[WS] disconnected during replay_all; stopping result send")
+            return
+
         payload = {"type": msg_type}
         payload.update(kwargs)
-        await self.ws.send_json(payload)
+        try:
+            await self.ws.send_json(payload)
+        except WebSocketDisconnect:
+            self._ws_disconnected = True
+            if msg_type.startswith("replay"):
+                self._ws_disconnect_logged = True
+                print("[WS] disconnected during replay_all; stopping result send")
+        except RuntimeError as exc:
+            error_text = str(exc)
+            if "close message has been sent" not in error_text and 'Cannot call "send"' not in error_text:
+                raise
+            self._ws_disconnected = True
+            if msg_type.startswith("replay"):
+                self._ws_disconnect_logged = True
+                print("[WS] disconnected during replay_all; stopping result send")
+        except Exception as exc:
+            if exc.__class__.__name__ != "ClientDisconnected":
+                raise
+            self._ws_disconnected = True
+            if msg_type.startswith("replay"):
+                self._ws_disconnect_logged = True
+                print("[WS] disconnected during replay_all; stopping result send")
 
     def _current_phase(self) -> str:
         phase_tracker = getattr(self, "phase_tracker", None)

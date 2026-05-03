@@ -249,6 +249,60 @@ def test_replay_all_uses_backend_archive_order_and_calls_replay_one_for_each_ste
     }
 
 
+def test_replay_all_stops_sending_after_websocket_disconnect(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    loop = _make_loop()
+    loop.recorded_step_payloads = [
+        _make_recorded_payload("step-1", 1),
+        _make_recorded_payload("step-2", 2),
+    ]
+    loop.replay_recorded_step_payloads_by_step_id = {
+        "step-1": loop.recorded_step_payloads[0],
+        "step-2": loop.recorded_step_payloads[1],
+    }
+
+    class DisconnectingWebSocket:
+        def __init__(self) -> None:
+            self.payloads: list[dict[str, object]] = []
+
+        async def send_json(self, payload: dict[str, object]) -> None:
+            self.payloads.append(payload)
+            if len(self.payloads) == 2:
+                raise RuntimeError('Cannot call "send" once a close message has been sent.')
+
+    fake_ws = DisconnectingWebSocket()
+    loop.ws = fake_ws
+
+    calls: list[str] = []
+
+    async def fake_replay_one(step_id: str) -> dict[str, object]:
+        calls.append(step_id)
+        return _make_success_result(step_id)
+
+    loop.replay_one = fake_replay_one
+
+    result = asyncio.run(loop.replay_all())
+    captured = capsys.readouterr().out
+
+    assert calls == ["step-1", "step-2"]
+    assert fake_ws.payloads == [
+        {"type": "replay_started", "scope": "all", "step_count": 2},
+        {"type": "replay_result", "step_id": "step-1", "ok": True, "status": "success", "operation_count": 1},
+    ]
+    assert result == {
+        "type": "replay_all_result",
+        "ok": True,
+        "stop_on_error": True,
+        "step_ids": ["step-1", "step-2"],
+        "replayed_count": 2,
+        "passed_count": 2,
+        "failed_count": 0,
+    }
+    assert getattr(loop, "_ws_disconnected", False) is True
+    assert "[WS] disconnected during replay_all; stopping result send" in captured
+
+
 def test_replay_all_emits_compact_backend_logs(capsys: pytest.CaptureFixture[str]) -> None:
     loop = _make_loop()
     loop.recorded_step_payloads = [
@@ -481,6 +535,39 @@ def test_replay_all_restores_first_before_url_before_replaying(
         "passed_count": 2,
         "failed_count": 0,
     }
+
+
+def test_replay_all_server_helper_skips_closed_socket_without_fallback_send(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    class ForbiddenWebSocket:
+        def __init__(self) -> None:
+            self.send_calls = 0
+
+        async def send_json(self, payload: dict[str, object]) -> None:  # noqa: ARG002
+            self.send_calls += 1
+            raise AssertionError("send_json should not be called")
+
+    fake_ws = ForbiddenWebSocket()
+    fake_agent = SimpleNamespace(_ws_disconnected=True, _ws_disconnect_logged=False)
+
+    result = asyncio.run(
+        server._send_replay_json(
+            fake_ws,
+            fake_agent,
+            {
+                "type": "replay_all_result",
+                "ok": False,
+            },
+        )
+    )
+    captured = capsys.readouterr().out
+
+    assert result is False
+    assert fake_ws.send_calls == 0
+    assert fake_agent._ws_disconnected is True
+    assert fake_agent._ws_disconnect_logged is True
+    assert "[WS] disconnected during replay_all; stopping result send" in captured
 
 
 def test_replay_all_stops_on_precondition_failure(
