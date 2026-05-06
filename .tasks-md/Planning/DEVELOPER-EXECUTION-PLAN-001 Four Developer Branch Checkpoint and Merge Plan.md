@@ -547,6 +547,7 @@ Type: tests only
 Production code: no  
 Status: completed in `f117599`
 Verification: `9 passed, 16 xfailed`
+Merged into local main at `eb1bd31`
 Merge when:
 
 ```text
@@ -564,6 +565,7 @@ Type: implementation
 Status: completed in `f7e3847`
 Verification: `41 passed, 2 xfailed`
 Deferred seams: `session_state` shape
+Merged into local main at `eb1bd31`
 Merge when:
 
 ```text
@@ -582,6 +584,7 @@ Type: implementation
 Status: completed in `176cad2`
 Verification: `42 passed, 1 xfailed`
 Deferred seams: `session_state` shape
+Merged into local main at `eb1bd31`
 Merge when:
 
 ```text
@@ -601,12 +604,13 @@ MR-1B completed in `f117599`.
 MR-1C completed in `f7e3847`.
 MR-1D completed in `176cad2`.
 DEV-1 status bookkeeping updated in `a589436`.
-Merged into local main at `3d654e8`.
+Merged into local main at `eb1bd31`.
 Verification: `42 passed, 1 xfailed`.
 Deferred seams: `session_state` shape.
 No push was done.
 Forbidden files were not touched.
 AGENTS.md was not staged or committed.
+`.DS_Store` was not staged or committed.
 Next candidate slices:
 1. session_state contract shape/reconnect support
 ```
