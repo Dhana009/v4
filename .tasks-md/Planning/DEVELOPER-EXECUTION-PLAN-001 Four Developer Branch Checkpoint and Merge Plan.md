@@ -545,6 +545,8 @@ allowed/forbidden files documented
 Owner: DEV-1  
 Type: tests only  
 Production code: no  
+Status: completed in `f117599`
+Verification: `9 passed, 16 xfailed`
 Merge when:
 
 ```text
@@ -559,6 +561,9 @@ existing tests still pass or failures are explained
 
 Owner: DEV-1  
 Type: implementation  
+Status: completed in `f7e3847`
+Verification: `41 passed, 2 xfailed`
+Deferred seams: `session_state` shape, stale confirmation run context
 Merge when:
 
 ```text
