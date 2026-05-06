@@ -451,14 +451,19 @@ MR-0B evidence:
 
 MR-2A status: complete, mapping only, no files changed
 
-MR-2B recommended next scope:
-  harness-only normalized evidence baseline
+MR-2B status: complete and committed as b6a2f89
+MR-2B files changed:
+  tests/e2e/harness.py
+  tests/test_e2e_harness.py
+MR-2B evidence:
   backend.log
   frontend.log
   browser-console.log
   summary.md
   file_hashes in manifest
   optional-absence notes
+  7 passed for tests/test_e2e_harness.py
+  41 passed, 2 xfailed for backend/event focused suite
 
 MR-2B forbidden:
   no events.ndjson
