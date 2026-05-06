@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 import socket
@@ -13,7 +14,7 @@ import urllib.request
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, AsyncIterator, Awaitable, Callable, Mapping, TypeVar
+from typing import Any, AsyncIterator, Awaitable, Callable, Mapping, Sequence, TypeVar
 
 from dotenv import dotenv_values
 
@@ -32,6 +33,10 @@ E2E_ARTIFACT_SCHEMA_VERSION = "autoworkbench.e2e.artifacts.v1"
 DEFAULT_E2E_ARTIFACT_PATHS: dict[str, str] = {
     "manifest": "manifest.json",
     "test_result": "test-result.json",
+    "backend_log": "backend.log",
+    "frontend_log": "frontend.log",
+    "browser_console_log": "browser-console.log",
+    "summary": "summary.md",
     "backend_stdout": "backend.stdout.log",
     "backend_stderr": "backend.stderr.log",
     "static_server_stdout": "static-server.stdout.log",
@@ -44,6 +49,10 @@ DEFAULT_E2E_ARTIFACT_PATHS: dict[str, str] = {
     "failure_screenshot": "failure.png",
     "page_html": "page.html",
 }
+DEFAULT_E2E_OPTIONAL_ABSENCE_NOTES: list[str] = [
+    "events.ndjson, commands.json, and rejections.json are deferred to a later backend event stream slice",
+    "trace-summary and redaction-report are deferred to a later trace/export slice",
+]
 T = TypeVar("T")
 
 
@@ -169,6 +178,52 @@ def _normalize_artifact_paths(artifacts: Mapping[str, str | Path] | None) -> dic
     return normalized
 
 
+def _normalize_file_hashes(file_hashes: Mapping[str, str] | None) -> dict[str, str]:
+    if file_hashes is None:
+        return {}
+    normalized: dict[str, str] = {}
+    for name, digest in file_hashes.items():
+        normalized[name] = str(digest)
+    return normalized
+
+
+def _normalize_optional_absence_notes(optional_absence_notes: Sequence[str] | None) -> list[str]:
+    if optional_absence_notes is None:
+        return list(DEFAULT_E2E_OPTIONAL_ABSENCE_NOTES)
+    return [str(note) for note in optional_absence_notes]
+
+
+def _resolve_artifact_file_name(name: str) -> str:
+    return DEFAULT_E2E_ARTIFACT_PATHS.get(name, name)
+
+
+def _hash_text_value(text: str) -> str:
+    return f"sha256:{hashlib.sha256(text.encode('utf-8')).hexdigest()}"
+
+
+def _write_text_artifacts(artifact_dir: Path, artifact_texts: Mapping[str, str] | None) -> dict[str, str]:
+    if not artifact_texts:
+        return {}
+    written: dict[str, str] = {}
+    for name, text in artifact_texts.items():
+        file_name = _resolve_artifact_file_name(name)
+        path = artifact_dir / file_name
+        ensure_directory(path.parent)
+        path.write_text(text, encoding="utf-8")
+        written[file_name] = text
+    return written
+
+
+def _hash_artifact_texts(artifact_texts: Mapping[str, str] | None) -> dict[str, str]:
+    if not artifact_texts:
+        return {}
+    file_hashes: dict[str, str] = {}
+    for name, text in artifact_texts.items():
+        file_name = _resolve_artifact_file_name(name)
+        file_hashes[file_name] = _hash_text_value(text)
+    return file_hashes
+
+
 def write_json_artifact(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
     ensure_directory(path.parent)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
@@ -182,6 +237,8 @@ def build_artifact_manifest(
     status: str = "running",
     created_at: str | None = None,
     artifacts: Mapping[str, str | Path] | None = None,
+    file_hashes: Mapping[str, str] | None = None,
+    optional_absence_notes: Sequence[str] | None = None,
     run_id: str | None = None,
 ) -> dict[str, Any]:
     return {
@@ -192,6 +249,8 @@ def build_artifact_manifest(
         "artifact_dir": str(artifact_dir),
         "status": status,
         "artifacts": _normalize_artifact_paths(artifacts),
+        "file_hashes": _normalize_file_hashes(file_hashes),
+        "optional_absence_notes": _normalize_optional_absence_notes(optional_absence_notes),
     }
 
 
@@ -202,6 +261,8 @@ def write_artifact_manifest(
     status: str = "running",
     created_at: str | None = None,
     artifacts: Mapping[str, str | Path] | None = None,
+    file_hashes: Mapping[str, str] | None = None,
+    optional_absence_notes: Sequence[str] | None = None,
     run_id: str | None = None,
 ) -> dict[str, Any]:
     manifest = build_artifact_manifest(
@@ -210,6 +271,8 @@ def write_artifact_manifest(
         status=status,
         created_at=created_at,
         artifacts=artifacts,
+        file_hashes=file_hashes,
+        optional_absence_notes=optional_absence_notes,
         run_id=run_id,
     )
     return write_json_artifact(artifact_dir / "manifest.json", manifest)
@@ -261,14 +324,23 @@ def finalize_test_result(
     error_summary: str | None = None,
     created_at: str | None = None,
     artifacts: Mapping[str, str | Path] | None = None,
+    artifact_texts: Mapping[str, str] | None = None,
+    file_hashes: Mapping[str, str] | None = None,
+    optional_absence_notes: Sequence[str] | None = None,
     run_id: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
+    _write_text_artifacts(artifact_dir, artifact_texts)
+    resolved_file_hashes = _normalize_file_hashes(file_hashes)
+    if not resolved_file_hashes and artifact_texts:
+        resolved_file_hashes = _hash_artifact_texts(artifact_texts)
     manifest = write_artifact_manifest(
         artifact_dir=artifact_dir,
         test_name=test_name,
         status=status,
         created_at=created_at,
         artifacts=artifacts,
+        file_hashes=resolved_file_hashes,
+        optional_absence_notes=optional_absence_notes,
         run_id=run_id,
     )
     result = write_test_result(
@@ -617,6 +689,17 @@ class E2ESession:
     def backend_logs(self) -> str:
         return f"{self.backend.stdout_path.read_text(encoding='utf-8', errors='replace')}\n{self.backend.stderr_path.read_text(encoding='utf-8', errors='replace')}"
 
+    def _build_summary_markdown(self) -> str:
+        stage_history = ", ".join(self.stage_history) if self.stage_history else "none"
+        return (
+            f"# {self.test_name}\n\n"
+            f"- status: {self.result_status}\n"
+            f"- artifact_dir: {self.artifact_dir}\n"
+            f"- run_id: {self.run_id}\n"
+            f"- created_at: {self.created_at}\n"
+            f"- stage_history: {stage_history}\n"
+        )
+
     async def close(self) -> None:
         self.write_console_log()
         self.backend.stop()
@@ -629,12 +712,20 @@ class E2ESession:
             await self.playwright.stop()
         except Exception:
             pass
+        artifact_texts = {
+            "backend.log": self.backend_logs(),
+            "frontend.log": "\n".join(self.console_entries),
+            "browser-console.log": "\n".join(self.console_entries),
+            "summary.md": self._build_summary_markdown(),
+        }
         finalize_test_result(
             artifact_dir=self.artifact_dir,
             test_name=self.test_name,
             status=self.result_status,
             error_summary=self.result_error_summary,
             created_at=self.created_at,
+            artifact_texts=artifact_texts,
+            optional_absence_notes=DEFAULT_E2E_OPTIONAL_ABSENCE_NOTES,
             run_id=self.run_id,
         )
 
@@ -708,6 +799,7 @@ async def start_e2e_session(*, test_name: str, app_root: Path) -> AsyncIterator[
         test_name=test_name,
         status="running",
         created_at=created_at,
+        optional_absence_notes=DEFAULT_E2E_OPTIONAL_ABSENCE_NOTES,
         run_id=run_id,
     )
     write_test_result(
