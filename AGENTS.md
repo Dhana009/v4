@@ -1,84 +1,77 @@
 <claude-mem-context>
 # Memory Context
 
-# [agent v4] recent context, 2026-05-03 8:48pm GMT+5:30
+# [agent v4] recent context, 2026-05-06 11:27pm GMT+5:30
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (22,184t read) | 516,158t work | 96% savings
+Stats: 50 obs (28,900t read) | 481,423t work | 94% savings
 
 ### May 2, 2026
-S99 Phase 3D AutoWorkbench IDE UI — fix scroll, pending delete, step_recorded lifecycle, Recorded Output tabs, Steps tab rework, and 5 enhancements (May 2 at 2:13 AM)
-S100 Phase 3D AutoWorkbench IDE UI — continuing session after restart, re-establishing context from prior Phase 3C work (May 2 at 2:25 AM)
-S101 Fix Phase 3D frontend UI/state bugs in AutoWorkbench IDE panel (spaces, picker, plan state, recorded card layout/titles) (May 2 at 2:55 AM)
-S102 Fix backend multi-step recording bug in agent.py — replace global last_successful_action with per-step successful_action_by_step_id dict (May 2 at 3:14 AM)
-S103 Launch AutoWorkbench agent v4 once and run a smoke test of the clarification UI roundtrip (May 2 at 3:33 AM)
-S104 Add agent phase diagnostics in shadow mode to agent v4 — PhaseTracker implementation in runtime/phase_tracker.py and agent.py wiring (May 2 at 3:57 AM)
 S106 Read-only investigation of recorded parent/child display wording in AutoWorkbench (agent v4) — tracing why parent title and children repeat the same full intent text (May 2 at 7:34 AM)
 S110 Read-only investigation: corrected plan UI shows ASSERT child text as "navigation" instead of "Get started is visible" in agent v4 (May 2 at 11:40 AM)
 ### May 3, 2026
 S111 Fix Element Picker target quality and parent/ancestor selection in agent v4 autoworkbench (May 3 at 5:54 PM)
-1810 8:01p ✅ Frontend Build Rebuilt After sortRecordedSteps Change
-1811 8:06p 🟣 Element Picker Ancestor Candidate Collection — Task Initiated
-1812 8:07p 🔵 Element Picker Flow Architecture Mapped in agent v4
-1813 " 🔵 Picker snapshot() in browser.py Only Captures Clicked Element — Root Cause Confirmed
-1814 " 🔵 Full Agent v4 Picker + Element Info Data Flow — Complete Code Path Mapped
-1815 8:08p 🔵 No Frontend JS Test Harness Confirmed; Build-Only Verification for Frontend Changes
-1816 " 🔵 Backend Test Shape Confirmed — element_info Flat Fields Only, No candidates[] References
-1817 8:12p 🟣 Element Picker Ancestor Selection & Target Quality Enhancement
-1818 8:13p 🔵 agent.py _step_state_summary passes element_info dict as-is to LLM context
-1819 " 🔵 Picker lives in browser.py — overlay injected via page.expose_binding and inline JS script
-1820 " 🔵 Picker JS overlay starts at browser.py line ~831 inside _install_picker_overlay
-1821 8:14p 🟣 Picker snapshot() in browser.py rewritten to capture ranked ancestor candidates
-1822 " 🔴 inferSemanticType patched to correctly classify exact_element category for code/pre/span tags
-1823 8:15p 🟣 frontend/src/main.jsx gains candidate-aware element_info normalization and selectElementInfoCandidate()
-1824 " 🟣 updatePendingStepElementTarget callback wired into React state for candidate switching
-1825 " 🔴 element_picked handler now stores normalized elementInfo in both element_info and elementInfo aliases
-1826 " 🔴 normalizeElementCandidate stops using reason as semanticType fallback
-1827 " 🟣 aw-ide-panel.jsx gains candidate-aware display normalization and target selector UI
-1828 8:16p 🔴 aw-ide-panel display normalization resolves "exact_element" category to human-readable type
-1829 " 🟣 IDEPendingStepCard gains "Selected target" UI section with candidate dropdown
-1830 " 🟣 style-ide.css and IDE panel wiring completed for candidate target selector
-1831 8:17p 🔴 describeElementTargetKind refined to show tag name for exact_element span/text nodes
-1832 " 🔵 Frontend build succeeded cleanly after all picker and UI changes
-1833 " 🔵 agent.py already uses locator_hint in step scoring/matching — new payload field integrates naturally
-1834 8:18p 🟣 agent.py gains _resolve_selected_element_info() and _selected_element_text() for candidate-aware backend normalization
-1835 " 🟣 agent.py _resolve_selected_element_info() integrated into all major element_info read paths
-1836 " 🟣 _build_locator_candidates() now uses selected element text and tries picker locator_hint first
-1837 " 🔴 buildLocatorHint for tab_panel/dialog/form returns raw selector instead of wrapped locator() string
-1838 8:20p 🔴 buildLocatorHint fallback also returns raw selector string instead of wrapped locator() call
-1839 " 🔵 Verified all agent.py element_info read paths now use _resolve_selected_element_info
-1840 " 🔵 _build_locator_from_strategy() reads element_data.text directly — not yet updated to use _selected_element_text
-1841 " 🔵 Final agent.py code inspection confirms all element_info paths correctly updated
-1842 " 🔵 _normalize_steps() passes resolved element_info.text (not clean_text) into element_data dict for LLM tool calls
-1843 8:21p ✅ Final build and compile verification passed for all changed files
-1845 " 🔴 normalizeElementInfo in main.jsx now uses selectedAttributes instead of raw info.attributes
-1846 " ✅ All backend tests passed — 35/35 — after complete agent.py picker integration changes
-1844 " 🔴 _build_locator_candidates() now reads role, class, data-testid, aria-label, id, placeholder from nested attributes dict
-1847 8:22p 🟣 Element Picker Ancestor Candidate Selection — Task Scoped
-1848 " 🔵 Element Picker Ancestor Candidate System Already Implemented in browser.py and main.jsx
-1849 8:23p 🔵 Patch to selectElementInfoCandidate Failed — attributes Line Not Found at Expected Location
-1850 " 🔵 Two Versions of selectElementInfoCandidate Exist in main.jsx — Old at Line 689, Refactored at Line 609
-1851 " 🔴 element_picked Handler Indentation Fixed in main.jsx
-1852 " 🔵 updatePendingStepElementTarget Callback Implements Candidate Switching in main.jsx
-1853 " 🔴 normalizePendingStep Now Preserves Both element_info and elementInfo Aliases
-1854 8:24p 🟣 Element Picker Ancestor Candidate Feature — Build and Tests Pass
-1855 " 🔵 Full Picker Ancestor Candidate Pipeline Architecture Confirmed Across browser.py, main.jsx, aw-ide-panel.jsx, and agent.py
-1856 " 🔵 agent.py _build_locator_candidates Prioritizes locator_hint From Selected Candidate
-1857 8:25p 🔵 Full Set of Modified Files for Picker Ancestor Candidate Feature
-1858 " 🟣 Target Selector UI Styles Added to style-ide.css for Picker Candidate Dropdown
-1859 " 🔵 browser.py scoreCandidate Scoring Weights Confirmed — Interactive Elements Beat Code Blocks Beat Containers
+S113 Build AutoWorkbench Regression Harness v1 — automated test harness with fixture site, mocked LLM helpers, and six regression tests covering state/recording/correction flows in /Users/apple/personal/agent v4 (May 3 at 8:06 PM)
+S114 AutoWorkbench E2E harness port contract fix — backend was starting on PORT=8765 but harness waited on a dynamic port (May 3 at 8:48 PM)
 S112 Build AutoWorkbench Regression Harness v1 — automated end-to-end test harness with fixture site, mock LLM helpers, and six regression tests for state/recording/correction flows (May 3 at 8:48 PM)
-**Investigated**: Existing test infrastructure including tests/*, server.py, browser.py, agent.py, frontend/src/main.jsx, frontend/aw-ide-panel.jsx, package.json, and any pytest fixtures/conftest files were examined to understand: how AgentLoop is instantiated in tests, how fake LLM/model responses are mocked, how websocket commands are tested, whether browser/page fixtures already exist, and whether pytest can launch the local server safely.
+S115 AutoWorkbench E2E harness port contract fix — COMPLETE. Backend was starting on PORT=8765 (.env override) but harness waited on a dynamic port. Full fix delivered and E2E passing. (May 3 at 9:32 PM)
+S116 AutoWorkbench E2E harness port contract fix — all fixes shipped and verified, E2E passing in 48.84s (May 3 at 9:34 PM)
+S117 Tasks.md no-Docker source spike for AutoWorkbench — full evaluation of Markdown Kanban board tooling (May 3 at 9:35 PM)
+### May 6, 2026
+S120 EPIC-008 Recording and Codegen planning — preceded by deep review and quality audit of EPIC-007 Complete LLM Mode MVP Flows batch (May 6 at 1:53 AM)
+2082 2:34a 🔵 Existing Rejection/Blocking Patterns in agent.py Pre-Contract
+2083 2:35a 🟣 Task Markdown File Structure for Backend Runtime Truth Epic
+2084 " 🔵 Backend Runtime Session ID Implementation in agent.py
+2085 " ⚖️ Slice 1 Scope Locked: Contract Tests Before Implementation
+2086 2:36a 🔵 Canonical Schema Version String: "autoworkbench.spec.v1"
+2087 " 🔵 WebSocket Command/Response Envelope Contracts for replay_one and replay_all
+2088 2:37a 🔵 Exact Response Shape Assertions Exist for replay_one and replay_all WebSocket Routes
+2089 " 🔵 schema_version Not Asserted in replay_one or replay_all Response Tests
+2090 2:38a 🔵 Canonical Result Type Strings for All WebSocket Response Envelopes
+2091 " 🟣 Contract Test Suite Created for runtime/event_contracts.py
+2092 " 🟣 save_snapshot_result Envelope Upgraded to Canonical Backend Event Format
+2093 9:09p ⚖️ Batch 12 Testing Doctrine Review Initiated for AutoWorkbench / Playwright Automation Co-pilot
+2094 " 🔵 Batch 12 Testing Doctrine File Sizes Confirmed in AutoWorkbench Project
+2095 " 🔵 Batch 12 Full Testing Doctrine Content Read and Verified for AutoWorkbench
+2096 9:10p 🔵 FINAL-HANDOFF and PLAN-005 Cross-Reference Confirms Batch 12 Doctrine Consistency
+2097 9:19p ⚖️ Batch 13 Test Matrix Review Requested for AutoWorkbench Playwright Automation Co-pilot
+2098 " 🔵 Batch 13 Test Matrix Files Fully Read and Sized for AutoWorkbench Review
+2099 9:20p 🔵 Batch 13 Test Matrices Lack Several PATCH-010-Required Coverage Areas
+2100 9:21p 🔵 PATCH-010 Sections 4–6 Confirm Specific Missing Test Rows in Batch 13 Matrices
+2101 9:22p 🔵 PATCH-010 Sections 7–11 Confirm Frontend, E2E, Trace, and Handoff Gaps in Batch 13
+2102 9:33p 🔵 AutoWorkbench Batch 12/13 Test Mapping Initiative
+2103 " 🔵 AutoWorkbench Repo Test Structure: Complete Inventory
+2104 9:34p 🔵 AutoWorkbench: Complete Test Function Inventory and E2E Flow Details
+2105 9:35p 🔵 AutoWorkbench E2E Test Artifacts and Frontend Test Gap Confirmed
+2106 9:36p ⚖️ Batch 12 Testing Doctrine Review Initiated for AutoWorkbench / Playwright Automation Co-pilot
+2107 " 🔵 AutoWorkbench E2E Test Suite Architecture Mapped
+2108 " 🔵 Six Detailed Test Matrix Files Confirmed Present in AutoWorkbench Planning
+2109 9:37p 🔵 AutoWorkbench Full Task ID Taxonomy Mapped from FINAL-HANDOFF
+2110 9:40p 🔵 AutoWorkbench Core Architecture Contract Documented in SOURCE-001
+2111 9:53p ⚖️ FINAL-HANDOFF-v2 Planning Review Initiated for AutoWorkbench Playwright Co-pilot
+2112 9:54p 🔵 FINAL-HANDOFF-v2 Full Content Captured and Compared Against Source Planning Documents
+2113 10:06p ⚖️ DEVELOPER-EXECUTION-PLAN-001 Review Initiated for AutoWorkbench Playwright Automation Co-pilot
+2114 10:07p 🔵 AutoWorkbench Planning Document Suite Fully Read — DEVELOPER-EXECUTION-PLAN-001 Review Context Established
+2115 " 🔵 PATCH-012 Acceptance Criteria Confirmed — FINAL-HANDOFF-v2 Patch Chain Complete
+2116 10:08p 🔵 FINAL-HANDOFF-v2 Repo Gap Analysis Confirmed — Major Missing Infrastructure Identified
+2117 11:10p 🔵 AutoWorkbench Repo Baseline and Branch Strategy Audit Initiated
+2118 11:11p 🔵 AutoWorkbench Git State: Uncommitted Changes on test-dd-version-one Branch
+2119 11:19p ⚖️ Git Worktree Branch Strategy for Docs/Planning Baseline
+2120 11:20p 🔵 Agent-v4 Source Repo State: Dirty Worktree and Untracked Files Inventoried
+2121 " 🔴 Git Branch Creation Fails: "unable to create directory for refs/heads/backup/" and "refs/heads/docs/"
+2122 11:21p 🔵 Git Ref Lock Failure Root Cause: packed-refs or macOS Filesystem Permissions Issue
+2123 " 🔵 Git Slash-Branch Failure: Not packed-refs, Not Invalid Format — Likely macOS Filesystem or .git Lock File Issue
+2124 " 🔵 Root Cause Found: .git/refs/heads/ Directory is Write-Protected ("Operation not permitted")
+2125 11:24p 🔴 Backup Branch Created Successfully with Escalated Permissions
+2126 " 🟣 docs/planning-baseline Worktree Created at main (commit 08b2cdb)
+2127 " 🔴 rsync Fails with EPERM: --relative Creates Full Absolute Path Tree Instead of Copying to CWD
+2128 11:25p 🟣 rsync Copy to Baseline Worktree Succeeded with Escalated Permissions
+2129 " 🔴 Baseline Worktree Contains Forbidden Paths and Wrong Directory Tree from main Branch
+2130 11:26p 🔵 Branch Inventory: backup and docs/planning-baseline Successfully Created
+2131 " 🔵 Source Worktree Untouched; Baseline Worktree Has Only Spurious "Users/" as Untracked
 
-**Learned**: The AutoWorkbench runtime has a state machine governing phase transitions (pending → plan_ready → executing → confirmed), recorded_steps with parent/child structure, and a correction flow. Existing tests cover multi-action safety, recorded step model, plan correction, code update, completion guard, assertion flow, recovery manager/scope guard, capability gaps, skill loading, context manager, and tool registry. The harness must not duplicate existing helpers and must use fake/stub model responses for all core regression tests.
-
-**Completed**: The main harness shape has been built. The helper file (tests/helpers/autoworkbench_harness.py) seeds all list/dict structures that the runtime writes to, avoiding AttributeError when the fake model steps through flows. Work is at final review stage before completing the implementation.
-
-**Next Steps**: Final review of persistence/summary appenders in the harness helper to ensure every list/dict the runtime writes to is properly initialized. Then: complete fixture site at tests/fixtures/autoworkbench_site/index.html, finalize tests/test_autoworkbench_regression_harness.py with Tests A-F, add tests/README_AUTOWORKBENCH_HARNESS.md, run py_compile verification, and execute the full pytest suite against both new and existing test files.
-
-
-Access 516k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 481k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>
