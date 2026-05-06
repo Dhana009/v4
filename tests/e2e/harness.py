@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import os
 import socket
 import subprocess
@@ -9,13 +10,24 @@ import time
 import urllib.error
 import urllib.request
 from contextlib import asynccontextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, AsyncIterator
+from typing import Any, AsyncIterator, Awaitable, Callable, TypeVar
+
+from dotenv import dotenv_values
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RESULTS_ROOT = REPO_ROOT / "test-results" / "autoworkbench-e2e"
+E2E_LLM_MARKERS = ["[MODEL_ROUTER]", "[LLM_TELEMETRY]", "[CONTEXT_MANAGER]"]
+E2E_LIFECYCLE_MARKERS = [
+    "[PHASE]",
+    "[CONFIRMED_PLAN]",
+    "[EXECUTION_CONTRACT]",
+    "[RECORDING_TARGET]",
+    "[CODE_UPDATE]",
+]
+T = TypeVar("T")
 
 
 def find_free_port() -> int:
@@ -37,7 +49,28 @@ def tail_text(path: Path, line_count: int = 80) -> str:
     return "\n".join(lines[-line_count:])
 
 
-def wait_for_process_log_markers(process: "ManagedProcess", markers: list[str], timeout_s: float = 120.0) -> str:
+def tail_lines_text(text: str, line_count: int = 30) -> str:
+    lines = text.splitlines()
+    if not lines:
+        return ""
+    return "\n".join(lines[-line_count:])
+
+
+def _compact_reason(exc: BaseException) -> str:
+    text = " ".join(str(exc).split())
+    if not text:
+        return "timeout"
+    return text[:160] if len(text) > 160 else text
+
+
+def _detect_marker_line(lines: list[str], markers: list[str]) -> str | None:
+    for line in reversed(lines):
+        if any(marker in line for marker in markers):
+            return line
+    return None
+
+
+def wait_for_process_log_markers(process: "ManagedProcess", markers: list[str], timeout_s: float = 30.0) -> str:
     deadline = time.monotonic() + timeout_s
     last_text = ""
     while time.monotonic() < deadline:
@@ -52,6 +85,25 @@ def wait_for_process_log_markers(process: "ManagedProcess", markers: list[str], 
                 f"stderr:\n{tail_text(process.stderr_path)}"
             )
         time.sleep(0.25)
+    missing = [marker for marker in markers if marker not in last_text]
+    raise TimeoutError(f"Timed out waiting for log markers {missing!r} in {process.name}")
+
+
+async def wait_for_process_log_markers_async(process: "ManagedProcess", markers: list[str], timeout_s: float = 30.0) -> str:
+    deadline = time.monotonic() + timeout_s
+    last_text = ""
+    while time.monotonic() < deadline:
+        last_text = process.stdout_path.read_text(encoding="utf-8", errors="replace")
+        last_text = f"{last_text}\n{process.stderr_path.read_text(encoding='utf-8', errors='replace')}"
+        if all(marker in last_text for marker in markers):
+            return last_text
+        if process.poll() is not None:
+            raise RuntimeError(
+                f"{process.name} exited early with code {process.returncode}\n"
+                f"stdout:\n{tail_text(process.stdout_path)}\n"
+                f"stderr:\n{tail_text(process.stderr_path)}"
+            )
+        await asyncio.sleep(0.25)
     missing = [marker for marker in markers if marker not in last_text]
     raise TimeoutError(f"Timed out waiting for log markers {missing!r} in {process.name}")
 
@@ -85,6 +137,25 @@ def create_run_artifact_dir(test_name: str) -> Path:
     run_dir = RESULTS_ROOT / f"{test_name}-{stamp}-{os.getpid()}"
     ensure_directory(run_dir)
     return run_dir
+
+
+def _load_repo_env_values() -> dict[str, str]:
+    env_path = REPO_ROOT / ".env"
+    raw_values = dotenv_values(env_path)
+    repo_env = {key: value for key, value in raw_values.items() if key and value is not None}
+    openai_key = str(repo_env.get("OPENAI_API_KEY", "")).strip()
+    if not openai_key or not openai_key.startswith("sk-"):
+        raise RuntimeError("Repo .env missing valid OPENAI_API_KEY")
+    return {key: str(value) for key, value in repo_env.items()}
+
+
+def _backend_launch_command() -> list[str]:
+    return [
+        sys.executable,
+        "-c",
+        "import dotenv; dotenv.load_dotenv = lambda *args, **kwargs: None; "
+        "import runpy; runpy.run_module('server', run_name='__main__')",
+    ]
 
 
 @dataclass
@@ -174,7 +245,7 @@ def start_static_server(app_root: Path, artifact_dir: Path, port: int | None = N
         env=env,
         port=server_port,
     )
-    wait_for_http_url(f"{process.base_url}/index.html", label="static server", process=process, timeout_s=30.0)
+    wait_for_http_url(f"{process.base_url}/index.html", label="static server", process=process, timeout_s=10.0)
     return process
 
 
@@ -187,13 +258,17 @@ def start_autoworkbench_backend(
     backend_port = port or find_free_port()
     debugging_port = remote_debugging_port or find_free_port()
     env = os.environ.copy()
+    env.update(_load_repo_env_values())
     env["PYTHONUNBUFFERED"] = "1"
     env["PORT"] = str(backend_port)
     env["START_URL"] = start_url
     env["AUTOWORKBENCH_REMOTE_DEBUGGING_PORT"] = str(debugging_port)
+    assert env["OPENAI_API_KEY"].startswith("sk-")
+    assert env["PORT"] == str(backend_port)
+    assert env["AUTOWORKBENCH_REMOTE_DEBUGGING_PORT"] == str(debugging_port)
     process = start_managed_process(
         name="autoworkbench-backend",
-        command=[sys.executable, "server.py"],
+        command=_backend_launch_command(),
         cwd=REPO_ROOT,
         artifact_dir=artifact_dir,
         stdout_name="backend.stdout.log",
@@ -201,7 +276,9 @@ def start_autoworkbench_backend(
         env=env,
         port=backend_port,
     )
-    wait_for_http_url(f"{process.base_url}/docs", label="AutoWorkbench backend", process=process, timeout_s=90.0)
+    assert process.port == backend_port
+    assert process.base_url == f"http://127.0.0.1:{backend_port}"
+    wait_for_http_url(f"{process.base_url}/docs", label="AutoWorkbench backend", process=process, timeout_s=20.0)
     return process
 
 
@@ -257,10 +334,102 @@ class E2ESession:
     context: Any
     page: Any
     console_entries: list[str]
+    current_stage: str = "initialized"
+    stage_history: list[str] = field(default_factory=list)
+    failure_artifacts_captured: bool = False
 
-    async def save_failure_artifacts(self, reason: str) -> None:
+    def log_stage_ok(self, stage: str) -> None:
+        self.current_stage = stage
+        self.stage_history.append(stage)
+        print(f"[E2E_STAGE] {stage} ok")
+
+    def _backend_log_text(self) -> str:
+        return f"{self.backend.stdout_path.read_text(encoding='utf-8', errors='replace')}\n{self.backend.stderr_path.read_text(encoding='utf-8', errors='replace')}"
+
+    def _backend_log_lines(self) -> list[str]:
+        return self._backend_log_text().splitlines()
+
+    def _backend_marker_lines(self, markers: list[str]) -> dict[str, str | None]:
+        lines = self._backend_log_lines()
+        return {marker: _detect_marker_line(lines, [marker]) for marker in markers}
+
+    def _llm_activity(self) -> tuple[bool, str | None]:
+        lines = self._backend_log_lines()
+        marker_line = _detect_marker_line(lines, E2E_LLM_MARKERS)
+        return marker_line is not None, marker_line
+
+    async def _page_state(self) -> dict[str, Any]:
+        current_url = getattr(self.page, "url", "")
+        overlay_visible = False
+        active_tab = ""
+        active_mode = ""
+        try:
+            overlay_visible = bool(await self.page.locator("#autoworkbench-root .ide-panel").first.is_visible())
+        except Exception:
+            overlay_visible = False
+        try:
+            active_tab = (await self.page.locator(".ide-tab.active").first.inner_text()).strip()
+        except Exception:
+            active_tab = ""
+        try:
+            active_mode = (await self.page.locator(".ide-hd-state").first.inner_text()).strip()
+        except Exception:
+            active_mode = ""
+        return {
+            "current_url": current_url,
+            "overlay_visible": overlay_visible,
+            "active_tab": active_tab or None,
+            "active_mode": active_mode or None,
+        }
+
+    async def save_failure_artifacts(self, reason: str, stage: str | None = None) -> dict[str, Any]:
+        if self.failure_artifacts_captured:
+            return {}
+        self.failure_artifacts_captured = True
+        stage_name = stage or self.current_stage
         ensure_directory(self.artifact_dir)
-        (self.artifact_dir / "failure.txt").write_text(reason, encoding="utf-8")
+        backend_log_text = self._backend_log_text()
+        backend_tail = tail_lines_text(backend_log_text, 30)
+        frontend_tail = "\n".join(self.console_entries[-30:])
+        llm_triggered, last_llm_marker = self._llm_activity()
+        lifecycle_markers = self._backend_marker_lines(E2E_LIFECYCLE_MARKERS)
+        page_state: dict[str, Any] = {}
+        page_error: str | None = None
+        try:
+            page_state = await self._page_state()
+        except Exception as exc:  # noqa: BLE001
+            page_error = str(exc)
+            page_state = {
+                "current_url": getattr(self.page, "url", ""),
+                "overlay_visible": False,
+                "active_tab": None,
+                "active_mode": None,
+            }
+        context = {
+            "artifact_dir": str(self.artifact_dir),
+            "screenshot_path": str(self.artifact_dir / "failure.png"),
+            "page_html_path": str(self.artifact_dir / "page.html"),
+            "backend_tail_path": str(self.artifact_dir / "backend.tail.log"),
+            "frontend_console_tail_path": str(self.artifact_dir / "frontend.console.tail.log"),
+            "stage": stage_name,
+            "reason": reason,
+            "page_state": page_state,
+            "page_error": page_error,
+            "llm_triggered": llm_triggered,
+            "last_llm_marker": last_llm_marker,
+            "backend_lifecycle_markers": lifecycle_markers,
+            "stage_history": self.stage_history + [stage_name],
+        }
+        (self.artifact_dir / "failure.txt").write_text(
+            f"stage={stage_name}\nreason={reason}\nartifact_dir={self.artifact_dir}\n",
+            encoding="utf-8",
+        )
+        (self.artifact_dir / "failure-context.json").write_text(
+            json.dumps(context, indent=2, sort_keys=True),
+            encoding="utf-8",
+        )
+        (self.artifact_dir / "backend.tail.log").write_text(backend_tail, encoding="utf-8")
+        (self.artifact_dir / "frontend.console.tail.log").write_text(frontend_tail, encoding="utf-8")
         try:
             await self.page.screenshot(path=str(self.artifact_dir / "failure.png"), full_page=True)
         except Exception as exc:  # noqa: BLE001
@@ -270,6 +439,24 @@ class E2ESession:
             (self.artifact_dir / "page.html").write_text(page_html, encoding="utf-8")
         except Exception as exc:  # noqa: BLE001
             (self.artifact_dir / "page-html-error.txt").write_text(str(exc), encoding="utf-8")
+        return context
+
+    async def run_stage(self, stage: str, timeout_s: float, action: Callable[[], Awaitable[T]]) -> T:
+        self.current_stage = stage
+        try:
+            result = await asyncio.wait_for(action(), timeout=timeout_s)
+        except Exception as exc:  # noqa: BLE001
+            context = await self.save_failure_artifacts(_compact_reason(exc), stage=stage)
+            llm_triggered = str(context.get("llm_triggered", False)).lower()
+            last_llm_marker = context.get("last_llm_marker") or "none"
+            print(
+                f"[E2E_STAGE] {stage} failed reason={_compact_reason(exc)} "
+                f"llm_triggered={llm_triggered} last_llm_marker={last_llm_marker} artifact_dir={self.artifact_dir}"
+            )
+            raise
+        else:
+            self.log_stage_ok(stage)
+            return result
 
     def write_console_log(self) -> None:
         ensure_directory(self.artifact_dir)
@@ -330,7 +517,7 @@ async def _connect_browser_page(remote_debugging_port: int, target_url: str) -> 
     async_playwright = await _import_playwright_async_api()
     playwright = await async_playwright().start()
     endpoint_url = f"http://127.0.0.1:{remote_debugging_port}"
-    deadline = time.monotonic() + 30.0
+    deadline = time.monotonic() + 20.0
     last_error: Exception | None = None
     while time.monotonic() < deadline:
         try:
@@ -350,7 +537,7 @@ async def _connect_browser_page(remote_debugging_port: int, target_url: str) -> 
         raise RuntimeError("No browser context available after CDP connection")
 
     context = contexts[0]
-    page = await _wait_for_page(context, target_url, timeout_ms=30000)
+    page = await _wait_for_page(context, target_url, timeout_ms=15000)
     return playwright, browser, context, page
 
 
@@ -386,10 +573,12 @@ async def start_e2e_session(*, test_name: str, app_root: Path) -> AsyncIterator[
             page=page,
             console_entries=console_entries,
         )
+        session.log_stage_ok("backend_started")
+        session.log_stage_ok("websocket_connected")
         yield session
     except Exception as exc:
-        if session is not None:
-            await session.save_failure_artifacts(str(exc))
+        if session is not None and not session.failure_artifacts_captured:
+            await session.save_failure_artifacts(str(exc), stage=session.current_stage)
         raise
     finally:
         if session is not None:
@@ -411,12 +600,11 @@ async def start_e2e_session(*, test_name: str, app_root: Path) -> AsyncIterator[
                 static_server.stop()
 
 
-async def wait_for_overlay_ready(page: Any, timeout_ms: int = 120000) -> None:
+async def wait_for_overlay_ready(page: Any, timeout_ms: int = 10000) -> None:
     await page.locator("#autoworkbench-root").wait_for(state="attached", timeout=timeout_ms)
-    await page.get_by_role("button", name="Attach Element").first.wait_for(state="visible", timeout=timeout_ms)
     await page.get_by_role("button", name="Run Pending Steps").first.wait_for(state="visible", timeout=timeout_ms)
 
 
-async def wait_for_agents_page(page: Any, timeout_ms: int = 120000) -> None:
+async def wait_for_agents_page(page: Any, timeout_ms: int = 15000) -> None:
     await page.wait_for_url("**/agents.html", timeout=timeout_ms)
     await page.get_by_role("heading", name="Playwright Test Agents").wait_for(state="visible", timeout=timeout_ms)

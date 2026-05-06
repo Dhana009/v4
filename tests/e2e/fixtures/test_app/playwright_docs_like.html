@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Playwright Test Agents</title>
+    <style>
+      * { box-sizing: border-box; }
+      html, body { margin: 0; min-height: 100%; }
+      body {
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #1f2230;
+        background:
+          radial-gradient(circle at top left, rgba(37, 99, 235, 0.09), transparent 34%),
+          radial-gradient(circle at top right, rgba(16, 185, 129, 0.08), transparent 28%),
+          linear-gradient(180deg, #f6f3ee 0%, #eef5ff 54%, #f9fbf7 100%);
+        padding: 32px 20px 56px;
+      }
+      .docs-shell {
+        width: min(1120px, 100%);
+        margin: 0 auto;
+        display: grid;
+        gap: 18px;
+      }
+      .docs-hero,
+      .docs-card {
+        background: rgba(255, 255, 255, 0.92);
+        border: 1px solid rgba(31, 34, 48, 0.12);
+        border-radius: 26px;
+        box-shadow: 0 22px 70px rgba(31, 34, 48, 0.12);
+      }
+      .docs-hero {
+        padding: 34px 32px 30px;
+      }
+      .docs-kicker {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: rgba(37, 99, 235, 0.08);
+        color: #275fd6;
+        font-size: 12px;
+        font-weight: 700;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+      .docs-hero-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.3fr) minmax(280px, 0.7fr);
+        gap: 18px;
+        align-items: start;
+        margin-top: 18px;
+      }
+      .docs-heading-wrap {
+        display: grid;
+        gap: 14px;
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(40px, 6vw, 74px);
+        line-height: 0.95;
+        letter-spacing: -0.05em;
+      }
+      .docs-heading span {
+        display: inline-block;
+      }
+      .docs-lede {
+        margin: 0;
+        max-width: 60ch;
+        font-size: 18px;
+        line-height: 1.58;
+        color: #5d6473;
+      }
+      .docs-lede .emphasis {
+        color: #1f2230;
+        font-weight: 700;
+      }
+      .docs-meta {
+        display: grid;
+        gap: 10px;
+        padding: 18px;
+        border-radius: 20px;
+        background: linear-gradient(180deg, rgba(17, 24, 39, 0.04), rgba(17, 24, 39, 0.02));
+        border: 1px solid rgba(31, 34, 48, 0.08);
+      }
+      .docs-meta-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        font-size: 14px;
+        color: #5d6473;
+      }
+      .docs-meta-row strong {
+        color: #1f2230;
+      }
+      .docs-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 18px;
+      }
+      .docs-cta,
+      .docs-chip {
+        appearance: none;
+        border: 1px solid rgba(31, 34, 48, 0.12);
+        background: #fff;
+        color: #1f2230;
+        min-height: 46px;
+        padding: 0 18px;
+        border-radius: 999px;
+        font: inherit;
+        font-weight: 700;
+        cursor: pointer;
+      }
+      .docs-cta.primary {
+        background: #111827;
+        color: #fff;
+        border-color: transparent;
+      }
+      .docs-grid {
+        display: grid;
+        grid-template-columns: minmax(0, 1.15fr) minmax(280px, 0.85fr);
+        gap: 18px;
+      }
+      .docs-card {
+        padding: 22px;
+      }
+      .docs-card h2 {
+        margin: 0;
+        font-size: 20px;
+        line-height: 1.15;
+      }
+      .docs-copy {
+        margin: 12px 0 0;
+        color: #5d6473;
+        line-height: 1.55;
+      }
+      .docs-copy span {
+        font-weight: 700;
+        color: #1f2230;
+      }
+      pre {
+        margin: 16px 0 0;
+        padding: 18px 20px;
+        border-radius: 18px;
+        background: #121826;
+        color: #d6e2ff;
+        overflow-x: auto;
+        font-size: 15px;
+        line-height: 1.65;
+      }
+      .docs-targets {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 16px;
+      }
+      .docs-targets button,
+      .docs-targets a {
+        min-height: 44px;
+        padding: 0 16px;
+        border-radius: 999px;
+        border: 1px solid rgba(31, 34, 48, 0.12);
+        background: #fff;
+        color: #1f2230;
+        font: inherit;
+        font-weight: 700;
+        text-decoration: none;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+      }
+      .weak-targets {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 16px;
+      }
+      .weak-span,
+      .weak-div {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 44px;
+        padding: 0 16px;
+        border-radius: 999px;
+        border: 1px dashed rgba(31, 34, 48, 0.24);
+        background: rgba(31, 34, 48, 0.03);
+        color: #1f2230;
+        cursor: pointer;
+        user-select: none;
+      }
+      .docs-footnote {
+        margin-top: 16px;
+        color: #5d6473;
+        font-size: 14px;
+      }
+      .docs-footnote code {
+        font-size: 13px;
+      }
+      @media (max-width: 860px) {
+        .docs-hero-grid,
+        .docs-grid {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+    <script>
+      function activateWeakTarget(label) {
+        const status = document.getElementById("weak-target-status");
+        status.textContent = label;
+      }
+    </script>
+  </head>
+  <body>
+    <main class="docs-shell">
+      <section class="docs-hero generated-hero" aria-labelledby="docs-title">
+        <div class="docs-kicker">Playwright guide / local docs</div>
+        <div class="docs-hero-grid">
+          <div class="docs-heading-wrap">
+            <h1 id="docs-title" class="docs-heading generated-heading">Playwright Test Agents</h1>
+            <p class="docs-lede">
+              This fixture mimics a documentation landing page with nested layout, spans inside text, and a
+              visible heading target that the overlay can assert without navigation.
+              <span class="emphasis">The page stays local.</span>
+            </p>
+            <div class="docs-actions">
+              <a class="docs-cta primary" data-testid="opencode-target" href="index.html">OpenCode</a>
+              <button class="docs-cta" data-testid="claude-code-target" type="button">Claude Code</button>
+            </div>
+          </div>
+          <aside class="docs-meta generated-meta" aria-label="Docs summary">
+            <div class="docs-meta-row"><span>Mode</span><strong>Local</strong></div>
+            <div class="docs-meta-row"><span>Target</span><strong>Visible assertion</strong></div>
+            <div class="docs-meta-row"><span>Overlay</span><strong>Real browser</strong></div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="docs-grid">
+        <article class="docs-card generated-card" aria-labelledby="docs-command-title">
+          <h2 id="docs-command-title">Run locally</h2>
+          <p class="docs-copy">
+            The exact command text below is intentionally visible for future regression coverage and
+            appears inside a code block that looks like a docs snippet.
+          </p>
+          <pre aria-label="init command"><code>npx playwright init-agents --loop=opencode</code></pre>
+          <p class="docs-footnote">
+            The <span>headline</span> above should be enough for the picker while the command block remains
+            available for code-generation checks.
+          </p>
+        </article>
+
+        <article class="docs-card generated-card" aria-labelledby="docs-targets-title">
+          <h2 id="docs-targets-title">Weak targets and local links</h2>
+          <p class="docs-copy">
+            The picker should still be able to find weak div/span button-like elements if needed, but the
+            visible assertion test targets the main heading only.
+          </p>
+          <div class="docs-targets" aria-label="docs targets">
+            <a href="agents.html">Agents</a>
+            <a href="forms.html">Forms</a>
+          </div>
+          <div class="weak-targets">
+            <span
+              id="weak-span-button"
+              class="weak-span"
+              role="button"
+              tabindex="0"
+              data-testid="weak-span-button"
+              onclick="activateWeakTarget('span target activated')"
+            >
+              Weak span button
+            </span>
+            <div
+              id="weak-div-button"
+              class="weak-div"
+              role="button"
+              tabindex="0"
+              data-testid="weak-div-button"
+              onclick="activateWeakTarget('div target activated')"
+            >
+              Weak div button
+            </div>
+          </div>
+          <div id="weak-target-status" class="docs-footnote" aria-live="polite">Ready.</div>
+        </article>
+      </section>
+    </main>
+  </body>
+</html>

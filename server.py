@@ -4,6 +4,7 @@ load_dotenv(override=True)
 import asyncio
 import os
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from typing import Any
 
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
@@ -12,6 +13,75 @@ from agent import AgentLoop
 from browser import arm_picker, launch_browser
 
 PORT = int(os.getenv("PORT", "8765"))
+DISCONNECT_GRACE_SECONDS = 1.5
+
+
+@dataclass
+class WebSocketRunSession:
+    agent: AgentLoop
+    control_queue: asyncio.Queue[dict[str, Any]]
+    ws: WebSocket
+    run_task: asyncio.Task[Any] | None = None
+    disconnect_grace_task: asyncio.Task[Any] | None = None
+
+
+def _get_active_run_session() -> WebSocketRunSession | None:
+    session = getattr(app.state, "active_run_session", None)
+    if isinstance(session, WebSocketRunSession):
+        return session
+    return None
+
+
+def _set_active_run_session(session: WebSocketRunSession | None) -> None:
+    app.state.active_run_session = session
+
+
+def _cancel_disconnect_grace(session: WebSocketRunSession) -> None:
+    grace_task = session.disconnect_grace_task
+    if grace_task is not None and not grace_task.done():
+        grace_task.cancel()
+    session.disconnect_grace_task = None
+
+
+async def _expire_stale_run_session(session: WebSocketRunSession) -> None:
+    await asyncio.sleep(DISCONNECT_GRACE_SECONDS)
+    current_session = _get_active_run_session()
+    if current_session is not session:
+        return
+    run_task = session.run_task
+    if run_task is None or run_task.done():
+        return
+    print("[WS_DISCONNECT_GRACE] grace expired; cancelling stale active run")
+    run_task.cancel()
+    try:
+        await run_task
+    except Exception:
+        pass
+    if _get_active_run_session() is session:
+        _set_active_run_session(None)
+
+
+def _attach_or_create_run_session(ws: WebSocket) -> tuple[WebSocketRunSession, bool]:
+    session = _get_active_run_session()
+    if session is not None and session.run_task is not None and not session.run_task.done():
+        session.ws = ws
+        session.agent.ws = ws
+        setattr(session.agent, "_ws_disconnected", False)
+        setattr(session.agent, "_ws_disconnect_logged", False)
+        _cancel_disconnect_grace(session)
+        print("[WS_RECONNECT] reattached active run session")
+        print("[RUN_TASK_PRESERVED] active run continues after websocket reconnect")
+        return session, True
+
+    if session is not None:
+        _cancel_disconnect_grace(session)
+        _set_active_run_session(None)
+
+    control_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
+    agent = AgentLoop(ws, control_queue)
+    session = WebSocketRunSession(agent=agent, control_queue=control_queue, ws=ws)
+    _set_active_run_session(session)
+    return session, False
 
 
 def _is_closed_websocket_error(exc: BaseException) -> bool:
@@ -59,7 +129,7 @@ async def lifespan(app: FastAPI):  # noqa: ARG001
     key = os.getenv("OPENAI_API_KEY", "")
     if not key or not key.startswith("sk-"):
         raise RuntimeError("OPENAI_API_KEY missing or invalid in .env")
-    print(f"[startup] API key loaded: {key[:8]}...")
+    print("[startup] OPENAI_API_KEY loaded: yes source: repo .env")
     print(f"[startup] PORT={PORT}")
     await launch_browser()
     yield
@@ -74,9 +144,7 @@ async def ws_endpoint(ws: WebSocket) -> None:
 
     await ws.send_json({"type": "status", "message": "Browser launched. Ready."})
 
-    control_queue: asyncio.Queue[dict[str, Any]] = asyncio.Queue()
-    agent = AgentLoop(ws, control_queue)
-    run_task: asyncio.Task[Any] | None = None
+    session, _reattached = _attach_or_create_run_session(ws)
 
     async def picker_send(msg: dict) -> None:
         await ws.send_json(msg)
@@ -88,15 +156,25 @@ async def ws_endpoint(ws: WebSocket) -> None:
 
             if msg_type == "run_steps":
                 steps = msg.get("steps") or []
-                if run_task and not run_task.done():
+                if session.run_task and not session.run_task.done():
                     await ws.send_json({"type": "status", "message": "Run already in progress."})
                     continue
-                run_task = asyncio.create_task(agent.run(steps))
+                run_task = asyncio.create_task(session.agent.run(steps))
+                session.run_task = run_task
+
+                def _clear_session_when_done(task: asyncio.Task[Any]) -> None:
+                    if session.run_task is task:
+                        session.run_task = None
+                        _cancel_disconnect_grace(session)
+                        if _get_active_run_session() is session:
+                            _set_active_run_session(None)
+
+                run_task.add_done_callback(_clear_session_when_done)
                 continue
 
             if msg_type == "save_snapshot":
                 try:
-                    snapshot = agent._build_spec_snapshot()
+                    snapshot = session.agent._build_spec_snapshot()
                     await ws.send_json(
                         {
                             "type": "save_snapshot_result",
@@ -118,7 +196,7 @@ async def ws_endpoint(ws: WebSocket) -> None:
             if msg_type == "replay_one":
                 step_id = str(msg.get("step_id") or "").strip()
                 try:
-                    result = await agent.replay_one(step_id)
+                    result = await session.agent.replay_one(step_id)
                 except Exception as exc:  # noqa: BLE001
                     result = {
                         "type": "replay_one_result",
@@ -126,7 +204,7 @@ async def ws_endpoint(ws: WebSocket) -> None:
                         "step_id": step_id,
                         "error": f"Replay failed: {type(exc).__name__}",
                     }
-                if not await _send_replay_json(ws, agent, result):
+                if not await _send_replay_json(ws, session.agent, result):
                     break
                 continue
 
@@ -138,7 +216,7 @@ async def ws_endpoint(ws: WebSocket) -> None:
                     stop_on_error_text = str(stop_on_error_value or "").strip().lower()
                     stop_on_error = stop_on_error_text not in {"false", "0", "no", "off", ""}
                 try:
-                    result = await agent.replay_all(stop_on_error=stop_on_error)
+                    result = await session.agent.replay_all(stop_on_error=stop_on_error)
                 except WebSocketDisconnect:
                     print("[WS] disconnected during replay_all; stopping result send")
                     break
@@ -148,7 +226,7 @@ async def ws_endpoint(ws: WebSocket) -> None:
                         break
                     raise
                 except Exception as exc:  # noqa: BLE001
-                    if getattr(agent, "_ws_disconnected", False) or exc.__class__.__name__ == "ClientDisconnected":
+                    if getattr(session.agent, "_ws_disconnected", False) or exc.__class__.__name__ == "ClientDisconnected":
                         print("[WS] disconnected during replay_all; stopping result send")
                         break
                     fallback_result = {
@@ -161,10 +239,10 @@ async def ws_endpoint(ws: WebSocket) -> None:
                         "failed_count": 0,
                         "error": f"Replay failed: {type(exc).__name__}",
                     }
-                    if not await _send_replay_json(ws, agent, fallback_result):
+                    if not await _send_replay_json(ws, session.agent, fallback_result):
                         break
                 else:
-                    if not getattr(agent, "_replay_all_result_sent", False):
+                    if not getattr(session.agent, "_replay_all_result_sent", False):
                         if not isinstance(result, dict):
                             result = {
                                 "type": "replay_all_result",
@@ -176,12 +254,12 @@ async def ws_endpoint(ws: WebSocket) -> None:
                                 "failed_count": 0,
                                 "error": "Replay failed",
                             }
-                        if not await _send_replay_json(ws, agent, result):
+                        if not await _send_replay_json(ws, session.agent, result):
                             break
                 continue
 
             if msg_type in {"confirmed", "correction", "option_selected"}:
-                await control_queue.put(msg)
+                await session.control_queue.put(msg)
                 continue
 
             if msg_type == "arm_picker":
@@ -194,14 +272,18 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 continue
 
             if msg_type == "reset":
-                agent.llm.reset()
+                session.agent.llm.reset()
                 await ws.send_json({"type": "status", "message": "Session reset."})
                 continue
 
             await ws.send_json({"type": "error", "message": f"Unsupported message type: {msg_type}"})
     except WebSocketDisconnect:
-        if run_task and not run_task.done():
-            run_task.cancel()
+        if session.run_task and not session.run_task.done():
+            print("[WS_DISCONNECT_GRACE] active run disconnected; awaiting reconnect")
+            if session.disconnect_grace_task is None or session.disconnect_grace_task.done():
+                session.disconnect_grace_task = asyncio.create_task(_expire_stale_run_session(session))
+        elif _get_active_run_session() is session:
+            _set_active_run_session(None)
 
 
 if __name__ == "__main__":

@@ -1809,6 +1809,8 @@ def test_plan_correction_schema_retry_context_message_is_explicit() -> None:
     context_message = loop._build_plan_correction_context_message()
 
     assert "You MUST respond with send_to_overlay message_type='plan_correction_diff'" in context_message
+    assert "Your send_to_overlay call must include a payload with target_step_id and mutations." in context_message
+    assert "message_type-only plan_correction_diff call is invalid" in context_message
     assert "Do NOT respond with plan_ready" in context_message
     assert "Do NOT respond with llm_thinking" in context_message
     assert "Do NOT use ask_user unless" in context_message

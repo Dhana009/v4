@@ -2194,6 +2194,17 @@ class AgentLoop:
                     expected_value = candidate_text
                     break
 
+        locator = self._normalize_space(
+            str(
+                operation_data.get("locator")
+                or anchor_child_data.get("locator")
+                or source_step_data.get("locator")
+                or self._derive_locator_from_step_context(source_step_data)
+                or ""
+            )
+        ).strip()
+        if locator in {"*", 'page.locator("")'}:
+            locator = ""
         target = self._select_plan_correction_child_target(
             [
                 ("operation.target", operation_data.get("target")),
@@ -2220,17 +2231,22 @@ class AgentLoop:
             ):
                 target = expected_value
 
-        locator = self._normalize_space(
-            str(
-                operation_data.get("locator")
-                or anchor_child_data.get("locator")
-                or source_step_data.get("locator")
-                or self._derive_locator_from_step_context(source_step_data)
-                or ""
-            )
-        ).strip()
-        if locator in {"*", 'page.locator("")'}:
-            locator = ""
+        if assertion in {"visible", "has_text"} and source_element_text:
+            if (
+                not target_text
+                or self._is_outcome_like_label(target_text)
+                or source_element_text in target_text
+                or target_text in source_element_text
+                or "heading" in target_text.lower()
+            ):
+                target = source_element_text
+
+        if assertion in {"visible", "has_text"}:
+            locator_value_text = source_element_text or expected_value or target_text
+            normalized_locator = self._normalize_space(locator).strip().lower()
+            if locator_value_text and normalized_locator in {"main", 'page.locator("main")', "page.locator('main')"}:
+                locator = f'get_by_text("{self._tool_string_escape(locator_value_text)}", exact=True)'
+
         if not locator and assertion == "has_text" and expected_value:
             locator = f'get_by_text("{self._tool_string_escape(expected_value)}", exact=True)'
 
@@ -3365,6 +3381,8 @@ class AgentLoop:
                 child_description = self._describe_confirmed_execution_child(child)
                 lines.append(f"{index}. {child_description} [{status}]")
         lines.append("Use these confirmed children in order.")
+        lines.append("- Use the confirmed child locator exactly as written.")
+        lines.append("- Do not swap a confirmed locator for a different equivalent locator during retries.")
         lines.append("Do not replace them with page.title assertions.")
         lines.append("Do not skip or reorder children.")
         return "\n".join(lines)
@@ -3992,6 +4010,8 @@ class AgentLoop:
         lines.extend(self._build_plan_correction_operation_context_lines(active_plan_state))
         lines.append("Mutation rules:")
         lines.append("- You MUST respond with send_to_overlay message_type='plan_correction_diff'.")
+        lines.append("- Your send_to_overlay call must include a payload with target_step_id and mutations.")
+        lines.append("- An empty or message_type-only plan_correction_diff call is invalid.")
         lines.append("- Do NOT respond with plan_ready during correction mode.")
         lines.append("- Do NOT respond with llm_thinking during correction mode.")
         lines.append("- Do NOT use ask_user unless the correction category is ambiguous.")

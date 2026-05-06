@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from fastapi.testclient import TestClient
 
 import server
+from runtime.event_contracts import BACKEND_EVENT_SCHEMA_VERSION
 
 
 class FakeQueue:
@@ -103,7 +104,10 @@ def test_save_snapshot_ws_returns_snapshot_and_skips_control_queue(monkeypatch) 
             response = websocket.receive_json()
 
     assert response["type"] == "save_snapshot_result"
+    assert response["schema_version"] == BACKEND_EVENT_SCHEMA_VERSION
     assert response["ok"] is True
+    assert response["payload"]["ok"] is True
+    assert response["payload"]["snapshot"] == snapshot
     assert response["snapshot"] == snapshot
     assert response["snapshot"]["plan_ready"]["steps"][0]["expected_outcome"] == {
         "type": "navigation",
@@ -131,7 +135,10 @@ def test_save_snapshot_ws_returns_safe_failure_message(monkeypatch) -> None:
             response = websocket.receive_json()
 
     assert response["type"] == "save_snapshot_result"
+    assert response["schema_version"] == BACKEND_EVENT_SCHEMA_VERSION
     assert response["ok"] is False
+    assert response["payload"]["ok"] is False
+    assert response["payload"]["error"] == "Snapshot save failed: RuntimeError"
     assert response["error"] == "Snapshot save failed: RuntimeError"
     assert created["agent"].control_queue is fake_queue
     assert fake_queue.items == []

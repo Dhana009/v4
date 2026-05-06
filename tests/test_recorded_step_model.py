@@ -737,6 +737,70 @@ def test_confirmed_execution_contract_accepts_exact_text_alias_with_has_text_act
     assert allowed_result["expected_child"]["assertion"] == "exact_text"
 
 
+def test_canonicalize_assertion_operation_prefers_exact_text_for_generic_main_locator() -> None:
+    loop = _make_loop()
+    step_context = _make_step_context()
+    step_context["intent"] = "Assert Playwright Test Agents is visible"
+    step_context["element_name"] = "Playwright Test Agents"
+    step_context["element_info"] = {
+        "text": "Playwright Test Agents",
+        "attributes": {"aria-label": "Playwright Test Agents"},
+    }
+
+    child = loop._canonicalize_assertion_operation(
+        {
+            "type": "assert",
+            "target": "Playwright Test Agents",
+            "locator": "main",
+            "assertion": "visible",
+        },
+        source_step=step_context,
+    )
+
+    assert child["assertion"] == "visible"
+    assert child["target"] == "Playwright Test Agents"
+    assert child["description"] == "Playwright Test Agents is visible"
+    assert child["locator"] == 'get_by_text("Playwright Test Agents", exact=True)'
+
+
+def test_confirmed_execution_context_message_requires_exact_child_locator() -> None:
+    loop = _make_loop()
+    step_context = _make_step_context()
+    loop._recording_steps = [step_context]
+    loop.step_state_by_id = {"step-1": step_context}
+    loop.step_context_by_id = loop.step_state_by_id
+    loop.plan_confirmed = True
+    loop.confirmed_plan_by_step_id = {
+        "step-1": {
+            "step_id": "step-1",
+            "step_number": 1,
+            "parent_intent": step_context["intent"],
+            "expected_outcome": step_context["expected_outcome"],
+            "children": [
+                {
+                    "operation_id": "op_1",
+                    "type": "assert",
+                    "target": "Submit",
+                    "locator": 'main',
+                    "assertion": "visible",
+                    "status": "planned",
+                }
+            ],
+            "plan_id": "plan-1",
+            "summary": "Check Submit is visible",
+            "original_user_intent": step_context["intent"],
+        }
+    }
+    loop.confirmed_plan_step_ids = ["step-1"]
+    loop.confirmed_child_results_by_step_id = {"step-1": {}}
+    loop.confirmed_execution_mismatch_count_by_step_id = {"step-1": 0}
+
+    context_message = loop._build_confirmed_execution_context_message()
+
+    assert "Use the confirmed child locator exactly as written." in context_message
+    assert "Do not swap a confirmed locator for a different equivalent locator during retries." in context_message
+
+
 def test_step_recorded_payload_advances_confirmed_cursor_and_keeps_step_two_assert_isolated() -> None:
     loop = _make_loop()
     raw_steps = [
