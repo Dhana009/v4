@@ -431,6 +431,52 @@ Inspect current test commands, E2E harness, artifact output, fixture coverage, C
 Do not implement product behavior.
 ```
 
+### Current checkpoint
+
+```text
+Branch: dev4/test-infra-artifact-readiness
+Worktree: /Users/apple/personal/agent-v4-dev-4
+
+MR-0A status: complete, discovery/mapping only, no files changed
+
+MR-0B status: complete and committed as fadbe98
+MR-0B files changed:
+  tests/e2e/harness.py
+  tests/test_e2e_harness.py
+MR-0B evidence:
+  manifest.json baseline
+  test-result.json baseline
+  5 passed for tests/test_e2e_harness.py
+  41 passed, 2 xfailed for backend/event focused suite
+
+MR-2A status: complete, mapping only, no files changed
+
+MR-2B status: complete and committed as b6a2f89
+MR-2B files changed:
+  tests/e2e/harness.py
+  tests/test_e2e_harness.py
+MR-2B evidence:
+  backend.log
+  frontend.log
+  browser-console.log
+  summary.md
+  file_hashes in manifest
+  optional-absence notes
+  7 passed for tests/test_e2e_harness.py
+  41 passed, 2 xfailed for backend/event focused suite
+
+MR-2B forbidden:
+  no events.ndjson
+  no commands.json
+  no rejections.json
+  no redaction
+  no trace export
+  no backend/runtime/frontend/fixture/CI changes
+
+Dirty state:
+  AGENTS.md may remain dirty as local metadata; do not stage it.
+```
+
 ### Matrix areas
 
 ```text
@@ -511,6 +557,7 @@ PR-0B minimal test command/coverage/artifact config
 
 Owner: DEV-4  
 Type: mapping/discovery  
+Status: complete in `fadbe98`; discovery only; no files changed  
 Production code: no  
 Merge when:
 
@@ -617,6 +664,7 @@ Next candidate slices:
 
 Owner: DEV-4  
 Type: mapping  
+Status: complete; mapping only; no files changed  
 Merge when:
 
 ```text
@@ -631,6 +679,7 @@ trace/export scope separated from first baseline
 
 Owner: DEV-4  
 Type: test infrastructure  
+Status: recommended next scope  
 Merge when:
 
 ```text

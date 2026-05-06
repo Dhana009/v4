@@ -1,18 +1,20 @@
 from __future__ import annotations
 
 import asyncio
+import hashlib
 import json
 import os
 import socket
 import subprocess
 import sys
 import time
+from datetime import datetime, timezone
 import urllib.error
 import urllib.request
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, AsyncIterator, Awaitable, Callable, TypeVar
+from typing import Any, AsyncIterator, Awaitable, Callable, Mapping, Sequence, TypeVar
 
 from dotenv import dotenv_values
 
@@ -26,6 +28,30 @@ E2E_LIFECYCLE_MARKERS = [
     "[EXECUTION_CONTRACT]",
     "[RECORDING_TARGET]",
     "[CODE_UPDATE]",
+]
+E2E_ARTIFACT_SCHEMA_VERSION = "autoworkbench.e2e.artifacts.v1"
+DEFAULT_E2E_ARTIFACT_PATHS: dict[str, str] = {
+    "manifest": "manifest.json",
+    "test_result": "test-result.json",
+    "backend_log": "backend.log",
+    "frontend_log": "frontend.log",
+    "browser_console_log": "browser-console.log",
+    "summary": "summary.md",
+    "backend_stdout": "backend.stdout.log",
+    "backend_stderr": "backend.stderr.log",
+    "static_server_stdout": "static-server.stdout.log",
+    "static_server_stderr": "static-server.stderr.log",
+    "frontend_console": "frontend.console.log",
+    "backend_tail": "backend.tail.log",
+    "frontend_console_tail": "frontend.console.tail.log",
+    "failure": "failure.txt",
+    "failure_context": "failure-context.json",
+    "failure_screenshot": "failure.png",
+    "page_html": "page.html",
+}
+DEFAULT_E2E_OPTIONAL_ABSENCE_NOTES: list[str] = [
+    "events.ndjson, commands.json, and rejections.json are deferred to a later backend event stream slice",
+    "trace-summary and redaction-report are deferred to a later trace/export slice",
 ]
 T = TypeVar("T")
 
@@ -137,6 +163,194 @@ def create_run_artifact_dir(test_name: str) -> Path:
     run_dir = RESULTS_ROOT / f"{test_name}-{stamp}-{os.getpid()}"
     ensure_directory(run_dir)
     return run_dir
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat(timespec="seconds").replace("+00:00", "Z")
+
+
+def _normalize_artifact_paths(artifacts: Mapping[str, str | Path] | None) -> dict[str, str]:
+    if artifacts is None:
+        return dict(DEFAULT_E2E_ARTIFACT_PATHS)
+    normalized: dict[str, str] = {}
+    for name, path in artifacts.items():
+        normalized[name] = str(path)
+    return normalized
+
+
+def _normalize_file_hashes(file_hashes: Mapping[str, str] | None) -> dict[str, str]:
+    if file_hashes is None:
+        return {}
+    normalized: dict[str, str] = {}
+    for name, digest in file_hashes.items():
+        normalized[name] = str(digest)
+    return normalized
+
+
+def _normalize_optional_absence_notes(optional_absence_notes: Sequence[str] | None) -> list[str]:
+    if optional_absence_notes is None:
+        return list(DEFAULT_E2E_OPTIONAL_ABSENCE_NOTES)
+    return [str(note) for note in optional_absence_notes]
+
+
+def _resolve_artifact_file_name(name: str) -> str:
+    return DEFAULT_E2E_ARTIFACT_PATHS.get(name, name)
+
+
+def _hash_text_value(text: str) -> str:
+    return f"sha256:{hashlib.sha256(text.encode('utf-8')).hexdigest()}"
+
+
+def _write_text_artifacts(artifact_dir: Path, artifact_texts: Mapping[str, str] | None) -> dict[str, str]:
+    if not artifact_texts:
+        return {}
+    written: dict[str, str] = {}
+    for name, text in artifact_texts.items():
+        file_name = _resolve_artifact_file_name(name)
+        path = artifact_dir / file_name
+        ensure_directory(path.parent)
+        path.write_text(text, encoding="utf-8")
+        written[file_name] = text
+    return written
+
+
+def _hash_artifact_texts(artifact_texts: Mapping[str, str] | None) -> dict[str, str]:
+    if not artifact_texts:
+        return {}
+    file_hashes: dict[str, str] = {}
+    for name, text in artifact_texts.items():
+        file_name = _resolve_artifact_file_name(name)
+        file_hashes[file_name] = _hash_text_value(text)
+    return file_hashes
+
+
+def write_json_artifact(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
+    ensure_directory(path.parent)
+    path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
+    return payload
+
+
+def build_artifact_manifest(
+    *,
+    artifact_dir: Path,
+    test_name: str,
+    status: str = "running",
+    created_at: str | None = None,
+    artifacts: Mapping[str, str | Path] | None = None,
+    file_hashes: Mapping[str, str] | None = None,
+    optional_absence_notes: Sequence[str] | None = None,
+    run_id: str | None = None,
+) -> dict[str, Any]:
+    return {
+        "schema_version": E2E_ARTIFACT_SCHEMA_VERSION,
+        "test_name": test_name,
+        "run_id": run_id or artifact_dir.name,
+        "created_at": created_at or _utc_now_iso(),
+        "artifact_dir": str(artifact_dir),
+        "status": status,
+        "artifacts": _normalize_artifact_paths(artifacts),
+        "file_hashes": _normalize_file_hashes(file_hashes),
+        "optional_absence_notes": _normalize_optional_absence_notes(optional_absence_notes),
+    }
+
+
+def write_artifact_manifest(
+    *,
+    artifact_dir: Path,
+    test_name: str,
+    status: str = "running",
+    created_at: str | None = None,
+    artifacts: Mapping[str, str | Path] | None = None,
+    file_hashes: Mapping[str, str] | None = None,
+    optional_absence_notes: Sequence[str] | None = None,
+    run_id: str | None = None,
+) -> dict[str, Any]:
+    manifest = build_artifact_manifest(
+        artifact_dir=artifact_dir,
+        test_name=test_name,
+        status=status,
+        created_at=created_at,
+        artifacts=artifacts,
+        file_hashes=file_hashes,
+        optional_absence_notes=optional_absence_notes,
+        run_id=run_id,
+    )
+    return write_json_artifact(artifact_dir / "manifest.json", manifest)
+
+
+def build_test_result(
+    *,
+    artifact_dir: Path,
+    test_name: str,
+    status: str = "unknown",
+    error_summary: str | None = None,
+    run_id: str | None = None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "schema_version": E2E_ARTIFACT_SCHEMA_VERSION,
+        "test_name": test_name,
+        "run_id": run_id or artifact_dir.name,
+        "artifact_dir": str(artifact_dir),
+        "status": status,
+    }
+    if error_summary:
+        payload["error_summary"] = error_summary
+    return payload
+
+
+def write_test_result(
+    *,
+    artifact_dir: Path,
+    test_name: str,
+    status: str = "unknown",
+    error_summary: str | None = None,
+    run_id: str | None = None,
+) -> dict[str, Any]:
+    result = build_test_result(
+        artifact_dir=artifact_dir,
+        test_name=test_name,
+        status=status,
+        error_summary=error_summary,
+        run_id=run_id,
+    )
+    return write_json_artifact(artifact_dir / "test-result.json", result)
+
+
+def finalize_test_result(
+    *,
+    artifact_dir: Path,
+    test_name: str,
+    status: str,
+    error_summary: str | None = None,
+    created_at: str | None = None,
+    artifacts: Mapping[str, str | Path] | None = None,
+    artifact_texts: Mapping[str, str] | None = None,
+    file_hashes: Mapping[str, str] | None = None,
+    optional_absence_notes: Sequence[str] | None = None,
+    run_id: str | None = None,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    _write_text_artifacts(artifact_dir, artifact_texts)
+    resolved_file_hashes = _normalize_file_hashes(file_hashes)
+    if not resolved_file_hashes and artifact_texts:
+        resolved_file_hashes = _hash_artifact_texts(artifact_texts)
+    manifest = write_artifact_manifest(
+        artifact_dir=artifact_dir,
+        test_name=test_name,
+        status=status,
+        created_at=created_at,
+        artifacts=artifacts,
+        file_hashes=resolved_file_hashes,
+        optional_absence_notes=optional_absence_notes,
+        run_id=run_id,
+    )
+    result = write_test_result(
+        artifact_dir=artifact_dir,
+        test_name=test_name,
+        status=status,
+        error_summary=error_summary,
+        run_id=run_id,
+    )
+    return manifest, result
 
 
 def _load_repo_env_values() -> dict[str, str]:
@@ -327,6 +541,9 @@ async def _wait_for_locator_text(locator: Any, expected_text: str, timeout_ms: i
 @dataclass
 class E2ESession:
     artifact_dir: Path
+    test_name: str
+    run_id: str
+    created_at: str
     static_server: ManagedProcess
     backend: ManagedProcess
     playwright: Any
@@ -337,6 +554,8 @@ class E2ESession:
     current_stage: str = "initialized"
     stage_history: list[str] = field(default_factory=list)
     failure_artifacts_captured: bool = False
+    result_status: str = "unknown"
+    result_error_summary: str | None = None
 
     def log_stage_ok(self, stage: str) -> None:
         self.current_stage = stage
@@ -386,6 +605,8 @@ class E2ESession:
         if self.failure_artifacts_captured:
             return {}
         self.failure_artifacts_captured = True
+        self.result_status = "failed"
+        self.result_error_summary = reason
         stage_name = stage or self.current_stage
         ensure_directory(self.artifact_dir)
         backend_log_text = self._backend_log_text()
@@ -468,6 +689,17 @@ class E2ESession:
     def backend_logs(self) -> str:
         return f"{self.backend.stdout_path.read_text(encoding='utf-8', errors='replace')}\n{self.backend.stderr_path.read_text(encoding='utf-8', errors='replace')}"
 
+    def _build_summary_markdown(self) -> str:
+        stage_history = ", ".join(self.stage_history) if self.stage_history else "none"
+        return (
+            f"# {self.test_name}\n\n"
+            f"- status: {self.result_status}\n"
+            f"- artifact_dir: {self.artifact_dir}\n"
+            f"- run_id: {self.run_id}\n"
+            f"- created_at: {self.created_at}\n"
+            f"- stage_history: {stage_history}\n"
+        )
+
     async def close(self) -> None:
         self.write_console_log()
         self.backend.stop()
@@ -480,6 +712,22 @@ class E2ESession:
             await self.playwright.stop()
         except Exception:
             pass
+        artifact_texts = {
+            "backend.log": self.backend_logs(),
+            "frontend.log": "\n".join(self.console_entries),
+            "browser-console.log": "\n".join(self.console_entries),
+            "summary.md": self._build_summary_markdown(),
+        }
+        finalize_test_result(
+            artifact_dir=self.artifact_dir,
+            test_name=self.test_name,
+            status=self.result_status,
+            error_summary=self.result_error_summary,
+            created_at=self.created_at,
+            artifact_texts=artifact_texts,
+            optional_absence_notes=DEFAULT_E2E_OPTIONAL_ABSENCE_NOTES,
+            run_id=self.run_id,
+        )
 
 
 def _capture_console(console_entries: list[str], page: Any) -> None:
@@ -544,6 +792,22 @@ async def _connect_browser_page(remote_debugging_port: int, target_url: str) -> 
 @asynccontextmanager
 async def start_e2e_session(*, test_name: str, app_root: Path) -> AsyncIterator[E2ESession]:
     artifact_dir = create_run_artifact_dir(test_name)
+    created_at = _utc_now_iso()
+    run_id = artifact_dir.name
+    write_artifact_manifest(
+        artifact_dir=artifact_dir,
+        test_name=test_name,
+        status="running",
+        created_at=created_at,
+        optional_absence_notes=DEFAULT_E2E_OPTIONAL_ABSENCE_NOTES,
+        run_id=run_id,
+    )
+    write_test_result(
+        artifact_dir=artifact_dir,
+        test_name=test_name,
+        status="unknown",
+        run_id=run_id,
+    )
     static_server: ManagedProcess | None = None
     backend: ManagedProcess | None = None
     playwright: Any | None = None
@@ -565,6 +829,9 @@ async def start_e2e_session(*, test_name: str, app_root: Path) -> AsyncIterator[
         _capture_console(console_entries, page)
         session = E2ESession(
             artifact_dir=artifact_dir,
+            test_name=test_name,
+            run_id=run_id,
+            created_at=created_at,
             static_server=static_server,
             backend=backend,
             playwright=playwright,
@@ -576,9 +843,19 @@ async def start_e2e_session(*, test_name: str, app_root: Path) -> AsyncIterator[
         session.log_stage_ok("backend_started")
         session.log_stage_ok("websocket_connected")
         yield session
+        session.result_status = "passed"
     except Exception as exc:
         if session is not None and not session.failure_artifacts_captured:
             await session.save_failure_artifacts(str(exc), stage=session.current_stage)
+        elif session is None:
+            finalize_test_result(
+                artifact_dir=artifact_dir,
+                test_name=test_name,
+                status="failed",
+                error_summary=_compact_reason(exc),
+                created_at=created_at,
+                run_id=run_id,
+            )
         raise
     finally:
         if session is not None:
