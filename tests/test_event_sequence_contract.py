@@ -239,9 +239,22 @@ def test_recovery_open_blocks_terminal_resolution() -> None:
     assert loop._all_steps_resolved() is True
 
 
-@pytest.mark.xfail(strict=True, reason="stale confirmations are still accepted immediately instead of being validated against run context")
 def test_stale_confirmation_does_not_execute_until_matching_run_context() -> None:
     loop = _make_loop()
+    loop._run_session_id = "run-active"
+    loop._remember_plan_review_context(
+        {
+            "run_id": "run-active",
+            "plan_id": "plan-active",
+            "summary": "Confirm the landing page works",
+            "steps": [
+                {
+                    "step_id": "step-1",
+                    "intent": "Check that Get started is visible and click it",
+                }
+            ],
+        }
+    )
     loop.control_queue = SequenceQueue(
         [
             {"type": "confirmed", "run_id": "run-stale", "plan_id": "plan-stale"},
@@ -249,9 +262,24 @@ def test_stale_confirmation_does_not_execute_until_matching_run_context() -> Non
         ]
     )
 
+    sent_events: list[dict[str, object]] = []
+
+    async def fake_send(message_type: str, **kwargs: object) -> None:
+        sent_events.append({"type": message_type, **kwargs})
+
+    loop._send = fake_send
+
     result = asyncio.run(loop._wait_for_plan_confirmation())
 
     assert loop.control_queue.get_count == 2
+    assert len(sent_events) == 1
+    rejection = sent_events[0]
+    assert rejection["type"] == "runtime_rejected"
+    assert rejection["rejection_code"] == "STALE_CONFIRMATION"
+    assert rejection["payload"]["rejection_code"] == "STALE_CONFIRMATION"
+    assert rejection["payload"]["current_state"]["run_id"] == "run-active"
+    assert rejection["payload"]["current_state"]["plan_id"] == "plan-active"
     assert result["confirmed"] is True
+    assert result["answer"] == "confirmed"
     assert result["run_id"] == "run-active"
     assert result["plan_id"] == "plan-active"

@@ -17,7 +17,11 @@ from starlette.websockets import WebSocketDisconnect
 from browser import get_page
 from llm import LLMClient
 from runtime.context_manager import ContextManager
-from runtime.event_contracts import build_recovery_needed_payload, build_run_completed_payload
+from runtime.event_contracts import (
+    build_recovery_needed_payload,
+    build_run_completed_payload,
+    build_runtime_rejection_payload,
+)
 from runtime.model_router import ModelRouter
 from runtime.recovery_manager import classify_failure
 from runtime.phase_tracker import PhaseTracker
@@ -2898,6 +2902,40 @@ class AgentLoop:
             return active_plan_state
         return None
 
+    def _confirmation_context(self, payload: dict[str, Any] | None) -> dict[str, str]:
+        if not isinstance(payload, dict):
+            return {}
+
+        context: dict[str, str] = {}
+        for key, alt_key in (("run_id", "runId"), ("plan_id", "planId"), ("plan_version", "planVersion")):
+            value = str(payload.get(key) or payload.get(alt_key) or "").strip()
+            if value:
+                context[key] = value
+        return context
+
+    def _confirmation_context_mismatch_reason(
+        self,
+        active_context: dict[str, str] | None,
+        event_context: dict[str, str] | None,
+    ) -> str | None:
+        active_context_data = active_context if isinstance(active_context, dict) else {}
+        event_context_data = event_context if isinstance(event_context, dict) else {}
+        if not active_context_data or not event_context_data:
+            return None
+
+        mismatches: list[str] = []
+        for key in ("run_id", "plan_id", "plan_version"):
+            received_value = str(event_context_data.get(key) or "").strip()
+            if not received_value:
+                continue
+            expected_value = str(active_context_data.get(key) or "").strip()
+            if expected_value and received_value != expected_value:
+                mismatches.append(key)
+
+        if not mismatches:
+            return None
+        return ", ".join(mismatches)
+
     def _plan_steps_from_state(self, plan_state: dict[str, Any] | None) -> list[dict[str, Any]]:
         if not isinstance(plan_state, dict):
             return []
@@ -3013,6 +3051,18 @@ class AgentLoop:
             if original_user_intent is None:
                 original_user_intent = self.last_plan_original_user_intent
         active_plan_state["original_user_intent"] = original_user_intent
+
+        run_id = str(
+            active_plan_state.get("run_id")
+            or active_plan_state.get("runId")
+            or (source_plan_state or {}).get("run_id")
+            or (source_plan_state or {}).get("runId")
+            or getattr(self, "session_id", None)
+            or getattr(self, "_run_session_id", None)
+            or ""
+        ).strip()
+        if run_id:
+            active_plan_state["run_id"] = run_id
 
         steps = self._plan_steps_from_state(active_plan_state)
         active_plan_state["steps"] = steps
@@ -7626,10 +7676,12 @@ class AgentLoop:
             self._append_skipped_tool_response(skipped_call.id, reason)
 
     async def _wait_for_plan_confirmation(self) -> dict[str, Any]:
+        active_confirmation_context = self._confirmation_context(self._current_active_plan_state())
         while True:
             event = await self.control_queue.get()
             event_type = str(event.get("type") or "")
             answer = str(event.get("message") or event.get("answer") or "").strip()
+            event_context = self._confirmation_context(event)
             if event_type == "correction":
                 return {
                     "confirmed": False,
@@ -7638,9 +7690,59 @@ class AgentLoop:
                     "target_step_id": str(event.get("target_step_id") or event.get("targetStepId") or "").strip() or None,
                 }
             if event_type == "confirmed":
-                return {"confirmed": True, "answer": "confirmed"}
+                mismatch_reason = self._confirmation_context_mismatch_reason(active_confirmation_context, event_context)
+                if mismatch_reason:
+                    await self._send(
+                        "runtime_rejected",
+                        **build_runtime_rejection_payload(
+                            "STALE_CONFIRMATION",
+                            "Confirmation does not match the active plan context.",
+                            detail=f"confirmation context mismatch: {mismatch_reason}",
+                            current_state=active_confirmation_context or self._confirmation_context(self._current_active_plan_state()),
+                            run_id=event_context.get("run_id") or active_confirmation_context.get("run_id") or None,
+                            recoverable=False,
+                            source="agent",
+                        ),
+                    )
+                    continue
+                result = {"confirmed": True, "answer": "confirmed"}
+                run_id = event_context.get("run_id") or active_confirmation_context.get("run_id")
+                if run_id:
+                    result["run_id"] = run_id
+                plan_id = event_context.get("plan_id") or active_confirmation_context.get("plan_id")
+                if plan_id:
+                    result["plan_id"] = plan_id
+                plan_version = event_context.get("plan_version") or active_confirmation_context.get("plan_version")
+                if plan_version:
+                    result["plan_version"] = plan_version
+                return result
             if event_type == "option_selected":
-                return {"confirmed": True, "answer": answer}
+                mismatch_reason = self._confirmation_context_mismatch_reason(active_confirmation_context, event_context)
+                if mismatch_reason:
+                    await self._send(
+                        "runtime_rejected",
+                        **build_runtime_rejection_payload(
+                            "STALE_CONFIRMATION",
+                            "Confirmation does not match the active plan context.",
+                            detail=f"confirmation context mismatch: {mismatch_reason}",
+                            current_state=active_confirmation_context or self._confirmation_context(self._current_active_plan_state()),
+                            run_id=event_context.get("run_id") or active_confirmation_context.get("run_id") or None,
+                            recoverable=False,
+                            source="agent",
+                        ),
+                    )
+                    continue
+                result = {"confirmed": True, "answer": answer}
+                run_id = event_context.get("run_id") or active_confirmation_context.get("run_id")
+                if run_id:
+                    result["run_id"] = run_id
+                plan_id = event_context.get("plan_id") or active_confirmation_context.get("plan_id")
+                if plan_id:
+                    result["plan_id"] = plan_id
+                plan_version = event_context.get("plan_version") or active_confirmation_context.get("plan_version")
+                if plan_version:
+                    result["plan_version"] = plan_version
+                return result
 
     async def _tool_ask_user(self, args: dict[str, Any]) -> dict[str, Any]:
         question = str(args.get("question") or "").strip()
