@@ -14,6 +14,7 @@ from browser import arm_picker, launch_browser
 from runtime.event_contracts import (
     build_backend_event_envelope,
     build_runtime_rejection_payload,
+    build_session_state_event,
     normalize_frontend_command,
 )
 
@@ -129,6 +130,18 @@ def _current_command_state(session: WebSocketRunSession) -> dict[str, Any]:
     return state
 
 
+def _build_session_state_event(session: WebSocketRunSession) -> dict[str, Any] | None:
+    payload_builder = getattr(session.agent, "_build_session_state_payload", None)
+    if not callable(payload_builder):
+        return None
+
+    payload = payload_builder()
+    if not isinstance(payload, dict):
+        return None
+
+    return build_session_state_event(payload, source="server")
+
+
 def _legacy_control_message(command: dict[str, Any], raw_message: dict[str, Any]) -> dict[str, Any]:
     command_type = str(command.get("type") or "").strip()
     if command_type == "confirmed":
@@ -213,9 +226,13 @@ app = FastAPI(lifespan=lifespan)
 async def ws_endpoint(ws: WebSocket) -> None:
     await ws.accept()
 
-    await ws.send_json({"type": "status", "message": "Browser launched. Ready."})
-
     session, _reattached = _attach_or_create_run_session(ws)
+
+    session_state_event = _build_session_state_event(session)
+    if session_state_event is not None:
+        await ws.send_json(session_state_event)
+
+    await ws.send_json({"type": "status", "message": "Browser launched. Ready."})
 
     async def picker_send(msg: dict) -> None:
         await ws.send_json(msg)

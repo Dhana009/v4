@@ -252,6 +252,36 @@ def build_recovery_needed_payload(
     )
 
 
+def build_session_state_event(
+    payload: Mapping[str, Any] | None,
+    *,
+    source: str | None = "server",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    payload_data = _coerce_mapping(payload)
+    run_id = _coerce_text(payload_data.get("run_id"))
+    if not run_id:
+        raise ValueError("run_id is required")
+
+    phase = _coerce_text(payload_data.get("phase")) or "planning"
+    session_state_payload = {
+        "run_id": run_id,
+        "phase": phase,
+        "steps": _json_safe_copy(payload_data.get("steps") or []),
+        "recorded_steps": _json_safe_copy(payload_data.get("recorded_steps") or []),
+    }
+
+    return build_backend_event_envelope(
+        "session_state",
+        session_state_payload,
+        run_id=run_id,
+        event_id=event_id,
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
 def _normalize_command_payload(
     message_data: Mapping[str, Any],
     *,

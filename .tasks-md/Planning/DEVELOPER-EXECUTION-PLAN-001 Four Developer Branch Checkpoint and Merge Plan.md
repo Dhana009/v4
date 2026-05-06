@@ -592,7 +592,7 @@ allowed/forbidden files documented
 Owner: DEV-1  
 Type: tests only  
 Production code: no  
-Status: completed in `f117599`
+Status: completed in `f117599` and merged into local main at `eb1bd31`
 Verification: `9 passed, 16 xfailed`
 Merge when:
 
@@ -608,9 +608,9 @@ existing tests still pass or failures are explained
 
 Owner: DEV-1  
 Type: implementation  
-Status: completed in `f7e3847`
+Status: completed in `f7e3847` and merged into local main at `eb1bd31`
 Verification: `41 passed, 2 xfailed`
-Deferred seams: `session_state` shape
+Deferred seams: none
 Merge when:
 
 ```text
@@ -626,9 +626,9 @@ architecture invariants preserved
 
 Owner: DEV-1  
 Type: implementation  
-Status: completed in `176cad2`
+Status: completed in `176cad2` and merged into local main at `eb1bd31`
 Verification: `42 passed, 1 xfailed`
-Deferred seams: `session_state` shape
+Deferred seams: none
 Merge when:
 
 ```text
@@ -643,19 +643,21 @@ affected regression tests pass
 ### DEV-1 current status
 
 ```text
-First backend/event slice complete and merged into local main.
+First backend/event foundation complete on DEV-1 branch.
 MR-1B completed in `f117599`.
 MR-1C completed in `f7e3847`.
 MR-1D completed in `176cad2`.
+MR-1E completed in `f7e1c61`.
 DEV-1 status bookkeeping updated in `a589436`.
-Merged into local main at `3d654e8`.
-Verification: `42 passed, 1 xfailed`.
-Deferred seams: `session_state` shape.
+DEV-1 branch updated from latest local main at `df4e792`.
+Verification: `43 passed` for focused backend/event suite.
+Websocket/session focused suite: `11 passed`.
+Focused backend/event xfails: `0`.
 No push was done.
 Forbidden files were not touched.
 AGENTS.md was not staged or committed.
-Next candidate slices:
-1. session_state contract shape/reconnect support
+`.DS_Store` was not staged or committed.
+Next candidate slices: none
 ```
 
 ---

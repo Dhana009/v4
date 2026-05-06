@@ -1119,6 +1119,36 @@ class AgentLoop:
             recorded_step_count=recorded_step_count,
         )
 
+    def _build_session_state_payload(self) -> dict[str, Any]:
+        snapshot: dict[str, Any] = {}
+        snapshot_builder = getattr(self, "_build_spec_snapshot", None)
+        if callable(snapshot_builder):
+            try:
+                snapshot_candidate = snapshot_builder()
+            except Exception:
+                snapshot_candidate = {}
+            if isinstance(snapshot_candidate, dict):
+                snapshot = snapshot_candidate
+
+        metadata = snapshot.get("metadata") if isinstance(snapshot.get("metadata"), dict) else {}
+        plan_ready = snapshot.get("plan_ready") if isinstance(snapshot.get("plan_ready"), dict) else {}
+        steps = plan_ready.get("steps") if isinstance(plan_ready.get("steps"), list) else []
+        recorded_steps = snapshot.get("recorded_steps") if isinstance(snapshot.get("recorded_steps"), list) else []
+
+        run_id = str(snapshot.get("session_id") or getattr(self, "_run_session_id", None) or "").strip()
+        if not run_id:
+            run_id_getter = getattr(self, "_current_run_session_id", None)
+            if callable(run_id_getter):
+                run_id = str(run_id_getter() or "").strip()
+
+        phase = str(metadata.get("phase") or getattr(self, "phase", "") or "").strip() or "planning"
+        return {
+            "run_id": run_id,
+            "phase": phase,
+            "steps": deepcopy(steps),
+            "recorded_steps": deepcopy(recorded_steps),
+        }
+
     def _skill_entries_from_loaded_skills(
         self,
         loaded_skill_names: list[str],

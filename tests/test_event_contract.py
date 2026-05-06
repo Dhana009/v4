@@ -143,7 +143,7 @@ def _make_success_record(step_context: dict[str, object]) -> dict[str, object]:
     }
 
 
-def _install_server_stubs(monkeypatch):
+def _install_server_stubs(monkeypatch, *, emit_session_state: bool = False):
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test-123")
 
     fake_queue = FakeQueue()
@@ -157,6 +157,30 @@ def _install_server_stubs(monkeypatch):
             self.ws = ws
             self.control_queue = control_queue
             self.llm = SimpleNamespace(reset=lambda: None)
+            self._run_session_id = "run-test-001" if emit_session_state else None
+            self.phase = "planning"
+            self.last_plan_ready_payload = {
+                "steps": [
+                    {
+                        "step_id": "step-1",
+                        "intent": "Check that Get started is visible and click it",
+                    }
+                ]
+            }
+            self.recorded_step_payloads = [
+                {
+                    "step_id": "step-1",
+                    "status": "recorded",
+                    "intent": "Check that Get started is visible and click it",
+                }
+            ]
+            if emit_session_state:
+                self._build_session_state_payload = lambda: {
+                    "run_id": self._run_session_id,
+                    "phase": self.phase,
+                    "steps": list(self.last_plan_ready_payload.get("steps") or []),
+                    "recorded_steps": list(self.recorded_step_payloads),
+                }
             created["agent"] = self
 
         async def run(self, steps) -> None:  # noqa: ARG002
@@ -428,9 +452,8 @@ def test_recovery_needed_shape_is_explicit() -> None:
     assert recovery_event["tried"]
 
 
-@pytest.mark.xfail(strict=True, reason="session_state typed event is not emitted on websocket reconnect yet")
 def test_session_state_shape_is_explicit(monkeypatch) -> None:
-    _fake_queue, _created = _install_server_stubs(monkeypatch)
+    _fake_queue, _created = _install_server_stubs(monkeypatch, emit_session_state=True)
 
     with TestClient(server.app) as client:
         with client.websocket_connect("/ws") as websocket:
