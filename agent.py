@@ -17,6 +17,7 @@ from starlette.websockets import WebSocketDisconnect
 from browser import get_page
 from llm import LLMClient
 from runtime.context_manager import ContextManager
+from runtime.event_contracts import build_recovery_needed_payload, build_run_completed_payload
 from runtime.model_router import ModelRouter
 from runtime.recovery_manager import classify_failure
 from runtime.phase_tracker import PhaseTracker
@@ -145,6 +146,7 @@ class AgentLoop:
         self.replay_action_history_by_step_id: dict[str, list[dict[str, Any]]] = {}
         self._run_session_id = self._new_run_session_id()
         self._run_completion_requested = False
+        self._run_completed_emitted = False
         self.run_stop_requested = False
         self._llm_call_counter = 0
         self._ws_disconnected = False
@@ -189,6 +191,7 @@ class AgentLoop:
             self.replay_recorded_step_payloads_by_step_id = {}
             self.replay_action_history_by_step_id = {}
         self._run_session_id = self._new_run_session_id()
+        self._run_completed_emitted = False
         self._clear_plan_review_context()
         self._llm_call_counter = 0
 
@@ -223,6 +226,111 @@ class AgentLoop:
             if msg_type.startswith("replay"):
                 self._ws_disconnect_logged = True
                 print("[WS] disconnected during replay_all; stopping result send")
+
+    def _emit_backend_event_now(self, msg_type: str, **kwargs: Any) -> None:
+        send = getattr(self, "_send", None)
+        if not callable(send):
+            return
+
+        coroutine = send(msg_type, **kwargs)
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            try:
+                asyncio.run(coroutine)
+            except AttributeError as exc:
+                if "send_json" not in str(exc):
+                    raise
+            return
+
+        loop.create_task(coroutine)
+
+    def _emit_recovery_needed_event(
+        self,
+        step: dict[str, Any] | str | None,
+        error_summary: str,
+    ) -> None:
+        context = self._get_step_context(step) if not isinstance(step, dict) else step
+        step_id = str((context or {}).get("step_id") or getattr(self, "active_failed_step_id", "") or "").strip()
+        if not step_id:
+            step_id = "unknown"
+
+        operation_id = str(
+            (context or {}).get("operation_id")
+            or (context or {}).get("current_operation_id")
+            or (self.last_successful_action or {}).get("operation_id")
+            or ""
+        ).strip() or None
+        current_url = self._current_browser_url() or "unknown"
+        tried = [
+            {
+                "step_id": step_id,
+                "status": "failed",
+                "error_summary": error_summary,
+                "current_url": current_url,
+            }
+        ]
+        recovery_payload = build_recovery_needed_payload(
+            run_id=self._current_run_session_id(),
+            step_id=step_id,
+            error_summary=error_summary,
+            current_url=current_url,
+            tried=tried,
+            options=["retry", "skip", "stop"],
+            operation_id=operation_id,
+        )
+        self._emit_backend_event_now(
+            recovery_payload["type"],
+            **{
+                key: value
+                for key, value in recovery_payload.items()
+                if key != "type"
+            },
+        )
+
+    async def _emit_run_completed_event(
+        self,
+        source_payload: dict[str, Any],
+        recorded_payload: dict[str, Any],
+    ) -> None:
+        if not self._run_completion_requested or getattr(self, "_run_completed_emitted", False):
+            return
+
+        run_id = str(
+            source_payload.get("run_id")
+            or recorded_payload.get("run_id")
+            or self._current_run_session_id()
+            or ""
+        ).strip()
+        if not run_id:
+            return
+
+        recorded_count = sum(
+            1 for step in self._recording_steps if str(step.get("status") or "").strip() == "recorded"
+        )
+        skipped_count = sum(
+            1 for step in self._recording_steps if str(step.get("status") or "").strip() == "skipped"
+        )
+        summary = str(
+            getattr(self, "last_plan_summary", None)
+            or getattr(getattr(self, "last_plan_ready_payload", None), "get", lambda *_: "")("summary")
+            or "Run completed"
+        ).strip() or "Run completed"
+        run_completed_payload = build_run_completed_payload(
+            run_id=run_id,
+            summary=summary,
+            recorded_count=recorded_count,
+            skipped_count=skipped_count,
+        )
+        self._run_completed_emitted = True
+        await self._send(
+            run_completed_payload["type"],
+            **{
+                key: value
+                for key, value in run_completed_payload.items()
+                if key != "type"
+            },
+        )
 
     def _current_phase(self) -> str:
         phase_tracker = getattr(self, "phase_tracker", None)
@@ -2727,6 +2835,7 @@ class AgentLoop:
         self._recording_wait_guard_armed = False
         self.current_step_index = max(0, int(context.get("step_number") or 1) - 1)
         self._clear_failed_step_success_state(context)
+        self._emit_recovery_needed_event(context, context["last_error"])
         print(f"[AGENT] step recovery_pending: {step_id}")
         return context
 
@@ -5230,7 +5339,10 @@ class AgentLoop:
             "step_id": step_id,
             "step_number": target_step.get("step_number"),
         }
-        return await self._record_step_payload(payload, target_step)
+        recorded_payload = await self._record_step_payload(payload, target_step)
+        if recorded_payload:
+            await self._emit_run_completed_event(payload, recorded_payload)
+        return recorded_payload
 
     def _should_block_recording_wait_tool(
         self,
@@ -7243,6 +7355,7 @@ class AgentLoop:
                     "skipped": True,
                     "reason": "No successful confirmed action to record.",
                 }
+            await self._emit_run_completed_event(payload, recorded_payload)
             return {"sent": True, "payload": recorded_payload}
 
         correction_state = getattr(self, "_active_plan_correction_state", None)

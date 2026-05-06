@@ -11,6 +11,11 @@ from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 
 from agent import AgentLoop
 from browser import arm_picker, launch_browser
+from runtime.event_contracts import (
+    build_backend_event_envelope,
+    build_runtime_rejection_payload,
+    normalize_frontend_command,
+)
 
 PORT = int(os.getenv("PORT", "8765"))
 DISCONNECT_GRACE_SECONDS = 1.5
@@ -93,6 +98,72 @@ def _is_closed_websocket_error(exc: BaseException) -> bool:
     return exc.__class__.__name__ == "ClientDisconnected"
 
 
+def _current_command_state(session: WebSocketRunSession) -> dict[str, Any]:
+    state: dict[str, Any] = {}
+    phase_getter = getattr(session.agent, "_current_phase", None)
+    if callable(phase_getter):
+        phase = str(phase_getter() or "").strip()
+        if phase:
+            state["phase"] = phase
+    if "phase" not in state:
+        phase_tracker = getattr(session.agent, "phase_tracker", None)
+        phase_tracker_getter = getattr(phase_tracker, "get_phase", None)
+        if callable(phase_tracker_getter):
+            phase = str(phase_tracker_getter() or "").strip()
+            if phase:
+                state["phase"] = phase
+    if "phase" not in state:
+        agent_phase = str(getattr(session.agent, "phase", "") or "").strip()
+        state["phase"] = agent_phase or "planning"
+
+    run_id_getter = getattr(session.agent, "_current_run_session_id", None)
+    if callable(run_id_getter):
+        run_id = str(run_id_getter() or "").strip()
+        if run_id:
+            state["run_id"] = run_id
+    if "run_id" not in state:
+        run_session_id = str(getattr(session.agent, "_run_session_id", "") or "").strip()
+        if run_session_id:
+            state["run_id"] = run_session_id
+
+    return state
+
+
+def _legacy_control_message(command: dict[str, Any], raw_message: dict[str, Any]) -> dict[str, Any]:
+    command_type = str(command.get("type") or "").strip()
+    if command_type == "confirmed":
+        return {"type": "confirmed"}
+
+    if command_type == "correction":
+        control_message: dict[str, Any] = {"type": "correction"}
+        correction_text = str(command.get("message") or command.get("answer") or "").strip()
+        if correction_text:
+            control_message["message"] = correction_text
+        run_id = str(command.get("run_id") or "").strip()
+        if run_id:
+            control_message["run_id"] = run_id
+        plan_id = str(command.get("plan_id") or "").strip()
+        if plan_id:
+            control_message["plan_id"] = plan_id
+        target_step_id = str(command.get("step_id") or "").strip()
+        if target_step_id:
+            control_message["target_step_id"] = target_step_id
+        return control_message
+
+    if command_type == "option_selected":
+        control_message = {"type": "option_selected"}
+        option_value = str(command.get("value") or command.get("answer") or "").strip()
+        if option_value:
+            control_message["value"] = option_value
+            control_message["answer"] = option_value
+        run_id = str(command.get("run_id") or "").strip()
+        if run_id:
+            control_message["run_id"] = run_id
+        return control_message
+
+    return dict(raw_message)
+
+
 async def _send_replay_json(ws: WebSocket, agent: Any, payload: dict[str, Any]) -> bool:
     if getattr(agent, "_ws_disconnected", False):
         if str(payload.get("type") or "").startswith("replay") and not getattr(agent, "_ws_disconnect_logged", False):
@@ -154,7 +225,7 @@ async def ws_endpoint(ws: WebSocket) -> None:
             msg = await ws.receive_json()
             msg_type = msg.get("type")
 
-            if msg_type == "run_steps":
+            if msg_type in {"run_steps", "llm_run"}:
                 steps = msg.get("steps") or []
                 if session.run_task and not session.run_task.done():
                     await ws.send_json({"type": "status", "message": "Run already in progress."})
@@ -175,22 +246,28 @@ async def ws_endpoint(ws: WebSocket) -> None:
             if msg_type == "save_snapshot":
                 try:
                     snapshot = session.agent._build_spec_snapshot()
-                    await ws.send_json(
+                    snapshot_event = build_backend_event_envelope(
+                        "save_snapshot_result",
                         {
-                            "type": "save_snapshot_result",
                             "ok": True,
                             "snapshot": snapshot,
-                        }
+                        },
+                        run_id=_current_command_state(session).get("run_id"),
+                        source="server",
                     )
+                    await ws.send_json(snapshot_event)
                 except Exception as exc:  # noqa: BLE001
                     error_message = f"Snapshot save failed: {type(exc).__name__}"
-                    await ws.send_json(
+                    snapshot_event = build_backend_event_envelope(
+                        "save_snapshot_result",
                         {
-                            "type": "save_snapshot_result",
                             "ok": False,
                             "error": error_message,
-                        }
+                        },
+                        run_id=_current_command_state(session).get("run_id"),
+                        source="server",
                     )
+                    await ws.send_json(snapshot_event)
                 continue
 
             if msg_type == "replay_one":
@@ -259,7 +336,29 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 continue
 
             if msg_type in {"confirmed", "correction", "option_selected"}:
-                await session.control_queue.put(msg)
+                current_state = _current_command_state(session)
+                command, rejection = normalize_frontend_command(msg, current_state=current_state)
+                if rejection is not None:
+                    await ws.send_json(rejection)
+                    continue
+                if command is None:
+                    await ws.send_json(
+                        build_runtime_rejection_payload(
+                            "MALFORMED_COMMAND",
+                            "Command validation failed.",
+                            current_state=current_state,
+                            command_id=str(msg.get("command_id") or "").strip() or None,
+                            run_id=current_state.get("run_id"),
+                            recoverable=False,
+                            source="server",
+                        )
+                    )
+                    continue
+
+                if command.get("source") == "legacy":
+                    await session.control_queue.put(dict(msg))
+                else:
+                    await session.control_queue.put(_legacy_control_message(command, msg))
                 continue
 
             if msg_type == "arm_picker":
@@ -276,7 +375,31 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 await ws.send_json({"type": "status", "message": "Session reset."})
                 continue
 
-            await ws.send_json({"type": "error", "message": f"Unsupported message type: {msg_type}"})
+            current_state = _current_command_state(session)
+            if not msg_type:
+                await ws.send_json(
+                    build_runtime_rejection_payload(
+                        "MALFORMED_COMMAND",
+                        "Command type is required.",
+                        current_state=current_state,
+                        run_id=current_state.get("run_id"),
+                        recoverable=False,
+                        source="server",
+                    )
+                )
+                continue
+
+            await ws.send_json(
+                build_runtime_rejection_payload(
+                    "COMMAND_NOT_SUPPORTED",
+                    f"Unsupported message type: {msg_type}",
+                    current_state=current_state,
+                    command_id=str(msg.get("command_id") or "").strip() or None,
+                    run_id=current_state.get("run_id"),
+                    recoverable=False,
+                    source="server",
+                )
+            )
     except WebSocketDisconnect:
         if session.run_task and not session.run_task.done():
             print("[WS_DISCONNECT_GRACE] active run disconnected; awaiting reconnect")

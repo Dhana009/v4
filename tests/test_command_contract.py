@@ -76,7 +76,6 @@ def test_replay_all_defaults_stop_on_error_true(monkeypatch) -> None:
     assert fake_queue.items == []
 
 
-@pytest.mark.xfail(strict=True, reason="supported commands are still forwarded raw instead of being typed-validated")
 @pytest.mark.parametrize(
     ("command", "payload"),
     [
@@ -96,7 +95,6 @@ def test_supported_commands_require_context_before_being_forwarded(command, payl
     assert fake_queue.items == [], f"{command} should not be forwarded raw without validation"
 
 
-@pytest.mark.xfail(strict=True, reason="unsupported commands still return generic errors instead of typed rejections")
 @pytest.mark.parametrize(
     ("command", "payload"),
     [

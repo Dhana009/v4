@@ -257,9 +257,10 @@ def test_step_recorded_event_emits_explicit_step_id_child_operation_id_and_code_
     )
 
     assert result["sent"] is True
-    assert [event["type"] for event in sent_events] == ["step_recorded", "code_update"]
+    assert [event["type"] for event in sent_events] == ["step_recorded", "code_update", "run_completed"]
     step_event = sent_events[0]
     code_event = sent_events[1]
+    run_completed_event = sent_events[2]
     assert step_event["type"] == "step_recorded"
     assert step_event["step_id"] == "step-1"
     assert step_event["step_number"] == 1
@@ -280,6 +281,11 @@ def test_step_recorded_event_emits_explicit_step_id_child_operation_id_and_code_
     assert code_event["lines"] == step_event["children"][0]["code_lines"]
     assert code_event["full_spec_preview"] == step_event["children"][0]["code_lines"][0]
     assert code_event["diagnostics"] == []
+    assert run_completed_event["type"] == "run_completed"
+    assert run_completed_event["run_id"] == "run-test-001"
+    assert run_completed_event["recorded_count"] == 1
+    assert run_completed_event["skipped_count"] == 0
+    assert run_completed_event["summary"]
 
 
 def test_clarification_needed_event_emits_question_and_options() -> None:
@@ -341,7 +347,6 @@ def test_plan_ready_blocked_during_recovery_returns_a_user_friendly_rejection() 
     }
 
 
-@pytest.mark.xfail(strict=True, reason="typed runtime_rejected event shape is not implemented yet")
 def test_runtime_rejected_shape_is_explicit_and_renderable(monkeypatch) -> None:
     fake_queue, _created = _install_server_stubs(monkeypatch)
 
@@ -365,7 +370,6 @@ def test_runtime_rejected_shape_is_explicit_and_renderable(monkeypatch) -> None:
     assert fake_queue.items == []
 
 
-@pytest.mark.xfail(strict=True, reason="run_completed typed event is not emitted by the current backend seam")
 def test_run_completed_shape_is_explicit() -> None:
     loop = _make_loop()
     step_context = _make_plan_step_context()
@@ -405,7 +409,6 @@ def test_run_completed_shape_is_explicit() -> None:
     assert run_completed_event["skipped_count"] == 0
 
 
-@pytest.mark.xfail(strict=True, reason="recovery_needed typed event is not emitted by the current backend seam")
 def test_recovery_needed_shape_is_explicit() -> None:
     loop = _make_loop()
     step_context = _make_plan_step_context()

@@ -192,15 +192,19 @@ def test_step_recorded_is_followed_by_code_update_and_backend_owned_order() -> N
     )
 
     assert result["sent"] is True
-    assert [event["type"] for event in sent_events] == ["step_recorded", "code_update"]
+    assert [event["type"] for event in sent_events] == ["step_recorded", "code_update", "run_completed"]
     assert loop._run_completion_requested is True
     step_event = sent_events[0]
     code_event = sent_events[1]
+    run_completed_event = sent_events[2]
     assert step_event["children"][0]["operation_id"] == "op_1"
     assert step_event["children"][0]["code_lines"]
     assert code_event["step_id"] == "step-1"
     assert code_event["operation_id"] == "op_1"
     assert code_event["lines"] == step_event["children"][0]["code_lines"]
+    assert run_completed_event["run_id"] == "run-test-001"
+    assert run_completed_event["recorded_count"] == 1
+    assert run_completed_event["skipped_count"] == 0
 
 
 def test_failed_step_sets_recovery_state_before_terminal_resolution() -> None:
