@@ -575,6 +575,24 @@ architecture invariants preserved
 
 ---
 
+### DEV-1 current status
+
+```text
+First backend/event slice complete and merged into local main.
+MR-1B completed in `f117599`.
+MR-1C completed in `f7e3847`.
+DEV-1 status bookkeeping updated in `a589436`.
+Merged into local main at `3d654e8`.
+Verification: `41 passed, 2 xfailed`.
+Deferred seams: `session_state` shape, stale confirmation run context.
+No push was done.
+Next candidate slices:
+1. stale confirmation/run-context guard
+2. session_state contract shape/reconnect support
+```
+
+---
+
 ### MR-2A: E2E artifact harness mapping
 
 Owner: DEV-4  
