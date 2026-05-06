@@ -545,9 +545,8 @@ allowed/forbidden files documented
 Owner: DEV-1  
 Type: tests only  
 Production code: no  
-Status: completed in `f117599`
+Status: completed in `f117599` and merged into local main at `eb1bd31`
 Verification: `9 passed, 16 xfailed`
-Merged into local main at `eb1bd31`
 Merge when:
 
 ```text
@@ -562,10 +561,9 @@ existing tests still pass or failures are explained
 
 Owner: DEV-1  
 Type: implementation  
-Status: completed in `f7e3847`
+Status: completed in `f7e3847` and merged into local main at `eb1bd31`
 Verification: `41 passed, 2 xfailed`
 Deferred seams: `session_state` shape
-Merged into local main at `eb1bd31`
 Merge when:
 
 ```text
@@ -581,10 +579,9 @@ architecture invariants preserved
 
 Owner: DEV-1  
 Type: implementation  
-Status: completed in `176cad2`
+Status: completed in `176cad2` and merged into local main at `eb1bd31`
 Verification: `42 passed, 1 xfailed`
 Deferred seams: `session_state` shape
-Merged into local main at `eb1bd31`
 Merge when:
 
 ```text
