@@ -563,7 +563,7 @@ Owner: DEV-1
 Type: implementation  
 Status: completed in `f7e3847`
 Verification: `41 passed, 2 xfailed`
-Deferred seams: `session_state` shape, stale confirmation run context
+Deferred seams: `session_state` shape
 Merge when:
 
 ```text
@@ -575,20 +575,40 @@ architecture invariants preserved
 
 ---
 
+### MR-1D: Stale confirmation / run-context guard
+
+Owner: DEV-1  
+Type: implementation  
+Status: completed in `176cad2`
+Verification: `42 passed, 1 xfailed`
+Deferred seams: `session_state` shape
+Merge when:
+
+```text
+active-plan confirmation context is validated
+stale confirmation cannot trigger execution
+typed runtime_rejected is emitted for mismatched context
+affected regression tests pass
+```
+
+---
+
 ### DEV-1 current status
 
 ```text
 First backend/event slice complete and merged into local main.
 MR-1B completed in `f117599`.
 MR-1C completed in `f7e3847`.
+MR-1D completed in `176cad2`.
 DEV-1 status bookkeeping updated in `a589436`.
 Merged into local main at `3d654e8`.
-Verification: `41 passed, 2 xfailed`.
-Deferred seams: `session_state` shape, stale confirmation run context.
+Verification: `42 passed, 1 xfailed`.
+Deferred seams: `session_state` shape.
 No push was done.
+Forbidden files were not touched.
+AGENTS.md was not staged or committed.
 Next candidate slices:
-1. stale confirmation/run-context guard
-2. session_state contract shape/reconnect support
+1. session_state contract shape/reconnect support
 ```
 
 ---
