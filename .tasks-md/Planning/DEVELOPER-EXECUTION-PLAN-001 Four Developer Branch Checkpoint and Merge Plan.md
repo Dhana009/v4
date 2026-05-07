@@ -665,6 +665,7 @@ Branch: `dev1/backend-isolation-contract-tests`
 Main baseline: `908f4d0`
 
 Done / Completed
+- Backend/event foundation established on DEV-1 branch
 - Merged to local main
   - MR-1B backend/event contract tests completed in `f117599`
   - MR-1C typed backend event/command seam completed in `f7e3847`
@@ -679,15 +680,16 @@ Done / Completed
   - Late confirmation rejection for completed runs implemented, commit `6b03a82`
   - Process-boundary contract tests added, commit `2011da2`
   - Safe backend snapshot/archive loader seam added, commit `ac1bcb5`
+  - Recording/codegen truth contract tests added, commit `8932478`
 
 In Progress
-- Recording/codegen truth hardening
-- Current test file: `tests/test_recording_codegen_truth_contract.py`
+- Recording/codegen truth implementation
+- Current contract test slice: `tests/test_recording_codegen_truth_contract.py`
 - Exposed gap: `agent.py::_build_code_update_payload(...)` still lets `generated_line` be used when child evidence is unresolved or failed.
-- Intended next implementation: require `code_update` lines to come only from successful or recorded backend child operation evidence.
+- Intended next implementation: require `code_update` lines to come only from successful or recorded backend child-operation evidence.
 
 Pending / Planned DEV-1
-- Commit and complete recording/codegen truth hardening.
+- Complete recording/codegen truth implementation.
 - Replay smoke/basic replay contract hardening.
 - Backend restart/session-load integration beyond the narrow loader seam.
 - Load-session/reconnect integration beyond `session_state` shape.
@@ -705,13 +707,13 @@ Deferred / Not Current DEV-1 Slice
 
 Current verification
 - Last full focused backend contract set before the recording/codegen slice: `47 passed`.
-- Recording/codegen test slice: `50 passed, 1 xfailed` without the stale `tests/test_recorded_step_model.py` checks.
+- Recording/codegen truth contract slice: `50 passed, 1 xfailed`.
 - Broader stale model file has known old failures and is not the active target.
 - No push was done.
 - Forbidden files were not touched.
 - `AGENTS.md` was not staged or committed.
 - `.DS_Store` was not staged or committed.
-- Dirty state expected: `AGENTS.md` plus the current in-progress test file unless committed.
+- Dirty state expected: `AGENTS.md` only.
 ```
 
 ---
