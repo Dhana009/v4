@@ -5,6 +5,8 @@ import sys
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
+
 from tests.e2e import harness
 
 
@@ -28,12 +30,42 @@ NORMALIZED_EVIDENCE_NOTES = [
 ]
 
 
+def test_resolve_e2e_port_prefers_explicit_value_then_env(monkeypatch) -> None:
+    monkeypatch.setenv("AUTOWORKBENCH_E2E_BACKEND_PORT", "53101")
+
+    assert (
+        harness.resolve_e2e_port(
+            53100,
+            env_name="AUTOWORKBENCH_E2E_BACKEND_PORT",
+            default=8765,
+        )
+        == 53100
+    )
+    assert (
+        harness.resolve_e2e_port(
+            None,
+            env_name="AUTOWORKBENCH_E2E_BACKEND_PORT",
+            default=8765,
+        )
+        == 53101
+    )
+
+
+def test_resolve_e2e_port_rejects_invalid_env_value(monkeypatch) -> None:
+    monkeypatch.setenv("AUTOWORKBENCH_E2E_BACKEND_PORT", "not-a-number")
+
+    with pytest.raises(RuntimeError, match="must be an integer"):
+        harness.resolve_e2e_port(
+            None,
+            env_name="AUTOWORKBENCH_E2E_BACKEND_PORT",
+            default=8765,
+        )
+
+
 def test_start_autoworkbench_backend_uses_selected_port_for_env_and_readiness(monkeypatch, tmp_path: Path) -> None:
-    ports = iter([53211, 53212])
     captured: dict[str, object] = {}
     expected_repo_key = "sk-repo-key"
 
-    monkeypatch.setattr(harness, "find_free_port", lambda: next(ports))
     monkeypatch.setenv("OPENAI_API_KEY", "sk-stale-shell-key")
     monkeypatch.setattr(
         harness,
@@ -69,6 +101,8 @@ def test_start_autoworkbench_backend_uses_selected_port_for_env_and_readiness(mo
     process = harness.start_autoworkbench_backend(
         start_url="http://127.0.0.1:9999/index.html",
         artifact_dir=tmp_path,
+        port=53211,
+        remote_debugging_port=53212,
     )
 
     assert process.port == 53211
@@ -86,6 +120,29 @@ def test_start_autoworkbench_backend_uses_selected_port_for_env_and_readiness(mo
     assert command[:2] == [sys.executable, "-c"]
     assert "dotenv.load_dotenv = lambda *args, **kwargs: None" in command[2]
     assert "runpy.run_module('server', run_name='__main__')" in command[2]
+
+
+def test_wait_for_http_url_classifies_permission_error(tmp_path: Path) -> None:
+    stdout_path = tmp_path / "stdout.log"
+    stderr_path = tmp_path / "stderr.log"
+    stdout_path.write_text("", encoding="utf-8")
+    stderr_path.write_text("PermissionError [Errno 1] Operation not permitted\n", encoding="utf-8")
+
+    process = SimpleNamespace(
+        name="autoworkbench-backend",
+        stdout_path=stdout_path,
+        stderr_path=stderr_path,
+        poll=lambda: 1,
+        returncode=1,
+    )
+
+    with pytest.raises(RuntimeError, match="local socket allocation is blocked"):
+        harness.wait_for_http_url(
+            "http://127.0.0.1:8765/docs",
+            label="AutoWorkbench backend",
+            process=process,
+            timeout_s=0.01,
+        )
 
 
 def test_default_artifact_paths_include_normalized_evidence_files() -> None:

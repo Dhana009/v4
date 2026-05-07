@@ -501,6 +501,36 @@ Dirty state:
   AGENTS.md may remain dirty as local metadata; do not stage it.
 ```
 
+### DEV-4 blocker slice
+
+```text
+Selected story: E2E-001 Product startup and test orchestration harness
+Story status: Planned
+Selected subtask: E2E-001A remove socket.bind-based free-port probing from tests/e2e/harness.py and add focused regression coverage in tests/test_e2e_harness.py
+Selected subtask status: Blocked
+Blocker note: DEV-1 is blocked by the DEV-4 E2E socket bind issue at tests/e2e/harness.py:61
+Exact reason: the local sandbox denies loopback socket binds for both the harness and the fixture static server, so the four E2E tests fail during startup with PermissionError [Errno 1] Operation not permitted.
+Scope:
+  tests/e2e/harness.py
+  tests/test_e2e_harness.py
+  .tasks-md/Planning/DEVELOPER-EXECUTION-PLAN-001 Four Developer Branch Checkpoint and Merge Plan.md
+Forbidden:
+  agent.py
+  server.py
+  runtime/**
+  frontend/**
+  fixtures/**
+  AGENTS.md
+  .DS_Store
+  CI/config
+Verification:
+  python -m pytest tests/test_e2e_harness.py -q
+  python -m pytest tests/e2e/test_basic_click_flow.py tests/e2e/test_correction_assert_then_click_flow.py tests/e2e/test_exact_text_assertion_flow.py tests/e2e/test_visible_assertion_flow.py -q
+  python -m pytest tests -q if the environment allows local socket allocation
+Safe next action:
+  rerun the same E2E suite in an environment that allows local loopback binds, or attach the harness to an already-running local backend/static server that does not require new socket creation
+```
+
 ### Matrix areas
 
 ```text
