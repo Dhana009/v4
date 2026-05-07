@@ -4,6 +4,7 @@ import asyncio
 import hashlib
 import json
 import os
+import re
 import subprocess
 import sys
 import time
@@ -14,6 +15,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, AsyncIterator, Awaitable, Callable, Mapping, Sequence, TypeVar
+from urllib.parse import parse_qsl, quote, urlsplit, urlunsplit
 
 from dotenv import dotenv_values
 
@@ -38,6 +40,7 @@ DEFAULT_E2E_ARTIFACT_PATHS: dict[str, str] = {
     "events": "events.ndjson",
     "commands": "commands.json",
     "rejections": "rejections.json",
+    "redaction_report": "redaction-report.json",
     "backend_log": "backend.log",
     "frontend_log": "frontend.log",
     "browser_console_log": "browser-console.log",
@@ -58,6 +61,66 @@ DEFAULT_E2E_OPTIONAL_ABSENCE_NOTES: list[str] = [
     "events.ndjson, commands.json, and rejections.json are deferred to a later backend event stream slice",
     "trace-summary and redaction-report are deferred to a later trace/export slice",
 ]
+REDACTION_REPORT_VERSION = "1.0"
+REDACTION_REPORT_PATTERNS = ["token", "otp", "email", "phone", "password"]
+REDACTION_REPORT_FILES_CHECKED = ["trace.ndjson", "commands.json"]
+REDACTION_REPORT_PLACEHOLDERS = {
+    "token": "[REDACTED_TOKEN]",
+    "otp": "[REDACTED_OTP]",
+    "email": "[REDACTED_EMAIL]",
+    "phone": "[REDACTED_PHONE]",
+    "password": "[REDACTED_PASSWORD]",
+    "auth": "[REDACTED_AUTH]",
+    "session": "[REDACTED_SESSION]",
+    "session_id": "[REDACTED_SESSION]",
+    "sessionid": "[REDACTED_SESSION]",
+    "session_token": "[REDACTED_SESSION]",
+    "access_token": "[REDACTED_TOKEN]",
+    "auth_token": "[REDACTED_TOKEN]",
+    "id_token": "[REDACTED_TOKEN]",
+    "api_key": "[REDACTED_TOKEN]",
+    "apikey": "[REDACTED_TOKEN]",
+    "secret": "[REDACTED_SECRET]",
+    "csrf": "[REDACTED_SECRET]",
+    "xsrf": "[REDACTED_SECRET]",
+}
+_REDACTION_SENSITIVE_QUERY_PARAMS: dict[str, tuple[str, str]] = {
+    "token": ("token", "[REDACTED_TOKEN]"),
+    "access_token": ("token", "[REDACTED_TOKEN]"),
+    "auth_token": ("token", "[REDACTED_TOKEN]"),
+    "id_token": ("token", "[REDACTED_TOKEN]"),
+    "api_key": ("token", "[REDACTED_TOKEN]"),
+    "apikey": ("token", "[REDACTED_TOKEN]"),
+    "otp": ("otp", "[REDACTED_OTP]"),
+    "email": ("email", "[REDACTED_EMAIL]"),
+    "phone": ("phone", "[REDACTED_PHONE]"),
+    "password": ("password", "[REDACTED_PASSWORD]"),
+    "pass": ("password", "[REDACTED_PASSWORD]"),
+    "pwd": ("password", "[REDACTED_PASSWORD]"),
+    "auth": ("auth", "[REDACTED_AUTH]"),
+    "session": ("auth", "[REDACTED_SESSION]"),
+    "session_id": ("auth", "[REDACTED_SESSION]"),
+    "sessionid": ("auth", "[REDACTED_SESSION]"),
+    "session_token": ("auth", "[REDACTED_SESSION]"),
+    "sid": ("auth", "[REDACTED_SESSION]"),
+    "secret": ("auth", "[REDACTED_SECRET]"),
+    "csrf": ("auth", "[REDACTED_SECRET]"),
+    "xsrf": ("auth", "[REDACTED_SECRET]"),
+}
+_REDACTION_EXACT_TEXT_RULES: list[tuple[str, str, str]] = [
+    ("token", "sk-test-redaction-token", "[REDACTED_TOKEN]"),
+    ("otp", "123456", "[REDACTED_OTP]"),
+    ("email", "user@example.test", "[REDACTED_EMAIL]"),
+    ("phone", "+1-202-555-0175", "[REDACTED_PHONE]"),
+    ("password", "correct horse battery staple", "[REDACTED_PASSWORD]"),
+]
+_REDACTION_REGEX_RULES: list[tuple[str, re.Pattern[str], str]] = [
+    ("token", re.compile(r"\bsk-[A-Za-z0-9-]+\b"), "[REDACTED_TOKEN]"),
+    ("otp", re.compile(r"\b\d{6}\b"), "[REDACTED_OTP]"),
+    ("email", re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"), "[REDACTED_EMAIL]"),
+    ("phone", re.compile(r"\+?\d[\d\s().-]{7,}\d"), "[REDACTED_PHONE]"),
+]
+_REDACTION_URL_PATTERN = re.compile(r"https?://[^\s<>\"]+")
 T = TypeVar("T")
 
 
@@ -213,6 +276,178 @@ def _normalize_optional_absence_notes(optional_absence_notes: Sequence[str] | No
     return [str(note) for note in optional_absence_notes]
 
 
+def _dedupe_finding_tuples(findings: Sequence[tuple[str, str]]) -> list[tuple[str, str]]:
+    unique: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for finding in findings:
+        if finding in seen:
+            continue
+        seen.add(finding)
+        unique.append(finding)
+    return unique
+
+
+def _format_finding_tuples(findings: Sequence[tuple[str, str]]) -> list[dict[str, str]]:
+    return [{"pattern": pattern, "location": location} for pattern, location in findings]
+
+
+def _normalize_query_key(key: str) -> str:
+    return re.sub(r"[-\s]+", "_", key.strip().lower())
+
+
+def _redact_url_substrings(text: str, *, location: str) -> tuple[str, list[tuple[str, str]]]:
+    if "://" not in text and "?" not in text and "&" not in text:
+        return text, []
+
+    redacted_text = text
+    findings: list[tuple[str, str]] = []
+    matches = list(_REDACTION_URL_PATTERN.finditer(text))
+    if not matches:
+        return text, []
+
+    for match in reversed(matches):
+        url_text = match.group(0)
+        parsed = urlsplit(url_text)
+        if not parsed.scheme or not parsed.netloc:
+            continue
+        query_pairs = parse_qsl(parsed.query, keep_blank_values=True)
+        if not query_pairs:
+            continue
+        redacted_pairs: list[tuple[str, str]] = []
+        url_changed = False
+        for key, value in query_pairs:
+            normalized_key = _normalize_query_key(key)
+            rule = _REDACTION_SENSITIVE_QUERY_PARAMS.get(normalized_key)
+            if rule is None:
+                redacted_pairs.append((key, value))
+                continue
+            pattern_name, replacement = rule
+            redacted_pairs.append((key, replacement))
+            findings.append((pattern_name, location))
+            url_changed = True
+        if not url_changed:
+            continue
+        redacted_query = "&".join(
+            f"{quote(key, safe='')}={quote(value, safe='[]_')}"
+            for key, value in redacted_pairs
+        )
+        redacted_url = urlunsplit((parsed.scheme, parsed.netloc, parsed.path, redacted_query, parsed.fragment))
+        redacted_text = f"{redacted_text[:match.start()]}{redacted_url}{redacted_text[match.end():]}"
+    return redacted_text, _dedupe_finding_tuples(findings)
+
+
+def _redact_text_value(text: str, *, location: str) -> tuple[str, list[tuple[str, str]]]:
+    redacted = text
+    findings: list[tuple[str, str]] = []
+    redacted, url_findings = _redact_url_substrings(redacted, location=location)
+    findings.extend(url_findings)
+    for pattern_name, raw_value, replacement in _REDACTION_EXACT_TEXT_RULES:
+        if raw_value in redacted:
+            redacted = redacted.replace(raw_value, replacement)
+            findings.append((pattern_name, location))
+    for pattern_name, regex, replacement in _REDACTION_REGEX_RULES:
+        if regex.search(redacted):
+            redacted = regex.sub(replacement, redacted)
+            findings.append((pattern_name, location))
+    return redacted, _dedupe_finding_tuples(findings)
+
+
+def _redact_sensitive_value(value: Any, *, location: str) -> tuple[Any, list[tuple[str, str]]]:
+    if isinstance(value, Mapping):
+        redacted_mapping: dict[str, Any] = {}
+        findings: list[tuple[str, str]] = []
+        for key, inner_value in value.items():
+            normalized_key = str(key)
+            child_location = f"{location}.{normalized_key}" if location else normalized_key
+            if normalized_key in REDACTION_REPORT_PLACEHOLDERS:
+                redacted_mapping[normalized_key] = REDACTION_REPORT_PLACEHOLDERS[normalized_key]
+                findings.append((normalized_key, child_location))
+                continue
+            redacted_inner, child_findings = _redact_sensitive_value(inner_value, location=child_location)
+            redacted_mapping[normalized_key] = redacted_inner
+            findings.extend(child_findings)
+        return redacted_mapping, _dedupe_finding_tuples(findings)
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        redacted_list: list[Any] = []
+        findings: list[tuple[str, str]] = []
+        for index, item in enumerate(value):
+            child_location = f"{location}[{index}]"
+            redacted_item, child_findings = _redact_sensitive_value(item, location=child_location)
+            redacted_list.append(redacted_item)
+            findings.extend(child_findings)
+        return redacted_list, _dedupe_finding_tuples(findings)
+    if isinstance(value, str):
+        return _redact_text_value(value, location=location)
+    return value, []
+
+
+def _normalize_redaction_findings(findings: Sequence[tuple[str, str]] | Sequence[Mapping[str, Any]] | None) -> list[dict[str, Any]]:
+    if findings is None:
+        return []
+    normalized: list[tuple[str, str]] = []
+    for finding in findings:
+        if isinstance(finding, Mapping):
+            pattern = str(finding.get("pattern", "unknown"))
+            location = str(finding.get("location", "unknown"))
+            normalized.append((pattern, location))
+        else:
+            pattern, location = finding
+            normalized.append((str(pattern), str(location)))
+    return _format_finding_tuples(_dedupe_finding_tuples(normalized))
+
+
+def _build_redaction_report(
+    *,
+    findings: Sequence[tuple[str, str]] | None = None,
+    redaction_report: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    if redaction_report is not None:
+        provided_findings = _normalize_redaction_findings(redaction_report.get("findings"))
+        additional_findings = _normalize_redaction_findings(findings)
+        merged_findings = _format_finding_tuples(
+            _dedupe_finding_tuples(
+                [
+                    *( (entry["pattern"], entry["location"]) for entry in provided_findings ),
+                    *( (entry["pattern"], entry["location"]) for entry in additional_findings ),
+                ]
+            )
+        )
+        payload = {
+            "redaction_passed": bool(redaction_report.get("redaction_passed", True)),
+            "redaction_version": str(redaction_report.get("redaction_version", REDACTION_REPORT_VERSION)),
+            "patterns_checked": [str(pattern) for pattern in redaction_report.get("patterns_checked", REDACTION_REPORT_PATTERNS)],
+            "files_checked": [str(file_name) for file_name in redaction_report.get("files_checked", REDACTION_REPORT_FILES_CHECKED)],
+            "findings": merged_findings,
+        }
+        return payload
+    return {
+        "redaction_passed": True,
+        "redaction_version": REDACTION_REPORT_VERSION,
+        "patterns_checked": list(REDACTION_REPORT_PATTERNS),
+        "files_checked": list(REDACTION_REPORT_FILES_CHECKED),
+        "findings": _normalize_redaction_findings(findings),
+    }
+
+
+def _rewrite_trace_export_optional_absence_notes(
+    optional_absence_notes: Sequence[str] | None,
+    *,
+    redaction_report_written: bool = False,
+) -> list[str]:
+    base_notes = _normalize_optional_absence_notes(optional_absence_notes)
+    default_trace_export_note = DEFAULT_E2E_OPTIONAL_ABSENCE_NOTES[1]
+    rewritten_notes: list[str] = []
+    for note in base_notes:
+        if note == default_trace_export_note:
+            if redaction_report_written:
+                rewritten_notes.append("trace-summary is deferred to a later trace/export slice")
+            else:
+                rewritten_notes.append(note)
+            continue
+        rewritten_notes.append(note)
+    return rewritten_notes
+
+
 def _resolve_artifact_file_name(name: str) -> str:
     return DEFAULT_E2E_ARTIFACT_PATHS.get(name, name)
 
@@ -319,16 +554,10 @@ def _event_record_type(event: Any) -> str | None:
 def _normalize_event_evidence(event_evidence: Mapping[str, Any] | None) -> dict[str, Any]:
     if event_evidence is None:
         return {}
-    normalized: dict[str, Any] = {}
-    for key, value in event_evidence.items():
-        normalized_key = str(key)
-        if isinstance(value, Mapping):
-            normalized[normalized_key] = {str(inner_key): inner_value for inner_key, inner_value in value.items()}
-        elif isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
-            normalized[normalized_key] = list(value)
-        else:
-            normalized[normalized_key] = value
-    return normalized
+    normalized, _findings = _redact_sensitive_value(event_evidence, location="event_evidence")
+    if isinstance(normalized, Mapping):
+        return {str(key): value for key, value in normalized.items()}
+    return {}
 
 
 def _append_event_evidence_summary(summary_text: str, event_evidence: Mapping[str, Any]) -> str:
@@ -531,6 +760,9 @@ def build_test_result(
     event_evidence: Mapping[str, Any] | None = None,
     run_id: str | None = None,
 ) -> dict[str, Any]:
+    sanitized_error_summary = error_summary
+    if sanitized_error_summary is not None:
+        sanitized_error_summary, _error_findings = _redact_text_value(sanitized_error_summary, location="error_summary")
     payload: dict[str, Any] = {
         "schema_version": E2E_ARTIFACT_SCHEMA_VERSION,
         "test_name": test_name,
@@ -538,8 +770,8 @@ def build_test_result(
         "artifact_dir": str(artifact_dir),
         "status": status,
     }
-    if error_summary:
-        payload["error_summary"] = error_summary
+    if sanitized_error_summary:
+        payload["error_summary"] = sanitized_error_summary
     if event_evidence is not None:
         payload["event_evidence"] = _normalize_event_evidence(event_evidence)
     return payload
@@ -580,9 +812,11 @@ def finalize_test_result(
     file_hashes: Mapping[str, str] | None = None,
     optional_absence_notes: Sequence[str] | None = None,
     event_evidence: Mapping[str, Any] | None = None,
+    redaction_report: Mapping[str, Any] | None = None,
     run_id: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     effective_artifact_texts: Mapping[str, str] | None = artifact_texts
+    redaction_findings: list[tuple[str, str]] = []
     if event_evidence is not None and artifact_texts:
         effective_artifact_texts = dict(artifact_texts)
         summary_key = next((key for key in ("summary.md", "summary") if key in effective_artifact_texts), None)
@@ -591,6 +825,25 @@ def finalize_test_result(
                 effective_artifact_texts[summary_key],
                 event_evidence,
             )
+    if effective_artifact_texts:
+        sanitized_artifact_texts: dict[str, str] = {}
+        for artifact_name, artifact_text in effective_artifact_texts.items():
+            file_name = _resolve_artifact_file_name(artifact_name)
+            sanitized_text, findings = _redact_text_value(artifact_text, location=file_name)
+            sanitized_artifact_texts[artifact_name] = sanitized_text
+            redaction_findings.extend(findings)
+        effective_artifact_texts = sanitized_artifact_texts
+
+    sanitized_error_summary = error_summary
+    if sanitized_error_summary is not None:
+        sanitized_error_summary, findings = _redact_text_value(sanitized_error_summary, location="error_summary")
+        redaction_findings.extend(findings)
+
+    sanitized_event_evidence = event_evidence
+    if sanitized_event_evidence is not None:
+        normalized_event_evidence, findings = _redact_sensitive_value(sanitized_event_evidence, location="event_evidence")
+        sanitized_event_evidence = normalized_event_evidence if isinstance(normalized_event_evidence, Mapping) else {}
+        redaction_findings.extend(findings)
 
     effective_artifacts = artifacts
     event_artifact: tuple[str, str] | None = None
@@ -615,6 +868,29 @@ def finalize_test_result(
             effective_artifacts["rejections"] = _resolve_artifact_file_name("rejections")
 
     _write_text_artifacts(artifact_dir, effective_artifact_texts)
+
+    redaction_report_written = False
+    redaction_report_artifact: tuple[str, str] | None = None
+    redaction_report_requested = redaction_report is not None or artifacts is None or (
+        effective_artifacts is not None and "redaction_report" in effective_artifacts
+    )
+    if redaction_report_requested:
+        redaction_report_file_name = _resolve_artifact_file_name("redaction_report")
+        if effective_artifacts is not None and "redaction_report" in effective_artifacts:
+            redaction_report_file_name = str(effective_artifacts["redaction_report"])
+        redaction_report_payload = _build_redaction_report(
+            findings=redaction_findings,
+            redaction_report=redaction_report,
+        )
+        redaction_report_path = artifact_dir / redaction_report_file_name
+        write_json_artifact(redaction_report_path, redaction_report_payload)
+        redaction_report_text = redaction_report_path.read_text(encoding="utf-8")
+        redaction_report_artifact = (redaction_report_file_name, redaction_report_text)
+        redaction_report_written = True
+        if effective_artifacts is not None and "redaction_report" not in effective_artifacts:
+            effective_artifacts = dict(effective_artifacts)
+            effective_artifacts["redaction_report"] = redaction_report_file_name
+
     resolved_file_hashes = _normalize_file_hashes(file_hashes)
     if not resolved_file_hashes and effective_artifact_texts:
         resolved_file_hashes = _hash_artifact_texts(effective_artifact_texts)
@@ -630,6 +906,27 @@ def finalize_test_result(
         rejection_file_name, rejection_text = rejection_artifact
         if rejection_file_name not in resolved_file_hashes:
             resolved_file_hashes[rejection_file_name] = _hash_text_value(rejection_text)
+    if redaction_report_artifact is not None:
+        redaction_report_file_name, redaction_report_text = redaction_report_artifact
+        if redaction_report_file_name not in resolved_file_hashes:
+            resolved_file_hashes[redaction_report_file_name] = _hash_text_value(redaction_report_text)
+
+    effective_status = status
+    if not redaction_report_written:
+        missing_redaction_report = False
+        if sanitized_event_evidence is not None:
+            missing_values = sanitized_event_evidence.get("missing")
+            if isinstance(missing_values, Sequence) and not isinstance(missing_values, (str, bytes, bytearray)):
+                missing_redaction_report = any(
+                    str(value) in {"redaction-report.json", "redaction_report"} for value in missing_values
+                )
+        if not missing_redaction_report and sanitized_error_summary is not None:
+            missing_redaction_report = "redaction-report.json missing" in sanitized_error_summary
+        if missing_redaction_report:
+            effective_status = "failed"
+    elif redaction_report is not None:
+        if not bool(redaction_report.get("redaction_passed", True)):
+            effective_status = "failed"
     effective_optional_absence_notes = optional_absence_notes
     if event_records is not None or command_records is not None or rejection_records is not None:
         effective_optional_absence_notes = _rewrite_event_stream_optional_absence_notes(
@@ -638,23 +935,28 @@ def finalize_test_result(
             commands_written=command_records is not None,
             rejections_written=rejection_records is not None,
         )
+    if redaction_report_written:
+        effective_optional_absence_notes = _rewrite_trace_export_optional_absence_notes(
+            effective_optional_absence_notes,
+            redaction_report_written=True,
+        )
     manifest = write_artifact_manifest(
         artifact_dir=artifact_dir,
         test_name=test_name,
-        status=status,
+        status=effective_status,
         created_at=created_at,
         artifacts=effective_artifacts,
         file_hashes=resolved_file_hashes,
         optional_absence_notes=effective_optional_absence_notes,
-        event_evidence=event_evidence,
+        event_evidence=sanitized_event_evidence,
         run_id=run_id,
     )
     result = write_test_result(
         artifact_dir=artifact_dir,
         test_name=test_name,
-        status=status,
-        error_summary=error_summary,
-        event_evidence=event_evidence,
+        status=effective_status,
+        error_summary=sanitized_error_summary,
+        event_evidence=sanitized_event_evidence,
         run_id=run_id,
     )
     return manifest, result
@@ -878,6 +1180,7 @@ class E2ESession:
     failure_expected_event_type: str | None = None
     failure_observed_event_types: list[str] = field(default_factory=list)
     failure_event_evidence: dict[str, Any] | None = None
+    failure_redaction_report: dict[str, Any] | None = None
 
     def log_stage_ok(self, stage: str) -> None:
         self.current_stage = stage
@@ -970,6 +1273,17 @@ class E2ESession:
                 "active_tab": None,
                 "active_mode": None,
             }
+        sanitized_page_state, page_state_findings = _redact_sensitive_value(page_state, location="page_state")
+        sanitized_page_error = page_error
+        page_error_findings: list[tuple[str, str]] = []
+        if sanitized_page_error is not None:
+            sanitized_page_error, page_error_findings = _redact_text_value(sanitized_page_error, location="page_error")
+        sanitized_reason, _reason_findings = _redact_text_value(reason, location="failure_reason")
+        failure_redaction_findings = []
+        failure_redaction_findings.extend(_reason_findings)
+        failure_redaction_findings.extend(page_state_findings)
+        failure_redaction_findings.extend(page_error_findings)
+        self.failure_redaction_report = _build_redaction_report(findings=failure_redaction_findings)
         context = {
             "artifact_dir": str(self.artifact_dir),
             "screenshot_path": str(self.artifact_dir / "failure.png"),
@@ -977,12 +1291,12 @@ class E2ESession:
             "backend_tail_path": str(self.artifact_dir / "backend.tail.log"),
             "frontend_console_tail_path": str(self.artifact_dir / "frontend.console.tail.log"),
             "stage": stage_name,
-            "reason": reason,
+            "reason": sanitized_reason,
             "expected_event_type": expected_event_type,
             "observed_event_types": normalized_observed_event_types,
             "event_evidence": stored_event_evidence,
-            "page_state": page_state,
-            "page_error": page_error,
+            "page_state": sanitized_page_state,
+            "page_error": sanitized_page_error,
             "llm_triggered": llm_triggered,
             "last_llm_marker": last_llm_marker,
             "backend_lifecycle_markers": lifecycle_markers,
@@ -990,7 +1304,7 @@ class E2ESession:
         }
         failure_text_lines = [
             f"stage={stage_name}",
-            f"reason={reason}",
+            f"reason={sanitized_reason}",
             f"artifact_dir={self.artifact_dir}",
         ]
         if expected_event_type is not None:
@@ -1086,6 +1400,7 @@ class E2ESession:
             artifact_texts=artifact_texts,
             optional_absence_notes=DEFAULT_E2E_OPTIONAL_ABSENCE_NOTES,
             event_evidence=self.failure_event_evidence,
+            redaction_report=self.failure_redaction_report,
             run_id=self.run_id,
         )
 

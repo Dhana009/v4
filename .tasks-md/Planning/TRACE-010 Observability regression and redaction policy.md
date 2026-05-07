@@ -1,13 +1,13 @@
 # TRACE-010 Observability regression and redaction policy
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-009 Trace and Observability  
 **Owner:** DEV-1 Backend Runtime + DEV-4 Evidence/Observability  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Ready for repo inspection; not ready for implementation  
+**Readiness:** Done; implementation and verification complete  
 **Dependencies:** TRACE-001, TRACE-009, PLAN-005  
 **Blocks:** release safety, privacy, regression guard  
 **Version:** Batch 10 v1  
@@ -94,6 +94,18 @@ Regression requirements:
 
 ---
 
+## Codex task breakdown
+
+| Task | Status | Notes |
+|---|---|---|
+| TRACE-010A | Done | Read-only mapping of current redaction/report support, artifact metadata, and evidence paths; no code changes. |
+| TRACE-010B | Done | Redaction-report baseline implemented and verified; `python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py` and `python -m pytest tests/test_e2e_harness.py -q` both passed. |
+| TRACE-010C | Done | Residual no-secret artifact metadata edge cases closed; recursive redaction for failure-context, failure.txt, summary evidence, and manifest/test-result metadata is implemented and verified. |
+| TRACE-010D | Done | Covered by TRACE-010B/010C implementation; no code change needed. |
+| TRACE-010E | Done | Verification and evidence capture complete; `python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py` and `python -m pytest tests/test_e2e_harness.py -q` passed. |
+
+---
+
 ## Edge cases
 
 - false-positive redaction
@@ -175,9 +187,9 @@ Stop if:
 First Codex task for TRACE-010 should be read-only:
 
 ```text
-Read TRACE-010, SOURCE-001, PLAN-002, PLAN-005, EPIC-009, EPIC-001, EPIC-002, EPIC-006, EPIC-008, and required skills.
+Read TRACE-010, SOURCE-001, PLAN-002, PLAN-005, EPIC-009, EPIC-001, EPIC-002, EPIC-006, EPIC-008, PATCH-008, PATCH-011, and required skills.
 Do not edit code.
-Inspect current trace/observability ownership for Observability regression and redaction policy.
+Inspect current redaction/report support for Observability regression and redaction policy.
 Report gaps, current files, tests, risks, and a narrow implementation plan.
 Do not implement until repo-inspection report is reviewed.
 ```

@@ -29,6 +29,65 @@ NORMALIZED_EVIDENCE_NOTES = [
     "events.ndjson, commands.json, and rejections.json are deferred to a later backend event stream slice",
     "trace-summary and redaction-report are deferred to a later trace/export slice",
 ]
+REDACTION_REPORT_ARTIFACTS = {
+    "manifest": "manifest.json",
+    "test_result": "test-result.json",
+    "summary": "summary.md",
+    "redaction_report": "redaction-report.json",
+}
+REDACTION_REPORT_EXPECTED_SCHEMA = {
+    "redaction_passed": True,
+    "redaction_version": "1.0",
+    "patterns_checked": ["token", "otp", "email", "phone", "password"],
+    "files_checked": ["trace.ndjson", "commands.json"],
+    "findings": [],
+}
+REDACTION_REPORT_SECRET_VALUES = (
+    "sk-test-redaction-token",
+    "123456",
+    "user@example.test",
+    "+1-202-555-0175",
+    "correct horse battery staple",
+)
+
+
+def _sensitive_query_url() -> str:
+    fake_token, fake_otp, fake_email, fake_phone, fake_password = REDACTION_REPORT_SECRET_VALUES
+    return (
+        "https://example.test/trace?"
+        f"token={fake_token}&"
+        f"otp={fake_otp}&"
+        f"email={fake_email}&"
+        f"phone={fake_phone}&"
+        f"password={fake_password}"
+    )
+
+
+def _nested_sensitive_event_evidence() -> dict[str, object]:
+    fake_token, fake_otp, fake_email, fake_phone, fake_password = REDACTION_REPORT_SECRET_VALUES
+    return {
+        "request": {
+            "url": _sensitive_query_url(),
+            "headers": {
+                "Authorization": f"Bearer {fake_token}",
+                "X-OTP": fake_otp,
+            },
+            "contact": {
+                "email": fake_email,
+                "phone": fake_phone,
+            },
+            "profile": {
+                "password": fake_password,
+            },
+        },
+        "nested": [
+            {"token": fake_token},
+            {"otp": fake_otp},
+            {"email": fake_email},
+            {"phone": fake_phone},
+            {"password": fake_password},
+        ],
+    }
 
 
 def _event(event_type: str, run_id: str = "run-123", **payload: object) -> dict[str, object]:
@@ -107,6 +166,15 @@ def test_harness_is_expected_to_gain_shadow_root_aware_autoworkbench_lookup() ->
     pytest.xfail("MR-4D harness contract not implemented yet: " + ", ".join(missing))
 
 
+class _LeakyFailurePage(_FakePage):
+    def __init__(self, url: str, error_message: str) -> None:
+        super().__init__(url=url)
+        self._error_message = error_message
+
+    def locator(self, selector: str) -> _FakeLocator:
+        raise RuntimeError(self._error_message)
+
+
 class _FakeBrowser:
     async def close(self) -> None:
         return None
@@ -117,7 +185,7 @@ class _FakePlaywright:
         return None
 
 
-def _make_failure_session(tmp_path: Path) -> harness.E2ESession:
+def _make_failure_session(tmp_path: Path, page: object | None = None) -> harness.E2ESession:
     stdout_path = tmp_path / "backend.stdout.log"
     stderr_path = tmp_path / "backend.stderr.log"
     stdout_path.write_text("[PLAN_READY] backend ready\n", encoding="utf-8")
@@ -141,7 +209,7 @@ def _make_failure_session(tmp_path: Path) -> harness.E2ESession:
         playwright=_FakePlaywright(),
         browser=_FakeBrowser(),
         context=SimpleNamespace(),
-        page=_FakePage(),
+        page=page if page is not None else _FakePage(),
         console_entries=[],
     )
 
@@ -764,6 +832,274 @@ def test_finalize_test_result_writes_rejections_json_and_lists_it_in_manifest(
     assert result["event_evidence"]["rejections"] == "rejections.json"
 
 
+def test_finalize_test_result_writes_redaction_report_json_and_lists_it_in_manifest(
+    tmp_path: Path,
+) -> None:
+    manifest, result = harness.finalize_test_result(
+        artifact_dir=tmp_path,
+        test_name="redaction_report_artifact_baseline",
+        status="unknown",
+        error_summary=None,
+        artifacts=REDACTION_REPORT_ARTIFACTS,
+        artifact_texts={
+            "summary.md": "# Summary\n\nRedaction report baseline.\n",
+        },
+    )
+
+    report_path = tmp_path / "redaction-report.json"
+
+    assert report_path.exists()
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    assert payload["redaction_passed"] is True
+    assert payload["redaction_version"] == "1.0"
+    assert payload["patterns_checked"] == ["token", "otp", "email", "phone", "password"]
+    assert payload["files_checked"] == ["trace.ndjson", "commands.json"]
+    assert payload["findings"] == []
+    assert manifest["artifacts"]["redaction_report"] == "redaction-report.json"
+    assert manifest["file_hashes"]["redaction-report.json"].startswith("sha256:")
+
+
+def test_redaction_report_json_schema_includes_expected_fields(tmp_path: Path) -> None:
+    harness.finalize_test_result(
+        artifact_dir=tmp_path,
+        test_name="redaction_report_schema_baseline",
+        status="unknown",
+        error_summary=None,
+        artifacts=REDACTION_REPORT_ARTIFACTS,
+        artifact_texts={
+            "summary.md": "# Summary\n\nRedaction report baseline.\n",
+        },
+    )
+
+    report_path = tmp_path / "redaction-report.json"
+
+    assert report_path.exists()
+    payload = json.loads(report_path.read_text(encoding="utf-8"))
+    assert set(REDACTION_REPORT_EXPECTED_SCHEMA).issubset(payload)
+    assert payload["redaction_passed"] is True
+    assert payload["redaction_version"] == "1.0"
+    assert payload["patterns_checked"] == ["token", "otp", "email", "phone", "password"]
+    assert payload["files_checked"] == ["trace.ndjson", "commands.json"]
+    assert payload["findings"] == []
+
+
+def test_finalize_test_result_redacts_sensitive_strings_from_summary_and_artifact_metadata(
+    tmp_path: Path,
+) -> None:
+    fake_token, fake_otp, fake_email, fake_phone, fake_password = REDACTION_REPORT_SECRET_VALUES
+
+    manifest, result = harness.finalize_test_result(
+        artifact_dir=tmp_path,
+        test_name="redaction_sensitive_metadata_baseline",
+        status="failed",
+        error_summary=f"leaked {fake_token}",
+        artifacts=REDACTION_REPORT_ARTIFACTS,
+        artifact_texts={
+            "summary.md": (
+                "# Summary\n\n"
+                f"token={fake_token}\n"
+                f"otp={fake_otp}\n"
+                f"email={fake_email}\n"
+                f"phone={fake_phone}\n"
+                f"password={fake_password}\n"
+            ),
+        },
+        event_evidence={
+            "token": fake_token,
+            "otp": fake_otp,
+            "email": fake_email,
+            "phone": fake_phone,
+            "password": fake_password,
+        },
+    )
+
+    summary = (tmp_path / "summary.md").read_text(encoding="utf-8")
+    manifest_blob = json.dumps(manifest, sort_keys=True)
+    result_blob = json.dumps(result, sort_keys=True)
+
+    for secret in REDACTION_REPORT_SECRET_VALUES:
+        assert secret not in summary
+        assert secret not in manifest_blob
+        assert secret not in result_blob
+
+
+def test_finalize_test_result_omits_deferred_redaction_report_note_when_redaction_report_json_is_written(
+    tmp_path: Path,
+) -> None:
+    manifest, _result = harness.finalize_test_result(
+        artifact_dir=tmp_path,
+        test_name="redaction_report_notes_baseline",
+        status="unknown",
+        error_summary=None,
+        artifacts=REDACTION_REPORT_ARTIFACTS,
+        artifact_texts={
+            "summary.md": "# Summary\n\nRedaction report baseline.\n",
+        },
+    )
+
+    assert manifest["artifacts"]["redaction_report"] == "redaction-report.json"
+    assert all("redaction-report" not in note for note in manifest["optional_absence_notes"])
+
+
+def test_finalize_test_result_marks_missing_redaction_report_as_failed_evidence_gate(
+    tmp_path: Path,
+) -> None:
+    manifest, result = harness.finalize_test_result(
+        artifact_dir=tmp_path,
+        test_name="redaction_report_missing_gate",
+        status="unknown",
+        error_summary="redaction-report.json missing",
+        artifacts={
+            "manifest": "manifest.json",
+            "test_result": "test-result.json",
+            "summary": "summary.md",
+        },
+        artifact_texts={
+            "summary.md": "# Summary\n\nRedaction report gate baseline.\n",
+        },
+        event_evidence={
+            "present": ["manifest.json", "test-result.json", "summary.md"],
+            "missing": ["redaction-report.json"],
+        },
+    )
+
+    assert manifest["status"] == "failed"
+    assert result["status"] == "failed"
+
+
+def test_save_failure_artifacts_redacts_sensitive_query_params_in_failure_context_and_summary(
+    tmp_path: Path,
+) -> None:
+    fake_token, fake_otp, fake_email, fake_phone, fake_password = REDACTION_REPORT_SECRET_VALUES
+    sensitive_url = _sensitive_query_url()
+    session = _make_failure_session(
+        tmp_path,
+        page=_LeakyFailurePage(
+            url=sensitive_url,
+            error_message=f"page-state leak token={fake_token} otp={fake_otp}",
+        ),
+    )
+
+    asyncio.run(
+        session.save_failure_artifacts(
+            f"request url {sensitive_url}",
+            stage="awaiting_plan_ready",
+            expected_event_type="plan_ready",
+            observed_event_types=["run_started"],
+            event_evidence={
+                "request": {
+                    "url": sensitive_url,
+                },
+            },
+        )
+    )
+    asyncio.run(session.close())
+
+    summary = (tmp_path / "summary.md").read_text(encoding="utf-8")
+    failure_text = (tmp_path / "failure.txt").read_text(encoding="utf-8")
+    failure_context_blob = (tmp_path / "failure-context.json").read_text(encoding="utf-8")
+
+    for secret in (fake_token, fake_otp, fake_email, fake_phone, fake_password):
+        assert secret not in summary
+        assert secret not in failure_text
+        assert secret not in failure_context_blob
+
+
+def test_nested_event_evidence_payload_values_are_redacted_recursively_in_failure_context(
+    tmp_path: Path,
+) -> None:
+    sensitive_url = _sensitive_query_url()
+    session = _make_failure_session(
+        tmp_path,
+        page=_LeakyFailurePage(
+            url=sensitive_url,
+            error_message=f"page-state leak token={REDACTION_REPORT_SECRET_VALUES[0]}",
+        ),
+    )
+
+    asyncio.run(
+        session.save_failure_artifacts(
+            "missing plan_ready event",
+            stage="awaiting_plan_ready",
+            expected_event_type="plan_ready",
+            observed_event_types=["run_started"],
+            event_evidence=_nested_sensitive_event_evidence(),
+        )
+    )
+    asyncio.run(session.close())
+
+    failure_context = json.loads((tmp_path / "failure-context.json").read_text(encoding="utf-8"))
+    nested_evidence = failure_context["event_evidence"]
+
+    assert nested_evidence["request"]["headers"]["Authorization"] == "Bearer [REDACTED_TOKEN]"
+    assert nested_evidence["request"]["headers"]["X-OTP"] == "[REDACTED_OTP]"
+    assert nested_evidence["request"]["contact"]["email"] == "[REDACTED_EMAIL]"
+    assert nested_evidence["request"]["contact"]["phone"] == "[REDACTED_PHONE]"
+    assert nested_evidence["request"]["profile"]["password"] == "[REDACTED_PASSWORD]"
+    assert nested_evidence["nested"][0]["token"] == "[REDACTED_TOKEN]"
+    assert nested_evidence["nested"][1]["otp"] == "[REDACTED_OTP]"
+    assert nested_evidence["nested"][2]["email"] == "[REDACTED_EMAIL]"
+    assert nested_evidence["nested"][3]["phone"] == "[REDACTED_PHONE]"
+    assert nested_evidence["nested"][4]["password"] == "[REDACTED_PASSWORD]"
+    assert sensitive_url not in json.dumps(failure_context, sort_keys=True)
+
+
+def test_redaction_report_records_findings_for_redacted_fields_without_raw_secrets(
+    tmp_path: Path,
+) -> None:
+    session = _make_failure_session(
+        tmp_path,
+        page=_LeakyFailurePage(
+            url=_sensitive_query_url(),
+            error_message=f"page-state leak token={REDACTION_REPORT_SECRET_VALUES[0]}",
+        ),
+    )
+
+    asyncio.run(
+        session.save_failure_artifacts(
+            "missing plan_ready event",
+            stage="awaiting_plan_ready",
+            expected_event_type="plan_ready",
+            observed_event_types=["run_started"],
+            event_evidence=_nested_sensitive_event_evidence(),
+        )
+    )
+    asyncio.run(session.close())
+
+    report_path = tmp_path / "redaction-report.json"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report_blob = json.dumps(report, sort_keys=True)
+
+    assert report["redaction_passed"] is True
+    assert any(finding["location"].startswith("event_evidence.") for finding in report["findings"])
+    assert any(finding["location"] == "page_state.current_url" for finding in report["findings"])
+    for secret in REDACTION_REPORT_SECRET_VALUES:
+        assert secret not in report_blob
+
+
+def test_clean_artifacts_produce_redaction_passed_true_and_empty_findings(tmp_path: Path) -> None:
+    manifest, result = harness.finalize_test_result(
+        artifact_dir=tmp_path,
+        test_name="redaction_report_clean_artifacts_baseline",
+        status="unknown",
+        error_summary=None,
+        artifacts=REDACTION_REPORT_ARTIFACTS,
+        artifact_texts={
+            "summary.md": "# Summary\n\nClean redaction baseline.\n",
+        },
+    )
+
+    report_path = tmp_path / "redaction-report.json"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+
+    assert report_path.exists()
+    assert report["redaction_passed"] is True
+    assert report["findings"] == []
+    assert manifest["artifacts"]["redaction_report"] == "redaction-report.json"
+    assert manifest["file_hashes"]["redaction-report.json"].startswith("sha256:")
+    assert result["status"] == "unknown"
+
+
 def test_finalize_test_result_omits_deferred_rejections_note_when_rejections_json_is_written(
     tmp_path: Path,
 ) -> None:
@@ -1043,7 +1379,10 @@ def test_failure_artifacts_will_persist_event_evidence_through_close(tmp_path: P
     result = json.loads((tmp_path / "test-result.json").read_text(encoding="utf-8"))
     summary = (tmp_path / "summary.md").read_text(encoding="utf-8")
 
-    assert manifest["optional_absence_notes"] == NORMALIZED_EVIDENCE_NOTES
+    assert manifest["optional_absence_notes"] == [
+        "events.ndjson, commands.json, and rejections.json are deferred to a later backend event stream slice",
+        "trace-summary is deferred to a later trace/export slice",
+    ]
     assert not (tmp_path / "events.ndjson").exists()
     assert not (tmp_path / "commands.json").exists()
     assert not (tmp_path / "rejections.json").exists()

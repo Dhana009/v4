@@ -531,49 +531,33 @@ Safe next action:
   rerun the same E2E suite in an environment that allows local loopback binds, or attach the harness to an already-running local backend/static server that does not require new socket creation
 ```
 
-### Next DEV-4 slice
+### E2E-002 status
 
 ```text
-Selected story: TRACE-009 Artifact bundle and export format
+Selected story: E2E-002 Backend event stream capture and assertion utilities
 Story status: Done
-Why complete: harness-side artifact emission across events.ndjson, commands.json, and rejections.json is verified, and the remaining artifact-bundle work is now focused elsewhere without touching product/runtime/frontend code.
-Completed subtask: TRACE-009A map current artifact writers and summary/manifest/result fields for event, command, and rejection evidence
-Completed subtask status: Done
-Verification: read-only mapping complete; no files changed
-Completed subtask: TRACE-009B add red tests for events.ndjson emission baseline only
-Completed subtask status: Done
-Verification: python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
-Verification: python -m pytest tests/test_e2e_harness.py -q -> 22 passed
-Completed subtask: TRACE-009C add red tests for commands.json emission baseline only
-Completed subtask status: Done
-Verification: python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
-Verification: python -m pytest tests/test_e2e_harness.py -q -> 25 passed
-Completed subtask: TRACE-009D add red tests for rejections.json emission baseline only
-Completed subtask status: Done
-Verification: python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
-Verification: python -m pytest tests/test_e2e_harness.py -q -> 28 passed
-Implementation note: commands.json and rejections.json emission baselines implemented.
-Completed subtask: TRACE-009E consolidate events, commands, and rejections artifact emission into one harness path
+Completed subtask: event helper and evidence utilities complete
 Completed subtask status: Done
 Verification: python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
 Verification: python -m pytest tests/test_e2e_harness.py -q -> 30 passed
-Implementation note: existing harness already supported the consolidated path; no code changes were required beyond the added regression coverage.
-Completed subtask: TRACE-009F verify focused tests and record evidence
-Completed subtask status: Done
-Verification: python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
-Verification: python -m pytest tests/test_e2e_harness.py -q -> 30 passed
-Completion note: events.ndjson emitted, commands.json emitted, rejections.json emitted, manifest includes all three, file_hashes cover all three, and optional absence notes remove emitted artifacts.
-Remaining deferred gaps: trace.ndjson, redaction-report.json, live E2E validation if loopback bind remains blocked.
+Completion note: collect_events, wait_for_event, assert_sequence, assert_no_event, event_evidence metadata, and artifact emission helpers are complete.
+```
+
+### TRACE-010 slice
+
+```text
+Selected story: TRACE-010 Observability regression and redaction policy
+Story status: Done
+Why next: TRACE-009 artifact export is complete, and TRACE-010C closed the remaining no-secret artifact metadata redaction gap for trace/export safety.
+Phase: TRACE-010C complete; residual no-secret artifact metadata edge cases closed.
 Scope:
-  tests/e2e/harness.py
-  tests/test_e2e_harness.py
-  .tasks-md/Backlog/TRACE-009 Artifact bundle and export format.md
+  .tasks-md/Planning/TRACE-010 Observability regression and redaction policy.md
   .tasks-md/Planning/DEVELOPER-EXECUTION-PLAN-001 Four Developer Branch Checkpoint and Merge Plan.md
+  tests/test_e2e_harness.py
 Allowed files:
-  tests/e2e/harness.py
-  tests/test_e2e_harness.py
-  .tasks-md/Backlog/TRACE-009 Artifact bundle and export format.md
+  .tasks-md/Planning/TRACE-010 Observability regression and redaction policy.md
   .tasks-md/Planning/DEVELOPER-EXECUTION-PLAN-001 Four Developer Branch Checkpoint and Merge Plan.md
+  tests/test_e2e_harness.py
 Forbidden files:
   agent.py
   server.py
@@ -582,20 +566,38 @@ Forbidden files:
   fixtures/**
   AGENTS.md
   .DS_Store
-  CI/config
-Executed subtasks:
-  TRACE-009D add red tests for rejections.json emission baseline
-  TRACE-009E consolidate events, commands, and rejections artifact emission into one harness path
-  TRACE-009F verify focused tests and record evidence
-Verification commands:
-  python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
-  python -m pytest tests/test_e2e_harness.py -q -> 30 passed
+Test plan:
+  TRACE-010B-001 redaction report artifact emission
+  TRACE-010B-002 redaction report schema contract
+  TRACE-010B-003 no-secret summary and metadata
+  TRACE-010B-004 optional absence note rewrite
+  TRACE-010B-005 missing redaction report gate
+First test-first step:
+  add failing tests for redaction-report.json baseline and no-secret artifact metadata only
+TRACE-010B result:
+  `tests/e2e/harness.py` now writes `redaction-report.json`, redacts the known fake token/OTP/email/phone/password values from summary/result/manifest metadata, rewrites the optional absence note when the report is present, and keeps the missing-report evidence gate failing.
+  Verification: `python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py`
+  Verification: `python -m pytest tests/test_e2e_harness.py -q` -> 35 passed
+TRACE-010C scope:
+  residual no-secret artifact metadata edge cases only
+TRACE-010C result:
+  `tests/e2e/harness.py` now recursively redacts nested metadata and sensitive URL query params in failure-context.json, failure.txt, summary event evidence, and manifest/test-result event_evidence without leaking raw secrets.
+  Verification: `python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py`
+  Verification: `python -m pytest tests/test_e2e_harness.py -q` -> 39 passed
+TRACE-010D result:
+  Covered by TRACE-010B/010C implementation; no code change needed.
+TRACE-010E result:
+  Verification and evidence capture complete; `python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py` and `python -m pytest tests/test_e2e_harness.py -q` passed.
+Deferred gaps:
+  live browser E2E blocked by localhost bind environment
+  trace.ndjson deferred
+  fixtures deferred
+  CI/coverage deferred
 Stop conditions:
-  artifact emission semantics are unclear without repo evidence
-  changing the helper would require backend contract changes
-  implementation would touch forbidden runtime or frontend paths
-  new coverage would depend on the blocked socket or browser environment
-  implementation would broaden beyond the harness/evidence layer
+  redaction policy remains unclear
+  implementation would touch runtime or frontend truth
+  redaction report would become a second source of truth
+  evidence would require socket-bound browser startup in the blocked environment
 ```
 
 ### Matrix areas
