@@ -827,6 +827,127 @@ def test_finalize_test_result_keeps_events_and_commands_behavior_when_rejections
     assert result["event_evidence"]["rejections"] == "rejections.json"
 
 
+def test_finalize_test_result_writes_events_commands_and_rejections_together(
+    tmp_path: Path,
+) -> None:
+    event_records = [
+        _event("run_started"),
+        _event("plan_ready"),
+    ]
+    command_records = [
+        {"type": "run_started", "run_id": "run-123"},
+        {"type": "plan_ready", "run_id": "run-123", "plan_id": "plan-1"},
+    ]
+    rejection_records = [
+        {"type": "plan_rejected", "run_id": "run-123", "reason": "missing clarification"},
+        {"type": "step_rejected", "run_id": "run-123", "reason": "invalid locator"},
+    ]
+
+    manifest, result = harness.finalize_test_result(
+        artifact_dir=tmp_path,
+        test_name="all_artifacts_baseline",
+        status="unknown",
+        error_summary=None,
+        artifacts={
+            "manifest": "manifest.json",
+            "test_result": "test-result.json",
+            "summary": "summary.md",
+            "events": "events.ndjson",
+            "commands": "commands.json",
+            "rejections": "rejections.json",
+        },
+        artifact_texts={
+            "summary.md": "# Summary\n\nAll artifact emission baseline.\n",
+        },
+        event_records=event_records,
+        command_records=command_records,
+        rejection_records=rejection_records,
+        event_evidence={
+            "events": "events.ndjson",
+            "commands": "commands.json",
+            "rejections": "rejections.json",
+            "event_count": len(event_records),
+            "command_count": len(command_records),
+            "rejection_count": len(rejection_records),
+        },
+    )
+
+    events_path = tmp_path / "events.ndjson"
+    commands_path = tmp_path / "commands.json"
+    rejections_path = tmp_path / "rejections.json"
+    summary = (tmp_path / "summary.md").read_text(encoding="utf-8")
+
+    assert [json.loads(line)["type"] for line in events_path.read_text(encoding="utf-8").splitlines()] == [
+        "run_started",
+        "plan_ready",
+    ]
+    assert [record["type"] for record in json.loads(commands_path.read_text(encoding="utf-8"))] == [
+        "run_started",
+        "plan_ready",
+    ]
+    assert [record["type"] for record in json.loads(rejections_path.read_text(encoding="utf-8"))] == [
+        "plan_rejected",
+        "step_rejected",
+    ]
+    assert manifest["artifacts"]["events"] == "events.ndjson"
+    assert manifest["artifacts"]["commands"] == "commands.json"
+    assert manifest["artifacts"]["rejections"] == "rejections.json"
+    assert manifest["file_hashes"]["events.ndjson"].startswith("sha256:")
+    assert manifest["file_hashes"]["commands.json"].startswith("sha256:")
+    assert manifest["file_hashes"]["rejections.json"].startswith("sha256:")
+    assert manifest["event_evidence"]["events"] == "events.ndjson"
+    assert manifest["event_evidence"]["commands"] == "commands.json"
+    assert manifest["event_evidence"]["rejections"] == "rejections.json"
+    assert result["event_evidence"]["events"] == "events.ndjson"
+    assert result["event_evidence"]["commands"] == "commands.json"
+    assert result["event_evidence"]["rejections"] == "rejections.json"
+    assert '"events": "events.ndjson"' in summary
+    assert '"commands": "commands.json"' in summary
+    assert '"rejections": "rejections.json"' in summary
+    assert "deferred" not in summary.lower()
+
+
+def test_finalize_test_result_without_records_keeps_default_absence_notes_and_no_artifacts(
+    tmp_path: Path,
+) -> None:
+    manifest, result = harness.finalize_test_result(
+        artifact_dir=tmp_path,
+        test_name="no_artifacts_baseline",
+        status="unknown",
+        error_summary=None,
+        artifacts={
+            "manifest": "manifest.json",
+            "test_result": "test-result.json",
+            "summary": "summary.md",
+        },
+        artifact_texts={
+            "summary.md": "# Summary\n\nNo artifact emission baseline.\n",
+        },
+        optional_absence_notes=NORMALIZED_EVIDENCE_NOTES,
+        event_evidence={
+            "present": [],
+            "missing": ["events.ndjson", "commands.json", "rejections.json"],
+        },
+    )
+
+    summary = (tmp_path / "summary.md").read_text(encoding="utf-8")
+
+    assert manifest["optional_absence_notes"] == NORMALIZED_EVIDENCE_NOTES
+    assert manifest["artifacts"] == {
+        "manifest": "manifest.json",
+        "test_result": "test-result.json",
+        "summary": "summary.md",
+    }
+    assert result["event_evidence"]["missing"] == ["events.ndjson", "commands.json", "rejections.json"]
+    assert "## Event evidence" in summary
+    assert "events.ndjson" in summary
+    assert "commands.json" in summary
+    assert "rejections.json" in summary
+    assert not (tmp_path / "events.ndjson").exists()
+    assert not (tmp_path / "commands.json").exists()
+    assert not (tmp_path / "rejections.json").exists()
+
+
 def test_failure_artifacts_record_expected_and_observed_event_metadata(tmp_path: Path) -> None:
     session = _make_failure_session(tmp_path)
     captured_before_action = harness.collect_events(

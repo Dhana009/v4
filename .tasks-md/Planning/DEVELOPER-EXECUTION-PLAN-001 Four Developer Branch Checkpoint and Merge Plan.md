@@ -512,7 +512,7 @@ Safe next action:
 ```text
 Selected story: TRACE-009 Artifact bundle and export format
 Story status: Planned
-Why next: rejections.json emission baseline is complete, and the next evidence-readiness step is to verify the remaining artifact-bundle slice without touching product/runtime/frontend code.
+Why next: consolidated artifact emission across events.ndjson, commands.json, and rejections.json is verified, and the remaining artifact-bundle work is now focused elsewhere without touching product/runtime/frontend code.
 Completed subtask: TRACE-009A map current artifact writers and summary/manifest/result fields for event, command, and rejection evidence
 Completed subtask status: Done
 Verification: read-only mapping complete; no files changed
@@ -529,7 +529,12 @@ Completed subtask status: Done
 Verification: python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
 Verification: python -m pytest tests/test_e2e_harness.py -q -> 28 passed
 Implementation note: commands.json and rejections.json emission baselines implemented.
-Next planned subtask: TRACE-009E implement the smallest harness-side emission support needed by the remaining slice
+Completed subtask: TRACE-009E consolidate events, commands, and rejections artifact emission into one harness path
+Completed subtask status: Done
+Verification: python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
+Verification: python -m pytest tests/test_e2e_harness.py -q -> 30 passed
+Implementation note: existing harness already supported the consolidated path; no code changes were required beyond the added regression coverage.
+Next planned subtask: TRACE-009F verify focused tests and record evidence
 Next planned subtask status: Planned
 Scope:
   tests/e2e/harness.py
