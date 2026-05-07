@@ -1,13 +1,13 @@
 # FE-003 Command dispatcher and backend command envelope
 
 **Type:** Story  
-**Status:** Inprogress  
+**Status:** Testing  
 **Priority:** P0  
 **Epic:** EPIC-005 Shadow DOM Frontend  
 **Owner:** DEV-3 Shadow DOM Frontend + Typed Rendering  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** MR-4G test-only slice under review; typed command dispatcher shell under contract analysis  
+**Readiness:** Pending-command metadata and typed command contracts verified; frontend dispatcher contract green  
 **Dependencies:** FE-001, EVENT-002, EVENT-003, BE-003  
 **Blocks:** FE-004, FE-005, FE-008, replay controls  
 **Version:** MR-4G v1  
@@ -102,6 +102,15 @@ Fixed:
 - `python -m pytest tests/test_frontend_event_command_contract.py tests/test_command_contract.py tests/test_process_boundary_contract.py tests/test_plan_correction.py tests/test_late_event_contract.py -q` returned `84 passed`
 - `cd frontend && npm run build` succeeded
 - remaining known gap: pending command metadata is tracked in runtime state but not surfaced as a dedicated panel card yet
+- no backend/runtime/LLM/DOM changes
+
+## Testing evidence
+
+- implementation commit: `95afc7d` (`feat: track frontend pending command state`)
+- prior command-purity commit: `35c26d2` (`feat: harden frontend command lifecycle purity`)
+- latest focused result: `python -m pytest tests/test_frontend_event_command_contract.py tests/test_command_contract.py tests/test_process_boundary_contract.py tests/test_plan_correction.py tests/test_late_event_contract.py -q` returned `84 passed`
+- build result: `cd frontend && npm run build` succeeded
+- remaining known gap: pending-command metadata is tracked in runtime state but not surfaced as a dedicated panel card yet
 - no backend/runtime/LLM/DOM changes
 
 ## Edge cases
