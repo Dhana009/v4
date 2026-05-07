@@ -584,6 +584,15 @@ TRACE-010C result:
   `tests/e2e/harness.py` now recursively redacts nested metadata and sensitive URL query params in failure-context.json, failure.txt, summary event evidence, and manifest/test-result event_evidence without leaking raw secrets.
   Verification: `python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py`
   Verification: `python -m pytest tests/test_e2e_harness.py -q` -> 39 passed
+TRACE-010D result:
+  Covered by TRACE-010B/010C implementation; no code change needed.
+TRACE-010E result:
+  Verification and evidence capture complete; `python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py` and `python -m pytest tests/test_e2e_harness.py -q` passed.
+Deferred gaps:
+  live browser E2E blocked by localhost bind environment
+  trace.ndjson deferred
+  fixtures deferred
+  CI/coverage deferred
 Stop conditions:
   redaction policy remains unclear
   implementation would touch runtime or frontend truth

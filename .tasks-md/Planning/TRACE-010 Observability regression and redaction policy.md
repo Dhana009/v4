@@ -101,8 +101,8 @@ Regression requirements:
 | TRACE-010A | Done | Read-only mapping of current redaction/report support, artifact metadata, and evidence paths; no code changes. |
 | TRACE-010B | Done | Redaction-report baseline implemented and verified; `python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py` and `python -m pytest tests/test_e2e_harness.py -q` both passed. |
 | TRACE-010C | Done | Residual no-secret artifact metadata edge cases closed; recursive redaction for failure-context, failure.txt, summary evidence, and manifest/test-result metadata is implemented and verified. |
-| TRACE-010D | Planned | Harness-side implementation. |
-| TRACE-010E | Planned | Verification and evidence capture. |
+| TRACE-010D | Done | Covered by TRACE-010B/010C implementation; no code change needed. |
+| TRACE-010E | Done | Verification and evidence capture complete; `python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py` and `python -m pytest tests/test_e2e_harness.py -q` passed. |
 
 ---
 
