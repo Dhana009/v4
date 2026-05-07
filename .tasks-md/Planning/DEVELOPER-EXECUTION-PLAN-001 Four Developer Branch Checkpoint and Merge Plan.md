@@ -154,6 +154,10 @@ BE-005 through BE-008 have now been decomposed into measurable subtasks and move
 
 BE-001 through BE-008 audit children were moved through In Progress and closed as Done on the DEV-1 board after focused backend contract verification. Leave BE-009 through BE-012 untouched for the next batch.
 
+### Board note
+
+BE-009 through BE-012 have now been decomposed into measurable subtasks and moved to Planning on the DEV-1 board. Leave the active audit children in progress and keep broader replay repair deferred until a later batch.
+
 ### Selected first-slice matrix areas
 
 ```text
