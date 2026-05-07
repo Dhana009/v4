@@ -1,13 +1,13 @@
 # FE-005 Clarification and recovery UI
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Inprogress  
 **Priority:** P0  
 **Epic:** EPIC-005 Shadow DOM Frontend  
 **Owner:** DEV-3 Shadow DOM Frontend + Typed Rendering  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Ready for repo inspection; not ready for implementation  
+**Readiness:** Repo inspection complete; test-first implementation in progress  
 **Dependencies:** FE-002, FE-003, EVENT-007, BE-008  
 **Blocks:** clarification/recovery flows, E2E negative paths  
 **Version:** Batch 06 v1  
@@ -26,6 +26,21 @@ Fixed:
 - option_selected uses canonical target.kind/id
 - UI cannot mark recovery resolved
 - skip/stop require typed commands
+
+## Subtasks
+
+- [ ] source-rule mapping
+- [ ] existing frontend/backend event coverage inventory
+- [ ] clarification_needed rendering expectations
+- [ ] recovery_needed rendering expectations
+- [ ] runtime_rejected display expectations
+- [ ] command actions available from each UI state
+- [ ] negative cases: unknown/malformed/missing payloads must not fake lifecycle truth
+- [ ] boundary cases: stale run_id, duplicate events, recovery open blocks completed UI
+- [ ] test-only slice
+- [ ] narrow implementation slice
+- [ ] verification commands
+- [ ] stop conditions
 
 ## UI contract
 

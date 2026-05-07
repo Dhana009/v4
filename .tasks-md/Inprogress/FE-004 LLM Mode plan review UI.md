@@ -1,13 +1,13 @@
 # FE-004 LLM Mode plan review UI
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Inprogress  
 **Priority:** P0  
 **Epic:** EPIC-005 Shadow DOM Frontend  
 **Owner:** DEV-3 Shadow DOM Frontend + Typed Rendering  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Ready for repo inspection; not ready for implementation  
+**Readiness:** Repo inspection complete; test-first implementation in progress  
 **Dependencies:** FE-002, FE-003, EVENT-004, BE-004, BE-005  
 **Blocks:** confirmation/correction user workflow, E2E plan review  
 **Version:** Batch 06 v1  
@@ -26,6 +26,20 @@ Fixed:
 - confirm command includes run_id/plan_id/plan_version
 - correction command does not mutate local plan directly
 - revised plan renders only after backend accepts correction
+
+## Subtasks
+
+- [ ] source-rule mapping
+- [ ] existing frontend/backend event coverage inventory
+- [ ] plan_ready rendering expectations
+- [ ] runtime_rejected display expectations
+- [ ] command actions available from this UI state
+- [ ] negative cases: unknown/malformed/missing payloads must not fake lifecycle truth
+- [ ] boundary cases: stale run_id, duplicate events, correction races
+- [ ] test-only slice
+- [ ] narrow implementation slice
+- [ ] verification commands
+- [ ] stop conditions
 
 ## UI states
 
