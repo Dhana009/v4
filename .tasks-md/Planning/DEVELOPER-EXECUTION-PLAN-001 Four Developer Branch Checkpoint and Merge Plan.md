@@ -762,6 +762,15 @@ first safe LLM test slice proposed
 blocked rows identified
 ```
 
+Status note:
+- MR-3A mapping completed on `dev2/llm-dom-test-mapping`.
+- Source docs read, including the three Complete LLM Mode specs.
+- DEV-2 backlog items identified: `DOM-001..DOM-010` and `LLM-001..LLM-010`.
+- First proposed MR-3B test-only slice: `LLM-001` to `LLM-004`.
+- Shared/blocked rows: `DOM-010` with DEV-4 fixtures.
+- No implementation done.
+- No tests created.
+
 ---
 
 ### MR-4A: Frontend harness mapping
