@@ -35,6 +35,7 @@ DEFAULT_E2E_REMOTE_DEBUGGING_PORT = 9222
 DEFAULT_E2E_ARTIFACT_PATHS: dict[str, str] = {
     "manifest": "manifest.json",
     "test_result": "test-result.json",
+    "events": "events.ndjson",
     "backend_log": "backend.log",
     "frontend_log": "frontend.log",
     "browser_console_log": "browser-console.log",
@@ -212,6 +213,30 @@ def _normalize_optional_absence_notes(optional_absence_notes: Sequence[str] | No
 
 def _resolve_artifact_file_name(name: str) -> str:
     return DEFAULT_E2E_ARTIFACT_PATHS.get(name, name)
+
+
+def _serialize_ndjson_records(records: Sequence[Any]) -> str:
+    lines: list[str] = []
+    for record in records:
+        if isinstance(record, Mapping):
+            payload: Any = dict(record)
+        else:
+            payload = record
+        lines.append(json.dumps(payload, sort_keys=True))
+    if not lines:
+        return ""
+    return "\n".join(lines) + "\n"
+
+
+def _write_ndjson_artifact(artifact_dir: Path, name: str, records: Sequence[Any] | None) -> tuple[str, str] | None:
+    if records is None:
+        return None
+    file_name = _resolve_artifact_file_name(name)
+    path = artifact_dir / file_name
+    ensure_directory(path.parent)
+    text = _serialize_ndjson_records(records)
+    path.write_text(text, encoding="utf-8")
+    return file_name, text
 
 
 def _event_record_type(event: Any) -> str | None:
@@ -486,6 +511,7 @@ def finalize_test_result(
     created_at: str | None = None,
     artifacts: Mapping[str, str | Path] | None = None,
     artifact_texts: Mapping[str, str] | None = None,
+    event_records: Sequence[Any] | None = None,
     file_hashes: Mapping[str, str] | None = None,
     optional_absence_notes: Sequence[str] | None = None,
     event_evidence: Mapping[str, Any] | None = None,
@@ -501,18 +527,38 @@ def finalize_test_result(
                 event_evidence,
             )
 
+    effective_artifacts = artifacts
+    event_artifact: tuple[str, str] | None = None
+    if event_records is not None:
+        event_artifact = _write_ndjson_artifact(artifact_dir, "events", event_records)
+        if effective_artifacts is not None and "events" not in effective_artifacts:
+            effective_artifacts = dict(effective_artifacts)
+            effective_artifacts["events"] = _resolve_artifact_file_name("events")
+
     _write_text_artifacts(artifact_dir, effective_artifact_texts)
     resolved_file_hashes = _normalize_file_hashes(file_hashes)
     if not resolved_file_hashes and effective_artifact_texts:
         resolved_file_hashes = _hash_artifact_texts(effective_artifact_texts)
+    if event_artifact is not None:
+        event_file_name, event_text = event_artifact
+        if event_file_name not in resolved_file_hashes:
+            resolved_file_hashes[event_file_name] = _hash_text_value(event_text)
+    effective_optional_absence_notes = optional_absence_notes
+    if event_records is not None:
+        base_notes = (
+            list(DEFAULT_E2E_OPTIONAL_ABSENCE_NOTES)
+            if effective_optional_absence_notes is None
+            else [str(note) for note in effective_optional_absence_notes]
+        )
+        effective_optional_absence_notes = [note for note in base_notes if "events.ndjson" not in note]
     manifest = write_artifact_manifest(
         artifact_dir=artifact_dir,
         test_name=test_name,
         status=status,
         created_at=created_at,
-        artifacts=artifacts,
+        artifacts=effective_artifacts,
         file_hashes=resolved_file_hashes,
-        optional_absence_notes=optional_absence_notes,
+        optional_absence_notes=effective_optional_absence_notes,
         event_evidence=event_evidence,
         run_id=run_id,
     )

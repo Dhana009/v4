@@ -495,6 +495,82 @@ def test_finalize_test_result_can_record_event_evidence_presence_and_absence_met
     assert result["event_evidence"] == event_evidence
 
 
+def test_finalize_test_result_writes_events_ndjson_and_lists_it_in_manifest(
+    tmp_path: Path,
+) -> None:
+    event_records = [
+        _event("run_started"),
+        _event("plan_ready", plan={"steps": 1}),
+    ]
+
+    manifest, result = harness.finalize_test_result(
+        artifact_dir=tmp_path,
+        test_name="events_artifact_baseline",
+        status="unknown",
+        error_summary=None,
+        artifacts={
+            "manifest": "manifest.json",
+            "test_result": "test-result.json",
+            "summary": "summary.md",
+            "events": "events.ndjson",
+        },
+        artifact_texts={
+            "summary.md": "# Summary\n\nEvents emission baseline.\n",
+        },
+        event_records=event_records,
+        event_evidence={
+            "events": "events.ndjson",
+            "event_count": len(event_records),
+        },
+    )
+
+    events_path = tmp_path / "events.ndjson"
+    assert events_path.exists()
+    lines = events_path.read_text(encoding="utf-8").splitlines()
+    assert [json.loads(line)["type"] for line in lines] == ["run_started", "plan_ready"]
+    assert len(lines) == 2
+    assert "events.ndjson" in manifest["artifacts"].values()
+    assert manifest["file_hashes"]["events.ndjson"].startswith("sha256:")
+    assert manifest["event_evidence"]["events"] == "events.ndjson"
+    assert result["event_evidence"]["events"] == "events.ndjson"
+    assert "events.ndjson" in (tmp_path / "summary.md").read_text(encoding="utf-8")
+
+
+def test_finalize_test_result_omits_deferred_events_note_when_events_ndjson_is_written(
+    tmp_path: Path,
+) -> None:
+    event_records = [
+        _event("run_started"),
+        _event("plan_ready"),
+    ]
+
+    manifest, result = harness.finalize_test_result(
+        artifact_dir=tmp_path,
+        test_name="events_artifact_baseline",
+        status="unknown",
+        error_summary=None,
+        artifacts={
+            "manifest": "manifest.json",
+            "test_result": "test-result.json",
+            "summary": "summary.md",
+            "events": "events.ndjson",
+        },
+        artifact_texts={
+            "summary.md": "# Summary\n\nEvents emission baseline.\n",
+        },
+        event_records=event_records,
+        event_evidence={
+            "events": "events.ndjson",
+        },
+    )
+
+    summary = (tmp_path / "summary.md").read_text(encoding="utf-8")
+
+    assert all("events.ndjson" not in note for note in manifest["optional_absence_notes"])
+    assert result["event_evidence"]["events"] == "events.ndjson"
+    assert "events.ndjson" in summary
+
+
 def test_failure_artifacts_record_expected_and_observed_event_metadata(tmp_path: Path) -> None:
     session = _make_failure_session(tmp_path)
     captured_before_action = harness.collect_events(

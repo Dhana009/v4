@@ -101,8 +101,8 @@ test_id, run_id, status, failed_step, key event sequence, artifact files, redact
 
 | Task | Status | Notes |
 |---|---|---|
-| TRACE-009A | In Progress | Map current artifact writers and summary/manifest/result fields for event, command, and rejection evidence. |
-| TRACE-009B | Planned | Add red tests for `events.ndjson` emission baseline. |
+| TRACE-009A | Done | Completed mapping of current artifact writers and summary/manifest/result fields for event, command, and rejection evidence. |
+| TRACE-009B | Done | Implemented `events.ndjson` emission baseline; tests/test_e2e_harness.py passes 22/22. |
 | TRACE-009C | Planned | Add red tests for `commands.json` emission baseline. |
 | TRACE-009D | Planned | Add red tests for `rejections.json` emission baseline. |
 | TRACE-009E | Planned | Implement the smallest harness-side emission support needed by the red tests. |
