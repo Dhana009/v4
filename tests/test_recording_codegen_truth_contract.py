@@ -303,7 +303,6 @@ def test_recorded_child_operation_order_matches_confirmed_execution_evidence() -
     assert code_update_payload["full_spec_preview"] == "\n".join(code_update_payload["lines"])
 
 
-@pytest.mark.xfail(strict=True, reason="code_update still falls back to generated_line when child evidence is unresolved")
 def test_code_update_payload_does_not_trust_generated_line_without_successful_child_evidence() -> None:
     loop = _make_loop()
     payload = {

@@ -6681,6 +6681,9 @@ class AgentLoop:
             for child in children:
                 if not isinstance(child, dict):
                     continue
+                child_status = str(child.get("status") or "").strip().lower()
+                if child_status not in {"success", "recorded"}:
+                    continue
                 if not operation_id_set:
                     child_operation_id = str(child.get("operation_id") or "").strip()
                     if child_operation_id:
@@ -6694,10 +6697,7 @@ class AgentLoop:
                     if line_text:
                         lines.append(line_text)
         if not lines:
-            generated_line = str(payload.get("generated_line") or "").strip()
-            if not generated_line:
-                return {}
-            lines = [generated_line]
+            return {}
         return {
             "step_id": step_id,
             "operation_id": operation_id,
