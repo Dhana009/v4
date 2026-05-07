@@ -472,10 +472,37 @@ def build_page_snapshot(
 
     sections = deepcopy(parser.sections)
     interactive_elements = deepcopy(parser.interactive_elements)
+    text_blocks = deepcopy(parser.text_blocks)
     if parser.extraction_warnings:
         warnings = list(parser.extraction_warnings)
     else:
         warnings = None
+
+    dynamic_state = classify_dynamic_ui_state(
+        page_url=url,
+        page_title=resolved_title,
+        state_evidence={
+            "modal": [element for element in interactive_elements if _normalize_text(element.get("role")).lower() in {"dialog", "modal"}],
+            "dropdown": [element for element in interactive_elements if _normalize_text(element.get("role")).lower() in {"listbox", "combobox", "dropdown"}],
+            "toast": [element for element in interactive_elements if _normalize_text(element.get("role")).lower() in {"alert", "status"}],
+            "loading": [element for element in interactive_elements if "load" in _normalize_text(element.get("text")).lower() or "spinner" in _normalize_text(element.get("text")).lower()],
+        },
+        states=[
+            "modal"
+            if any(_normalize_text(element.get("role")).lower() in {"dialog", "modal"} for element in interactive_elements)
+            else None,
+            "dropdown"
+            if any(_normalize_text(element.get("role")).lower() in {"listbox", "combobox", "dropdown"} for element in interactive_elements)
+            else None,
+            "toast"
+            if any(_normalize_text(element.get("role")).lower() in {"alert", "status"} for element in interactive_elements)
+            else None,
+            "loading"
+            if any("load" in _normalize_text(element.get("text")).lower() or "spinner" in _normalize_text(element.get("text")).lower() for element in interactive_elements)
+            else None,
+        ],
+        advisory_only=True,
+    )
 
     snapshot: dict[str, Any] = {
         "url": _normalize_optional_text(url),
@@ -486,7 +513,9 @@ def build_page_snapshot(
         "sections": sections,
         "landmarks": deepcopy(sections),
         "interactive_elements": interactive_elements,
+        "text_blocks": text_blocks,
         "extraction_warnings": warnings,
+        "dynamic_state": dynamic_state,
         "metadata": {
             "url": _normalize_optional_text(url),
             "title": resolved_title,
@@ -495,6 +524,7 @@ def build_page_snapshot(
             "timestamp": resolved_timestamp,
             "section_count": len(sections),
             "interactive_element_count": len(interactive_elements),
+            "text_block_count": len(text_blocks),
             "internal_controls_excluded": len(parser.extraction_warnings),
         },
     }
@@ -741,6 +771,471 @@ def scope_candidates(
     }
 
 
+def classify_assertion_target(
+    assertion_type: str | None = None,
+    target_candidate: Mapping[str, Any] | None = None,
+    expected_outcome_metadata_ref: str | None = None,
+    expected_outcome: Mapping[str, Any] | None = None,
+    expected_value: str | None = None,
+    source_of_expected_value: str | None = None,
+    compatibility_flags: Sequence[str] | None = None,
+    expected_outcome_metadata: Mapping[str, Any] | None = None,
+    **_: Any,
+) -> dict[str, Any]:
+    normalized_assertion_type = _normalize_optional_text(assertion_type) or _normalize_optional_text(
+        target_candidate.get("candidate_type") if isinstance(target_candidate, Mapping) else None
+    ) or "visible"
+    normalized_flags = {flag.lower() for flag in _normalize_list(compatibility_flags)}
+    candidate_snapshot = deepcopy(target_candidate) if isinstance(target_candidate, Mapping) else {}
+    target_candidate_id = _normalize_optional_text(candidate_snapshot.get("candidate_id")) or _normalize_optional_text(
+        candidate_snapshot.get("element_ref")
+    ) or _normalize_optional_text(candidate_snapshot.get("element_id"))
+    target_text = _normalize_optional_text(
+        candidate_snapshot.get("target_text")
+        or candidate_snapshot.get("text")
+        or candidate_snapshot.get("accessible_name")
+    )
+    resolved_expected_value = _normalize_optional_text(expected_value) or _normalize_optional_text(
+        candidate_snapshot.get("expected_value")
+    )
+
+    if normalized_assertion_type in {"visible", "hidden", "enabled", "disabled", "checked"}:
+        resolved_expected_value = None
+    elif normalized_assertion_type in {"has_text", "exact_text", "has_value"} and not resolved_expected_value:
+        resolved_expected_value = _normalize_optional_text(candidate_snapshot.get("target_text"))
+
+    validation_status = "valid"
+    if normalized_assertion_type in {"has_text", "exact_text", "has_value"} and not resolved_expected_value:
+        validation_status = "invalid"
+    if "visible+has_text invalid" in normalized_flags:
+        validation_status = "invalid"
+
+    outcome_metadata = deepcopy(expected_outcome_metadata) if isinstance(expected_outcome_metadata, Mapping) else None
+    outcome_metadata_ref = _normalize_optional_text(expected_outcome_metadata_ref)
+    if outcome_metadata_ref is None and isinstance(expected_outcome, Mapping):
+        outcome_metadata_ref = _normalize_optional_text(
+            expected_outcome.get("ref")
+            or expected_outcome.get("metadata_ref")
+            or expected_outcome.get("parent_ref")
+            or expected_outcome.get("step_ref")
+        )
+
+    result: dict[str, Any] = {
+        "assertion_type": normalized_assertion_type,
+        "target_candidate_id": target_candidate_id,
+        "target_text": target_text,
+        "expected_value": resolved_expected_value,
+        "source_of_expected_value": _normalize_optional_text(source_of_expected_value),
+        "expected_outcome_metadata_ref": outcome_metadata_ref,
+        "expected_outcome_metadata": outcome_metadata,
+        "compatibility_flags": _normalize_list(compatibility_flags),
+        "validation_status": validation_status,
+        "status": "proposal" if validation_status == "valid" else "rejected",
+        "advisory_only": True,
+        "execute": False,
+        "backend_validation_required": True,
+        "browser_validation_required": True,
+        "candidate": candidate_snapshot,
+    }
+    if result["candidate"]:
+        result["candidate"]["candidate_type"] = "assertion_target"
+    return result
+
+
+def classify_dynamic_ui_state(
+    page_url: str | None = None,
+    page_title: str | None = None,
+    state_evidence: Mapping[str, Any] | None = None,
+    states: Sequence[str] | None = None,
+    advisory_only: bool | None = None,
+    **_: Any,
+) -> dict[str, Any]:
+    evidence_map = dict(state_evidence or {}) if isinstance(state_evidence, Mapping) else {}
+    normalized_states = [state.lower() for state in _normalize_list(states)]
+    if not normalized_states:
+        normalized_states = [state.lower() for state in evidence_map.keys() if _normalize_text(state)]
+
+    observed_states: list[dict[str, Any]] = []
+    capability_gaps: list[dict[str, Any]] = []
+    classification: str | None = None
+
+    supported_map = {
+        "modal": "modal",
+        "dialog": "modal",
+        "dropdown": "dropdown",
+        "listbox": "dropdown",
+        "toast": "toast",
+        "alert": "toast",
+        "loading": "loading",
+        "spinner": "loading",
+        "navigation": "navigation",
+        "page_change": "navigation",
+        "route_change": "navigation",
+    }
+    gap_states = {"iframe", "popup", "upload", "file_picker", "permission", "download"}
+
+    for state_name in normalized_states:
+        if not state_name:
+            continue
+        evidence = evidence_map.get(state_name) or evidence_map.get(state_name.replace("_", "-")) or evidence_map.get(state_name.replace("-", "_"))
+        evidence_summary = deepcopy(evidence) if isinstance(evidence, (Mapping, list, tuple)) else evidence
+        if state_name in gap_states:
+            capability_gaps.append(
+                {
+                    "state": state_name,
+                    "classification": "capability_gap",
+                    "advisory_only": True,
+                    "evidence": evidence_summary,
+                }
+            )
+            if classification is None:
+                classification = "capability_gap"
+            continue
+
+        state_classification = supported_map.get(state_name)
+        if state_classification is None:
+            capability_gaps.append(
+                {
+                    "state": state_name,
+                    "classification": "uncertain",
+                    "advisory_only": True,
+                    "evidence": evidence_summary,
+                }
+            )
+            if classification is None:
+                classification = "uncertain"
+            continue
+
+        observed = {
+            "state": state_classification,
+            "source_state": state_name,
+            "advisory_only": True,
+            "evidence": evidence_summary,
+        }
+        if state_classification in {"loading", "navigation"}:
+            observed["unstable"] = state_classification == "loading"
+        observed_states.append(observed)
+        if classification is None:
+            classification = state_classification
+
+    if observed_states and classification in {"capability_gap", "uncertain"}:
+        classification = observed_states[0]["state"]
+
+    if not classification:
+        classification = "uncertain" if capability_gaps else None
+
+    return {
+        "page_url": _normalize_optional_text(page_url),
+        "page_title": _normalize_optional_text(page_title),
+        "states": normalized_states,
+        "observed_states": observed_states,
+        "capability_gaps": capability_gaps,
+        "classification": classification,
+        "status": "observed_state_proposal" if observed_states or capability_gaps else "uncertain",
+        "advisory_only": True if advisory_only is None else bool(advisory_only),
+        "execute": False,
+        "needs_recovery": bool(observed_states or capability_gaps),
+    }
+
+
+def build_locator_escalation_request(
+    target_text: str | None = None,
+    candidate_summary: Mapping[str, Any] | None = None,
+    page_context: Mapping[str, Any] | None = None,
+    validation_requirements: Sequence[str] | None = None,
+    skills_loaded: Sequence[str] | None = None,
+    tool_policy: Mapping[str, Any] | None = None,
+    advisory_only: bool | None = None,
+    candidates: Sequence[Mapping[str, Any]] | None = None,
+    preferred_container_types: Sequence[str] | None = None,
+    escalate_to: Sequence[str] | None = None,
+    raw_dom: str | None = None,
+    full_dom: str | None = None,
+    **_: Any,
+) -> dict[str, Any]:
+    summary: dict[str, Any]
+    if isinstance(candidate_summary, Mapping):
+        summary = deepcopy(dict(candidate_summary))
+    elif candidates:
+        summary = scope_candidates(
+            target_text=target_text,
+            candidates=candidates,
+            preferred_container_types=preferred_container_types,
+            escalate_to=escalate_to,
+        )
+    else:
+        summary = {
+            "candidate_ids": [],
+            "recommended_candidate_id": None,
+            "ranked_candidates": [],
+            "needs_clarification": True,
+            "escalation": None,
+            "scope": "page",
+        }
+
+    candidate_ids = summary.get("candidate_ids")
+    if not isinstance(candidate_ids, list):
+        candidate_ids = []
+        ranked_candidates = summary.get("ranked_candidates")
+        if isinstance(ranked_candidates, Sequence):
+            for candidate in ranked_candidates:
+                if isinstance(candidate, Mapping):
+                    candidate_id = _normalize_optional_text(candidate.get("candidate_id"))
+                    if candidate_id:
+                        candidate_ids.append(candidate_id)
+    candidate_ids = [candidate_id for candidate_id in candidate_ids if _normalize_optional_text(candidate_id)]
+
+    page_context_map = dict(page_context or {}) if isinstance(page_context, Mapping) else {}
+    minimal_page_context = {
+        "url": _normalize_optional_text(page_context_map.get("url") or page_context_map.get("page_url")),
+        "title": _normalize_optional_text(page_context_map.get("title") or page_context_map.get("page_title")),
+        "scope": _normalize_optional_text(page_context_map.get("scope")),
+        "page_id": _normalize_optional_text(page_context_map.get("page_id")),
+    }
+
+    normalized_validation_requirements = _normalize_list(validation_requirements)
+    normalized_skills_loaded = _normalize_list(skills_loaded)
+    normalized_tool_policy = dict(tool_policy or {}) if isinstance(tool_policy, Mapping) else {}
+    target_text_value = _normalize_optional_text(target_text)
+
+    recommended_candidate_id = _normalize_optional_text(
+        summary.get("recommended_candidate_id") or summary.get("candidate_id")
+    )
+    if recommended_candidate_id is None and candidate_ids:
+        recommended_candidate_id = candidate_ids[0]
+
+    return {
+        "purpose": "locator_specialist",
+        "target_text": target_text_value,
+        "candidate_summary": summary,
+        "candidate_ids": candidate_ids,
+        "recommended_candidate_id": recommended_candidate_id,
+        "page_context": minimal_page_context,
+        "validation_requirements": normalized_validation_requirements,
+        "skills_loaded": normalized_skills_loaded,
+        "tool_policy": {
+            "deny_execution": True,
+            "backend_validation_required": True,
+            "browser_validation_required": True,
+            "policy": normalized_tool_policy,
+        },
+        "advisory_only": True if advisory_only is None else bool(advisory_only),
+        "execute": False,
+        "backend_validation_required": True,
+        "browser_validation_required": True,
+        "needs_user_selection": bool(summary.get("needs_clarification")),
+        "status": "escalation_proposal",
+        "escalation_reason": _normalize_optional_text(summary.get("escalation"))
+        or ("insufficient_deterministic_evidence" if candidate_ids or summary else "no_locator_evidence"),
+    }
+
+
+def build_update_locator_command(
+    type: str | None = None,  # noqa: A002 - command field name
+    command_id: str | None = None,
+    run_id: str | None = None,
+    step_id: str | None = None,
+    operation_id: str | None = None,
+    locator_candidate: Mapping[str, Any] | None = None,
+    locator_history: Sequence[Mapping[str, Any]] | None = None,
+    reason: str | None = None,
+    source: str | None = None,
+    user_hint: str | None = None,
+    backend_validation_required: bool | None = None,
+    active_locator: str | None = None,
+    parent_scope: str | None = None,
+    group_scope: str | None = None,
+    operation_scope: str | None = None,
+    validation_result: Mapping[str, Any] | None = None,
+    validation_status: str | None = None,
+    scope: Mapping[str, Any] | None = None,
+    advisory_only: bool | None = None,
+    **_: Any,
+) -> dict[str, Any]:
+    history = [deepcopy(item) for item in locator_history or [] if isinstance(item, Mapping)]
+    proposed_locator = deepcopy(locator_candidate) if isinstance(locator_candidate, Mapping) else None
+    validation_payload = deepcopy(validation_result) if isinstance(validation_result, Mapping) else None
+
+    if active_locator is not None:
+        current_active_locator = _normalize_optional_text(active_locator)
+    else:
+        current_active_locator = None
+        for history_item in history:
+            candidate_ref = _normalize_optional_text(
+                history_item.get("locator_ref")
+                or history_item.get("candidate_id")
+                or history_item.get("element_ref")
+                or history_item.get("element_id")
+            )
+            if candidate_ref:
+                current_active_locator = candidate_ref
+                break
+
+    normalized_validation_status = _normalize_optional_text(validation_status)
+    validation_ok = None
+    if validation_payload is not None:
+        if "valid" in validation_payload:
+            validation_ok = bool(validation_payload.get("valid"))
+        elif "ok" in validation_payload:
+            validation_ok = bool(validation_payload.get("ok"))
+        elif "accepted" in validation_payload:
+            validation_ok = bool(validation_payload.get("accepted"))
+        elif _normalize_optional_text(validation_payload.get("status")) in {"valid", "accepted", "unique"}:
+            validation_ok = True
+        elif _normalize_optional_text(validation_payload.get("status")) in {"invalid", "rejected", "multiple", "hidden", "not_found"}:
+            validation_ok = False
+
+    if normalized_validation_status is None:
+        if validation_ok is True:
+            normalized_validation_status = "valid"
+        elif validation_ok is False:
+            normalized_validation_status = "invalid"
+        elif validation_payload is not None:
+            normalized_validation_status = _normalize_optional_text(validation_payload.get("status")) or "pending"
+        else:
+            normalized_validation_status = "pending"
+
+    if validation_payload is None:
+        command_status = "pending_validation"
+    elif validation_ok is True:
+        command_status = "validated"
+    elif validation_ok is False:
+        command_status = "rejected"
+    else:
+        command_status = "pending_validation"
+
+    scope_payload = dict(scope or {}) if isinstance(scope, Mapping) else {}
+    scope_payload.update(
+        {
+            "run_id": _normalize_optional_text(run_id),
+            "step_id": _normalize_optional_text(step_id),
+            "operation_id": _normalize_optional_text(operation_id),
+            "parent_scope": _normalize_optional_text(parent_scope),
+            "group_scope": _normalize_optional_text(group_scope),
+            "operation_scope": _normalize_optional_text(operation_scope),
+        }
+    )
+
+    return {
+        "type": "update_locator",
+        "command_id": _normalize_optional_text(command_id),
+        "run_id": _normalize_optional_text(run_id),
+        "step_id": _normalize_optional_text(step_id),
+        "operation_id": _normalize_optional_text(operation_id),
+        "reason": _normalize_optional_text(reason),
+        "source": _normalize_optional_text(source),
+        "user_hint": _normalize_optional_text(user_hint),
+        "locator_candidate": proposed_locator,
+        "replacement_locator": deepcopy(proposed_locator) if proposed_locator is not None else None,
+        "locator_history": deepcopy(history),
+        "previous_locator_history": deepcopy(history),
+        "active_locator": current_active_locator,
+        "scope": scope_payload,
+        "backend_validation_required": True if backend_validation_required is None else bool(backend_validation_required),
+        "validation_status": normalized_validation_status,
+        "validation_result": validation_payload,
+        "command_status": command_status,
+        "advisory_only": True if advisory_only is None else bool(advisory_only),
+        "execute": False,
+        "applied": False,
+        "mutation_allowed": False,
+        "history_preserved": True,
+        "validated_locator_ref": _normalize_optional_text(
+            proposed_locator.get("candidate_id")
+            if isinstance(proposed_locator, Mapping)
+            else None
+        )
+        if validation_ok is True
+        else None,
+    }
+
+
+_FIXTURE_REQUIREMENT_LIBRARY: dict[str, dict[str, Any]] = {
+    "docs-style": {
+        "fixture_class": "docs_style",
+        "required_scenarios": ["sections", "code_blocks", "nav", "exact_text"],
+        "expected_candidates": ["text_block", "link", "button"],
+        "fixture_notes": "Playwright docs-style page",
+    },
+    "weak-div-span": {
+        "fixture_class": "weak_dom",
+        "required_scenarios": ["div/span ctas", "nested nodes", "duplicate sections"],
+        "expected_candidates": ["ancestor_candidate", "section_scope", "scoped_text"],
+        "fixture_notes": "Weak div/span page with nested targets",
+    },
+    "form-heavy": {
+        "fixture_class": "form_heavy",
+        "required_scenarios": ["labels", "placeholders", "validation", "upload gap"],
+        "expected_candidates": ["label", "placeholder", "textbox", "button"],
+        "fixture_notes": "Lead-magnet form page",
+    },
+    "modal-dropdown": {
+        "fixture_class": "dynamic_state",
+        "required_scenarios": ["dialog", "listbox", "toast", "loading"],
+        "expected_candidates": ["dialog", "listbox", "alert", "status"],
+        "fixture_notes": "Modal/dialog and portal dropdown page",
+    },
+    "table-card": {
+        "fixture_class": "repeated_scope",
+        "required_scenarios": ["repeated rows/cards", "scoped actions"],
+        "expected_candidates": ["row_scope", "card_scope", "section_scope"],
+        "fixture_notes": "Table/card dashboard page",
+    },
+    "semantic-accessibility": {
+        "fixture_class": "semantic_accessibility",
+        "required_scenarios": ["role/name/label/testid"],
+        "expected_candidates": ["role+name", "label", "data-testid"],
+        "fixture_notes": "Accessibility semantic page",
+    },
+}
+
+
+def build_fixture_requirements(
+    fixture_names: Sequence[str] | None = None,
+    gap_needs: Sequence[str] | None = None,
+    advisory_only: bool | None = None,
+    **_: Any,
+) -> dict[str, Any]:
+    normalized_names = _normalize_list(fixture_names)
+    normalized_gap_needs = _normalize_list(gap_needs)
+
+    fixture_requirements: list[dict[str, Any]] = []
+    for fixture_name in normalized_names:
+        lookup_key = fixture_name.lower().replace("_", "-").replace(" ", "-")
+        requirement = deepcopy(_FIXTURE_REQUIREMENT_LIBRARY.get(lookup_key) or {})
+        if not requirement:
+            requirement = {
+                "fixture_class": "custom",
+                "required_scenarios": [],
+                "expected_candidates": [],
+                "fixture_notes": fixture_name,
+            }
+        requirement["fixture_name"] = fixture_name
+        requirement["advisory_only"] = True
+        requirement["execute"] = False
+        fixture_requirements.append(requirement)
+
+    typed_gaps = [
+        {
+            "gap_name": gap_name,
+            "classification": "capability_gap",
+            "required": True,
+            "advisory_only": True,
+        }
+        for gap_name in normalized_gap_needs
+    ]
+
+    return {
+        "fixture_names": normalized_names,
+        "fixture_requirements": fixture_requirements,
+        "gap_needs": typed_gaps,
+        "advisory_only": True if advisory_only is None else bool(advisory_only),
+        "execute": False,
+        "status": "fixture_requirement_proposal",
+        "requires_live_sites": False,
+    }
+
+
 dom_snapshot = build_page_snapshot
 snapshot_page = build_page_snapshot
 build_dom_snapshot = build_page_snapshot
@@ -760,6 +1255,27 @@ classify_locator_validation = validate_locator_candidate
 select_scoped_candidates = scope_candidates
 build_section_scope = scope_candidates
 rank_scoped_candidates = scope_candidates
+
+classify_assertion_target = classify_assertion_target
+build_assertion_target_contract = classify_assertion_target
+resolve_assertion_target = classify_assertion_target
+
+classify_dynamic_ui_state = classify_dynamic_ui_state
+detect_dynamic_ui_state = classify_dynamic_ui_state
+build_dynamic_state_contract = classify_dynamic_ui_state
+
+build_locator_escalation_request = build_locator_escalation_request
+prepare_locator_specialist_request = build_locator_escalation_request
+escalate_locator_specialist = build_locator_escalation_request
+
+build_update_locator_command = build_update_locator_command
+prepare_update_locator_command = build_update_locator_command
+validate_update_locator_command = build_update_locator_command
+apply_locator_update = build_update_locator_command
+
+build_fixture_requirements = build_fixture_requirements
+list_fixture_requirements = build_fixture_requirements
+dom_fixture_requirements = build_fixture_requirements
 
 __all__ = [
     "build_page_snapshot",
@@ -782,4 +1298,20 @@ __all__ = [
     "select_scoped_candidates",
     "build_section_scope",
     "rank_scoped_candidates",
+    "classify_assertion_target",
+    "build_assertion_target_contract",
+    "resolve_assertion_target",
+    "classify_dynamic_ui_state",
+    "detect_dynamic_ui_state",
+    "build_dynamic_state_contract",
+    "build_locator_escalation_request",
+    "prepare_locator_specialist_request",
+    "escalate_locator_specialist",
+    "build_update_locator_command",
+    "prepare_update_locator_command",
+    "validate_update_locator_command",
+    "apply_locator_update",
+    "build_fixture_requirements",
+    "list_fixture_requirements",
+    "dom_fixture_requirements",
 ]

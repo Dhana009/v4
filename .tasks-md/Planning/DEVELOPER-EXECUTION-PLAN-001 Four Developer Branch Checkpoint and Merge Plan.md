@@ -786,6 +786,7 @@ Status note:
 - DOM-001 through DOM-005 finalized and moved to Done on `dev2/llm-dom-test-mapping`; focused verification passed with `tests/test_dom_locator_contracts.py` at `8/8`; no implementation changes in this finalize step; no merge to main yet.
 - DOM-006 through DOM-010 started as the next Inprogress slice.
 - DOM-006 through DOM-010 tests-first slice started on `dev2/llm-dom-test-mapping`; advanced contract tests are being added before implementation, and missing seams are marked xfail with explicit reasons.
+- DOM-006 through DOM-010 implementation completed on `dev2/llm-dom-test-mapping`; advanced DOM contract tests now pass, no merge to main yet, no push.
 - Shared/blocked rows: `DOM-010` with DEV-4 fixtures.
 - Next checkpoint: proceed to the next approved DEV-2 slice after board review.
 - MR-3C implementation is complete.

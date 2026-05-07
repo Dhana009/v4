@@ -314,11 +314,11 @@ def test_dom_008_locator_specialist_escalation_request_contract_rejects_raw_dom_
     assert "full_dom" not in result
     assert result.get("advisory_only") in {True, None}
     assert result.get("execute") is not True
-    assert result.get("candidate_ids") in {None, ["submit-card-1", "submit-card-2"]}
-    assert result.get("validation_requirements") in {
+    assert result.get("candidate_ids") in (None, ["submit-card-1", "submit-card-2"])
+    assert result.get("validation_requirements") in (
         None,
         ["browser_validate_unique", "backend_validate_unique"],
-    }
+    )
     assert not any(
         truth_key in result
         for truth_key in ("recorded", "completed", "run_completed", "step_recorded", "execution_status")
@@ -365,7 +365,7 @@ def test_dom_009_update_locator_command_flow_contract_preserves_history_and_requ
     assert isinstance(result, dict)
     assert result.get("type") in {"update_locator", None}
     assert result.get("command_id") in {"update-locator-001", None}
-    assert result.get("locator_history") in {None, locator_history}
+    assert result.get("locator_history") in (None, locator_history)
     assert result.get("backend_validation_required") in {True, None}
     assert result.get("active_locator") in {None, "candidate-old"}
     assert not any(

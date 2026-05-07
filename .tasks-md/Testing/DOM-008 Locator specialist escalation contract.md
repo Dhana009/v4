@@ -1,73 +1,73 @@
-# DOM-010 Real-world DOM fixture requirements
+# DOM-008 Locator specialist escalation contract
 
 **Type:** Story  
-**Status:** Inprogress  
+**Status:** Testing
 **Priority:** P0  
 **Epic:** EPIC-004 DOM and Locator Strategy  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
 **Readiness:** Ready for repo inspection; not ready for implementation  
-**Dependencies:** PLAN-005, EPIC-004  
-**Blocks:** DEV-4 E2E harness, all DOM stories  
+**Dependencies:** LLM-008, DOM-001, DOM-003, DOM-004  
+**Blocks:** LLM locator specialist, recovery, EPIC-004  
 **Version:** Batch 05 v1  
 
 ---
 
 ## Product contribution
 
-This story ensures DOM/locator work is tested against realistic pages, not only perfect fixtures.
+This story defines when the system escalates to the LLM locator specialist and what the specialist may return.
 
 ## Architecture decision
 
 Fixed:
 
-- DOM/locator stories require realistic fixtures
-- fixtures cover semantic and weak DOM behavior
-- live external sites are optional, not hard CI dependency
-- fixture content should be sanitized/captured where needed
+- deterministic locator path runs first
+- escalate only when ambiguity/insufficient evidence remains
+- locator specialist suggests candidates/rationale only
+- backend/browser validation decides final locator
+- low confidence cannot execute
 
-## Fixture classes
+## Escalation triggers
 
-| Fixture | Required scenarios |
+| Trigger | Required behavior |
 |---|---|
-| Playwright docs-style | sections, code blocks, nav, exact text |
-| weak WordPress/Elementor-style | div/span CTAs, nested nodes, duplicate sections |
-| lead-magnet form | labels, placeholders, validation, upload gap |
-| modal/dropdown page | dialog/listbox/toast dynamic state |
-| table/card dashboard | repeated rows/cards, scoped actions |
-| accessibility semantic page | role/name/label/testid cases |
+| multiple candidates | ask specialist or user depending evidence |
+| no deterministic candidate | specialist suggests candidates if context sufficient |
+| weak DOM target | include ancestor/section evidence |
+| low confidence | ask user/request more DOM |
+| unsupported capability | capability gap, not locator guess |
+| hidden/dynamic target | classify and recover |
 
-## Fixture acceptance
+## Specialist output contract
 
-Each fixture should include:
-
-- stable URL/path
-- expected DOM features
-- expected locator candidates
-- expected ambiguity cases
-- expected assertions
-- negative cases
-- fixture-specific test IDs where appropriate
+| Field | Required |
+|---|---|
+| target_summary | Yes |
+| candidate_locators | Yes |
+| recommended_candidate_id | Optional |
+| confidence | Yes |
+| ambiguity_reason | Optional |
+| needs_user_selection | Yes |
+| validation_requirements | Yes |
 
 ## Test matrix
 
 | Test ID | Layer | Scenario | Expected |
 |---|---|---|---|
-| DOM010-F-001 | Fixture | docs code block | exact text target possible |
-| DOM010-F-002 | Fixture | weak CTA nested span | ancestor candidate found |
-| DOM010-F-003 | Fixture | duplicate cards | section scoping needed |
-| DOM010-F-004 | Fixture | modal/dropdown | dynamic state detected |
-| DOM010-F-005 | Fixture | table row action | row scope candidate |
-| DOM010-I-001 | Integration | all fixtures load | deterministic paths |
+| DOM008-U-001 | Unit | deterministic unique | no escalation |
+| DOM008-U-002 | Unit | duplicate CTA | escalation/ambiguity |
+| DOM008-U-003 | Unit | low confidence | no execution |
+| DOM008-U-004 | Unit | unsupported file upload | capability gap |
+| DOM008-I-001 | Integration | specialist candidate validated | backend decides |
 
 ## Edge cases
 
-- fixture drift
-- overly toy fixture
-- live site unavailable
-- huge DOM
-- sensitive data in captured fixture
+- hallucinated selector
+- no DOM evidence
+- multiple same text elements
+- hidden candidate
+- locator suggestion too broad
 
 ---
 
@@ -125,10 +125,10 @@ Stop if:
 
 ## Codex execution summary
 
-First Codex task for DOM-010 should be read-only:
+First Codex task for DOM-008 should be read-only:
 
 ```text
-Read DOM-010, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
+Read DOM-008, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
 Do not edit code.
 Inspect current DOM/locator ownership and report narrow implementation path.
 Do not implement until repo-inspection report is reviewed.

@@ -1,76 +1,73 @@
-# DOM-009 update_locator command flow
+# DOM-010 Real-world DOM fixture requirements
 
 **Type:** Story  
-**Status:** Inprogress  
+**Status:** Testing
 **Priority:** P0  
 **Epic:** EPIC-004 DOM and Locator Strategy  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
 **Readiness:** Ready for repo inspection; not ready for implementation  
-**Dependencies:** EVENT-002, EVENT-003, DOM-004, DOM-008, BE-003  
-**Blocks:** recovery, replay repair later, frontend locator update UI  
+**Dependencies:** PLAN-005, EPIC-004  
+**Blocks:** DEV-4 E2E harness, all DOM stories  
 **Version:** Batch 05 v1  
 
 ---
 
 ## Product contribution
 
-This story defines a safe command flow to update or replace a locator candidate during recovery or future replay repair.
+This story ensures DOM/locator work is tested against realistic pages, not only perfect fixtures.
 
 ## Architecture decision
 
 Fixed:
 
-- update_locator is a command request, not direct mutation
-- backend validates run/step/operation identity
-- candidate must validate in browser before acceptance
-- old locator history/evidence preserved
-- P0 supports baseline update; robust replay repair is P1
+- DOM/locator stories require realistic fixtures
+- fixtures cover semantic and weak DOM behavior
+- live external sites are optional, not hard CI dependency
+- fixture content should be sanitized/captured where needed
 
-## Command contract
+## Fixture classes
 
-| Field | Required | Meaning |
-|---|---|---|
-| type | Yes | update_locator |
-| command_id | Yes | idempotency |
-| run_id | Conditional | active/replay run |
-| step_id | Yes | parent |
-| operation_id | Yes | child |
-| locator_candidate | Conditional | proposed locator |
-| user_hint | Optional | human context |
-| reason | Yes | why updating |
-| source | Yes | frontend/user/system |
+| Fixture | Required scenarios |
+|---|---|
+| Playwright docs-style | sections, code blocks, nav, exact text |
+| weak WordPress/Elementor-style | div/span CTAs, nested nodes, duplicate sections |
+| lead-magnet form | labels, placeholders, validation, upload gap |
+| modal/dropdown page | dialog/listbox/toast dynamic state |
+| table/card dashboard | repeated rows/cards, scoped actions |
+| accessibility semantic page | role/name/label/testid cases |
 
-## Flow
+## Fixture acceptance
 
-```text
-update_locator command
-→ command validation
-→ locator validation
-→ accept/reject
-→ event/rejection emitted
-→ execution/replay may retry only after accept
-```
+Each fixture should include:
+
+- stable URL/path
+- expected DOM features
+- expected locator candidates
+- expected ambiguity cases
+- expected assertions
+- negative cases
+- fixture-specific test IDs where appropriate
 
 ## Test matrix
 
 | Test ID | Layer | Scenario | Expected |
 |---|---|---|---|
-| DOM009-C-001 | Contract | valid update_locator | accepted for validation |
-| DOM009-C-002 | Contract | missing operation_id | rejected |
-| DOM009-U-001 | Unit | candidate validates unique | accepted |
-| DOM009-U-002 | Unit | candidate multiple | rejected/ambiguity |
-| DOM009-U-003 | Unit | stale step | rejected |
-| DOM009-I-001 | Integration | recovery locator update | retry allowed after accept |
+| DOM010-F-001 | Fixture | docs code block | exact text target possible |
+| DOM010-F-002 | Fixture | weak CTA nested span | ancestor candidate found |
+| DOM010-F-003 | Fixture | duplicate cards | section scoping needed |
+| DOM010-F-004 | Fixture | modal/dropdown | dynamic state detected |
+| DOM010-F-005 | Fixture | table row action | row scope candidate |
+| DOM010-I-001 | Integration | all fixtures load | deterministic paths |
 
 ## Edge cases
 
-- update during active execution
-- replay locator update
-- locator valid but wrong semantic target
-- user hint only, no selector
-- old locator history missing
+- fixture drift
+- overly toy fixture
+- live site unavailable
+- huge DOM
+- sensitive data in captured fixture
 
 ---
 
@@ -128,10 +125,10 @@ Stop if:
 
 ## Codex execution summary
 
-First Codex task for DOM-009 should be read-only:
+First Codex task for DOM-010 should be read-only:
 
 ```text
-Read DOM-009, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
+Read DOM-010, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
 Do not edit code.
 Inspect current DOM/locator ownership and report narrow implementation path.
 Do not implement until repo-inspection report is reviewed.

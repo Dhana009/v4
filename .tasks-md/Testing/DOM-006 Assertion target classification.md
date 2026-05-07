@@ -1,7 +1,7 @@
 # DOM-006 Assertion target classification
 
 **Type:** Story  
-**Status:** Inprogress  
+**Status:** Testing
 **Priority:** P0  
 **Epic:** EPIC-004 DOM and Locator Strategy  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  

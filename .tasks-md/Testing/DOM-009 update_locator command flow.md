@@ -1,73 +1,76 @@
-# DOM-008 Locator specialist escalation contract
+# DOM-009 update_locator command flow
 
 **Type:** Story  
-**Status:** Inprogress  
+**Status:** Testing
 **Priority:** P0  
 **Epic:** EPIC-004 DOM and Locator Strategy  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
 **Readiness:** Ready for repo inspection; not ready for implementation  
-**Dependencies:** LLM-008, DOM-001, DOM-003, DOM-004  
-**Blocks:** LLM locator specialist, recovery, EPIC-004  
+**Dependencies:** EVENT-002, EVENT-003, DOM-004, DOM-008, BE-003  
+**Blocks:** recovery, replay repair later, frontend locator update UI  
 **Version:** Batch 05 v1  
 
 ---
 
 ## Product contribution
 
-This story defines when the system escalates to the LLM locator specialist and what the specialist may return.
+This story defines a safe command flow to update or replace a locator candidate during recovery or future replay repair.
 
 ## Architecture decision
 
 Fixed:
 
-- deterministic locator path runs first
-- escalate only when ambiguity/insufficient evidence remains
-- locator specialist suggests candidates/rationale only
-- backend/browser validation decides final locator
-- low confidence cannot execute
+- update_locator is a command request, not direct mutation
+- backend validates run/step/operation identity
+- candidate must validate in browser before acceptance
+- old locator history/evidence preserved
+- P0 supports baseline update; robust replay repair is P1
 
-## Escalation triggers
+## Command contract
 
-| Trigger | Required behavior |
-|---|---|
-| multiple candidates | ask specialist or user depending evidence |
-| no deterministic candidate | specialist suggests candidates if context sufficient |
-| weak DOM target | include ancestor/section evidence |
-| low confidence | ask user/request more DOM |
-| unsupported capability | capability gap, not locator guess |
-| hidden/dynamic target | classify and recover |
+| Field | Required | Meaning |
+|---|---|---|
+| type | Yes | update_locator |
+| command_id | Yes | idempotency |
+| run_id | Conditional | active/replay run |
+| step_id | Yes | parent |
+| operation_id | Yes | child |
+| locator_candidate | Conditional | proposed locator |
+| user_hint | Optional | human context |
+| reason | Yes | why updating |
+| source | Yes | frontend/user/system |
 
-## Specialist output contract
+## Flow
 
-| Field | Required |
-|---|---|
-| target_summary | Yes |
-| candidate_locators | Yes |
-| recommended_candidate_id | Optional |
-| confidence | Yes |
-| ambiguity_reason | Optional |
-| needs_user_selection | Yes |
-| validation_requirements | Yes |
+```text
+update_locator command
+→ command validation
+→ locator validation
+→ accept/reject
+→ event/rejection emitted
+→ execution/replay may retry only after accept
+```
 
 ## Test matrix
 
 | Test ID | Layer | Scenario | Expected |
 |---|---|---|---|
-| DOM008-U-001 | Unit | deterministic unique | no escalation |
-| DOM008-U-002 | Unit | duplicate CTA | escalation/ambiguity |
-| DOM008-U-003 | Unit | low confidence | no execution |
-| DOM008-U-004 | Unit | unsupported file upload | capability gap |
-| DOM008-I-001 | Integration | specialist candidate validated | backend decides |
+| DOM009-C-001 | Contract | valid update_locator | accepted for validation |
+| DOM009-C-002 | Contract | missing operation_id | rejected |
+| DOM009-U-001 | Unit | candidate validates unique | accepted |
+| DOM009-U-002 | Unit | candidate multiple | rejected/ambiguity |
+| DOM009-U-003 | Unit | stale step | rejected |
+| DOM009-I-001 | Integration | recovery locator update | retry allowed after accept |
 
 ## Edge cases
 
-- hallucinated selector
-- no DOM evidence
-- multiple same text elements
-- hidden candidate
-- locator suggestion too broad
+- update during active execution
+- replay locator update
+- locator valid but wrong semantic target
+- user hint only, no selector
+- old locator history missing
 
 ---
 
@@ -125,10 +128,10 @@ Stop if:
 
 ## Codex execution summary
 
-First Codex task for DOM-008 should be read-only:
+First Codex task for DOM-009 should be read-only:
 
 ```text
-Read DOM-008, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
+Read DOM-009, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
 Do not edit code.
 Inspect current DOM/locator ownership and report narrow implementation path.
 Do not implement until repo-inspection report is reviewed.
