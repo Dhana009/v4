@@ -1,73 +1,63 @@
-# DOM-008 Locator specialist escalation contract
+# DOM-004 Locator validation and ambiguity classification
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-004 DOM and Locator Strategy  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
 **Readiness:** Ready for repo inspection; not ready for implementation  
-**Dependencies:** LLM-008, DOM-001, DOM-003, DOM-004  
-**Blocks:** LLM locator specialist, recovery, EPIC-004  
+**Dependencies:** DOM-002, DOM-003, BE-006, EVENT-005  
+**Blocks:** execution contract, recovery, update_locator flow  
 **Version:** Batch 05 v1  
 
 ---
 
 ## Product contribution
 
-This story defines when the system escalates to the LLM locator specialist and what the specialist may return.
+This story validates locator candidates in the browser and classifies ambiguity before execution.
 
 ## Architecture decision
 
 Fixed:
 
-- deterministic locator path runs first
-- escalate only when ambiguity/insufficient evidence remains
-- locator specialist suggests candidates/rationale only
-- backend/browser validation decides final locator
-- low confidence cannot execute
+- backend/browser validation is final locator truth
+- validation returns unique/multiple/none/stale/hidden/disabled/wrong_page/unsupported
+- LLM confidence does not replace validation
+- ambiguity routes to user clarification or recovery
 
-## Escalation triggers
+## Validation result schema
 
-| Trigger | Required behavior |
-|---|---|
-| multiple candidates | ask specialist or user depending evidence |
-| no deterministic candidate | specialist suggests candidates if context sufficient |
-| weak DOM target | include ancestor/section evidence |
-| low confidence | ask user/request more DOM |
-| unsupported capability | capability gap, not locator guess |
-| hidden/dynamic target | classify and recover |
-
-## Specialist output contract
-
-| Field | Required |
-|---|---|
-| target_summary | Yes |
-| candidate_locators | Yes |
-| recommended_candidate_id | Optional |
-| confidence | Yes |
-| ambiguity_reason | Optional |
-| needs_user_selection | Yes |
-| validation_requirements | Yes |
+| Field | Required | Meaning |
+|---|---|---|
+| locator_ref | Yes | locator candidate reference |
+| status | Yes | unique/multiple/none/stale/hidden/disabled/wrong_page/unsupported |
+| match_count | Yes | number of matches |
+| visible_count | Optional | visible matches |
+| selected_element_ref | Conditional | unique valid match |
+| ambiguity_candidates | Optional | when multiple |
+| failure_reason | Optional | reason |
+| evidence_ref | Optional | screenshot/trace/dom ref |
 
 ## Test matrix
 
 | Test ID | Layer | Scenario | Expected |
 |---|---|---|---|
-| DOM008-U-001 | Unit | deterministic unique | no escalation |
-| DOM008-U-002 | Unit | duplicate CTA | escalation/ambiguity |
-| DOM008-U-003 | Unit | low confidence | no execution |
-| DOM008-U-004 | Unit | unsupported file upload | capability gap |
-| DOM008-I-001 | Integration | specialist candidate validated | backend decides |
+| DOM004-U-001 | Unit | unique locator | status unique |
+| DOM004-U-002 | Unit | multiple matches | status multiple |
+| DOM004-U-003 | Unit | no match | status none |
+| DOM004-U-004 | Unit | hidden match | status hidden |
+| DOM004-U-005 | Unit | wrong page | status wrong_page |
+| DOM004-I-001 | Integration | action before validation | blocked |
 
 ## Edge cases
 
-- hallucinated selector
-- no DOM evidence
-- multiple same text elements
-- hidden candidate
-- locator suggestion too broad
+- detached element after validation
+- multiple visible exact matches
+- locator unique but disabled
+- validation across navigation
+- iframe unsupported
 
 ---
 
@@ -125,10 +115,10 @@ Stop if:
 
 ## Codex execution summary
 
-First Codex task for DOM-008 should be read-only:
+First Codex task for DOM-004 should be read-only:
 
 ```text
-Read DOM-008, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
+Read DOM-004, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
 Do not edit code.
 Inspect current DOM/locator ownership and report narrow implementation path.
 Do not implement until repo-inspection report is reviewed.

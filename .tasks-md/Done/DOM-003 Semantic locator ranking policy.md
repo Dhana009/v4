@@ -1,7 +1,7 @@
-# DOM-005 Section-container scoping and ancestor candidates
+# DOM-003 Semantic locator ranking policy
 
 **Type:** Story  
-**Status:** Testing  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-004 DOM and Locator Strategy  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  
@@ -9,59 +9,63 @@
 **Story Points:** TBD  
 **Readiness:** Ready for repo inspection; not ready for implementation  
 **Dependencies:** DOM-001, DOM-002, EPIC-004  
-**Blocks:** DOM-003, picker UI, weak DOM flows  
+**Blocks:** DOM-004, DOM-008, BE-006 execution validation  
 **Version:** Batch 05 v1  
 
 ---
 
 ## Product contribution
 
-This story fixes weak picker/locator behavior by exposing useful ancestor/container candidates instead of only the exact clicked node.
-
-## Source evidence table
-
-| Source | Extracted rule | Story impact |
-|---|---|---|
-| Handoff | picker may capture nested spans/token text instead of useful ancestor container/code/pre/section/card/dialog/form/table row | include ancestor candidates |
-| SOURCE-001 | scoped text and page/section context are deterministic evidence | use containers for locator scoping |
+This story defines deterministic ranking of locator candidates before LLM escalation.
 
 ## Architecture decision
 
-Fixed:
+Fixed ranking preference:
 
-- selected element is not automatically final target
-- ancestor candidates include interactive parent, row/card/form/dialog/section/code block where applicable
-- user/frontend may choose target level, backend validates
-- weak DOM gets explicit risk flags
+```text
+data-testid where approved/stable
+role + accessible name
+label / placeholder
+alt/title
+scoped exact text
+section/container scoped locator
+stable id
+scoped CSS fallback
+XPath only as last resort/diagnostic
+```
 
-## Ancestor candidate levels
+LLM can suggest candidate ranking only when deterministic evidence is insufficient.
 
-| Level | Example |
-|---|---|
-| exact node | span/text/icon |
-| interactive ancestor | button/link/input |
-| component ancestor | card/list item/table row |
-| form/dialog ancestor | form/modal |
-| section ancestor | named page section |
-| page landmark | nav/main/footer |
+## Ranking contract
+
+| Signal | Preferred use | Risk |
+|---|---|---|
+| data-testid | stable automation target | bad if generated/dynamic |
+| role/name | primary Playwright style | duplicate names |
+| label | form controls | label association missing |
+| placeholder | fallback for inputs | placeholder changes |
+| scoped text | assertions/links/buttons | duplicate text |
+| stable id | fallback | dynamic ids |
+| CSS | scoped fallback | brittle |
+| XPath | last resort | brittle |
 
 ## Test matrix
 
 | Test ID | Layer | Scenario | Expected |
 |---|---|---|---|
-| DOM005-U-001 | Unit | span inside button | button ancestor candidate |
-| DOM005-U-002 | Unit | text in code block | code/pre ancestor |
-| DOM005-U-003 | Unit | table row button | row ancestor |
-| DOM005-U-004 | Unit | duplicate CTA cards | card/section scope |
-| DOM005-I-001 | Integration | picker target levels | candidates returned |
+| DOM003-U-001 | Unit | role/name exists | ranked first |
+| DOM003-U-002 | Unit | duplicate text in sections | scoped candidate preferred |
+| DOM003-U-003 | Unit | data-testid available | high rank |
+| DOM003-U-004 | Unit | dynamic class only | risk high |
+| DOM003-U-005 | Unit | XPath candidate | last resort |
 
 ## Edge cases
 
-- deeply nested Elementor DOM
-- SVG icon button
-- table action button
-- modal section
-- repeated cards
+- same accessible name multiple times
+- generated IDs
+- empty accessible name
+- icon-only button
+- multilingual text
 
 ---
 
@@ -119,10 +123,10 @@ Stop if:
 
 ## Codex execution summary
 
-First Codex task for DOM-005 should be read-only:
+First Codex task for DOM-003 should be read-only:
 
 ```text
-Read DOM-005, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
+Read DOM-003, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
 Do not edit code.
 Inspect current DOM/locator ownership and report narrow implementation path.
 Do not implement until repo-inspection report is reviewed.

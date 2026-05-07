@@ -1,71 +1,73 @@
-# DOM-003 Semantic locator ranking policy
+# DOM-008 Locator specialist escalation contract
 
 **Type:** Story  
-**Status:** Testing  
+**Status:** Inprogress  
 **Priority:** P0  
 **Epic:** EPIC-004 DOM and Locator Strategy  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
 **Readiness:** Ready for repo inspection; not ready for implementation  
-**Dependencies:** DOM-001, DOM-002, EPIC-004  
-**Blocks:** DOM-004, DOM-008, BE-006 execution validation  
+**Dependencies:** LLM-008, DOM-001, DOM-003, DOM-004  
+**Blocks:** LLM locator specialist, recovery, EPIC-004  
 **Version:** Batch 05 v1  
 
 ---
 
 ## Product contribution
 
-This story defines deterministic ranking of locator candidates before LLM escalation.
+This story defines when the system escalates to the LLM locator specialist and what the specialist may return.
 
 ## Architecture decision
 
-Fixed ranking preference:
+Fixed:
 
-```text
-data-testid where approved/stable
-role + accessible name
-label / placeholder
-alt/title
-scoped exact text
-section/container scoped locator
-stable id
-scoped CSS fallback
-XPath only as last resort/diagnostic
-```
+- deterministic locator path runs first
+- escalate only when ambiguity/insufficient evidence remains
+- locator specialist suggests candidates/rationale only
+- backend/browser validation decides final locator
+- low confidence cannot execute
 
-LLM can suggest candidate ranking only when deterministic evidence is insufficient.
+## Escalation triggers
 
-## Ranking contract
+| Trigger | Required behavior |
+|---|---|
+| multiple candidates | ask specialist or user depending evidence |
+| no deterministic candidate | specialist suggests candidates if context sufficient |
+| weak DOM target | include ancestor/section evidence |
+| low confidence | ask user/request more DOM |
+| unsupported capability | capability gap, not locator guess |
+| hidden/dynamic target | classify and recover |
 
-| Signal | Preferred use | Risk |
-|---|---|---|
-| data-testid | stable automation target | bad if generated/dynamic |
-| role/name | primary Playwright style | duplicate names |
-| label | form controls | label association missing |
-| placeholder | fallback for inputs | placeholder changes |
-| scoped text | assertions/links/buttons | duplicate text |
-| stable id | fallback | dynamic ids |
-| CSS | scoped fallback | brittle |
-| XPath | last resort | brittle |
+## Specialist output contract
+
+| Field | Required |
+|---|---|
+| target_summary | Yes |
+| candidate_locators | Yes |
+| recommended_candidate_id | Optional |
+| confidence | Yes |
+| ambiguity_reason | Optional |
+| needs_user_selection | Yes |
+| validation_requirements | Yes |
 
 ## Test matrix
 
 | Test ID | Layer | Scenario | Expected |
 |---|---|---|---|
-| DOM003-U-001 | Unit | role/name exists | ranked first |
-| DOM003-U-002 | Unit | duplicate text in sections | scoped candidate preferred |
-| DOM003-U-003 | Unit | data-testid available | high rank |
-| DOM003-U-004 | Unit | dynamic class only | risk high |
-| DOM003-U-005 | Unit | XPath candidate | last resort |
+| DOM008-U-001 | Unit | deterministic unique | no escalation |
+| DOM008-U-002 | Unit | duplicate CTA | escalation/ambiguity |
+| DOM008-U-003 | Unit | low confidence | no execution |
+| DOM008-U-004 | Unit | unsupported file upload | capability gap |
+| DOM008-I-001 | Integration | specialist candidate validated | backend decides |
 
 ## Edge cases
 
-- same accessible name multiple times
-- generated IDs
-- empty accessible name
-- icon-only button
-- multilingual text
+- hallucinated selector
+- no DOM evidence
+- multiple same text elements
+- hidden candidate
+- locator suggestion too broad
 
 ---
 
@@ -123,10 +125,10 @@ Stop if:
 
 ## Codex execution summary
 
-First Codex task for DOM-003 should be read-only:
+First Codex task for DOM-008 should be read-only:
 
 ```text
-Read DOM-003, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
+Read DOM-008, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
 Do not edit code.
 Inspect current DOM/locator ownership and report narrow implementation path.
 Do not implement until repo-inspection report is reviewed.

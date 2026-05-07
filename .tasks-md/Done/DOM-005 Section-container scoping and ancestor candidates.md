@@ -1,63 +1,67 @@
-# DOM-004 Locator validation and ambiguity classification
+# DOM-005 Section-container scoping and ancestor candidates
 
 **Type:** Story  
-**Status:** Testing  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-004 DOM and Locator Strategy  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
 **Readiness:** Ready for repo inspection; not ready for implementation  
-**Dependencies:** DOM-002, DOM-003, BE-006, EVENT-005  
-**Blocks:** execution contract, recovery, update_locator flow  
+**Dependencies:** DOM-001, DOM-002, EPIC-004  
+**Blocks:** DOM-003, picker UI, weak DOM flows  
 **Version:** Batch 05 v1  
 
 ---
 
 ## Product contribution
 
-This story validates locator candidates in the browser and classifies ambiguity before execution.
+This story fixes weak picker/locator behavior by exposing useful ancestor/container candidates instead of only the exact clicked node.
+
+## Source evidence table
+
+| Source | Extracted rule | Story impact |
+|---|---|---|
+| Handoff | picker may capture nested spans/token text instead of useful ancestor container/code/pre/section/card/dialog/form/table row | include ancestor candidates |
+| SOURCE-001 | scoped text and page/section context are deterministic evidence | use containers for locator scoping |
 
 ## Architecture decision
 
 Fixed:
 
-- backend/browser validation is final locator truth
-- validation returns unique/multiple/none/stale/hidden/disabled/wrong_page/unsupported
-- LLM confidence does not replace validation
-- ambiguity routes to user clarification or recovery
+- selected element is not automatically final target
+- ancestor candidates include interactive parent, row/card/form/dialog/section/code block where applicable
+- user/frontend may choose target level, backend validates
+- weak DOM gets explicit risk flags
 
-## Validation result schema
+## Ancestor candidate levels
 
-| Field | Required | Meaning |
-|---|---|---|
-| locator_ref | Yes | locator candidate reference |
-| status | Yes | unique/multiple/none/stale/hidden/disabled/wrong_page/unsupported |
-| match_count | Yes | number of matches |
-| visible_count | Optional | visible matches |
-| selected_element_ref | Conditional | unique valid match |
-| ambiguity_candidates | Optional | when multiple |
-| failure_reason | Optional | reason |
-| evidence_ref | Optional | screenshot/trace/dom ref |
+| Level | Example |
+|---|---|
+| exact node | span/text/icon |
+| interactive ancestor | button/link/input |
+| component ancestor | card/list item/table row |
+| form/dialog ancestor | form/modal |
+| section ancestor | named page section |
+| page landmark | nav/main/footer |
 
 ## Test matrix
 
 | Test ID | Layer | Scenario | Expected |
 |---|---|---|---|
-| DOM004-U-001 | Unit | unique locator | status unique |
-| DOM004-U-002 | Unit | multiple matches | status multiple |
-| DOM004-U-003 | Unit | no match | status none |
-| DOM004-U-004 | Unit | hidden match | status hidden |
-| DOM004-U-005 | Unit | wrong page | status wrong_page |
-| DOM004-I-001 | Integration | action before validation | blocked |
+| DOM005-U-001 | Unit | span inside button | button ancestor candidate |
+| DOM005-U-002 | Unit | text in code block | code/pre ancestor |
+| DOM005-U-003 | Unit | table row button | row ancestor |
+| DOM005-U-004 | Unit | duplicate CTA cards | card/section scope |
+| DOM005-I-001 | Integration | picker target levels | candidates returned |
 
 ## Edge cases
 
-- detached element after validation
-- multiple visible exact matches
-- locator unique but disabled
-- validation across navigation
-- iframe unsupported
+- deeply nested Elementor DOM
+- SVG icon button
+- table action button
+- modal section
+- repeated cards
 
 ---
 
@@ -115,10 +119,10 @@ Stop if:
 
 ## Codex execution summary
 
-First Codex task for DOM-004 should be read-only:
+First Codex task for DOM-005 should be read-only:
 
 ```text
-Read DOM-004, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
+Read DOM-005, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
 Do not edit code.
 Inspect current DOM/locator ownership and report narrow implementation path.
 Do not implement until repo-inspection report is reviewed.

@@ -1,73 +1,62 @@
-# DOM-010 Real-world DOM fixture requirements
+# DOM-006 Assertion target classification
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Inprogress  
 **Priority:** P0  
 **Epic:** EPIC-004 DOM and Locator Strategy  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
 **Readiness:** Ready for repo inspection; not ready for implementation  
-**Dependencies:** PLAN-005, EPIC-004  
-**Blocks:** DEV-4 E2E harness, all DOM stories  
+**Dependencies:** DOM-001, DOM-002, DOM-004, BE-006  
+**Blocks:** assertion execution, recording/codegen  
 **Version:** Batch 05 v1  
 
 ---
 
 ## Product contribution
 
-This story ensures DOM/locator work is tested against realistic pages, not only perfect fixtures.
+This story prevents assertion bugs by separating assertion target, assertion type, expected value, and expected_outcome metadata.
 
 ## Architecture decision
 
 Fixed:
 
-- DOM/locator stories require realistic fixtures
-- fixtures cover semantic and weak DOM behavior
-- live external sites are optional, not hard CI dependency
-- fixture content should be sanitized/captured where needed
+- expected_outcome is parent metadata only
+- assertion target must come from DOM/locator evidence
+- assertion expected value must come from user intent or validated plan child
+- visible/present assertions cannot silently become text assertions
+- text assertions require explicit expected text/value
 
-## Fixture classes
+## Assertion classification contract
 
-| Fixture | Required scenarios |
-|---|---|
-| Playwright docs-style | sections, code blocks, nav, exact text |
-| weak WordPress/Elementor-style | div/span CTAs, nested nodes, duplicate sections |
-| lead-magnet form | labels, placeholders, validation, upload gap |
-| modal/dropdown page | dialog/listbox/toast dynamic state |
-| table/card dashboard | repeated rows/cards, scoped actions |
-| accessibility semantic page | role/name/label/testid cases |
-
-## Fixture acceptance
-
-Each fixture should include:
-
-- stable URL/path
-- expected DOM features
-- expected locator candidates
-- expected ambiguity cases
-- expected assertions
-- negative cases
-- fixture-specific test IDs where appropriate
+| Field | Required | Meaning |
+|---|---|---|
+| assertion_type | Yes | visible/hidden/enabled/disabled/has_text/exact_text/has_value/checked/etc. |
+| target_candidate_id | Yes | DOM target |
+| expected_value | Conditional | text/value where needed |
+| source_of_expected_value | Conditional | user intent/plan child |
+| expected_outcome_metadata_ref | Optional | parent metadata only |
+| compatibility_flags | Optional | e.g., visible+has_text invalid |
 
 ## Test matrix
 
 | Test ID | Layer | Scenario | Expected |
 |---|---|---|---|
-| DOM010-F-001 | Fixture | docs code block | exact text target possible |
-| DOM010-F-002 | Fixture | weak CTA nested span | ancestor candidate found |
-| DOM010-F-003 | Fixture | duplicate cards | section scoping needed |
-| DOM010-F-004 | Fixture | modal/dropdown | dynamic state detected |
-| DOM010-F-005 | Fixture | table row action | row scope candidate |
-| DOM010-I-001 | Integration | all fixtures load | deterministic paths |
+| DOM006-U-001 | Unit | visible assertion | no expected text needed |
+| DOM006-U-002 | Unit | has_text assertion | expected value required |
+| DOM006-U-003 | Unit | expected_outcome text | not used as target/value |
+| DOM006-U-004 | Unit | exact code block text | text_block target |
+| DOM006-U-005 | Unit | visible + has_text conflict | rejected/normalized |
+| DOM006-I-001 | Integration | assertion plan child | valid action_assert payload |
 
 ## Edge cases
 
-- fixture drift
-- overly toy fixture
-- live site unavailable
-- huge DOM
-- sensitive data in captured fixture
+- code command exact text
+- section contains text
+- duplicate target text
+- dynamic generated analysis text
+- whitespace-sensitive text
 
 ---
 
@@ -125,10 +114,10 @@ Stop if:
 
 ## Codex execution summary
 
-First Codex task for DOM-010 should be read-only:
+First Codex task for DOM-006 should be read-only:
 
 ```text
-Read DOM-010, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
+Read DOM-006, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
 Do not edit code.
 Inspect current DOM/locator ownership and report narrow implementation path.
 Do not implement until repo-inspection report is reviewed.
