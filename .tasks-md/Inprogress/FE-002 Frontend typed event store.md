@@ -1,16 +1,16 @@
 # FE-002 Frontend typed event store
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Inprogress  
 **Priority:** P0  
 **Epic:** EPIC-005 Shadow DOM Frontend  
 **Owner:** DEV-3 Shadow DOM Frontend + Typed Rendering  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Ready for repo inspection; not ready for implementation  
+**Readiness:** MR-4F test-first slice verified; frontend event-store / command-dispatch shell contracts under test  
 **Dependencies:** FE-001, EVENT-001, EVENT-003  
 **Blocks:** FE-004, FE-005, FE-006, FE-007, DEV-4 UI assertions  
-**Version:** Batch 06 v1  
+**Version:** MR-4F v1  
 
 ---
 
@@ -26,6 +26,30 @@ Fixed:
 - backend events are canonical input
 - unknown/malformed events are rejected/logged
 - terminal state comes only from backend event
+
+## MR-4F test-only subtasks
+
+- [x] map FE-002 / FE-003 source rows
+- [x] inventory existing command/event tests
+- [x] define frontend event-store/read-model shell expectations
+- [x] define frontend command dispatcher shell expectations
+- [x] add test-only slice
+- [x] verification commands
+- [x] stop before implementation unless tests exist and fail/xfail narrowly
+- [ ] implementation MR scope after tests
+
+## MR-4F scope note
+
+- FE-002 is the selected next slice.
+- FE-003 remains the follow-on command-dispatch dependency and stays blocked until FE-002 shell expectations are pinned down.
+
+## MR-4F test-only slice evidence
+
+- `tests/test_frontend_event_command_contract.py` added
+- `python -m py_compile tests/test_frontend_event_command_contract.py` passed
+- `python -m pytest tests/test_frontend_event_command_contract.py tests/test_command_contract.py tests/test_process_boundary_contract.py tests/test_plan_correction.py -q` returned `64 passed, 2 xfailed`
+- dedicated event-store shell helper and typed command-envelope metadata remain planned
+- no frontend/runtime/backend changes
 
 ## Store state slices
 
