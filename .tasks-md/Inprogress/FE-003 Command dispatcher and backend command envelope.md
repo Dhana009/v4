@@ -67,6 +67,18 @@ Fixed:
 - FE-003 is the command-dispatch side of the typed frontend envelope contract.
 - The supported typed commands should stay aligned with the backend normalizer and preserve legacy fallback paths for other actions until their backend support exists.
 
+## MR-4G implementation evidence
+
+- `buildFrontendCommandEnvelope` now emits canonical typed command envelopes in `frontend/src/main.jsx`
+- confirm / correction / clarification / recovery handlers now send typed envelopes with `command_id` and `schema_version`
+- plan context fields such as `plan_id`, `plan_version`, and `step_id` are forwarded when available
+- `runtime_rejected` backend events now preserve rejection reason and current state for rendering
+- `python -m py_compile tests/test_frontend_event_command_contract.py` passed
+- `python -m pytest tests/test_frontend_event_command_contract.py tests/test_command_contract.py tests/test_process_boundary_contract.py tests/test_plan_correction.py tests/test_late_event_contract.py -q` returned `72 passed`
+- `cd frontend && npm run build` succeeded
+- no browser-startup E2E tests were run for this slice
+- no backend/runtime/LLM/DOM changes
+
 ## Edge cases
 
 - double click confirm

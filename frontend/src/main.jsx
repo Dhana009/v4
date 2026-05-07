@@ -21,6 +21,7 @@ const SHADOW_MOUNT_ID = "aw-shadow-mount";
 const SHADOW_STYLE_ID = "aw-shadow-style";
 const SHADOW_STYLE_FLAG = "data-autoworkbench-shadow-style";
 const AUTOWORKBENCH_STYLE_ID = "autoworkbench-style";
+const FRONTEND_COMMAND_SCHEMA_VERSION = "autoworkbench.command.v1";
 
 const RUN_STATE_ALIASES = {
   idle: "idle",
@@ -240,6 +241,35 @@ function normalizeBackendMessage(raw) {
     payload: { text: String(parsed ?? "") },
     raw: parsed,
   };
+}
+
+function createFrontendCommandId() {
+  const randomUuid = globalThis?.crypto?.randomUUID;
+  if (typeof randomUuid === "function") {
+    return randomUuid.call(globalThis.crypto);
+  }
+
+  return `cmd-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function buildFrontendCommandEnvelope(commandType, payload = {}) {
+  const normalizedPayload = payload && typeof payload === "object" ? { ...payload } : {};
+  const envelope = {
+    type: firstNonEmptyText(commandType),
+    schema_version: FRONTEND_COMMAND_SCHEMA_VERSION,
+    command_id: createFrontendCommandId(),
+    source: "frontend",
+    payload: normalizedPayload,
+  };
+
+  for (const [key, value] of Object.entries(normalizedPayload)) {
+    if (Object.prototype.hasOwnProperty.call(envelope, key)) {
+      continue;
+    }
+    envelope[key] = value;
+  }
+
+  return envelope;
 }
 
 function formatTimestamp(date = new Date()) {
@@ -1759,10 +1789,24 @@ function useAutoWorkbenchTransport(config) {
   }, [sendPayload]);
 
   const handleConfirmPlan = useCallback(() => {
+    const currentPlan = planRef.current && typeof planRef.current === "object" ? planRef.current : null;
+    const rawPlan = currentPlan && typeof currentPlan.raw === "object" ? currentPlan.raw : {};
+    const commandPayload = {};
+    const planId = firstNonEmptyText(rawPlan.plan_id, rawPlan.planId, rawPlan.id);
+    const planVersion = firstNonEmptyText(rawPlan.plan_version, rawPlan.planVersion);
+    const runId = firstNonEmptyText(rawPlan.run_id, rawPlan.runId);
+    if (planId) {
+      commandPayload.plan_id = planId;
+    }
+    if (planVersion) {
+      commandPayload.plan_version = planVersion;
+    }
+    if (runId) {
+      commandPayload.run_id = runId;
+    }
+
     const sent = sendPayload(
-      {
-        type: "confirmed",
-      },
+      buildFrontendCommandEnvelope("confirmed", commandPayload),
       "WebSocket not connected."
     );
 
@@ -1781,21 +1825,24 @@ function useAutoWorkbenchTransport(config) {
       appendTimeline("Correction is empty.", "warn");
       return;
     }
-    const planId = firstNonEmptyText(plan?.raw?.plan_id, plan?.raw?.planId, plan?.raw?.id);
+    const currentPlan = planRef.current && typeof planRef.current === "object" ? planRef.current : null;
+    const rawPlan = currentPlan && typeof currentPlan.raw === "object" ? currentPlan.raw : {};
+    const planId = firstNonEmptyText(rawPlan.plan_id, rawPlan.planId, rawPlan.id);
+    const planVersion = firstNonEmptyText(rawPlan.plan_version, rawPlan.planVersion);
     const targetStepId = firstNonEmptyText(
-      plan?.raw?.target_step_id,
-      plan?.raw?.targetStepId,
-      plan?.steps?.[0]?.step_id,
-      plan?.steps?.[0]?.stepId
+      rawPlan.target_step_id,
+      rawPlan.targetStepId,
+      currentPlan?.steps?.[0]?.step_id,
+      currentPlan?.steps?.[0]?.stepId
     );
 
     const sent = sendPayload(
-      {
-        type: "correction",
+      buildFrontendCommandEnvelope("correction", {
         message: correction,
-        planId,
-        targetStepId,
-      },
+        ...(planId ? { plan_id: planId } : {}),
+        ...(planVersion ? { plan_version: planVersion } : {}),
+        ...(targetStepId ? { step_id: targetStepId } : {}),
+      }),
       "WebSocket not connected."
     );
 
@@ -1815,14 +1862,19 @@ function useAutoWorkbenchTransport(config) {
         appendTimeline("Clarification answer is empty.", "warn");
         return;
       }
+      const currentPlan = planRef.current && typeof planRef.current === "object" ? planRef.current : null;
+      const rawPlan = currentPlan && typeof currentPlan.raw === "object" ? currentPlan.raw : {};
+      const planId = firstNonEmptyText(rawPlan.plan_id, rawPlan.planId, rawPlan.id);
+      const planVersion = firstNonEmptyText(rawPlan.plan_version, rawPlan.planVersion);
 
       const sent = sendPayload(
-        {
-          type: "option_selected",
+        buildFrontendCommandEnvelope("option_selected", {
           value: answer,
           answer,
           message: answer,
-        },
+          ...(planId ? { plan_id: planId } : {}),
+          ...(planVersion ? { plan_version: planVersion } : {}),
+        }),
         "WebSocket not connected."
       );
 
@@ -1845,12 +1897,17 @@ function useAutoWorkbenchTransport(config) {
       appendTimeline("Recovery instruction is empty.", "warn");
       return;
     }
+    const currentPlan = planRef.current && typeof planRef.current === "object" ? planRef.current : null;
+    const rawPlan = currentPlan && typeof currentPlan.raw === "object" ? currentPlan.raw : {};
+    const planId = firstNonEmptyText(rawPlan.plan_id, rawPlan.planId, rawPlan.id);
+    const planVersion = firstNonEmptyText(rawPlan.plan_version, rawPlan.planVersion);
 
     const sent = sendPayload(
-      {
-        type: "correction",
+      buildFrontendCommandEnvelope("correction", {
         message: instruction,
-      },
+        ...(planId ? { plan_id: planId } : {}),
+        ...(planVersion ? { plan_version: planVersion } : {}),
+      }),
       "WebSocket not connected."
     );
 
@@ -1937,6 +1994,32 @@ function useAutoWorkbenchTransport(config) {
           appendConversation("system", text || "Error");
           appendTimeline(text || "Error", "err");
           break;
+        case "runtime_rejected": {
+          const rejectionCode = firstNonEmptyText(
+            payload && typeof payload === "object" ? payload.rejection_code : "",
+            payload && typeof payload === "object" ? payload.rejectionCode : ""
+          );
+          const rejectionReason = firstNonEmptyText(
+            payload && typeof payload === "object" ? payload.message : "",
+            payload && typeof payload === "object" ? payload.detail : "",
+            text,
+            "Command rejected"
+          );
+          const currentState = payload && typeof payload === "object" ? payload.current_state : null;
+          const currentStateSummary =
+            currentState && typeof currentState === "object"
+              ? [
+                  firstNonEmptyText(currentState.phase, currentState.state),
+                  firstNonEmptyText(currentState.run_id, currentState.plan_id),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")
+              : "";
+
+          setLastError(rejectionReason);
+          appendTimeline([rejectionCode, rejectionReason, currentStateSummary].filter(Boolean).join(" · "), "err");
+          break;
+        }
         case "llm_result": {
           const resultSuccess = message?.success;
           const resultMessage = message?.message;
@@ -2434,7 +2517,7 @@ function useAutoWorkbenchTransport(config) {
 
 function AutoWorkbenchRuntime({ config }) {
   const normalized = normalizeConfig(config);
-  const transport = useAutoWorkbenchTransport(config);
+  const transport = useFrontendEventStore(config);
   const [tab, setTab] = useState(normalized.tab);
 
   useEffect(() => {
@@ -2480,6 +2563,10 @@ function AutoWorkbenchRuntime({ config }) {
       </div>
     </div>
   );
+}
+
+function useFrontendEventStore(config) {
+  return useAutoWorkbenchTransport(config);
 }
 
 let currentRoot = null;

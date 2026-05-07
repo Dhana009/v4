@@ -69,6 +69,16 @@ Fixed:
 - FE-003 covers the command-dispatch side of the typed frontend envelope contract.
 - The next implementation step should remain small: event-store alias plus typed envelope helper, not a broad UI rewrite.
 
+## MR-4G implementation evidence
+
+- `useFrontendEventStore` now aliases the transport shell in `frontend/src/main.jsx`
+- `runtime_rejected` backend events now surface rejection reason and current state without mutating lifecycle truth
+- `python -m py_compile tests/test_frontend_event_command_contract.py` passed
+- `python -m pytest tests/test_frontend_event_command_contract.py tests/test_command_contract.py tests/test_process_boundary_contract.py tests/test_plan_correction.py tests/test_late_event_contract.py -q` returned `72 passed`
+- `cd frontend && npm run build` succeeded
+- no browser-startup E2E tests were run for this slice
+- no backend/runtime/LLM/DOM changes
+
 ## Store state slices
 
 | Slice | Source event families |
