@@ -1,13 +1,14 @@
 # BE-008 Backend recovery state ownership
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Planning  
 **Priority:** P0  
 **Epic:** EPIC-001 Backend Runtime Truth  
 **Owner:** DEV-1 Backend Runtime + Event Truth  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Ready for repo inspection; not ready for implementation  
+**Readiness:** Planning; recovery lifecycle audit still open  
+**Progress:** Mostly Done  
 **Dependencies:** SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001  
 **Blocks:** BE-010 completion guard, BE-009 recording builder, E2E recovery flow  
 **Version:** Batch 02 v1  
@@ -23,6 +24,44 @@ This story contributes to the final Complete LLM Mode workflow by strengthening 
 ```text
 user intent → plan/correction/confirmation → backend validation → execution/recording/replay/completion
 ```
+
+## Parent Status
+
+- Status: Planning
+- Progress: Mostly Done
+- Reason: recovery-needed state, backend isolation coverage, follow-up reset fixes, and cross-run recovery protection are covered; one lifecycle audit child remains.
+
+## Child Tasks
+
+| Child task | Status | Evidence |
+|---|---|---|
+| BE-008.1 Add recovery ownership/recovery_needed event contracts | Done | commit `f7e3847`; `runtime/event_contracts.py`, `tests/test_event_contract.py` |
+| BE-008.2 Add backend isolation test for recovery state leakage | Done | commit `1b8c084`; `tests/test_backend_isolation_contract.py` |
+| BE-008.3 Fix `_pending_failure_followup` reset across runs | Done | commit `1b8c084`; `tests/test_recovery_scope_guard.py` |
+| BE-008.4 Ensure recovery state cannot complete unrelated/new run | Done | `tests/test_backend_isolation_contract.py`, `tests/test_recovery_scope_guard.py` |
+| BE-008.5 Identify remaining recovery lifecycle gaps | Planning | remaining recovery-lifecycle audit child |
+
+### Done Children
+
+- `BE-008.1` Add recovery ownership/recovery_needed event contracts
+- `BE-008.2` Add backend isolation test for recovery state leakage
+- `BE-008.3` Fix `_pending_failure_followup` reset across runs
+- `BE-008.4` Ensure recovery state cannot complete unrelated/new run
+
+### Remaining Planning Children
+
+- `BE-008.5` Identify remaining recovery lifecycle gaps
+
+## Evidence
+
+- Commit `f7e3847` added the backend event/command seam including `recovery_needed` payloads.
+- Commit `1b8c084` isolated backend recovery state between runs.
+- `tests/test_event_contract.py`, `tests/test_backend_isolation_contract.py`, and `tests/test_recovery_scope_guard.py` cover recovery ownership and leakage protection.
+- The latest focused backend set passed `47` tests.
+
+## Next Action
+
+- Finish the remaining recovery lifecycle audit before moving BE-008 beyond Planning.
 
 ---
 

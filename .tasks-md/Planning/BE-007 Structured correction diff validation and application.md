@@ -1,28 +1,68 @@
-# BE-005 Plan confirmation gate
+# BE-007 Structured correction diff validation and application
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Planning  
 **Priority:** P0  
 **Epic:** EPIC-001 Backend Runtime Truth  
 **Owner:** DEV-1 Backend Runtime + Event Truth  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Ready for repo inspection; not ready for implementation  
+**Readiness:** Planning; structured-diff audit still open  
+**Progress:** Partially Done  
 **Dependencies:** SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001  
-**Blocks:** BE-006 execution contract, LLM Mode execution, BE-009 recording  
+**Blocks:** Correction flow, LLM plan-diff story, BE-004 active plan versions  
 **Version:** Batch 02 v1  
 
 ---
 
 ## Product contribution
 
-Turns plan review into a real safety gate. Browser-changing execution starts only after the backend validates explicit user confirmation for the current active plan/version.
+Allows users to correct plans safely without LLM regenerating a whole plan and silently dropping/reordering operations.
 
 This story contributes to the final Complete LLM Mode workflow by strengthening the backend-owned runtime truth path:
 
 ```text
 user intent → plan/correction/confirmation → backend validation → execution/recording/replay/completion
 ```
+
+## Parent Status
+
+- Status: Planning
+- Progress: Partially Done
+- Reason: correction ownership, stale correction rejection, and wrong-run mutation blocking are covered; the structured diff audit remains open.
+
+## Child Tasks
+
+| Child task | Status | Evidence |
+|---|---|---|
+| BE-007.1 Map correction command handling and backend ownership | Done | commit `f7e3847`; `runtime/event_contracts.py`, `agent.py`, `tests/test_command_contract.py` |
+| BE-007.2 Add stale correction command rejection tests | Done | commit `98944ad`; `tests/test_late_event_contract.py` |
+| BE-007.3 Reject stale correction run_id mismatch with typed rejection | Done | commit `cd438d7`; `tests/test_late_event_contract.py` |
+| BE-007.4 Ensure correction cannot mutate wrong/current run | Done | `tests/test_late_event_contract.py`, `tests/test_command_contract.py` |
+| BE-007.5 Identify remaining structured diff validation gaps | Planning | remaining structured-diff audit child |
+
+### Done Children
+
+- `BE-007.1` Map correction command handling and backend ownership
+- `BE-007.2` Add stale correction command rejection tests
+- `BE-007.3` Reject stale correction run_id mismatch with typed rejection
+- `BE-007.4` Ensure correction cannot mutate wrong/current run
+
+### Remaining Planning Children
+
+- `BE-007.5` Identify remaining structured diff validation gaps
+
+## Evidence
+
+- Commit `f7e3847` added the backend command validation seam that correction handling uses.
+- Commit `98944ad` added late-event/correction contract coverage.
+- Commit `cd438d7` rejected stale backend commands.
+- `tests/test_late_event_contract.py` includes the stale correction run mismatch and typed rejection cases.
+- The latest focused backend set passed `47` tests.
+
+## Next Action
+
+- Close the remaining structured diff validation audit before moving BE-007 beyond Planning.
 
 ---
 
@@ -39,7 +79,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 ## System role
 
-| Layer | Relationship to BE-005 |
+| Layer | Relationship to BE-007 |
 |---|---|
 | Backend | Primary owner and source of truth |
 | LLM | Proposes only; cannot own runtime truth |
@@ -53,15 +93,15 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 | Source | Extracted rule | Planning interpretation | Story impact |
 |---|---|---|---|
-| Product Workflows | User confirms revised plan; only confirmed plan executes. | Confirm must target current active version. | Validate confirm before execution. |
-| Handoff | plan_ready is proposal before confirmation and must not mutate execution state. | plan_ready cannot execute. | Gate all browser-changing actions. |
-| BE-004 | Active plan store owns plan_id/version. | Confirm validates active plan. | Reject stale confirm. |
+| Handoff | Correction must use structured plan_correction_diff applied by backend; retry once then fail closed. | LLM cannot directly overwrite plan. | Validate correction diff schema. |
+| Product Workflows | Old plan replaced by revised plan; user confirms revised plan. | New active plan version needed. | Integrate with BE-004. |
+| SOURCE-001 | Human clarification beats guessing. | Ambiguous correction should not be guessed. | Reject/clarify unclear diff. |
 
 ---
 
 ## Architecture decision
 
-`confirmed` is the only valid path from RunState.plan_review to RunState.executing. Duplicate, stale, missing-plan, clarification-open, recovery-open confirmations are rejected.
+Correction is structured diff/intent-change. Backend validates add/update/remove/reorder operations, preserves identity when possible, and rejects stale or unsafe corrections.
 
 ---
 
@@ -70,7 +110,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 | Dependency type | Items | Meaning |
 |---|---|---|
 | Upstream | SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001 | Planning rules and runtime state foundation |
-| Direct blockers | BE-006 execution contract, LLM Mode execution, BE-009 recording | Cannot proceed safely without this story or approved mocks |
+| Direct blockers | Correction flow, LLM plan-diff story, BE-004 active plan versions | Cannot proceed safely without this story or approved mocks |
 | Indirect consumers | EPIC-005 frontend, EPIC-006 E2E, EPIC-008 recording/codegen, EPIC-009 trace | Eventually depend on this contract |
 | Parallel safe with mocks | DEV-2 LLM policy planning, DEV-3 Shadow DOM shell, DEV-4 harness skeleton | May proceed only without inventing final backend truth |
 | Conflict zones | `agent.py`, WebSocket command/event paths, runtime state, frontend lifecycle store | Inspect before editing |
@@ -104,8 +144,8 @@ This story unlocks downstream implementation by producing a precise backend cont
 
 | Item | Required fields | Rules | Used by |
 |---|---|---|---|
-| ConfirmCommand | run_id, plan_id, plan_version | required | request to execute active plan |
-| ConfirmationResult | accepted/rejected, current_state, rejection_code? | required | state transition or rejection |
+| CorrectionDiff | run_id, plan_id/version, correction_id, operations, reason | required | correction request |
+| DiffOperation | type, target id, patch/payload, reason, position? | required | validated mutation |
 
 ---
 
@@ -119,11 +159,12 @@ For P0, this story may use in-memory runtime structures unless existing repo arc
 
 | Test ID | Layer | Scenario | Input/Setup | Expected result | Source rule protected |
 |---|---|---|---|---|---|
-| BE005-U-001 | Unit | plan_ready not execution | plan_ready | no browser action | confirmation gate |
-| BE005-U-002 | Unit | valid confirm | current active plan | executing state | explicit confirmation |
-| BE005-U-003 | Unit | stale confirm | old version | runtime_rejected | version safety |
-| BE005-U-004 | Unit | duplicate confirm | already executing | no duplicate execution | idempotency |
-| BE005-I-001 | Integration | LLM action before confirm | tool call | blocked | LLM proposes only |
+| BE007-C-001 | Contract | valid diff | update operation | accepted | structured correction |
+| BE007-C-002 | Contract | remove without reason | remove op | rejected | no silent drop |
+| BE007-U-001 | Unit | stale correction | old version | rejected | version safety |
+| BE007-U-002 | Unit | correction during execution | RunState.executing | rejected | execution safety |
+| BE007-U-003 | Unit | full plan replace | unstructured plan | rejected/retry | schema safety |
+| BE007-I-001 | Integration | correction to revised plan | plan_review correction | new version plan_ready | workflow |
 
 ---
 
