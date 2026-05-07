@@ -187,9 +187,10 @@ def test_step_recorded_payload_adds_parent_child_model_and_preserves_flat_fields
     )
 
     assert result["sent"] is True
-    assert len(sent_messages) == 2
+    assert len(sent_messages) == 3
     assert sent_messages[0][0] == "step_recorded"
     assert sent_messages[1][0] == "code_update"
+    assert sent_messages[2][0] == "run_completed"
 
     payload = sent_messages[0][1]
     children = payload["children"]
@@ -231,6 +232,10 @@ def test_step_recorded_payload_adds_parent_child_model_and_preserves_flat_fields
     assert code_update_payload["full_spec_preview"] == payload["generated_line"]
     assert isinstance(code_update_payload["diagnostics"], list)
     assert code_update_payload["diagnostics"] == []
+    run_completed_payload = sent_messages[2][1]
+    assert run_completed_payload["recorded_count"] == 1
+    assert run_completed_payload["skipped_count"] == 0
+    assert run_completed_payload["summary"]
 
 
 def test_step_recorded_payload_records_no_visible_change_without_expected_outcome() -> None:
@@ -398,7 +403,7 @@ def test_step_recorded_payload_preserves_spaces_and_canonical_step_id() -> None:
     )
 
     assert result["sent"] is True
-    assert len(sent_messages) == 2
+    assert len(sent_messages) == 3
     payload = sent_messages[0][1]
     assert payload["step_id"] == "pending-step-mooeb8ca-2"
     assert payload["expected_outcome"] == {
@@ -408,6 +413,7 @@ def test_step_recorded_payload_preserves_spaces_and_canonical_step_id() -> None:
         "required": True,
     }
     assert sent_messages[1][0] == "code_update"
+    assert sent_messages[2][0] == "run_completed"
 
 
 def test_step_recorded_payload_uses_ordered_action_history_for_children() -> None:
@@ -1157,9 +1163,10 @@ def test_auto_recorded_step_is_archived_and_replayable() -> None:
     auto_recorded_payload = asyncio.run(loop._auto_record_successful_step())
 
     assert auto_recorded_payload is not None
-    assert len(sent_messages) == 2
+    assert len(sent_messages) == 3
     assert sent_messages[0][0] == "step_recorded"
     assert sent_messages[1][0] == "code_update"
+    assert sent_messages[2][0] == "run_completed"
 
     recorded_payload = sent_messages[0][1]
     assert recorded_payload["step_id"] == "pending-step-mooeb8ca-2"

@@ -223,12 +223,14 @@ def test_simple_click_recording_emits_code_update_and_stops_cleanly(monkeypatch,
     captured = capsys.readouterr().out
 
     assert call_counter["count"] == 1
-    assert len(sent_messages) == 2
+    assert len(sent_messages) == 3
     assert sent_messages[0][0] == "step_recorded"
     assert sent_messages[1][0] == "code_update"
+    assert sent_messages[2][0] == "run_completed"
 
     recorded_payload = sent_messages[0][1]
     code_update_payload = sent_messages[1][1]
+    run_completed_payload = sent_messages[2][1]
 
     assert code_update_payload["step_id"] == recorded_payload["step_id"]
     assert code_update_payload["operation_id"] == "op_1"
@@ -236,6 +238,9 @@ def test_simple_click_recording_emits_code_update_and_stops_cleanly(monkeypatch,
     assert code_update_payload["full_spec_preview"] == recorded_payload["generated_line"]
     assert isinstance(code_update_payload["diagnostics"], list)
     assert code_update_payload["diagnostics"] == []
+    assert run_completed_payload["recorded_count"] == 1
+    assert run_completed_payload["skipped_count"] == 0
+    assert run_completed_payload["summary"]
     assert loop._run_completion_requested is True
     assert "[AGENT] auto-recording successful step: step-1" in captured
     assert "[AGENT] recording step:" in captured
