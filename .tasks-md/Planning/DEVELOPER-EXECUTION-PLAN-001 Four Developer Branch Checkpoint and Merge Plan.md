@@ -640,24 +640,78 @@ affected regression tests pass
 
 ---
 
-### DEV-1 current status
+### MR-1E: Session state websocket handshake
+
+Owner: DEV-1  
+Type: implementation  
+Status: completed in `f7e1c61` and merged into local main at `908f4d0`
+Verification: `43 passed` for focused backend/event suite; `11 passed` for websocket/session suite
+Deferred seams: none
+Merge when:
 
 ```text
-First backend/event foundation complete on DEV-1 branch.
-MR-1B completed in `f117599`.
-MR-1C completed in `f7e3847`.
-MR-1D completed in `176cad2`.
-MR-1E completed in `f7e1c61`.
-DEV-1 status bookkeeping updated in `a589436`.
-DEV-1 branch updated from latest local main at `df4e792`.
-Verification: `43 passed` for focused backend/event suite.
-Websocket/session focused suite: `11 passed`.
-Focused backend/event xfails: `0`.
-No push was done.
-Forbidden files were not touched.
-AGENTS.md was not staged or committed.
-`.DS_Store` was not staged or committed.
-Next candidate slices: none
+session_state is the first websocket handshake event
+status/ready still follows if needed
+session_state is typed backend truth, not frontend inference
+affected backend/event and websocket/session tests pass
+```
+
+---
+
+### DEV-1 branch status board
+
+```text
+Branch: `dev1/backend-isolation-contract-tests`
+Main baseline: `908f4d0`
+
+Done / Completed
+- Merged to local main
+  - MR-1B backend/event contract tests completed in `f117599`
+  - MR-1C typed backend event/command seam completed in `f7e3847`
+  - MR-1D stale confirmation/run-context guard completed in `176cad2`
+  - MR-1E session_state websocket handshake completed in `f7e1c61`
+- Done on DEV-1 branch, pending later batch merge to main
+  - MR-1A backend/event mapping completed
+  - Backend isolation recovery-state leak fixed, commit `1b8c084`
+  - Snapshot/archive contract tests added, commit `112a481`
+  - Late-event contract tests added, commit `98944ad`
+  - Stale backend command rejection implemented, commit `cd438d7`
+  - Late confirmation rejection for completed runs implemented, commit `6b03a82`
+  - Process-boundary contract tests added, commit `2011da2`
+  - Safe backend snapshot/archive loader seam added, commit `ac1bcb5`
+
+In Progress
+- Recording/codegen truth hardening
+- Current test file: `tests/test_recording_codegen_truth_contract.py`
+- Exposed gap: `agent.py::_build_code_update_payload(...)` still lets `generated_line` be used when child evidence is unresolved or failed.
+- Intended next implementation: require `code_update` lines to come only from successful or recorded backend child operation evidence.
+
+Pending / Planned DEV-1
+- Commit and complete recording/codegen truth hardening.
+- Replay smoke/basic replay contract hardening.
+- Backend restart/session-load integration beyond the narrow loader seam.
+- Load-session/reconnect integration beyond `session_state` shape.
+- Broader save/load/replay evidence checks if scoped to backend only.
+- Update `.tasks-md` after the branch batch is finalized.
+
+Deferred / Not Current DEV-1 Slice
+- Broad replay repair.
+- Full session restore UX.
+- Frontend Shadow DOM.
+- LLM/DOM locator intelligence.
+- E2E artifact harness and fixtures.
+- Trace/export/redaction harness.
+- Advanced browser capabilities.
+
+Current verification
+- Last full focused backend contract set before the recording/codegen slice: `47 passed`.
+- Recording/codegen test slice: `50 passed, 1 xfailed` without the stale `tests/test_recorded_step_model.py` checks.
+- Broader stale model file has known old failures and is not the active target.
+- No push was done.
+- Forbidden files were not touched.
+- `AGENTS.md` was not staged or committed.
+- `.DS_Store` was not staged or committed.
+- Dirty state expected: `AGENTS.md` plus the current in-progress test file unless committed.
 ```
 
 ---
