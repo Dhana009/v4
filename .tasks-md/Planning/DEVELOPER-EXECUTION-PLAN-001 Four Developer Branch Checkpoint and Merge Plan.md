@@ -766,8 +766,11 @@ Status note:
 - MR-3A mapping completed on `dev2/llm-dom-test-mapping`.
 - Source docs read, including the three Complete LLM Mode specs.
 - DEV-2 backlog items identified: `DOM-001..DOM-010` and `LLM-001..LLM-010`.
+- DEV-2 planned scope remains the full `DOM-001..DOM-010` plus `LLM-001..LLM-010` backlog set; this board has no separate Planned lane, so backlog is the planned state.
+- First In Progress slice is `LLM-001` through `LLM-004`.
 - First proposed MR-3B test-only slice: `LLM-001` to `LLM-004`.
 - Shared/blocked rows: `DOM-010` with DEV-4 fixtures.
+- Next checkpoint: confirm first-slice status, then refine MR-3B test-only mapping before any implementation.
 - No implementation done.
 - No tests created.
 

@@ -1,7 +1,7 @@
 # LLM-004 Structured output schema validation and retry policy
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** In Progress  
 **Priority:** P0  
 **Epic:** EPIC-003 LLM Runtime Controller  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  

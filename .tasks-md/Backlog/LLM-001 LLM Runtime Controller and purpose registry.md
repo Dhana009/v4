@@ -1,7 +1,7 @@
 # LLM-001 LLM Runtime Controller and purpose registry
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** In Progress  
 **Priority:** P0  
 **Epic:** EPIC-003 LLM Runtime Controller  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  
