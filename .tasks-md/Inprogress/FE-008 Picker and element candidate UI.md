@@ -1,13 +1,13 @@
 # FE-008 Picker and element candidate UI
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** In Progress  
 **Priority:** P0  
 **Epic:** EPIC-005 Shadow DOM Frontend  
 **Owner:** DEV-3 Shadow DOM Frontend + Typed Rendering  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Ready for repo inspection; not ready for implementation  
+**Readiness:** Frontend display/proposal slice implemented and ready for testing transition  
 **Dependencies:** FE-002, FE-003, DOM-002, DOM-005, DOM-009  
 **Blocks:** locator/picker workflow, DOM E2E  
 **Version:** Batch 06 v1  
@@ -26,6 +26,7 @@ Fixed:
 - exact node is not automatically final target
 - ancestor levels are visible
 - update_locator command is typed and backend-validated
+- frontend selection remains proposal-only and does not claim final locator truth
 
 ## Candidate UI contract
 
@@ -48,6 +49,39 @@ Fixed:
 | FE008-U-004 | Unit | hidden candidate | warning shown |
 | FE008-I-001 | Integration | picker target levels | UI displays levels |
 
+## Subtasks
+
+- source-rule mapping
+- DEV-2 DOM candidate contract inventory
+- picker candidate payload/read-model expectations
+- candidate list display expectations
+- selected candidate proposal expectation
+- negative cases: ambiguous, hidden, detached, missing scope, no candidates
+- boundary cases: duplicate candidates, low confidence, unknown candidate type, missing evidence_ref
+- rule: frontend selection is proposal-only, not final locator truth
+- test-only slice
+- narrow frontend implementation slice
+- verification commands
+- stop conditions
+
+## Delivery notes
+
+- Frontend picker/candidate slice is display/proposal only.
+- Candidate metadata is surfaced from existing DOM payloads in the Shadow DOM pending-step editor.
+- Stable hooks now label the candidate surface and candidate selector.
+- Candidate warnings cover multiple/hidden/low-confidence/missing-evidence conditions without claiming final locator truth.
+- Backend/browser validation remains required before locator activation.
+- No backend/runtime/LLM/DOM changes were made for this slice.
+
+## Verification
+
+- Added: `tests/test_frontend_picker_candidate_ui.py`
+- Focused suite: `tests/test_frontend_picker_candidate_ui.py tests/test_frontend_accessibility_focus.py tests/test_frontend_event_command_contract.py -q`
+- Result: `25 passed`
+- Build required if frontend source changes: `cd frontend && npm run build`
+- Build result: passed
+- Remaining dependency: backend/browser locator validation still owns final locator truth.
+
 ## Edge cases
 
 - long ancestor list
@@ -57,23 +91,12 @@ Fixed:
 
 ---
 
-## Repo-inspection requirement
+## Repo-inspection summary
 
-Before implementation, Codex must inspect and report:
-
-- current frontend entry points and overlay injection path
-- current Shadow DOM host/components if any
-- current WebSocket/event consumer code
-- current command sending code
-- current plan/recorded/code/trace UI state ownership
-- current picker/element-info UI behavior
-- current tests and frontend test hooks
-- current legacy overlay dependencies
-- proposed narrow implementation path
-
-Use the repo-inspection template from `PLAN-002`.
-
-No implementation until the repo-inspection report is reviewed.
+- Current frontend entry points and Shadow DOM host are already in place.
+- Current picker/element-info UI behavior already exposes candidate lists and target selection inside the pending-step editor.
+- Current tests and frontend hooks were inspected before implementation.
+- Proposed narrow implementation path: add stable candidate hooks and candidate metadata/warning rendering only.
 
 ---
 
