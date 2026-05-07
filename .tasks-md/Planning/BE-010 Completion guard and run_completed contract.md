@@ -1,14 +1,14 @@
 # BE-010 Completion guard and run_completed contract
 
 **Type:** Story  
-**Status:** Planning  
-**Progress:** Mostly Done  
+**Status:** Done  
+**Progress:** Done  
 **Priority:** P0  
 **Epic:** EPIC-001 Backend Runtime Truth  
 **Owner:** DEV-1 Backend Runtime + Event Truth  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Selected audit child in progress; completion guard verification pending  
+**Readiness:** Done; all child tasks complete  
 **Dependencies:** SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001  
 **Blocks:** frontend final state, E2E completion assertions, replay smoke  
 **Version:** Batch 02 v1  
@@ -67,9 +67,9 @@ Completion is explicit backend guard. Duplicate completion is idempotent/no-op o
 
 ## Parent Status
 
-- Status: Planning
-- Progress: Mostly Done
-- Reason: Completion guard, run_completed shape, late-confirmation rejection, and recovery blocking are already covered; the final audit child is selected for active verification.
+- Status: Done
+- Progress: Done
+- Reason: Completion guard, run_completed shape, late-confirmation rejection, and recovery blocking are all covered by backend contract tests and the focused suite passed.
 
 ## Child Tasks
 
@@ -79,7 +79,7 @@ Completion is explicit backend guard. Duplicate completion is idempotent/no-op o
 | BE-010.2 Verify unresolved recovery blocks completion | Done | `tests/test_completion_guard.py::test_pending_recovery_blocks_completion` |
 | BE-010.3 Verify completed run rejects late confirmation | Done | `tests/test_late_event_contract.py::test_completed_run_rejects_late_confirmation_and_does_not_reopen_plan` |
 | BE-010.4 Verify completion state does not leak across runs | Done | `tests/test_recovery_scope_guard.py` and `tests/test_completion_guard.py` keep completion/recovery state isolated |
-| BE-010.5 Final completion guard audit | In Progress | Focused backend contract suite will verify completion guard remains stable after BE-009 |
+| BE-010.5 Final completion guard audit | Done | Focused backend contract suite passed `59 passed` and verified the completion guard remained stable after BE-009 |
 
 ### Done Children
 
@@ -87,23 +87,17 @@ Completion is explicit backend guard. Duplicate completion is idempotent/no-op o
 - `BE-010.2` Verify unresolved recovery blocks completion
 - `BE-010.3` Verify completed run rejects late confirmation
 - `BE-010.4` Verify completion state does not leak across runs
-
-### In Progress Children
-
 - `BE-010.5` Final completion guard audit
-
-### Remaining Planning Children
-
-- None
 
 ## Evidence
 
 - `tests/test_completion_guard.py` and `tests/test_late_event_contract.py` already prove the completion contract and idempotent `run_completed` emission.
 - `tests/test_recovery_scope_guard.py` keeps recovery state from leaking into completion logic.
+- Focused backend contract suite passed `59 passed`.
 
 ## Next Action
 
-- Run the focused backend suite and keep the completion guard evidence aligned with the BE-009 fix.
+- None.
 
 ---
 

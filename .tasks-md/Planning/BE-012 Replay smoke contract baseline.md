@@ -1,14 +1,14 @@
 # BE-012 Replay smoke contract baseline
 
 **Type:** Story  
-**Status:** Planning  
-**Progress:** Mostly Done  
+**Status:** Done  
+**Progress:** Done  
 **Priority:** P0  
 **Epic:** EPIC-001 Backend Runtime Truth  
 **Owner:** DEV-1 Backend Runtime + Event Truth  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Selected replay smoke verification in progress; broad repair remains deferred to the P1 roadmap  
+**Readiness:** Done; all child tasks complete  
 **Dependencies:** SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001  
 **Blocks:** Replay P1 foundation, E2E replay smoke, recorded-step validation  
 **Version:** Batch 02 v1  
@@ -67,15 +67,15 @@ Replay commands are backend-validated, use separate ReplayState, check precondit
 
 ## Parent Status
 
-- Status: Planning
-- Progress: Mostly Done
-- Reason: Replay smoke and precondition coverage already exist; the remaining verification child is active, while broad repair remains deferred to the P1 roadmap.
+- Status: Done
+- Progress: Done
+- Reason: Replay smoke and precondition coverage are covered by backend contract tests, and broad repair remains deferred to the P1 roadmap.
 
 ## Child Tasks
 
 | Child task | Status | Evidence |
 |---|---|---|
-| BE-012.1 Add replay smoke contract tests | In Progress | `tests/test_replay_one.py` and `tests/test_replay_all.py` already provide the smoke baseline to verify |
+| BE-012.1 Add replay smoke contract tests | Done | `tests/test_replay_one.py` and `tests/test_replay_all.py` already provide the smoke baseline; the focused suite passed `59 passed` |
 | BE-012.2 Verify replay one parent step uses recorded evidence | Done | `tests/test_replay_one.py::test_replay_one_resolves_recorded_step_by_step_id_and_executes_operations_in_order` |
 | BE-012.3 Verify replay operation targets child operation safely | Done | `tests/test_replay_one.py::test_replay_one_stops_on_first_failed_child_action` and unsupported-action coverage |
 | BE-012.4 Verify replay failure does not mutate recording unless repair is validated | Done | `tests/test_replay_all.py::test_replay_all_does_not_mutate_recorded_payload_or_code_payload_state` |
@@ -83,27 +83,21 @@ Replay commands are backend-validated, use separate ReplayState, check precondit
 
 ### Done Children
 
+- `BE-012.1` Add replay smoke contract tests
 - `BE-012.2` Verify replay one parent step uses recorded evidence
 - `BE-012.3` Verify replay operation targets child operation safely
 - `BE-012.4` Verify replay failure does not mutate recording unless repair is validated
 - `BE-012.5` Verify unsupported/broader replay repair remains deferred, not faked
 
-### In Progress Children
-
-- `BE-012.1` Add replay smoke contract tests
-
-### Remaining Planning Children
-
-- None
-
 ## Evidence
 
 - `tests/test_replay_one.py` and `tests/test_replay_all.py` already cover replay smoke, precondition safety, and mutation isolation.
 - `GOV-003` keeps broad replay repair explicitly outside the BE-012 P0 smoke contract.
+- Focused backend contract suite passed `59 passed`.
 
 ## Next Action
 
-- Run the focused backend suite and confirm replay smoke stays within the smoke-only baseline.
+- None.
 
 ---
 

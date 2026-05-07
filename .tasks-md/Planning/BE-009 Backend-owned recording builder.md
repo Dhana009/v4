@@ -1,14 +1,14 @@
 # BE-009 Backend-owned recording builder
 
 **Type:** Story  
-**Status:** Planning  
-**Progress:** Partially Done  
+**Status:** Done  
+**Progress:** Done  
 **Priority:** P0  
 **Epic:** EPIC-001 Backend Runtime Truth  
 **Owner:** DEV-1 Backend Runtime + Event Truth  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Selected child work in progress; recording/codegen verification pending  
+**Readiness:** Done; all child tasks complete  
 **Dependencies:** SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001  
 **Blocks:** code_update, recorded UI, BE-010 completion guard, BE-012 replay smoke  
 **Version:** Batch 02 v1  
@@ -67,42 +67,38 @@ Recording is built only after backend execution/assertion success evidence. Pare
 
 ## Parent Status
 
-- Status: Planning
-- Progress: Partially Done
-- Reason: Recording-by-evidence is already covered by tests, but `code_update` still falls back to `generated_line` when child evidence is unresolved or failed.
+- Status: Done
+- Progress: Done
+- Reason: `code_update` now uses only recorded child evidence; the focused backend contract suite passed after the narrow BE-009 fix.
 
 ## Child Tasks
 
 | Child task | Status | Evidence |
 |---|---|---|
 | BE-009.1 Add recording/codegen truth contract tests | Done | `tests/test_recording_codegen_truth_contract.py` covers parent metadata, child ordering, and code-update shape |
-| BE-009.2 Prevent code_update from trusting generated_line without successful child evidence | In Progress | `agent.py` `_build_code_update_payload` still falls back to `generated_line` when child evidence is unresolved |
+| BE-009.2 Prevent code_update from trusting generated_line without successful child evidence | Done | commit `ad480ff`; `agent.py` `_build_code_update_payload` now filters to successful/recorded child evidence only |
 | BE-009.3 Preserve expected_outcome as parent metadata only | Done | `tests/test_recording_codegen_truth_contract.py` asserts children exclude `expected_outcome` and `observed_outcome` |
 | BE-009.4 Preserve child operation order from execution evidence | Done | `tests/test_recording_codegen_truth_contract.py` and `tests/test_code_update.py` verify ordered child code lines |
-| BE-009.5 Verify recording/codegen regression suite | Planning | Focused backend contract suite will run after the BE-009.2 fix |
+| BE-009.5 Verify recording/codegen regression suite | Done | Focused backend contract suite passed `59 passed` after the BE-009.2 fix |
 
 ### Done Children
 
 - `BE-009.1` Add recording/codegen truth contract tests
+- `BE-009.2` Prevent code_update from trusting generated_line without successful child evidence
 - `BE-009.3` Preserve expected_outcome as parent metadata only
 - `BE-009.4` Preserve child operation order from execution evidence
-
-### In Progress Children
-
-- `BE-009.2` Prevent code_update from trusting generated_line without successful child evidence
-
-### Remaining Planning Children
-
 - `BE-009.5` Verify recording/codegen regression suite
 
 ## Evidence
 
 - `tests/test_recording_codegen_truth_contract.py` already covers the parent/child recording contract and the unresolved-child xfail gap.
-- `agent.py` `_build_code_update_payload` still needs the narrow evidence-only fix.
+- `agent.py` `_build_code_update_payload` now filters out unresolved or failed child evidence and no longer falls back to `generated_line`.
+- Commit `ad480ff` (`fix: require evidence-backed code updates`) landed the narrow BE-009 fix.
+- Focused backend contract suite passed `59 passed`.
 
 ## Next Action
 
-- Patch `_build_code_update_payload`, remove the xfail, and run the focused recording/backend contract suite.
+- None.
 
 ---
 

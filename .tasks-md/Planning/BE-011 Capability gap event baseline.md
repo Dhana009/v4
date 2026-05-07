@@ -1,14 +1,14 @@
 # BE-011 Capability gap event baseline
 
 **Type:** Story  
-**Status:** Planning  
-**Progress:** Mostly Done  
+**Status:** Done  
+**Progress:** Done  
 **Priority:** P0  
 **Epic:** EPIC-001 Backend Runtime Truth  
 **Owner:** DEV-1 Backend Runtime + Event Truth  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Selected audit child in progress; capability-gap verification pending  
+**Readiness:** Done; all child tasks complete  
 **Dependencies:** SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001  
 **Blocks:** advanced capability backlog, trace observability, unsupported action handling  
 **Version:** Batch 02 v1  
@@ -66,9 +66,9 @@ P0 records capability gaps; it does not implement upload/download/popup/iframe/n
 
 ## Parent Status
 
-- Status: Planning
-- Progress: Mostly Done
-- Reason: Capability-gap capture, reset behavior, and unsupported-tool rejection already exist; the final audit child is selected for active verification.
+- Status: Done
+- Progress: Done
+- Reason: Capability-gap capture, reset behavior, and unsupported-tool rejection are all covered by backend contract tests and the focused suite passed.
 
 ## Child Tasks
 
@@ -78,7 +78,7 @@ P0 records capability gaps; it does not implement upload/download/popup/iframe/n
 | BE-011.2 Verify gap payload includes actionable reason/context | Done | `tests/test_capability_gaps.py::test_record_capability_gap_appends_ordinal` |
 | BE-011.3 Verify unsupported work is not silently recorded or marked complete | Done | `tests/test_capability_gaps.py` and `agent.py` `_dispatch_tool` rejection path |
 | BE-011.4 Verify gap handling does not mutate unrelated run state | Done | `tests/test_capability_gaps.py::test_reset_clears_capability_gaps` and backend isolation/reset tests |
-| BE-011.5 Final capability gap audit | In Progress | Focused backend contract suite will confirm typed gap behavior remains stable |
+| BE-011.5 Final capability gap audit | Done | Focused backend contract suite passed `59 passed` and confirmed the typed gap baseline remains stable |
 
 ### Done Children
 
@@ -86,23 +86,17 @@ P0 records capability gaps; it does not implement upload/download/popup/iframe/n
 - `BE-011.2` Verify gap payload includes actionable reason/context
 - `BE-011.3` Verify unsupported work is not silently recorded or marked complete
 - `BE-011.4` Verify gap handling does not mutate unrelated run state
-
-### In Progress Children
-
 - `BE-011.5` Final capability gap audit
-
-### Remaining Planning Children
-
-- None
 
 ## Evidence
 
 - `tests/test_capability_gaps.py` already covers recording, reset, and unsupported-tool rejection behavior.
 - `agent.py` `_record_capability_gap` and `_dispatch_tool` provide the typed gap baseline.
+- Focused backend contract suite passed `59 passed`.
 
 ## Next Action
 
-- Run the focused backend suite and keep the capability-gap baseline aligned with the existing runtime truth path.
+- None.
 
 ---
 
