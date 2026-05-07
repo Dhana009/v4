@@ -191,6 +191,17 @@ Do not expand MR-4B into implementation until the mapping report is reviewed.
 - the previous 2 xfails are now green
 - no backend/runtime/LLM/DOM changes
 
+## FE-010 final regression note
+
+- focused DEV-3 verification passed: `37 passed`
+- final broad E2E regression attempted
+- result: `37 passed, 4 failed`
+- failure class: environment/browser startup
+- root cause: `PermissionError: [Errno 1] Operation not permitted` during local static server socket bind in `tests/e2e/harness.py`
+- classification: blocked by DEV-4/E2E harness environment, not a DEV-3 implementation regression
+- status remains `Testing`, not `Done`
+- `AGENTS.md` not committed
+
 ## Test matrix
 
 | Test ID | Layer | Scenario | Expected |
