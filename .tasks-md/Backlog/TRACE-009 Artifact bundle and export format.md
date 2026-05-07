@@ -1,7 +1,7 @@
 # TRACE-009 Artifact bundle and export format
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Planned  
 **Priority:** P0  
 **Epic:** EPIC-009 Trace and Observability  
 **Owner:** DEV-1 Backend Runtime + DEV-4 Evidence/Observability  
@@ -96,6 +96,17 @@ test_id, run_id, status, failed_step, key event sequence, artifact files, redact
 | TRACE009-I-001 | Integration | failed E2E run | artifact bundle exported |
 
 ---
+
+## Codex task breakdown
+
+| Task | Status | Notes |
+|---|---|---|
+| TRACE-009A | In Progress | Map current artifact writers and summary/manifest/result fields for event, command, and rejection evidence. |
+| TRACE-009B | Planned | Add red tests for `events.ndjson` emission baseline. |
+| TRACE-009C | Planned | Add red tests for `commands.json` emission baseline. |
+| TRACE-009D | Planned | Add red tests for `rejections.json` emission baseline. |
+| TRACE-009E | Planned | Implement the smallest harness-side emission support needed by the red tests. |
+| TRACE-009F | Planned | Verify focused tests and record evidence. |
 
 ## Edge cases
 
