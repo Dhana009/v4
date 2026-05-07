@@ -117,3 +117,85 @@ def build_spec_snapshot(
         },
     }
     return _json_safe_copy(snapshot)
+
+
+def _snapshot_archive_error(message: str, *, snapshot: Any | None = None) -> dict[str, Any]:
+    error_payload: dict[str, Any] = {
+        "ok": False,
+        "error": message,
+        "error_code": "INVALID_SNAPSHOT_ARCHIVE",
+    }
+    if isinstance(snapshot, dict):
+        schema_version = _coerce_text(snapshot.get("schema_version"))
+        session_id = _coerce_text(snapshot.get("session_id"))
+        if schema_version:
+            error_payload["schema_version"] = schema_version
+        if session_id:
+            error_payload["session_id"] = session_id
+    return _json_safe_copy(error_payload)
+
+
+def _completed_step_ids_from_recorded_steps(recorded_steps: list[dict[str, Any]]) -> list[str]:
+    completed_step_ids: list[str] = []
+    for recorded_step in recorded_steps:
+        step_id = _coerce_text(recorded_step.get("step_id"))
+        status_text = _coerce_text(recorded_step.get("status")).lower()
+        if step_id and status_text == "completed":
+            completed_step_ids.append(step_id)
+    return completed_step_ids
+
+
+def load_snapshot_archive(snapshot: Any) -> dict[str, Any]:
+    if not isinstance(snapshot, dict):
+        return _snapshot_archive_error("Snapshot archive must be a mapping")
+
+    schema_version = _coerce_text(snapshot.get("schema_version"))
+    if schema_version != "autoworkbench.spec.v1":
+        return _snapshot_archive_error("Snapshot archive schema_version is missing or unsupported", snapshot=snapshot)
+
+    session_id = _coerce_text(snapshot.get("session_id"))
+    created_at = _coerce_text(snapshot.get("created_at"))
+    original_user_intent = _coerce_text(snapshot.get("original_user_intent")) or None
+
+    plan_ready = snapshot.get("plan_ready")
+    recorded_steps = snapshot.get("recorded_steps")
+    code = snapshot.get("code")
+    capability_gaps = snapshot.get("capability_gaps")
+    metadata = snapshot.get("metadata")
+
+    if not session_id or not created_at:
+        return _snapshot_archive_error("Snapshot archive is missing required identity fields", snapshot=snapshot)
+    if not isinstance(plan_ready, dict) or not isinstance(recorded_steps, list):
+        return _snapshot_archive_error("Snapshot archive recorded state is incomplete", snapshot=snapshot)
+    if not isinstance(code, dict) or not isinstance(capability_gaps, list) or not isinstance(metadata, dict):
+        return _snapshot_archive_error("Snapshot archive metadata is incomplete", snapshot=snapshot)
+
+    plan_ready_steps = plan_ready.get("steps")
+    if not isinstance(plan_ready_steps, list):
+        return _snapshot_archive_error("Snapshot archive plan_ready steps are missing", snapshot=snapshot)
+
+    normalized_recorded_steps: list[dict[str, Any]] = []
+    for recorded_step in recorded_steps:
+        if not isinstance(recorded_step, dict):
+            return _snapshot_archive_error("Snapshot archive recorded_steps contains invalid entries", snapshot=snapshot)
+        normalized_recorded_steps.append(_json_safe_copy(recorded_step))
+
+    reconstructed = {
+        "ok": True,
+        "schema_version": schema_version,
+        "session_id": session_id,
+        "created_at": created_at,
+        "original_user_intent": original_user_intent,
+        "plan_ready": _json_safe_copy(plan_ready),
+        "recorded_steps": normalized_recorded_steps,
+        "code": _json_safe_copy(code),
+        "capability_gaps": _json_safe_copy(capability_gaps),
+        "metadata": _json_safe_copy(metadata),
+        "completed_step_ids": _completed_step_ids_from_recorded_steps(normalized_recorded_steps),
+        "pending_recovery": False,
+    }
+    return _json_safe_copy(reconstructed)
+
+
+def load_spec_snapshot(snapshot: Any) -> dict[str, Any]:
+    return load_snapshot_archive(snapshot)
