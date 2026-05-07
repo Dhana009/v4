@@ -15,6 +15,7 @@ from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, AsyncIterator, Awaitable, Callable, Mapping, Sequence, TypeVar
+from urllib.parse import parse_qsl, quote, urlsplit, urlunsplit
 
 from dotenv import dotenv_values
 
@@ -69,6 +70,42 @@ REDACTION_REPORT_PLACEHOLDERS = {
     "email": "[REDACTED_EMAIL]",
     "phone": "[REDACTED_PHONE]",
     "password": "[REDACTED_PASSWORD]",
+    "auth": "[REDACTED_AUTH]",
+    "session": "[REDACTED_SESSION]",
+    "session_id": "[REDACTED_SESSION]",
+    "sessionid": "[REDACTED_SESSION]",
+    "session_token": "[REDACTED_SESSION]",
+    "access_token": "[REDACTED_TOKEN]",
+    "auth_token": "[REDACTED_TOKEN]",
+    "id_token": "[REDACTED_TOKEN]",
+    "api_key": "[REDACTED_TOKEN]",
+    "apikey": "[REDACTED_TOKEN]",
+    "secret": "[REDACTED_SECRET]",
+    "csrf": "[REDACTED_SECRET]",
+    "xsrf": "[REDACTED_SECRET]",
+}
+_REDACTION_SENSITIVE_QUERY_PARAMS: dict[str, tuple[str, str]] = {
+    "token": ("token", "[REDACTED_TOKEN]"),
+    "access_token": ("token", "[REDACTED_TOKEN]"),
+    "auth_token": ("token", "[REDACTED_TOKEN]"),
+    "id_token": ("token", "[REDACTED_TOKEN]"),
+    "api_key": ("token", "[REDACTED_TOKEN]"),
+    "apikey": ("token", "[REDACTED_TOKEN]"),
+    "otp": ("otp", "[REDACTED_OTP]"),
+    "email": ("email", "[REDACTED_EMAIL]"),
+    "phone": ("phone", "[REDACTED_PHONE]"),
+    "password": ("password", "[REDACTED_PASSWORD]"),
+    "pass": ("password", "[REDACTED_PASSWORD]"),
+    "pwd": ("password", "[REDACTED_PASSWORD]"),
+    "auth": ("auth", "[REDACTED_AUTH]"),
+    "session": ("auth", "[REDACTED_SESSION]"),
+    "session_id": ("auth", "[REDACTED_SESSION]"),
+    "sessionid": ("auth", "[REDACTED_SESSION]"),
+    "session_token": ("auth", "[REDACTED_SESSION]"),
+    "sid": ("auth", "[REDACTED_SESSION]"),
+    "secret": ("auth", "[REDACTED_SECRET]"),
+    "csrf": ("auth", "[REDACTED_SECRET]"),
+    "xsrf": ("auth", "[REDACTED_SECRET]"),
 }
 _REDACTION_EXACT_TEXT_RULES: list[tuple[str, str, str]] = [
     ("token", "sk-test-redaction-token", "[REDACTED_TOKEN]"),
@@ -83,6 +120,7 @@ _REDACTION_REGEX_RULES: list[tuple[str, re.Pattern[str], str]] = [
     ("email", re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"), "[REDACTED_EMAIL]"),
     ("phone", re.compile(r"\+?\d[\d\s().-]{7,}\d"), "[REDACTED_PHONE]"),
 ]
+_REDACTION_URL_PATTERN = re.compile(r"https?://[^\s<>\"]+")
 T = TypeVar("T")
 
 
@@ -253,9 +291,56 @@ def _format_finding_tuples(findings: Sequence[tuple[str, str]]) -> list[dict[str
     return [{"pattern": pattern, "location": location} for pattern, location in findings]
 
 
+def _normalize_query_key(key: str) -> str:
+    return re.sub(r"[-\s]+", "_", key.strip().lower())
+
+
+def _redact_url_substrings(text: str, *, location: str) -> tuple[str, list[tuple[str, str]]]:
+    if "://" not in text and "?" not in text and "&" not in text:
+        return text, []
+
+    redacted_text = text
+    findings: list[tuple[str, str]] = []
+    matches = list(_REDACTION_URL_PATTERN.finditer(text))
+    if not matches:
+        return text, []
+
+    for match in reversed(matches):
+        url_text = match.group(0)
+        parsed = urlsplit(url_text)
+        if not parsed.scheme or not parsed.netloc:
+            continue
+        query_pairs = parse_qsl(parsed.query, keep_blank_values=True)
+        if not query_pairs:
+            continue
+        redacted_pairs: list[tuple[str, str]] = []
+        url_changed = False
+        for key, value in query_pairs:
+            normalized_key = _normalize_query_key(key)
+            rule = _REDACTION_SENSITIVE_QUERY_PARAMS.get(normalized_key)
+            if rule is None:
+                redacted_pairs.append((key, value))
+                continue
+            pattern_name, replacement = rule
+            redacted_pairs.append((key, replacement))
+            findings.append((pattern_name, location))
+            url_changed = True
+        if not url_changed:
+            continue
+        redacted_query = "&".join(
+            f"{quote(key, safe='')}={quote(value, safe='[]_')}"
+            for key, value in redacted_pairs
+        )
+        redacted_url = urlunsplit((parsed.scheme, parsed.netloc, parsed.path, redacted_query, parsed.fragment))
+        redacted_text = f"{redacted_text[:match.start()]}{redacted_url}{redacted_text[match.end():]}"
+    return redacted_text, _dedupe_finding_tuples(findings)
+
+
 def _redact_text_value(text: str, *, location: str) -> tuple[str, list[tuple[str, str]]]:
     redacted = text
     findings: list[tuple[str, str]] = []
+    redacted, url_findings = _redact_url_substrings(redacted, location=location)
+    findings.extend(url_findings)
     for pattern_name, raw_value, replacement in _REDACTION_EXACT_TEXT_RULES:
         if raw_value in redacted:
             redacted = redacted.replace(raw_value, replacement)
@@ -317,12 +402,22 @@ def _build_redaction_report(
     redaction_report: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     if redaction_report is not None:
+        provided_findings = _normalize_redaction_findings(redaction_report.get("findings"))
+        additional_findings = _normalize_redaction_findings(findings)
+        merged_findings = _format_finding_tuples(
+            _dedupe_finding_tuples(
+                [
+                    *( (entry["pattern"], entry["location"]) for entry in provided_findings ),
+                    *( (entry["pattern"], entry["location"]) for entry in additional_findings ),
+                ]
+            )
+        )
         payload = {
             "redaction_passed": bool(redaction_report.get("redaction_passed", True)),
             "redaction_version": str(redaction_report.get("redaction_version", REDACTION_REPORT_VERSION)),
             "patterns_checked": [str(pattern) for pattern in redaction_report.get("patterns_checked", REDACTION_REPORT_PATTERNS)],
             "files_checked": [str(file_name) for file_name in redaction_report.get("files_checked", REDACTION_REPORT_FILES_CHECKED)],
-            "findings": _normalize_redaction_findings(redaction_report.get("findings")),
+            "findings": merged_findings,
         }
         return payload
     return {
@@ -1085,6 +1180,7 @@ class E2ESession:
     failure_expected_event_type: str | None = None
     failure_observed_event_types: list[str] = field(default_factory=list)
     failure_event_evidence: dict[str, Any] | None = None
+    failure_redaction_report: dict[str, Any] | None = None
 
     def log_stage_ok(self, stage: str) -> None:
         self.current_stage = stage
@@ -1168,7 +1264,17 @@ class E2ESession:
                 "active_tab": None,
                 "active_mode": None,
             }
+        sanitized_page_state, page_state_findings = _redact_sensitive_value(page_state, location="page_state")
+        sanitized_page_error = page_error
+        page_error_findings: list[tuple[str, str]] = []
+        if sanitized_page_error is not None:
+            sanitized_page_error, page_error_findings = _redact_text_value(sanitized_page_error, location="page_error")
         sanitized_reason, _reason_findings = _redact_text_value(reason, location="failure_reason")
+        failure_redaction_findings = []
+        failure_redaction_findings.extend(_reason_findings)
+        failure_redaction_findings.extend(page_state_findings)
+        failure_redaction_findings.extend(page_error_findings)
+        self.failure_redaction_report = _build_redaction_report(findings=failure_redaction_findings)
         context = {
             "artifact_dir": str(self.artifact_dir),
             "screenshot_path": str(self.artifact_dir / "failure.png"),
@@ -1180,8 +1286,8 @@ class E2ESession:
             "expected_event_type": expected_event_type,
             "observed_event_types": normalized_observed_event_types,
             "event_evidence": stored_event_evidence,
-            "page_state": page_state,
-            "page_error": page_error,
+            "page_state": sanitized_page_state,
+            "page_error": sanitized_page_error,
             "llm_triggered": llm_triggered,
             "last_llm_marker": last_llm_marker,
             "backend_lifecycle_markers": lifecycle_markers,
@@ -1285,6 +1391,7 @@ class E2ESession:
             artifact_texts=artifact_texts,
             optional_absence_notes=DEFAULT_E2E_OPTIONAL_ABSENCE_NOTES,
             event_evidence=self.failure_event_evidence,
+            redaction_report=self.failure_redaction_report,
             run_id=self.run_id,
         )
 

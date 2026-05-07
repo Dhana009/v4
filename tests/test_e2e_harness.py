@@ -51,6 +51,45 @@ REDACTION_REPORT_SECRET_VALUES = (
 )
 
 
+def _sensitive_query_url() -> str:
+    fake_token, fake_otp, fake_email, fake_phone, fake_password = REDACTION_REPORT_SECRET_VALUES
+    return (
+        "https://example.test/trace?"
+        f"token={fake_token}&"
+        f"otp={fake_otp}&"
+        f"email={fake_email}&"
+        f"phone={fake_phone}&"
+        f"password={fake_password}"
+    )
+
+
+def _nested_sensitive_event_evidence() -> dict[str, object]:
+    fake_token, fake_otp, fake_email, fake_phone, fake_password = REDACTION_REPORT_SECRET_VALUES
+    return {
+        "request": {
+            "url": _sensitive_query_url(),
+            "headers": {
+                "Authorization": f"Bearer {fake_token}",
+                "X-OTP": fake_otp,
+            },
+            "contact": {
+                "email": fake_email,
+                "phone": fake_phone,
+            },
+            "profile": {
+                "password": fake_password,
+            },
+        },
+        "nested": [
+            {"token": fake_token},
+            {"otp": fake_otp},
+            {"email": fake_email},
+            {"phone": fake_phone},
+            {"password": fake_password},
+        ],
+    }
+
+
 def _event(event_type: str, run_id: str = "run-123", **payload: object) -> dict[str, object]:
     event: dict[str, object] = {
         "schema_version": "autoworkbench.events.v1",
@@ -97,6 +136,15 @@ class _FakePage:
         return "<html><body>fake page</body></html>"
 
 
+class _LeakyFailurePage(_FakePage):
+    def __init__(self, url: str, error_message: str) -> None:
+        super().__init__(url=url)
+        self._error_message = error_message
+
+    def locator(self, selector: str) -> _FakeLocator:
+        raise RuntimeError(self._error_message)
+
+
 class _FakeBrowser:
     async def close(self) -> None:
         return None
@@ -107,7 +155,7 @@ class _FakePlaywright:
         return None
 
 
-def _make_failure_session(tmp_path: Path) -> harness.E2ESession:
+def _make_failure_session(tmp_path: Path, page: object | None = None) -> harness.E2ESession:
     stdout_path = tmp_path / "backend.stdout.log"
     stderr_path = tmp_path / "backend.stderr.log"
     stdout_path.write_text("[PLAN_READY] backend ready\n", encoding="utf-8")
@@ -131,7 +179,7 @@ def _make_failure_session(tmp_path: Path) -> harness.E2ESession:
         playwright=_FakePlaywright(),
         browser=_FakeBrowser(),
         context=SimpleNamespace(),
-        page=_FakePage(),
+        page=page if page is not None else _FakePage(),
         console_entries=[],
     )
 
@@ -887,6 +935,139 @@ def test_finalize_test_result_marks_missing_redaction_report_as_failed_evidence_
 
     assert manifest["status"] == "failed"
     assert result["status"] == "failed"
+
+
+def test_save_failure_artifacts_redacts_sensitive_query_params_in_failure_context_and_summary(
+    tmp_path: Path,
+) -> None:
+    fake_token, fake_otp, fake_email, fake_phone, fake_password = REDACTION_REPORT_SECRET_VALUES
+    sensitive_url = _sensitive_query_url()
+    session = _make_failure_session(
+        tmp_path,
+        page=_LeakyFailurePage(
+            url=sensitive_url,
+            error_message=f"page-state leak token={fake_token} otp={fake_otp}",
+        ),
+    )
+
+    asyncio.run(
+        session.save_failure_artifacts(
+            f"request url {sensitive_url}",
+            stage="awaiting_plan_ready",
+            expected_event_type="plan_ready",
+            observed_event_types=["run_started"],
+            event_evidence={
+                "request": {
+                    "url": sensitive_url,
+                },
+            },
+        )
+    )
+    asyncio.run(session.close())
+
+    summary = (tmp_path / "summary.md").read_text(encoding="utf-8")
+    failure_text = (tmp_path / "failure.txt").read_text(encoding="utf-8")
+    failure_context_blob = (tmp_path / "failure-context.json").read_text(encoding="utf-8")
+
+    for secret in (fake_token, fake_otp, fake_email, fake_phone, fake_password):
+        assert secret not in summary
+        assert secret not in failure_text
+        assert secret not in failure_context_blob
+
+
+def test_nested_event_evidence_payload_values_are_redacted_recursively_in_failure_context(
+    tmp_path: Path,
+) -> None:
+    sensitive_url = _sensitive_query_url()
+    session = _make_failure_session(
+        tmp_path,
+        page=_LeakyFailurePage(
+            url=sensitive_url,
+            error_message=f"page-state leak token={REDACTION_REPORT_SECRET_VALUES[0]}",
+        ),
+    )
+
+    asyncio.run(
+        session.save_failure_artifacts(
+            "missing plan_ready event",
+            stage="awaiting_plan_ready",
+            expected_event_type="plan_ready",
+            observed_event_types=["run_started"],
+            event_evidence=_nested_sensitive_event_evidence(),
+        )
+    )
+    asyncio.run(session.close())
+
+    failure_context = json.loads((tmp_path / "failure-context.json").read_text(encoding="utf-8"))
+    nested_evidence = failure_context["event_evidence"]
+
+    assert nested_evidence["request"]["headers"]["Authorization"] == "Bearer [REDACTED_TOKEN]"
+    assert nested_evidence["request"]["headers"]["X-OTP"] == "[REDACTED_OTP]"
+    assert nested_evidence["request"]["contact"]["email"] == "[REDACTED_EMAIL]"
+    assert nested_evidence["request"]["contact"]["phone"] == "[REDACTED_PHONE]"
+    assert nested_evidence["request"]["profile"]["password"] == "[REDACTED_PASSWORD]"
+    assert nested_evidence["nested"][0]["token"] == "[REDACTED_TOKEN]"
+    assert nested_evidence["nested"][1]["otp"] == "[REDACTED_OTP]"
+    assert nested_evidence["nested"][2]["email"] == "[REDACTED_EMAIL]"
+    assert nested_evidence["nested"][3]["phone"] == "[REDACTED_PHONE]"
+    assert nested_evidence["nested"][4]["password"] == "[REDACTED_PASSWORD]"
+    assert sensitive_url not in json.dumps(failure_context, sort_keys=True)
+
+
+def test_redaction_report_records_findings_for_redacted_fields_without_raw_secrets(
+    tmp_path: Path,
+) -> None:
+    session = _make_failure_session(
+        tmp_path,
+        page=_LeakyFailurePage(
+            url=_sensitive_query_url(),
+            error_message=f"page-state leak token={REDACTION_REPORT_SECRET_VALUES[0]}",
+        ),
+    )
+
+    asyncio.run(
+        session.save_failure_artifacts(
+            "missing plan_ready event",
+            stage="awaiting_plan_ready",
+            expected_event_type="plan_ready",
+            observed_event_types=["run_started"],
+            event_evidence=_nested_sensitive_event_evidence(),
+        )
+    )
+    asyncio.run(session.close())
+
+    report_path = tmp_path / "redaction-report.json"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+    report_blob = json.dumps(report, sort_keys=True)
+
+    assert report["redaction_passed"] is True
+    assert any(finding["location"].startswith("event_evidence.") for finding in report["findings"])
+    assert any(finding["location"] == "page_state.current_url" for finding in report["findings"])
+    for secret in REDACTION_REPORT_SECRET_VALUES:
+        assert secret not in report_blob
+
+
+def test_clean_artifacts_produce_redaction_passed_true_and_empty_findings(tmp_path: Path) -> None:
+    manifest, result = harness.finalize_test_result(
+        artifact_dir=tmp_path,
+        test_name="redaction_report_clean_artifacts_baseline",
+        status="unknown",
+        error_summary=None,
+        artifacts=REDACTION_REPORT_ARTIFACTS,
+        artifact_texts={
+            "summary.md": "# Summary\n\nClean redaction baseline.\n",
+        },
+    )
+
+    report_path = tmp_path / "redaction-report.json"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+
+    assert report_path.exists()
+    assert report["redaction_passed"] is True
+    assert report["findings"] == []
+    assert manifest["artifacts"]["redaction_report"] == "redaction-report.json"
+    assert manifest["file_hashes"]["redaction-report.json"].startswith("sha256:")
+    assert result["status"] == "unknown"
 
 
 def test_finalize_test_result_omits_deferred_rejections_note_when_rejections_json_is_written(

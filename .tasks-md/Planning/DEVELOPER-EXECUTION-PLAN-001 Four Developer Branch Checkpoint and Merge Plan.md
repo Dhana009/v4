@@ -547,9 +547,9 @@ Completion note: collect_events, wait_for_event, assert_sequence, assert_no_even
 
 ```text
 Selected story: TRACE-010 Observability regression and redaction policy
-Story status: Planned
-Why next: TRACE-009 artifact export is complete, and TRACE-010 is the next non-socket DEV-4 evidence slice because redaction-report.json is the remaining acceptance gap for trace/export safety and has explicit TRACE-RED matrix coverage.
-Phase: TRACE-010B implementation and verification complete; TRACE-010C not started.
+Story status: Done
+Why next: TRACE-009 artifact export is complete, and TRACE-010C closed the remaining no-secret artifact metadata redaction gap for trace/export safety.
+Phase: TRACE-010C complete; residual no-secret artifact metadata edge cases closed.
 Scope:
   .tasks-md/Planning/TRACE-010 Observability regression and redaction policy.md
   .tasks-md/Planning/DEVELOPER-EXECUTION-PLAN-001 Four Developer Branch Checkpoint and Merge Plan.md
@@ -578,6 +578,12 @@ TRACE-010B result:
   `tests/e2e/harness.py` now writes `redaction-report.json`, redacts the known fake token/OTP/email/phone/password values from summary/result/manifest metadata, rewrites the optional absence note when the report is present, and keeps the missing-report evidence gate failing.
   Verification: `python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py`
   Verification: `python -m pytest tests/test_e2e_harness.py -q` -> 35 passed
+TRACE-010C scope:
+  residual no-secret artifact metadata edge cases only
+TRACE-010C result:
+  `tests/e2e/harness.py` now recursively redacts nested metadata and sensitive URL query params in failure-context.json, failure.txt, summary event evidence, and manifest/test-result event_evidence without leaking raw secrets.
+  Verification: `python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py`
+  Verification: `python -m pytest tests/test_e2e_harness.py -q` -> 39 passed
 Stop conditions:
   redaction policy remains unclear
   implementation would touch runtime or frontend truth

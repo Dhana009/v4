@@ -1,13 +1,13 @@
 # TRACE-010 Observability regression and redaction policy
 
 **Type:** Story  
-**Status:** Planned  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-009 Trace and Observability  
 **Owner:** DEV-1 Backend Runtime + DEV-4 Evidence/Observability  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Ready for repo inspection; not ready for implementation  
+**Readiness:** Done; implementation and verification complete  
 **Dependencies:** TRACE-001, TRACE-009, PLAN-005  
 **Blocks:** release safety, privacy, regression guard  
 **Version:** Batch 10 v1  
@@ -100,7 +100,7 @@ Regression requirements:
 |---|---|---|
 | TRACE-010A | Done | Read-only mapping of current redaction/report support, artifact metadata, and evidence paths; no code changes. |
 | TRACE-010B | Done | Redaction-report baseline implemented and verified; `python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py` and `python -m pytest tests/test_e2e_harness.py -q` both passed. |
-| TRACE-010C | Planned | Follow-on red tests for residual no-secret artifact metadata edge cases. |
+| TRACE-010C | Done | Residual no-secret artifact metadata edge cases closed; recursive redaction for failure-context, failure.txt, summary evidence, and manifest/test-result metadata is implemented and verified. |
 | TRACE-010D | Planned | Harness-side implementation. |
 | TRACE-010E | Planned | Verification and evidence capture. |
 
