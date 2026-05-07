@@ -8,10 +8,10 @@
 **Branch:** `dev3/frontend-test-harness-mapping`  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** MR-4B test-only slice started; contract coverage added  
+**Readiness:** MR-4C narrow implementation started; FE-001/FE-009 contract hooks added  
 **Dependencies:** EVENT-010, TEST-FE-001, TEST-MATRIX-FE-001, TEST-MATRIX-EVENT-001, TEST-MATRIX-E2E-001  
 **Blocks:** MR-4B test-only slice selection, safe migration sequencing  
-**Version:** MR-4B v1  
+**Version:** MR-4C v1  
 
 ---
 
@@ -156,6 +156,20 @@ Do not expand MR-4B into implementation until the mapping report is reviewed.
 - `python -m pytest tests/test_browser_injection.py tests/test_e2e_harness.py -q` returned `31 passed`
 - xfails are expected for the missing Shadow DOM host and planned root/hook contract
 - no frontend/runtime/backend/source changes
+
+## MR-4C implementation evidence
+
+- implemented a thin Shadow DOM host adapter in `frontend/src/main.jsx`
+- preserved the existing `#autoworkbench-root` light-DOM render path
+- preserved `window.IDEPanel`
+- added a stable `aw-root` hook
+- added stable hooks / aria labels for LLM, Recorded, Code, Trace, plan review, clarification, and recovery
+- `python -m pytest tests/test_frontend_shadow_dom_contract.py -q` returned `3 passed`
+- `python -m pytest tests/test_browser_injection.py tests/test_e2e_harness.py -q` returned `31 passed`
+- combined verification returned `34 passed`
+- `cd frontend && npm run build` succeeded
+- the previous 2 xfails now pass
+- no backend/runtime/test changes
 
 ## Test matrix
 

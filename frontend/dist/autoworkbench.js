@@ -24592,12 +24592,21 @@
   function IDEBadge({ kind, children }) {
     return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: `ide-badge b-${kind}`, children });
   }
-  function IDECard({ color, title, children, footer }) {
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: `ide-card c-${color || "ink"}`, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-card-hd", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-card-hd-label", children: title }) }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-card-body", children }),
-      footer && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { padding: "0 10px 10px", display: "flex", gap: 6 }, children: footer })
-    ] });
+  function IDECard({ color, title, children, footer, testId, ariaLabel, id }) {
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+      "div",
+      {
+        id,
+        className: `ide-card c-${color || "ink"}`,
+        "data-testid": testId,
+        "aria-label": ariaLabel,
+        children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-card-hd", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-card-hd-label", children: title }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-card-body", children }),
+          footer && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { padding: "0 10px 10px", display: "flex", gap: 6 }, children: footer })
+        ]
+      }
+    );
   }
   function getPlanStepChildren(step) {
     if (!step || typeof step !== "object") {
@@ -24789,7 +24798,7 @@
       }
       node.scrollTop = node.scrollHeight;
     }, [rows.length]);
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECard, { color: "violet", title: "// conversation", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { ref: scrollRef, className: "ide-scrollbox ide-scrollbox-conversation", style: { maxHeight: 228 }, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { marginInline: -10 }, children: rows.map((m, i) => {
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECard, { color: "violet", title: "// conversation", testId: "llm", ariaLabel: "LLM", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { ref: scrollRef, className: "ide-scrollbox ide-scrollbox-conversation", style: { maxHeight: 228 }, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { marginInline: -10 }, children: rows.map((m, i) => {
       const who = m.role || m.w || "agent";
       const time = m.time || m.t || "--:--:--";
       const text = m.text !== void 0 ? m.text : m.txt;
@@ -24828,6 +24837,8 @@
       {
         color: "blue",
         title: "// plan review",
+        testId: "plan-review",
+        ariaLabel: "plan review",
         footer: [
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
             "button",
@@ -24917,6 +24928,8 @@
       {
         color: "violet",
         title: "// clarification needed",
+        testId: "clarification",
+        ariaLabel: "clarification",
         footer: [
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
             "button",
@@ -24967,6 +24980,8 @@
       {
         color: "red",
         title: "// recovery needed",
+        testId: "recovery",
+        ariaLabel: "recovery",
         footer: [
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
             "button",
@@ -25587,22 +25602,32 @@
         "replay-all"
       )
     ] : null;
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECard, { color: steps.length ? "green" : null, title: "// recorded steps", footer, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-scrollbox ide-scrollbox-recorded", style: { maxHeight: 300 }, children: steps.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-list", children: steps.map((step, i) => {
-      const stepKey = firstText(step.id, step.step_id, step.stepId);
-      return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-        IDERecordedStepCard,
-        {
-          step,
-          index: i,
-          compact: false,
-          showGeneratedLine: true,
-          replayStatus: stepKey ? lastReplayByStepId[stepKey] : null,
-          onReplay: onReplayRecordedStep,
-          onCopy: onCopyRecordedStep
-        },
-        step.id || `${step.step_number || i}`
-      );
-    }) }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-empty-state", children: "No recorded steps yet." }) }) });
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+      IDECard,
+      {
+        color: steps.length ? "green" : null,
+        title: "// recorded steps",
+        testId: "recorded",
+        ariaLabel: "Recorded",
+        footer,
+        children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-scrollbox ide-scrollbox-recorded", style: { maxHeight: 300 }, children: steps.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-list", children: steps.map((step, i) => {
+          const stepKey = firstText(step.id, step.step_id, step.stepId);
+          return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+            IDERecordedStepCard,
+            {
+              step,
+              index: i,
+              compact: false,
+              showGeneratedLine: true,
+              replayStatus: stepKey ? lastReplayByStepId[stepKey] : null,
+              onReplay: onReplayRecordedStep,
+              onCopy: onCopyRecordedStep
+            },
+            step.id || `${step.step_number || i}`
+          );
+        }) }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-empty-state", children: "No recorded steps yet." }) })
+      }
+    );
   }
   function IDERecordedOutput({
     recordedSteps = [],
@@ -25659,61 +25684,71 @@
         "replay-all"
       )
     ] : null;
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(IDECard, { color: recordedCount > 0 ? "green" : null, title: "// recorded output", footer, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-stats", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-stat", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `ide-stat-num${recordedCount > 0 ? " s-green" : ""}`, children: recordedCount }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-stat-lbl", children: "Recorded steps" })
-        ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-stat", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-stat-num", children: lineCount > 0 ? lineCount : "\u2014" }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-stat-lbl", children: "Code lines" })
-        ] })
-      ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-mini-tabs", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-          "button",
-          {
-            className: `ide-mini-tab${activeTab === "steps" ? " active" : ""}`,
-            type: "button",
-            onClick: () => setActiveTab("steps"),
-            children: "Steps"
-          }
-        ),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-          "button",
-          {
-            className: `ide-mini-tab${activeTab === "code" ? " active" : ""}`,
-            type: "button",
-            onClick: () => setActiveTab("code"),
-            children: "Code"
-          }
-        )
-      ] }),
-      activeTab === "steps" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-scrollbox ide-scrollbox-recorded", style: { maxHeight: 216 }, children: [
-        visibleSteps.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-list", children: visibleSteps.map((step, i) => {
-          const stepKey = firstText(step.id, step.step_id, step.stepId);
-          return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-            IDERecordedStepCard,
-            {
-              step,
-              index: i,
-              compact: true,
-              showGeneratedLine: false,
-              replayStatus: stepKey ? lastReplayByStepId[stepKey] : null,
-              onReplay: onReplayRecordedStep,
-              onCopy: onCopyRecordedStep
-            },
-            step.id || `${step.step_number || i}`
-          );
-        }) }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-empty-state", children: "No recorded steps yet." }),
-        steps.length > visibleSteps.length && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-more-note", children: [
-          "+ ",
-          steps.length - visibleSteps.length,
-          " more in the full Steps tab."
-        ] })
-      ] }) : codeText ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("pre", { className: "ide-code ide-recorded-code", style: { marginTop: 2, whiteSpace: "pre-wrap" }, children: codeText }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-empty-state", children: "No recorded steps yet." })
-    ] });
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+      IDECard,
+      {
+        color: recordedCount > 0 ? "green" : null,
+        title: "// recorded output",
+        testId: "recorded",
+        ariaLabel: "Recorded",
+        footer,
+        children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-stats", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-stat", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `ide-stat-num${recordedCount > 0 ? " s-green" : ""}`, children: recordedCount }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-stat-lbl", children: "Recorded steps" })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-stat", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-stat-num", children: lineCount > 0 ? lineCount : "\u2014" }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-stat-lbl", children: "Code lines" })
+            ] })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-mini-tabs", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+              "button",
+              {
+                className: `ide-mini-tab${activeTab === "steps" ? " active" : ""}`,
+                type: "button",
+                onClick: () => setActiveTab("steps"),
+                children: "Steps"
+              }
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+              "button",
+              {
+                className: `ide-mini-tab${activeTab === "code" ? " active" : ""}`,
+                type: "button",
+                onClick: () => setActiveTab("code"),
+                children: "Code"
+              }
+            )
+          ] }),
+          activeTab === "steps" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-scrollbox ide-scrollbox-recorded", style: { maxHeight: 216 }, children: [
+            visibleSteps.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-list", children: visibleSteps.map((step, i) => {
+              const stepKey = firstText(step.id, step.step_id, step.stepId);
+              return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                IDERecordedStepCard,
+                {
+                  step,
+                  index: i,
+                  compact: true,
+                  showGeneratedLine: false,
+                  replayStatus: stepKey ? lastReplayByStepId[stepKey] : null,
+                  onReplay: onReplayRecordedStep,
+                  onCopy: onCopyRecordedStep
+                },
+                step.id || `${step.step_number || i}`
+              );
+            }) }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-empty-state", children: "No recorded steps yet." }),
+            steps.length > visibleSteps.length && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-more-note", children: [
+              "+ ",
+              steps.length - visibleSteps.length,
+              " more in the full Steps tab."
+            ] })
+          ] }) : codeText ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("pre", { className: "ide-code ide-recorded-code", style: { marginTop: 2, whiteSpace: "pre-wrap" }, children: codeText }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-empty-state", children: "No recorded steps yet." })
+        ]
+      }
+    );
   }
   function IDEPendingStepCard({
     step,
@@ -25920,10 +25955,10 @@
   }
   function IDECodePreview({ codePreview, live = false }) {
     const text = typeof codePreview === "string" && codePreview.trim() ? codePreview.trim() : live ? "Awaiting code_update\u2026" : "Generated Playwright code will appear here.";
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECard, { color: "ink", title: "// code preview", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("pre", { className: "ide-code", style: { marginTop: 0, whiteSpace: "pre-wrap" }, children: text }) });
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECard, { color: "ink", title: "// code preview", testId: "code", ariaLabel: "Code", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("pre", { className: "ide-code", style: { marginTop: 0, whiteSpace: "pre-wrap" }, children: text }) });
   }
   function IDEDebugPane({ connectionStatus, lastEvent, lastError }) {
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { "data-testid": "trace", "aria-label": "Trace", children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(IDECard, { color: "red", title: "// transport", children: [
         /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 11.5 }, children: [
           /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { padding: "6px 8px", background: "#faf7f3", border: "1px solid #ede8e0", borderRadius: 2 }, children: [
@@ -26038,7 +26073,7 @@
     const showPlanReview = interactionMode === "plan_review";
     const showClarification = interactionMode === "clarification";
     const showRecovery = interactionMode === "recovery";
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-panel", children: [
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-panel", id: "aw-root", "data-testid": "aw-root", "aria-label": "AutoWorkbench", children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEHeader, { state: panelState, interactionMode, connectionStatus }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-tabs", children: [
         ["workbench", "workbench"],
@@ -26050,6 +26085,8 @@
         {
           className: `ide-tab${tab === id ? " active" : ""}`,
           type: "button",
+          "data-testid": id === "workbench" ? "llm-tab" : id === "steps" ? "steps-tab" : id === "code" ? "code-tab" : "trace-tab",
+          "aria-label": id === "workbench" ? "LLM" : id === "steps" ? "Steps" : id === "code" ? "Code" : "Trace",
           onClick: () => onTabChange?.(id),
           children: [
             label,
@@ -26181,6 +26218,7 @@
     panelWidth: 460,
     density: "compact"
   };
+  var SHADOW_HOST_ID = "aw-shadow-host";
   var RUN_STATE_ALIASES = {
     idle: "idle",
     planning: "planning",
@@ -26272,6 +26310,21 @@
       (document.body || document.documentElement).appendChild(node);
     }
     return node;
+  }
+  function ensureShadowHost(host) {
+    if (!host || typeof host.attachShadow !== "function") {
+      return null;
+    }
+    const shadowRoot = host.shadowRoot || host.attachShadow({ mode: "open" });
+    let marker = shadowRoot.querySelector(`#${SHADOW_HOST_ID}`);
+    if (!marker) {
+      marker = document.createElement("div");
+      marker.id = SHADOW_HOST_ID;
+      marker.setAttribute("data-testid", "aw-shadow-host");
+      marker.setAttribute("aria-hidden", "true");
+      shadowRoot.appendChild(marker);
+    }
+    return shadowRoot;
   }
   function resolveWsUrl(config = {}) {
     const candidates = [
@@ -28256,6 +28309,7 @@
       currentRoot.unmount();
       currentRoot = null;
     }
+    ensureShadowHost(node);
     if (!currentRoot) {
       currentRoot = (0, import_client.createRoot)(node);
       currentNode = node;

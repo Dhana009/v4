@@ -32,9 +32,14 @@ function IDEBadge({ kind, children }) {
   return <span className={`ide-badge b-${kind}`}>{children}</span>;
 }
 
-function IDECard({ color, title, children, footer }) {
+function IDECard({ color, title, children, footer, testId, ariaLabel, id }) {
   return (
-    <div className={`ide-card c-${color || "ink"}`}>
+    <div
+      id={id}
+      className={`ide-card c-${color || "ink"}`}
+      data-testid={testId}
+      aria-label={ariaLabel}
+    >
       <div className="ide-card-hd">
         <div className="ide-card-hd-label">{title}</div>
       </div>
@@ -258,7 +263,7 @@ function IDEConversation({ state, messages = [], live = false }) {
   }, [rows.length]);
 
   return (
-    <IDECard color="violet" title="// conversation">
+    <IDECard color="violet" title="// conversation" testId="llm" ariaLabel="LLM">
       <div ref={scrollRef} className="ide-scrollbox ide-scrollbox-conversation" style={{ maxHeight: 228 }}>
         <div style={{ marginInline: -10 }}>
         {rows.map((m, i) => {
@@ -317,6 +322,8 @@ function IDEPlanReview({
     <IDECard
       color="blue"
       title="// plan review"
+      testId="plan-review"
+      ariaLabel="plan review"
       footer={[
         <button
           key="c"
@@ -415,6 +422,8 @@ function IDEClarificationCard({
     <IDECard
       color="violet"
       title="// clarification needed"
+      testId="clarification"
+      ariaLabel="clarification"
       footer={[
         <button
           key="s"
@@ -464,6 +473,8 @@ function IDERecovery({ message, currentUrl, recoveryText = "", onRecoveryTextCha
     <IDECard
       color="red"
       title="// recovery needed"
+      testId="recovery"
+      ariaLabel="recovery"
       footer={[
         <button
           key="s"
@@ -1166,7 +1177,13 @@ function IDERecordedStepsSection({
     : null;
 
   return (
-    <IDECard color={steps.length ? "green" : null} title="// recorded steps" footer={footer}>
+    <IDECard
+      color={steps.length ? "green" : null}
+      title="// recorded steps"
+      testId="recorded"
+      ariaLabel="Recorded"
+      footer={footer}
+    >
       <div className="ide-scrollbox ide-scrollbox-recorded" style={{ maxHeight: 300 }}>
         {steps.length > 0 ? (
           <div className="ide-step-list">
@@ -1252,7 +1269,13 @@ function IDERecordedOutput({
     : null;
 
   return (
-    <IDECard color={recordedCount > 0 ? "green" : null} title="// recorded output" footer={footer}>
+    <IDECard
+      color={recordedCount > 0 ? "green" : null}
+      title="// recorded output"
+      testId="recorded"
+      ariaLabel="Recorded"
+      footer={footer}
+    >
       <div className="ide-stats">
         <div className="ide-stat">
           <div className={`ide-stat-num${recordedCount > 0 ? " s-green" : ""}`}>{recordedCount}</div>
@@ -1569,7 +1592,7 @@ function IDECodePreview({ codePreview, live = false }) {
       : "Generated Playwright code will appear here.";
 
   return (
-    <IDECard color="ink" title="// code preview">
+    <IDECard color="ink" title="// code preview" testId="code" ariaLabel="Code">
       <pre className="ide-code" style={{ marginTop: 0, whiteSpace: "pre-wrap" }}>
         {text}
       </pre>
@@ -1579,7 +1602,7 @@ function IDECodePreview({ codePreview, live = false }) {
 
 function IDEDebugPane({ connectionStatus, lastEvent, lastError }) {
   return (
-    <>
+    <div data-testid="trace" aria-label="Trace">
       <IDECard color="red" title="// transport">
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 11.5 }}>
           <div style={{ padding: "6px 8px", background: "#faf7f3", border: "1px solid #ede8e0", borderRadius: 2 }}>
@@ -1612,7 +1635,7 @@ function IDEDebugPane({ connectionStatus, lastEvent, lastError }) {
           <div style={{ fontSize: 11.5, color: "#4a4640", lineHeight: 1.6 }}>{lastError}</div>
         </IDECard>
       )}
-    </>
+    </div>
   );
 }
 
@@ -1716,7 +1739,7 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
   const showRecovery = interactionMode === "recovery";
 
   return (
-    <div className="ide-panel">
+    <div className="ide-panel" id="aw-root" data-testid="aw-root" aria-label="AutoWorkbench">
       <IDEHeader state={panelState} interactionMode={interactionMode} connectionStatus={connectionStatus} />
       <div className="ide-tabs">
         {[
@@ -1729,6 +1752,24 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
             key={id}
             className={`ide-tab${tab === id ? " active" : ""}`}
             type="button"
+            data-testid={
+              id === "workbench"
+                ? "llm-tab"
+                : id === "steps"
+                  ? "steps-tab"
+                  : id === "code"
+                    ? "code-tab"
+                    : "trace-tab"
+            }
+            aria-label={
+              id === "workbench"
+                ? "LLM"
+                : id === "steps"
+                  ? "Steps"
+                  : id === "code"
+                    ? "Code"
+                    : "Trace"
+            }
             onClick={() => onTabChange?.(id)}
           >
             {label}

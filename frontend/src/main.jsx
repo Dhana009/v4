@@ -16,6 +16,8 @@ const DEFAULT_CONFIG = {
   density: "compact",
 };
 
+const SHADOW_HOST_ID = "aw-shadow-host";
+
 const RUN_STATE_ALIASES = {
   idle: "idle",
   planning: "planning",
@@ -117,6 +119,24 @@ function resolveMountNode(root) {
     (document.body || document.documentElement).appendChild(node);
   }
   return node;
+}
+
+function ensureShadowHost(host) {
+  if (!host || typeof host.attachShadow !== "function") {
+    return null;
+  }
+
+  const shadowRoot = host.shadowRoot || host.attachShadow({ mode: "open" });
+  let marker = shadowRoot.querySelector(`#${SHADOW_HOST_ID}`);
+  if (!marker) {
+    marker = document.createElement("div");
+    marker.id = SHADOW_HOST_ID;
+    marker.setAttribute("data-testid", "aw-shadow-host");
+    marker.setAttribute("aria-hidden", "true");
+    shadowRoot.appendChild(marker);
+  }
+
+  return shadowRoot;
 }
 
 function resolveWsUrl(config = {}) {
@@ -2435,6 +2455,8 @@ function renderInto(node, config) {
     currentRoot.unmount();
     currentRoot = null;
   }
+
+  ensureShadowHost(node);
 
   if (!currentRoot) {
     currentRoot = createRoot(node);
