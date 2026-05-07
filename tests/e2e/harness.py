@@ -36,6 +36,7 @@ DEFAULT_E2E_ARTIFACT_PATHS: dict[str, str] = {
     "manifest": "manifest.json",
     "test_result": "test-result.json",
     "events": "events.ndjson",
+    "commands": "commands.json",
     "backend_log": "backend.log",
     "frontend_log": "frontend.log",
     "browser_console_log": "browser-console.log",
@@ -215,6 +216,46 @@ def _resolve_artifact_file_name(name: str) -> str:
     return DEFAULT_E2E_ARTIFACT_PATHS.get(name, name)
 
 
+def _format_event_stream_absence_note(missing_artifacts: Sequence[str]) -> str:
+    missing = [str(artifact) for artifact in missing_artifacts]
+    if not missing:
+        return ""
+    if len(missing) == 1:
+        return f"{missing[0]} is deferred to a later backend event stream slice"
+    if len(missing) == 2:
+        return f"{missing[0]} and {missing[1]} are deferred to a later backend event stream slice"
+    if len(missing) == 3:
+        return f"{missing[0]}, {missing[1]}, and {missing[2]} are deferred to a later backend event stream slice"
+    return f"{', '.join(missing[:-1])}, and {missing[-1]} are deferred to a later backend event stream slice"
+
+
+def _rewrite_event_stream_optional_absence_notes(
+    optional_absence_notes: Sequence[str] | None,
+    *,
+    events_written: bool = False,
+    commands_written: bool = False,
+    rejections_written: bool = False,
+) -> list[str]:
+    base_notes = _normalize_optional_absence_notes(optional_absence_notes)
+    default_event_stream_note = DEFAULT_E2E_OPTIONAL_ABSENCE_NOTES[0]
+    missing_artifacts: list[str] = []
+    if not events_written:
+        missing_artifacts.append("events.ndjson")
+    if not commands_written:
+        missing_artifacts.append("commands.json")
+    if not rejections_written:
+        missing_artifacts.append("rejections.json")
+
+    rewritten_notes: list[str] = []
+    for note in base_notes:
+        if note == default_event_stream_note:
+            if missing_artifacts:
+                rewritten_notes.append(_format_event_stream_absence_note(missing_artifacts))
+            continue
+        rewritten_notes.append(note)
+    return rewritten_notes
+
+
 def _serialize_ndjson_records(records: Sequence[Any]) -> str:
     lines: list[str] = []
     for record in records:
@@ -235,6 +276,27 @@ def _write_ndjson_artifact(artifact_dir: Path, name: str, records: Sequence[Any]
     path = artifact_dir / file_name
     ensure_directory(path.parent)
     text = _serialize_ndjson_records(records)
+    path.write_text(text, encoding="utf-8")
+    return file_name, text
+
+
+def _serialize_json_array_records(records: Sequence[Any]) -> str:
+    payload: list[Any] = []
+    for record in records:
+        if isinstance(record, Mapping):
+            payload.append(dict(record))
+        else:
+            payload.append(record)
+    return json.dumps(payload, indent=2, sort_keys=True)
+
+
+def _write_json_array_artifact(artifact_dir: Path, name: str, records: Sequence[Any] | None) -> tuple[str, str] | None:
+    if records is None:
+        return None
+    file_name = _resolve_artifact_file_name(name)
+    path = artifact_dir / file_name
+    ensure_directory(path.parent)
+    text = _serialize_json_array_records(records)
     path.write_text(text, encoding="utf-8")
     return file_name, text
 
@@ -512,6 +574,7 @@ def finalize_test_result(
     artifacts: Mapping[str, str | Path] | None = None,
     artifact_texts: Mapping[str, str] | None = None,
     event_records: Sequence[Any] | None = None,
+    command_records: Sequence[Any] | None = None,
     file_hashes: Mapping[str, str] | None = None,
     optional_absence_notes: Sequence[str] | None = None,
     event_evidence: Mapping[str, Any] | None = None,
@@ -535,6 +598,13 @@ def finalize_test_result(
             effective_artifacts = dict(effective_artifacts)
             effective_artifacts["events"] = _resolve_artifact_file_name("events")
 
+    command_artifact: tuple[str, str] | None = None
+    if command_records is not None:
+        command_artifact = _write_json_array_artifact(artifact_dir, "commands", command_records)
+        if effective_artifacts is not None and "commands" not in effective_artifacts:
+            effective_artifacts = dict(effective_artifacts)
+            effective_artifacts["commands"] = _resolve_artifact_file_name("commands")
+
     _write_text_artifacts(artifact_dir, effective_artifact_texts)
     resolved_file_hashes = _normalize_file_hashes(file_hashes)
     if not resolved_file_hashes and effective_artifact_texts:
@@ -543,14 +613,17 @@ def finalize_test_result(
         event_file_name, event_text = event_artifact
         if event_file_name not in resolved_file_hashes:
             resolved_file_hashes[event_file_name] = _hash_text_value(event_text)
+    if command_artifact is not None:
+        command_file_name, command_text = command_artifact
+        if command_file_name not in resolved_file_hashes:
+            resolved_file_hashes[command_file_name] = _hash_text_value(command_text)
     effective_optional_absence_notes = optional_absence_notes
-    if event_records is not None:
-        base_notes = (
-            list(DEFAULT_E2E_OPTIONAL_ABSENCE_NOTES)
-            if effective_optional_absence_notes is None
-            else [str(note) for note in effective_optional_absence_notes]
+    if event_records is not None or command_records is not None:
+        effective_optional_absence_notes = _rewrite_event_stream_optional_absence_notes(
+            optional_absence_notes,
+            events_written=event_records is not None,
+            commands_written=command_records is not None,
         )
-        effective_optional_absence_notes = [note for note in base_notes if "events.ndjson" not in note]
     manifest = write_artifact_manifest(
         artifact_dir=artifact_dir,
         test_name=test_name,
