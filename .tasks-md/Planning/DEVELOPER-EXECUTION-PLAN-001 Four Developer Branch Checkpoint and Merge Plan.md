@@ -510,28 +510,20 @@ Safe next action:
 ### Next DEV-4 slice
 
 ```text
-Selected story: E2E-002 Backend event stream capture and assertion utilities
+Selected story: TRACE-009 Artifact bundle and export format
 Story status: Planned
-Why next: the socket blocker is parked, backend contracts are already merged, and the next evidence-readiness step is to strengthen typed event capture/assertion coverage without touching product runtime logic.
-Completed subtask: E2E-002B add focused unit regressions for event filters and missing-event failure modes
-Completed subtask status: Done
-Verification: python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
-Verification: python -m pytest tests/test_e2e_harness.py -q -> 17 passed
-Implementation note: deterministic harness-unit event helper layer implemented; no product/runtime/backend/frontend/fixture changes.
-Completed subtask: E2E-002C add focused integration regressions for capture-before-action and failure artifacts
-Completed subtask status: Done
-Verification: python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
-Verification: python -m pytest tests/test_e2e_harness.py -q -> 20 passed
-Implementation note: test-first, harness-integration only; no browser/server startup and no product/runtime/backend/frontend/fixture changes.
+Why next: E2E-002 event capture is complete, and the next evidence-readiness step is to baseline artifact emission for events.ndjson, commands.json, and rejections.json without touching product/runtime/frontend code.
+Selected subtask: TRACE-009A map current artifact writers and summary/manifest/result fields for event, command, and rejection evidence
+Selected subtask status: In Progress
 Scope:
   tests/e2e/harness.py
   tests/test_e2e_harness.py
-  .tasks-md/Backlog/E2E-002 Backend event stream capture and assertion utilities.md
+  .tasks-md/Backlog/TRACE-009 Artifact bundle and export format.md
   .tasks-md/Planning/DEVELOPER-EXECUTION-PLAN-001 Four Developer Branch Checkpoint and Merge Plan.md
 Allowed files:
   tests/e2e/harness.py
   tests/test_e2e_harness.py
-  .tasks-md/Backlog/E2E-002 Backend event stream capture and assertion utilities.md
+  .tasks-md/Backlog/TRACE-009 Artifact bundle and export format.md
   .tasks-md/Planning/DEVELOPER-EXECUTION-PLAN-001 Four Developer Branch Checkpoint and Merge Plan.md
 Forbidden files:
   agent.py
@@ -542,11 +534,24 @@ Forbidden files:
   AGENTS.md
   .DS_Store
   CI/config
+Planned subtasks:
+  TRACE-009B add red tests for events.ndjson emission baseline
+  TRACE-009C add red tests for commands.json emission baseline
+  TRACE-009D add red tests for rejections.json emission baseline
+  TRACE-009E implement the smallest harness-side emission support needed by the red tests
+  TRACE-009F verify focused tests and record evidence
+Test plan:
+  python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
+  python -m pytest tests/test_e2e_harness.py -q
+  focused red tests for events.ndjson emission
+  focused red tests for commands.json emission
+  focused red tests for rejections.json emission
 Stop conditions:
-  event capture semantics are unclear
+  artifact emission semantics are unclear without repo evidence
   changing the helper would require backend contract changes
   implementation would touch forbidden runtime or frontend paths
-  new coverage would depend on the blocked socket environment
+  new coverage would depend on the blocked socket or browser environment
+  implementation would broaden beyond the harness/evidence layer
 ```
 
 ### Matrix areas
