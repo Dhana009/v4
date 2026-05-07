@@ -26051,9 +26051,52 @@
       }
     );
   }
-  function IDECodePreview({ codePreview, live = false }) {
+  function IDECodePreview({ codePreview, codeDiagnostics = [], live = false }) {
     const text = typeof codePreview === "string" && codePreview.trim() ? codePreview.trim() : live ? "Awaiting code_update\u2026" : "Generated Playwright code will appear here.";
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECard, { color: "ink", title: "// code preview", testId: "code", ariaLabel: "Code", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("pre", { className: "ide-code", style: { marginTop: 0, whiteSpace: "pre-wrap" }, children: text }) });
+    const diagnostics = Array.isArray(codeDiagnostics) ? codeDiagnostics.filter(Boolean) : [];
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(IDECard, { color: "ink", title: "// code preview", testId: "code", ariaLabel: "Code", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("pre", { className: "ide-code", style: { marginTop: 0, whiteSpace: "pre-wrap" }, children: text }),
+      diagnostics.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-code-diagnostics", "data-testid": "code-diagnostics", "aria-label": "Code diagnostics", children: diagnostics.map((diagnostic, index) => {
+        const entry = diagnostic && typeof diagnostic === "object" ? diagnostic : { message: firstText(diagnostic) };
+        const level = firstText(entry.level, entry.severity, entry.kind, entry.type).toLowerCase();
+        const levelLabel = firstText(entry.level, entry.severity, entry.kind, entry.type) || "info";
+        const type = firstText(entry.type, entry.kind);
+        const message = firstText(entry.message, entry.reason, entry.detail, entry.text, entry.summary, entry.description, entry.note) || firstText(entry);
+        const reason = firstText(entry.reason);
+        const currentState = firstText(entry.current_state, entry.currentState, entry.state);
+        const evidenceRef = firstText(entry.evidence_ref, entry.evidenceRef);
+        return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+          "div",
+          {
+            className: `ide-code-diagnostic s-${level || "ok"}`,
+            "data-testid": "code-diagnostic",
+            "aria-label": `Code diagnostic ${type || levelLabel || index + 1}`,
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-code-diagnostic-head", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEBadge, { kind: level === "err" ? "failed" : level === "warn" ? "await" : "recorded", children: levelLabel }),
+                type && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ide-code-diagnostic-type", children: type })
+              ] }),
+              message && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-code-diagnostic-message", children: message }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-code-diagnostic-meta", children: [
+                reason && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-code-diagnostic-reason", children: [
+                  "reason: ",
+                  reason
+                ] }),
+                currentState && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-code-diagnostic-state", children: [
+                  "current_state: ",
+                  currentState
+                ] }),
+                evidenceRef && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-code-diagnostic-evidence", children: [
+                  "evidence_ref: ",
+                  evidenceRef
+                ] })
+              ] })
+            ]
+          },
+          firstText(entry.id, entry.key, entry.label, type, level) || `code-diagnostic-${index}`
+        );
+      }) })
+    ] });
   }
   function IDETraceArtifactRow({ artifact }) {
     if (!artifact) {
@@ -26226,6 +26269,7 @@
     const lastError = typeof runtime.lastError === "string" ? runtime.lastError : "";
     const lastEvent = runtime.lastEvent || null;
     const traceEntries = Array.isArray(runtime.traceEntries) ? runtime.traceEntries : [];
+    const codeDiagnostics = Array.isArray(runtime.codeDiagnostics) ? runtime.codeDiagnostics : [];
     const activePickerStepId = typeof runtime.activePickerStepId === "string" ? runtime.activePickerStepId : "";
     const stepCount = pendingSteps.length + recordedSteps.length;
     const showPlanReview = interactionMode === "plan_review";
@@ -26343,7 +26387,7 @@
             }
           )
         ] }),
-        tab === "code" && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECodePreview, { codePreview, live }) }),
+        tab === "code" && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECodePreview, { codePreview, codeDiagnostics, live }) }),
         tab === "debug" && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEDebugPane, { connectionStatus, lastEvent, lastError, traceEntries }),
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDETimeline, { state: panelState, events: timeline, live })

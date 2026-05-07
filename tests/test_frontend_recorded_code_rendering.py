@@ -36,6 +36,8 @@ def test_frontend_recorded_code_surface_is_source_anchored() -> None:
     assert "IDERecordedStepsSection" in panel
     assert "IDERecordedOutput" in panel
     assert "IDECodePreview" in panel
+    assert "const codeDiagnostics = Array.isArray(runtime.codeDiagnostics) ? runtime.codeDiagnostics : [];" in panel
+    assert 'codeDiagnostics={codeDiagnostics}' in panel
     assert 'testId="recorded"' in panel
     assert 'testId="code"' in panel
 
@@ -70,6 +72,29 @@ def test_code_update_event_drives_code_read_model_without_faking_recorded_truth(
     assert "mergeRecordedStepList(" not in snippet
     assert "updatePlanAfterRecordedStep(" not in snippet
     assert "setRunState(" not in snippet
+
+
+def test_code_update_diagnostics_are_visibly_rendered_and_remain_display_only() -> None:
+    panel = _read(FRONTEND_PANEL)
+    snippet = _snippet_between(panel, 'function IDECodePreview({ codePreview, codeDiagnostics = [], live = false }) {', 'function IDETraceArtifactRow({ artifact }) {')
+
+    assert "const diagnostics = Array.isArray(codeDiagnostics) ? codeDiagnostics.filter(Boolean) : [];" in snippet
+    assert 'data-testid="code-diagnostics"' in snippet
+    assert 'data-testid="code-diagnostic"' in snippet
+    assert 'aria-label="Code diagnostics"' in snippet
+    assert "firstText(entry.level, entry.severity, entry.kind, entry.type)" in snippet
+    assert "firstText(entry.message, entry.reason, entry.detail, entry.text, entry.summary, entry.description, entry.note)" in snippet
+    assert "firstText(entry.current_state, entry.currentState, entry.state)" in snippet
+    assert "firstText(entry.evidence_ref, entry.evidenceRef)" in snippet
+    assert "ide-code-diagnostic-message" in snippet
+    assert "ide-code-diagnostic-state" in snippet
+    assert "ide-code-diagnostic-evidence" in snippet
+    assert "setRunState(" not in snippet
+    assert "setInteractionMode(" not in snippet
+    assert "setRecordedSteps(" not in snippet
+    assert "setPendingCommands(" not in snippet
+    assert 'Generated Playwright code will appear here.' in snippet
+    assert 'Awaiting code_update…' in snippet
 
 
 def test_recorded_step_child_structure_is_preserved_and_not_reinterpreted() -> None:

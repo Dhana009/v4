@@ -1,13 +1,13 @@
 # FE-006 Recorded steps and code panel rendering
 
 **Type:** Story  
-**Status:** Testing  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-005 Shadow DOM Frontend  
 **Owner:** DEV-3 Shadow DOM Frontend + Typed Rendering  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Focused frontend contract tests and build passed; ready for acceptance  
+**Readiness:** Visible code diagnostics rendering implemented and verified; ready for merge  
 **Dependencies:** FE-002, EVENT-006, BE-009  
 **Blocks:** recorded/code UI, E2E recording assertions  
 **Version:** Batch 06 v1  
@@ -71,12 +71,12 @@ Fixed:
 
 ---
 
-## Testing evidence
+## Done evidence
 
 - tests added: `tests/test_frontend_recorded_code_rendering.py`
-- implementation summary: `step_recorded` now drives the recorded-step read model, `code_update` now drives code preview plus preserved diagnostics, and recorded child structures continue to flow through the Shadow DOM panel bridge without inventing lifecycle truth
-- commands/results: `python -m py_compile tests/test_frontend_recorded_code_rendering.py`; `python -m pytest tests/test_frontend_recorded_code_rendering.py tests/test_recorded_step_model.py tests/test_code_update.py tests/test_recording_codegen_truth_contract.py tests/test_frontend_plan_recovery_rendering.py tests/test_frontend_event_command_contract.py tests/test_command_contract.py tests/test_plan_correction.py tests/test_late_event_contract.py -q` → `113 passed`; `cd frontend && npm run build` passed
-- remaining known gaps: code panel diagnostics are preserved in runtime state for now, but the visible panel still renders the backend code preview text only
+- implementation summary: `step_recorded` drives the recorded-step read model, `code_update` drives code preview plus visible backend diagnostics, and recorded child structures continue to flow through the Shadow DOM panel bridge without inventing lifecycle truth
+- commands/results: `python -m py_compile tests/test_frontend_recorded_code_rendering.py`; `python -m pytest tests/test_frontend_recorded_code_rendering.py tests/test_frontend_plan_recovery_rendering.py tests/test_frontend_event_command_contract.py tests/test_code_update.py tests/test_recording_codegen_truth_contract.py -q` → `40 passed`; `cd frontend && npm run build` passed
+- remaining known gaps: none in DEV-3 scope; trace/exporter and browser E2E blockers are outside FE-006
 - no backend/runtime/LLM/DOM changes
 
 ---
