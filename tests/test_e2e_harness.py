@@ -30,6 +30,16 @@ NORMALIZED_EVIDENCE_NOTES = [
 ]
 
 
+def _event(event_type: str, run_id: str = "run-123", **payload: object) -> dict[str, object]:
+    event: dict[str, object] = {
+        "schema_version": "autoworkbench.events.v1",
+        "type": event_type,
+        "run_id": run_id,
+    }
+    event.update(payload)
+    return event
+
+
 def test_resolve_e2e_port_prefers_explicit_value_then_env(monkeypatch) -> None:
     monkeypatch.setenv("AUTOWORKBENCH_E2E_BACKEND_PORT", "53101")
 
@@ -301,3 +311,109 @@ def test_artifact_writers_do_not_require_live_runtime_dependencies(
     assert manifest["optional_absence_notes"] == NORMALIZED_EVIDENCE_NOTES
     assert manifest["status"] == "unknown"
     assert result["status"] == "unknown"
+
+
+def test_wait_for_event_filters_captured_events_by_type() -> None:
+    events = [
+        _event("run_started"),
+        _event("plan_ready", plan={"steps": 1}),
+        _event("step_recorded", step_id="step-1"),
+    ]
+
+    matched = harness.wait_for_event(events, "plan_ready")
+
+    assert matched["type"] == "plan_ready"
+    assert matched["run_id"] == "run-123"
+    assert matched["plan"] == {"steps": 1}
+
+
+def test_assert_sequence_enforces_required_event_order() -> None:
+    events = [
+        _event("run_started"),
+        _event("plan_ready"),
+        _event("step_recorded"),
+    ]
+
+    harness.assert_sequence(events, ["run_started", "plan_ready", "step_recorded"])
+
+
+def test_assert_no_event_passes_when_forbidden_event_absent() -> None:
+    events = [
+        _event("run_started"),
+        _event("plan_ready"),
+        _event("step_recorded"),
+    ]
+
+    harness.assert_no_event(events, "recovery_needed")
+
+
+def test_assert_no_event_fails_with_clear_message_when_forbidden_event_present() -> None:
+    events = [
+        _event("run_started"),
+        _event("plan_ready"),
+        _event("recovery_needed", error_summary="missing required evidence"),
+    ]
+
+    with pytest.raises(AssertionError, match="recovery_needed"):
+        harness.assert_no_event(events, "recovery_needed")
+
+
+def test_wait_for_event_fails_with_clear_message_when_expected_event_missing() -> None:
+    events = [
+        _event("run_started"),
+        _event("step_recorded"),
+    ]
+
+    with pytest.raises(AssertionError, match="plan_ready"):
+        harness.wait_for_event(events, "plan_ready")
+
+
+def test_collect_events_can_model_capture_before_action_without_browser_server(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    run_id = "run-123"
+    run_dir = tmp_path / run_id
+    run_dir.mkdir()
+    (run_dir / "events.ndjson").write_text(
+        "\n".join(
+            [
+                json.dumps(_event("plan_ready", captured_at="before_action")),
+                json.dumps(_event("step_recorded", captured_at="after_action")),
+            ]
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(harness, "RESULTS_ROOT", tmp_path)
+
+    events = harness.collect_events(run_id)
+
+    assert [event["type"] for event in events] == ["plan_ready", "step_recorded"]
+    assert events[0]["captured_at"] == "before_action"
+    assert events[1]["captured_at"] == "after_action"
+
+
+def test_finalize_test_result_can_record_event_evidence_presence_and_absence_metadata(
+    tmp_path: Path,
+) -> None:
+    event_evidence = {
+        "present": ["events.ndjson", "commands.json"],
+        "missing": ["rejections.json"],
+    }
+
+    manifest, result = harness.finalize_test_result(
+        artifact_dir=tmp_path,
+        test_name="fresh_artifact_baseline",
+        status="failed",
+        error_summary="expected event missing",
+        artifacts=NORMALIZED_EVIDENCE_ARTIFACTS,
+        artifact_texts={
+            "summary.md": "# Summary\n\nEvent evidence metadata baseline.\n",
+        },
+        event_evidence=event_evidence,
+    )
+
+    assert manifest["event_evidence"] == event_evidence
+    assert result["event_evidence"] == event_evidence
