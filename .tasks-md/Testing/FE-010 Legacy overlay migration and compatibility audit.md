@@ -8,10 +8,10 @@
 **Branch:** `dev3/frontend-test-harness-mapping`  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** MR-4C narrow implementation started; FE-001/FE-009 contract hooks added  
+**Readiness:** MR-4D test-only slice started; Shadow DOM mount / harness transition contracts added  
 **Dependencies:** EVENT-010, TEST-FE-001, TEST-MATRIX-FE-001, TEST-MATRIX-EVENT-001, TEST-MATRIX-E2E-001  
 **Blocks:** MR-4B test-only slice selection, safe migration sequencing  
-**Version:** MR-4C v1  
+**Version:** MR-4D v1  
 
 ---
 
@@ -170,6 +170,14 @@ Do not expand MR-4B into implementation until the mapping report is reviewed.
 - `cd frontend && npm run build` succeeded
 - the previous 2 xfails now pass
 - no backend/runtime/test changes
+
+## MR-4D test-only slice evidence
+
+- added a contract test for the actual React mount targeting a Shadow DOM root
+- added a passing legacy fallback harness test
+- added an xfailed shadow-root-aware lookup helper contract
+- `python -m pytest tests/test_frontend_shadow_dom_contract.py tests/test_browser_injection.py tests/test_e2e_harness.py -q` returned `35 passed, 2 xfailed`
+- no frontend/source changes
 
 ## Test matrix
 

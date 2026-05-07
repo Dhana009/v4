@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -156,3 +157,36 @@ def test_planned_root_and_core_region_hooks_are_stable() -> None:
         return
 
     pytest.xfail("FE-009 planned hook contract not implemented yet: " + ", ".join(missing))
+
+
+def test_frontend_product_ui_is_expected_to_mount_inside_shadow_dom_root() -> None:
+    main = _read(FRONTEND_MAIN)
+    panel = _read(FRONTEND_PANEL)
+    combined = "\n".join([main, panel])
+
+    render_into_match = re.search(r"function renderInto\(node, config\) \{(?P<body>.*?)\n\}\n\nfunction mount", main, re.S)
+    assert render_into_match is not None, "renderInto() body not found in frontend/src/main.jsx"
+    render_into_body = render_into_match.group("body")
+
+    missing = []
+    if not _has_any(combined, ("attachShadow", "shadowRoot")):
+        missing.append("Shadow DOM host adapter")
+    if "createRoot(node)" in render_into_body and not _has_any(
+        render_into_body,
+        (
+            "createRoot(shadow",
+            "createRoot(mount",
+            "createRoot(root",
+            "shadowRoot.getElementById",
+            "shadowRoot.querySelector",
+            "shadowMount",
+        ),
+    ):
+        missing.append("React mount still targets the generic host node instead of a shadow-root mount container")
+
+    if not missing:
+        assert _has_any(combined, ("attachShadow", "shadowRoot"))
+        assert not ("createRoot(node)" in render_into_body and not _has_any(render_into_body, ("shadowMount", "shadowRoot.getElementById", "shadowRoot.querySelector")))
+        return
+
+    pytest.xfail("FE-001 actual Shadow DOM React mount not implemented yet: " + ", ".join(missing))

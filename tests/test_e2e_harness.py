@@ -41,6 +41,10 @@ def _event(event_type: str, run_id: str = "run-123", **payload: object) -> dict[
     return event
 
 
+def _harness_source() -> str:
+    return Path(harness.__file__).read_text(encoding="utf-8")
+
+
 class _FakeLocator:
     def __init__(self, text: str = "", visible: bool = False) -> None:
         self._text = text
@@ -75,6 +79,32 @@ class _FakePage:
 
     async def content(self) -> str:
         return "<html><body>fake page</body></html>"
+
+
+def test_harness_still_targets_legacy_overlay_path_for_transition_fallback() -> None:
+    source = _harness_source()
+
+    assert "#autoworkbench-root .ide-panel" in source
+    assert "#autoworkbench-root" in source
+
+
+def test_harness_is_expected_to_gain_shadow_root_aware_autoworkbench_lookup() -> None:
+    source = _harness_source()
+
+    missing = []
+    if not any(marker in source for marker in ("shadow_root", "shadowRoot", "find_autoworkbench_panel", "wait_for_autoworkbench_ready")):
+        missing.append("shadow-root-aware lookup helper")
+    if "#autoworkbench-root .ide-panel" in source and not any(
+        marker in source for marker in ("shadow_root", "shadowRoot", "find_autoworkbench_panel", "wait_for_autoworkbench_ready")
+    ):
+        missing.append("legacy-only overlay lookup")
+
+    if not missing:
+        assert any(marker in source for marker in ("shadow_root", "shadowRoot", "find_autoworkbench_panel", "wait_for_autoworkbench_ready"))
+        assert "#autoworkbench-root .ide-panel" in source
+        return
+
+    pytest.xfail("MR-4D harness contract not implemented yet: " + ", ".join(missing))
 
 
 class _FakeBrowser:
