@@ -1,71 +1,29 @@
-# BE-007 Structured correction diff validation and application
+# BE-012 Replay smoke contract baseline
 
 **Type:** Story  
 **Status:** Done  
+**Progress:** Done  
 **Priority:** P0  
 **Epic:** EPIC-001 Backend Runtime Truth  
 **Owner:** DEV-1 Backend Runtime + Event Truth  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
 **Readiness:** Done; all child tasks complete  
-**Progress:** Done  
 **Dependencies:** SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001  
-**Blocks:** Correction flow, LLM plan-diff story, BE-004 active plan versions  
+**Blocks:** Replay P1 foundation, E2E replay smoke, recorded-step validation  
 **Version:** Batch 02 v1  
 
 ---
 
 ## Product contribution
 
-Allows users to correct plans safely without LLM regenerating a whole plan and silently dropping/reordering operations.
+Establishes minimal backend-owned replay path. P0 needs replay smoke and precondition guard, not robust replay repair.
 
 This story contributes to the final Complete LLM Mode workflow by strengthening the backend-owned runtime truth path:
 
 ```text
 user intent → plan/correction/confirmation → backend validation → execution/recording/replay/completion
 ```
-
-## Parent Status
-
-- Status: Done
-- Progress: Done
-- Reason: correction ownership, stale correction rejection, wrong-run mutation blocking, and structured-diff audit are complete.
-
-## Child Tasks
-
-| Child task | Status | Evidence |
-|---|---|---|
-| BE-007.1 Map correction command handling and backend ownership | Done | commit `f7e3847`; `runtime/event_contracts.py`, `agent.py`, `tests/test_command_contract.py` |
-| BE-007.2 Add stale correction command rejection tests | Done | commit `98944ad`; `tests/test_late_event_contract.py` |
-| BE-007.3 Reject stale correction run_id mismatch with typed rejection | Done | commit `cd438d7`; `tests/test_late_event_contract.py` |
-| BE-007.4 Ensure correction cannot mutate wrong/current run | Done | `tests/test_late_event_contract.py`, `tests/test_command_contract.py` |
-| BE-007.5 Identify remaining structured correction diff validation gaps | Done | `runtime/event_contracts.py`, `agent.py`, `tests/test_late_event_contract.py`, `tests/test_command_contract.py`; focused suite `58 passed, 1 xfailed` |
-
-### Done Children
-
-- `BE-007.1` Map correction command handling and backend ownership
-- `BE-007.2` Add stale correction command rejection tests
-- `BE-007.3` Reject stale correction run_id mismatch with typed rejection
-- `BE-007.4` Ensure correction cannot mutate wrong/current run
-- `BE-007.5` Identify remaining structured correction diff validation gaps
-
-### In Progress Children
-
-- None
-
-### Remaining Planning Children
-
-- None
-
-## Evidence
-
-- `runtime/event_contracts.py` and `agent.py` correction-handling paths were audited for remaining structured-diff gaps.
-- `tests/test_late_event_contract.py` and `tests/test_command_contract.py` stay green in the focused backend sweep.
-- The focused backend contract suite passed `58` tests with `1` xfailed.
-
-## Next Action
-
-- None; BE-007 is complete.
 
 ---
 
@@ -82,7 +40,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 ## System role
 
-| Layer | Relationship to BE-007 |
+| Layer | Relationship to BE-012 |
 |---|---|
 | Backend | Primary owner and source of truth |
 | LLM | Proposes only; cannot own runtime truth |
@@ -96,15 +54,51 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 | Source | Extracted rule | Planning interpretation | Story impact |
 |---|---|---|---|
-| Handoff | Correction must use structured plan_correction_diff applied by backend; retry once then fail closed. | LLM cannot directly overwrite plan. | Validate correction diff schema. |
-| Product Workflows | Old plan replaced by revised plan; user confirms revised plan. | New active plan version needed. | Integrate with BE-004. |
-| SOURCE-001 | Human clarification beats guessing. | Ambiguous correction should not be guessed. | Reject/clarify unclear diff. |
+| SOURCE-001 | Replay is backend operation, not frontend simulation. | Backend owns replay state/result. | Implement replay smoke. |
+| PLAN-003 | P0 includes replay smoke; robust repair is P1. | Keep scope narrow. | No broad replay repair. |
+| BE-009 | Recording builder provides recorded steps/children. | Replay consumes recorded evidence. | Use recorded payload. |
+| BE-010 | Terminal state indicates readiness. | Replay targets terminal recorded steps. | Validate preconditions. |
 
 ---
 
 ## Architecture decision
 
-Correction is structured diff/intent-change. Backend validates add/update/remove/reorder operations, preserves identity when possible, and rejects stale or unsafe corrections.
+Replay commands are backend-validated, use separate ReplayState, check preconditions, emit typed replay result, and avoid auto repair/versioning in P0.
+
+## Parent Status
+
+- Status: Done
+- Progress: Done
+- Reason: Replay smoke and precondition coverage are covered by backend contract tests, and broad repair remains deferred to the P1 roadmap.
+
+## Child Tasks
+
+| Child task | Status | Evidence |
+|---|---|---|
+| BE-012.1 Add replay smoke contract tests | Done | `tests/test_replay_one.py` and `tests/test_replay_all.py` already provide the smoke baseline; the focused suite passed `59 passed` |
+| BE-012.2 Verify replay one parent step uses recorded evidence | Done | `tests/test_replay_one.py::test_replay_one_resolves_recorded_step_by_step_id_and_executes_operations_in_order` |
+| BE-012.3 Verify replay operation targets child operation safely | Done | `tests/test_replay_one.py::test_replay_one_stops_on_first_failed_child_action` and unsupported-action coverage |
+| BE-012.4 Verify replay failure does not mutate recording unless repair is validated | Done | `tests/test_replay_all.py::test_replay_all_does_not_mutate_recorded_payload_or_code_payload_state` |
+| BE-012.5 Verify unsupported/broader replay repair remains deferred, not faked | Done | `GOV-003` keeps robust replay repair in the roadmap; BE-012 remains smoke-only |
+
+### Done Children
+
+- `BE-012.1` Add replay smoke contract tests
+- `BE-012.2` Verify replay one parent step uses recorded evidence
+- `BE-012.3` Verify replay operation targets child operation safely
+- `BE-012.4` Verify replay failure does not mutate recording unless repair is validated
+- `BE-012.5` Verify unsupported/broader replay repair remains deferred, not faked
+
+## Evidence
+
+- `tests/test_replay_one.py` and `tests/test_replay_all.py` already cover replay smoke, precondition safety, and mutation isolation.
+- `GOV-003` keeps broad replay repair explicitly outside the BE-012 P0 smoke contract.
+- Focused backend contract suite passed `59 passed`.
+- Branch status: branch-only on `dev1/backend-isolation-contract-tests`.
+
+## Next Action
+
+- None.
 
 ---
 
@@ -113,7 +107,7 @@ Correction is structured diff/intent-change. Backend validates add/update/remove
 | Dependency type | Items | Meaning |
 |---|---|---|
 | Upstream | SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001 | Planning rules and runtime state foundation |
-| Direct blockers | Correction flow, LLM plan-diff story, BE-004 active plan versions | Cannot proceed safely without this story or approved mocks |
+| Direct blockers | Replay P1 foundation, E2E replay smoke, recorded-step validation | Cannot proceed safely without this story or approved mocks |
 | Indirect consumers | EPIC-005 frontend, EPIC-006 E2E, EPIC-008 recording/codegen, EPIC-009 trace | Eventually depend on this contract |
 | Parallel safe with mocks | DEV-2 LLM policy planning, DEV-3 Shadow DOM shell, DEV-4 harness skeleton | May proceed only without inventing final backend truth |
 | Conflict zones | `agent.py`, WebSocket command/event paths, runtime state, frontend lifecycle store | Inspect before editing |
@@ -147,8 +141,7 @@ This story unlocks downstream implementation by producing a precise backend cont
 
 | Item | Required fields | Rules | Used by |
 |---|---|---|---|
-| CorrectionDiff | run_id, plan_id/version, correction_id, operations, reason | required | correction request |
-| DiffOperation | type, target id, patch/payload, reason, position? | required | validated mutation |
+| ReplayState | replay_run_id, source_run_id?, target_step_id?, target_operation_id?, precondition_status, replay_status, result_summary?, evidence_ref? | required | replay truth |
 
 ---
 
@@ -162,12 +155,10 @@ For P0, this story may use in-memory runtime structures unless existing repo arc
 
 | Test ID | Layer | Scenario | Input/Setup | Expected result | Source rule protected |
 |---|---|---|---|---|---|
-| BE007-C-001 | Contract | valid diff | update operation | accepted | structured correction |
-| BE007-C-002 | Contract | remove without reason | remove op | rejected | no silent drop |
-| BE007-U-001 | Unit | stale correction | old version | rejected | version safety |
-| BE007-U-002 | Unit | correction during execution | RunState.executing | rejected | execution safety |
-| BE007-U-003 | Unit | full plan replace | unstructured plan | rejected/retry | schema safety |
-| BE007-I-001 | Integration | correction to revised plan | plan_review correction | new version plan_ready | workflow |
+| BE012-U-001 | Unit | replay unknown step | missing recorded step | rejected | command validation |
+| BE012-U-002 | Unit | wrong page precondition | url mismatch | precondition fail | replay safety |
+| BE012-U-003 | Unit | replay does not mutate live run | live run active | rejected/isolated | state separation |
+| BE012-I-001 | Integration | replay one smoke | recorded click/assert | replay passes | P0 replay |
 
 ---
 

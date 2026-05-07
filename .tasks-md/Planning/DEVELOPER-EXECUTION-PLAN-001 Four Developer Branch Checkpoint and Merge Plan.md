@@ -156,7 +156,15 @@ BE-001 through BE-008 audit children were moved through In Progress and closed a
 
 ### Board note
 
-BE-009 through BE-012 have now been completed on the DEV-1 board after focused backend contract verification. Keep broader replay repair deferred to GOV-003/P1.
+BE-001 through BE-012 have now been moved to Done on the DEV-1 board. The planned DEV-1 backend P0 scope is complete.
+
+### Board note
+
+Next step is full backend verification and coverage review before any merge/push decision.
+
+### Board note
+
+Deferred items remain outside the done scope, including broad replay repair, full session restore UX, frontend/LLM/DOM/E2E/trace work, and advanced browser capabilities.
 
 ### Selected first-slice matrix areas
 

@@ -77,6 +77,7 @@ Without this story, later features cannot be trusted because runtime state may a
 - `agent.py` lifecycle reset, active plan, and confirmation state handling were audited for BE-001.1 and BE-001.5.
 - `tests/test_backend_isolation_contract.py` and `tests/test_recovery_scope_guard.py` cover the reset and leakage boundaries.
 - The focused backend contract suite passed `58` tests with `1` xfailed.
+- Branch status: branch-only on `dev1/backend-isolation-contract-tests`.
 
 ## Next Action
 

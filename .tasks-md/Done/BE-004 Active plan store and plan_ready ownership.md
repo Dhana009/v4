@@ -1,4 +1,4 @@
-# BE-005 Plan confirmation gate
+# BE-004 Active plan store and plan_ready ownership
 
 **Type:** Story  
 **Status:** Done  
@@ -10,14 +10,14 @@
 **Readiness:** Done; all child tasks complete  
 **Progress:** Done  
 **Dependencies:** SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001  
-**Blocks:** BE-006 execution contract, LLM Mode execution, BE-009 recording  
+**Blocks:** BE-005 confirmation gate, BE-006 execution contract, BE-007 correction diff  
 **Version:** Batch 02 v1  
 
 ---
 
 ## Product contribution
 
-Turns plan review into a real safety gate. Browser-changing execution starts only after the backend validates explicit user confirmation for the current active plan/version.
+Makes plan_ready a backend-owned active plan/version, not an LLM message or frontend preview. This lets backend know exactly which plan is corrected, confirmed, and executed.
 
 This story contributes to the final Complete LLM Mode workflow by strengthening the backend-owned runtime truth path:
 
@@ -29,25 +29,25 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 - Status: Done
 - Progress: Done
-- Reason: confirmation gating, stale confirmation rejection, legacy bare-confirm compatibility, and remaining audit are complete.
+- Reason: active-plan ownership, stale-confirm rejection, late-confirmation protection, and remaining versioning-gap audit are complete.
 
 ## Child Tasks
 
 | Child task | Status | Evidence |
 |---|---|---|
-| BE-005.1 Add confirmation gate contract tests | Done | commit `f117599`; `tests/test_event_sequence_contract.py`, `tests/test_late_event_contract.py` |
-| BE-005.2 Require backend-owned confirmation before execution | Done | commit `176cad2`; `tests/test_event_sequence_contract.py` |
-| BE-005.3 Reject stale confirmation against active run/plan context | Done | commits `176cad2`, `6b03a82`; `tests/test_late_event_contract.py` |
-| BE-005.4 Preserve safe legacy bare confirmation compatibility | Done | `runtime/event_contracts.py` accepts confirmed commands with active run context; `tests/test_event_sequence_contract.py`, `tests/test_late_event_contract.py` |
-| BE-005.5 Audit remaining confirmation/versioning gaps | Done | `runtime/event_contracts.py`, `agent.py`, `tests/test_event_sequence_contract.py`, `tests/test_late_event_contract.py`; focused suite `58 passed, 1 xfailed` |
+| BE-004.1 Map active plan state ownership in backend | Done | commit `176cad2`; stale plan confirmation path grounded in backend state |
+| BE-004.2 Store run_id/plan context on active plan | Done | commits `176cad2` and `6b03a82`; confirmation path is run-scoped |
+| BE-004.3 Reject stale confirmations against active plan context | Done | commit `176cad2`; stale plan confirmation guard in `agent.py` |
+| BE-004.4 Ensure late confirmation cannot reopen completed run | Done | commit `6b03a82`; late-confirmation rejection for completed runs |
+| BE-004.5 Identify remaining active plan store/versioning gaps | Done | `agent.py` active-plan state and plan confirmation flow; `tests/test_backend_isolation_contract.py`, `tests/test_late_event_contract.py`, `tests/test_event_sequence_contract.py`; focused suite `58 passed, 1 xfailed` |
 
 ### Done Children
 
-- `BE-005.1` Add confirmation gate contract tests
-- `BE-005.2` Require backend-owned confirmation before execution
-- `BE-005.3` Reject stale confirmation against active run/plan context
-- `BE-005.4` Preserve safe legacy bare confirmation compatibility
-- `BE-005.5` Audit remaining confirmation/versioning gaps
+- `BE-004.1` Map active plan state ownership in backend
+- `BE-004.2` Store run_id/plan context on active plan
+- `BE-004.3` Reject stale confirmations against active plan context
+- `BE-004.4` Ensure late confirmation cannot reopen completed run
+- `BE-004.5` Identify remaining active plan store/versioning gaps
 
 ### In Progress Children
 
@@ -59,13 +59,14 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 ## Evidence
 
-- `runtime/event_contracts.py` and `agent.py` confirmation-handling paths were audited for remaining versioning gaps.
-- `tests/test_event_sequence_contract.py` and `tests/test_late_event_contract.py` stay green in the focused backend sweep.
+- `agent.py` active-plan state ownership and plan confirmation flow were audited for remaining versioning gaps.
+- `tests/test_backend_isolation_contract.py`, `tests/test_late_event_contract.py`, and `tests/test_event_sequence_contract.py` stay green in the focused backend sweep.
 - The focused backend contract suite passed `58` tests with `1` xfailed.
+- Branch status: branch-only on `dev1/backend-isolation-contract-tests`.
 
 ## Next Action
 
-- None; BE-005 is complete.
+- None; BE-004 is complete.
 
 ---
 
@@ -82,7 +83,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 ## System role
 
-| Layer | Relationship to BE-005 |
+| Layer | Relationship to BE-004 |
 |---|---|
 | Backend | Primary owner and source of truth |
 | LLM | Proposes only; cannot own runtime truth |
@@ -96,15 +97,15 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 | Source | Extracted rule | Planning interpretation | Story impact |
 |---|---|---|---|
-| Product Workflows | User confirms revised plan; only confirmed plan executes. | Confirm must target current active version. | Validate confirm before execution. |
-| Handoff | plan_ready is proposal before confirmation and must not mutate execution state. | plan_ready cannot execute. | Gate all browser-changing actions. |
-| BE-004 | Active plan store owns plan_id/version. | Confirm validates active plan. | Reject stale confirm. |
+| Product Workflows | User can correct plan; revised plan shown; only corrected plan executes. | Plan identity/version/history are required. | Implement ActivePlan store. |
+| SOURCE-001 | Backend owns plan mutation acceptance. | LLM plan text is proposal only. | Active plan mutation through backend only. |
+| Handoff | Pending step identity remains stable through plan_ready/correction/confirmation/execution/recording. | Plan must preserve stable step/operation IDs where valid. | Store ordered plan children. |
 
 ---
 
 ## Architecture decision
 
-`confirmed` is the only valid path from RunState.plan_review to RunState.executing. Duplicate, stale, missing-plan, clarification-open, recovery-open confirmations are rejected.
+Active plan is a backend object with plan_id/version/status. plan_ready is emitted from that object. Correction creates a new validated version. Confirmation locks current version.
 
 ---
 
@@ -113,7 +114,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 | Dependency type | Items | Meaning |
 |---|---|---|
 | Upstream | SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001 | Planning rules and runtime state foundation |
-| Direct blockers | BE-006 execution contract, LLM Mode execution, BE-009 recording | Cannot proceed safely without this story or approved mocks |
+| Direct blockers | BE-005 confirmation gate, BE-006 execution contract, BE-007 correction diff | Cannot proceed safely without this story or approved mocks |
 | Indirect consumers | EPIC-005 frontend, EPIC-006 E2E, EPIC-008 recording/codegen, EPIC-009 trace | Eventually depend on this contract |
 | Parallel safe with mocks | DEV-2 LLM policy planning, DEV-3 Shadow DOM shell, DEV-4 harness skeleton | May proceed only without inventing final backend truth |
 | Conflict zones | `agent.py`, WebSocket command/event paths, runtime state, frontend lifecycle store | Inspect before editing |
@@ -147,8 +148,9 @@ This story unlocks downstream implementation by producing a precise backend cont
 
 | Item | Required fields | Rules | Used by |
 |---|---|---|---|
-| ConfirmCommand | run_id, plan_id, plan_version | required | request to execute active plan |
-| ConfirmationResult | accepted/rejected, current_state, rejection_code? | required | state transition or rejection |
+| ActivePlan | plan_id, run_id, version, status | draft/awaiting_confirmation/corrected/confirmed/rejected/cancelled | source for plan_ready |
+| ActivePlanStep | step_id, parent_intent, expected_outcome_metadata, children | ordered parent step | source for execution contract |
+| ActivePlanOperation | operation_id, step_id, type/subtype, target, locator_ref, order_index | ordered child operation | source for BE-006 |
 
 ---
 
@@ -162,11 +164,11 @@ For P0, this story may use in-memory runtime structures unless existing repo arc
 
 | Test ID | Layer | Scenario | Input/Setup | Expected result | Source rule protected |
 |---|---|---|---|---|---|
-| BE005-U-001 | Unit | plan_ready not execution | plan_ready | no browser action | confirmation gate |
-| BE005-U-002 | Unit | valid confirm | current active plan | executing state | explicit confirmation |
-| BE005-U-003 | Unit | stale confirm | old version | runtime_rejected | version safety |
-| BE005-U-004 | Unit | duplicate confirm | already executing | no duplicate execution | idempotency |
-| BE005-I-001 | Integration | LLM action before confirm | tool call | blocked | LLM proposes only |
+| BE004-U-001 | Unit | create active plan | plan proposal | plan_id/version set | backend plan truth |
+| BE004-U-002 | Unit | correction increments version | correction diff | version+history updated | stale safety |
+| BE004-U-003 | Unit | stale confirm rejected | old version confirm | runtime_rejected | version safety |
+| BE004-U-004 | Unit | discussion no mutation | chat message | active plan unchanged | no prose mutation |
+| BE004-I-001 | Integration | plan_ready→correction→plan_ready | corrected plan | old plan cannot execute | correction path |
 
 ---
 

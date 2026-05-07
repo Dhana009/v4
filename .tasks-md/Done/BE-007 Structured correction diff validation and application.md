@@ -1,4 +1,4 @@
-# BE-002 Canonical backend event emitter and schema validation
+# BE-007 Structured correction diff validation and application
 
 **Type:** Story  
 **Status:** Done  
@@ -10,14 +10,14 @@
 **Readiness:** Done; all child tasks complete  
 **Progress:** Done  
 **Dependencies:** SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001  
-**Blocks:** DEV-3 frontend lifecycle rendering, DEV-4 event capture, BE-003 rejection flow, BE-010 run_completed event  
+**Blocks:** Correction flow, LLM plan-diff story, BE-004 active plan versions  
 **Version:** Batch 02 v1  
 
 ---
 
 ## Product contribution
 
-Creates the canonical backend event layer so frontend, E2E, trace, recording/replay, and user-facing state render from typed backend truth instead of logs, LLM prose, or ad hoc WebSocket payloads.
+Allows users to correct plans safely without LLM regenerating a whole plan and silently dropping/reordering operations.
 
 This story contributes to the final Complete LLM Mode workflow by strengthening the backend-owned runtime truth path:
 
@@ -29,27 +29,25 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 - Status: Done
 - Progress: Done
-- Reason: event helper/seam coverage, session-state handshake, and remaining schema-gap audit are complete.
+- Reason: correction ownership, stale correction rejection, wrong-run mutation blocking, and structured-diff audit are complete.
 
 ## Child Tasks
 
 | Child task | Status | Evidence |
 |---|---|---|
-| BE-002.1 Add backend event contract tests | Done | commit `f117599`; `tests/test_event_contract.py`, `tests/test_event_sequence_contract.py` |
-| BE-002.2 Add canonical backend event helper/seam | Done | commit `f7e3847`; `runtime/event_contracts.py`, `agent.py`, `server.py` |
-| BE-002.3 Add explicit run_completed event contract | Done | covered by `f7e3847` contract seam and the event-contract suite |
-| BE-002.4 Add explicit recovery_needed event contract | Done | covered by `f7e3847` contract seam and the event-contract suite |
-| BE-002.5 Add session_state websocket event contract | Done | commits `f7e1c61` and `680aa8f`; websocket/session-state handshake and status update |
-| BE-002.6 Identify remaining canonical event envelope/schema gaps | Done | `runtime/event_contracts.py`, `tests/test_event_contract.py`, `tests/test_event_sequence_contract.py`, `tests/test_process_boundary_contract.py`; focused suite `58 passed, 1 xfailed` |
+| BE-007.1 Map correction command handling and backend ownership | Done | commit `f7e3847`; `runtime/event_contracts.py`, `agent.py`, `tests/test_command_contract.py` |
+| BE-007.2 Add stale correction command rejection tests | Done | commit `98944ad`; `tests/test_late_event_contract.py` |
+| BE-007.3 Reject stale correction run_id mismatch with typed rejection | Done | commit `cd438d7`; `tests/test_late_event_contract.py` |
+| BE-007.4 Ensure correction cannot mutate wrong/current run | Done | `tests/test_late_event_contract.py`, `tests/test_command_contract.py` |
+| BE-007.5 Identify remaining structured correction diff validation gaps | Done | `runtime/event_contracts.py`, `agent.py`, `tests/test_late_event_contract.py`, `tests/test_command_contract.py`; focused suite `58 passed, 1 xfailed` |
 
 ### Done Children
 
-- `BE-002.1` Add backend event contract tests
-- `BE-002.2` Add canonical backend event helper/seam
-- `BE-002.3` Add explicit run_completed event contract
-- `BE-002.4` Add explicit recovery_needed event contract
-- `BE-002.5` Add session_state websocket event contract
-- `BE-002.6` Identify remaining canonical event envelope/schema gaps
+- `BE-007.1` Map correction command handling and backend ownership
+- `BE-007.2` Add stale correction command rejection tests
+- `BE-007.3` Reject stale correction run_id mismatch with typed rejection
+- `BE-007.4` Ensure correction cannot mutate wrong/current run
+- `BE-007.5` Identify remaining structured correction diff validation gaps
 
 ### In Progress Children
 
@@ -61,13 +59,14 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 ## Evidence
 
-- `runtime/event_contracts.py` canonical envelope helpers and the related contract tests cover the remaining schema-gap audit.
-- `tests/test_event_contract.py`, `tests/test_event_sequence_contract.py`, and `tests/test_process_boundary_contract.py` remain green in the focused backend sweep.
+- `runtime/event_contracts.py` and `agent.py` correction-handling paths were audited for remaining structured-diff gaps.
+- `tests/test_late_event_contract.py` and `tests/test_command_contract.py` stay green in the focused backend sweep.
 - The focused backend contract suite passed `58` tests with `1` xfailed.
+- Branch status: branch-only on `dev1/backend-isolation-contract-tests`.
 
 ## Next Action
 
-- None; BE-002 is complete.
+- None; BE-007 is complete.
 
 ---
 
@@ -84,7 +83,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 ## System role
 
-| Layer | Relationship to BE-002 |
+| Layer | Relationship to BE-007 |
 |---|---|
 | Backend | Primary owner and source of truth |
 | LLM | Proposes only; cannot own runtime truth |
@@ -98,15 +97,15 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 | Source | Extracted rule | Planning interpretation | Story impact |
 |---|---|---|---|
-| SOURCE-001 | Every important lifecycle change must become a typed backend event. | State changes cannot remain only in logs or frontend assumptions. | Define event factory/schema validation. |
-| Backend Event Contract | Canonical events include plan_ready, clarification_needed, recovery_needed, step_validating, step_executing, step_recorded, step_failed, step_skipped, code_update, replay_started, replay_result, run_completed, session_state, capability_gap_recorded. | Frontend and E2E need stable event names/payloads. | New backend work emits canonical names; adapters are temporary only. |
-| BE-001 | State transitions are backend-owned and event-compatible. | Events expose state truth, not create it. | Consume transition results and serialize them safely. |
+| Handoff | Correction must use structured plan_correction_diff applied by backend; retry once then fail closed. | LLM cannot directly overwrite plan. | Validate correction diff schema. |
+| Product Workflows | Old plan replaced by revised plan; user confirms revised plan. | New active plan version needed. | Integrate with BE-004. |
+| SOURCE-001 | Human clarification beats guessing. | Ambiguous correction should not be guessed. | Reject/clarify unclear diff. |
 
 ---
 
 ## Architecture decision
 
-Backend event factory validates event type and required identifiers before emission. Runtime truth events are produced from backend state transitions. LLM/frontend cannot emit runtime-truth events directly.
+Correction is structured diff/intent-change. Backend validates add/update/remove/reorder operations, preserves identity when possible, and rejects stale or unsafe corrections.
 
 ---
 
@@ -115,7 +114,7 @@ Backend event factory validates event type and required identifiers before emiss
 | Dependency type | Items | Meaning |
 |---|---|---|
 | Upstream | SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001 | Planning rules and runtime state foundation |
-| Direct blockers | DEV-3 frontend lifecycle rendering, DEV-4 event capture, BE-003 rejection flow, BE-010 run_completed event | Cannot proceed safely without this story or approved mocks |
+| Direct blockers | Correction flow, LLM plan-diff story, BE-004 active plan versions | Cannot proceed safely without this story or approved mocks |
 | Indirect consumers | EPIC-005 frontend, EPIC-006 E2E, EPIC-008 recording/codegen, EPIC-009 trace | Eventually depend on this contract |
 | Parallel safe with mocks | DEV-2 LLM policy planning, DEV-3 Shadow DOM shell, DEV-4 harness skeleton | May proceed only without inventing final backend truth |
 | Conflict zones | `agent.py`, WebSocket command/event paths, runtime state, frontend lifecycle store | Inspect before editing |
@@ -149,14 +148,8 @@ This story unlocks downstream implementation by producing a precise backend cont
 
 | Item | Required fields | Rules | Used by |
 |---|---|---|---|
-| run_started | run_id | status, started_at | RunState.planning |
-| plan_ready | run_id, plan_id, plan_version | steps, summary, status | PlanState.awaiting_confirmation |
-| clarification_needed | run_id, clarification_id | question, options, reason | RunState.clarification |
-| step_validating | run_id, step_id, operation_id? | target/locator context | OperationState.validating |
-| step_executing | run_id, step_id, operation_id | operation type/subtype | OperationState.executing |
-| step_failed/recovery_needed | run_id, step_id, operation_id? | error_summary, options | RunState.recovery |
-| step_recorded | run_id, step_id | recorded parent/children | RecordingState |
-| run_completed | run_id | summary/counts | RunState.completed |
+| CorrectionDiff | run_id, plan_id/version, correction_id, operations, reason | required | correction request |
+| DiffOperation | type, target id, patch/payload, reason, position? | required | validated mutation |
 
 ---
 
@@ -170,12 +163,12 @@ For P0, this story may use in-memory runtime structures unless existing repo arc
 
 | Test ID | Layer | Scenario | Input/Setup | Expected result | Source rule protected |
 |---|---|---|---|---|---|
-| BE002-C-001 | Contract | valid plan_ready | PlanState.awaiting_confirmation | event accepted | typed events |
-| BE002-C-002 | Contract | missing type | payload without type | rejected | schema validation |
-| BE002-C-003 | Contract | unknown event type | unsupported type | rejected | canonical names |
-| BE002-C-004 | Contract | step event missing step_id | step_executing without step_id | rejected | identity |
-| BE002-C-005 | Contract | runtime_rejected shape | rejection payload | accepted | structured rejection |
-| BE002-I-001 | Integration | invalid event blocked | bad event through bridge | not emitted | frontend safety |
+| BE007-C-001 | Contract | valid diff | update operation | accepted | structured correction |
+| BE007-C-002 | Contract | remove without reason | remove op | rejected | no silent drop |
+| BE007-U-001 | Unit | stale correction | old version | rejected | version safety |
+| BE007-U-002 | Unit | correction during execution | RunState.executing | rejected | execution safety |
+| BE007-U-003 | Unit | full plan replace | unstructured plan | rejected/retry | schema safety |
+| BE007-I-001 | Integration | correction to revised plan | plan_review correction | new version plan_ready | workflow |
 
 ---
 

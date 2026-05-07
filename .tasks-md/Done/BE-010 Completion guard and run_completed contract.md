@@ -94,6 +94,7 @@ Completion is explicit backend guard. Duplicate completion is idempotent/no-op o
 - `tests/test_completion_guard.py` and `tests/test_late_event_contract.py` already prove the completion contract and idempotent `run_completed` emission.
 - `tests/test_recovery_scope_guard.py` keeps recovery state from leaking into completion logic.
 - Focused backend contract suite passed `59 passed`.
+- Branch status: branch-only on `dev1/backend-isolation-contract-tests`.
 
 ## Next Action
 

@@ -93,6 +93,7 @@ P0 records capability gaps; it does not implement upload/download/popup/iframe/n
 - `tests/test_capability_gaps.py` already covers recording, reset, and unsupported-tool rejection behavior.
 - `agent.py` `_record_capability_gap` and `_dispatch_tool` provide the typed gap baseline.
 - Focused backend contract suite passed `59 passed`.
+- Branch status: branch-only on `dev1/backend-isolation-contract-tests`.
 
 ## Next Action
 

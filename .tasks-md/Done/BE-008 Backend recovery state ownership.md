@@ -62,6 +62,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 - `runtime/event_contracts.py` and `agent.py` recovery-state paths were audited for remaining lifecycle gaps.
 - `tests/test_backend_isolation_contract.py`, `tests/test_recovery_scope_guard.py`, and `tests/test_event_contract.py` stay green in the focused backend sweep.
 - The focused backend contract suite passed `58` tests with `1` xfailed.
+- Branch status: branch-only on `dev1/backend-isolation-contract-tests`.
 
 ## Next Action
 

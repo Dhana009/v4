@@ -1,71 +1,29 @@
-# BE-006 Confirmed execution contract validator
+# BE-009 Backend-owned recording builder
 
 **Type:** Story  
 **Status:** Done  
+**Progress:** Done  
 **Priority:** P0  
 **Epic:** EPIC-001 Backend Runtime Truth  
 **Owner:** DEV-1 Backend Runtime + Event Truth  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
 **Readiness:** Done; all child tasks complete  
-**Progress:** Done  
 **Dependencies:** SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001  
-**Blocks:** BE-009 recording builder, execution E2E, code_update correctness  
+**Blocks:** code_update, recorded UI, BE-010 completion guard, BE-012 replay smoke  
 **Version:** Batch 02 v1  
 
 ---
 
 ## Product contribution
 
-Makes the confirmed plan the execution contract. Prevents LLM/tool execution from running a different operation than what user confirmed.
+Turns validated execution evidence into backend-owned recorded steps. This is the bridge from browser execution to deterministic Playwright codegen/replay.
 
 This story contributes to the final Complete LLM Mode workflow by strengthening the backend-owned runtime truth path:
 
 ```text
 user intent → plan/correction/confirmation → backend validation → execution/recording/replay/completion
 ```
-
-## Parent Status
-
-- Status: Done
-- Progress: Done
-- Reason: confirmed execution boundaries, pre-confirmation execution blocking, stale run rejection, recovery blocking, and strict cursor audit are complete.
-
-## Child Tasks
-
-| Child task | Status | Evidence |
-|---|---|---|
-| BE-006.1 Map confirmed execution contract boundaries | Done | commit `f7e3847`; `agent.py` confirmed execution check; `tests/test_event_sequence_contract.py` |
-| BE-006.2 Add tests that execution cannot start before confirmation | Done | `tests/test_event_sequence_contract.py`, `tests/test_completion_guard.py` |
-| BE-006.3 Add tests for stale run/plan rejection before execution | Done | `tests/test_backend_isolation_contract.py`, `tests/test_late_event_contract.py` |
-| BE-006.4 Ensure unresolved recovery blocks finality/execution continuation | Done | `tests/test_completion_guard.py`, `tests/test_recovery_scope_guard.py` |
-| BE-006.5 Identify remaining strict execution cursor gaps | Done | `agent.py` confirmed execution validator and cursor checks; `tests/test_event_sequence_contract.py`, `tests/test_completion_guard.py`, `tests/test_recovery_scope_guard.py`, `tests/test_backend_isolation_contract.py`; focused suite `58 passed, 1 xfailed` |
-
-### Done Children
-
-- `BE-006.1` Map confirmed execution contract boundaries
-- `BE-006.2` Add tests that execution cannot start before confirmation
-- `BE-006.3` Add tests for stale run/plan rejection before execution
-- `BE-006.4` Ensure unresolved recovery blocks finality/execution continuation
-- `BE-006.5` Identify remaining strict execution cursor gaps
-
-### In Progress Children
-
-- None
-
-### Remaining Planning Children
-
-- None
-
-## Evidence
-
-- `agent.py` confirmed execution validator and cursor checks were audited for remaining strict-cursor gaps.
-- `tests/test_event_sequence_contract.py`, `tests/test_completion_guard.py`, `tests/test_recovery_scope_guard.py`, and `tests/test_backend_isolation_contract.py` stay green in the focused backend sweep.
-- The focused backend contract suite passed `58` tests with `1` xfailed.
-
-## Next Action
-
-- None; BE-006 is complete.
 
 ---
 
@@ -82,7 +40,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 ## System role
 
-| Layer | Relationship to BE-006 |
+| Layer | Relationship to BE-009 |
 |---|---|
 | Backend | Primary owner and source of truth |
 | LLM | Proposes only; cannot own runtime truth |
@@ -96,15 +54,52 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 | Source | Extracted rule | Planning interpretation | Story impact |
 |---|---|---|---|
-| SOURCE-001 | Backend owns execution contract. | LLM proposes; backend validates. | Validate each execution attempt. |
-| Handoff | Confirmed plan children become execution contract; strict cursor prevents cross-step contamination. | Need current step/operation cursor. | Validate identity and order. |
-| BE-005 | Confirmation locks active plan version. | Only confirmed plan can execute. | Build contract from confirmed version. |
+| SOURCE-001 | Backend owns recording truth and code_update trigger. | Recording cannot be model/frontend-owned. | Build recording builder. |
+| Handoff | Recording model is parent recorded step with child operations/checks. | Preserve parent/child structure. | Build parent/child payload. |
+| BE-006 | Execution contract validates children. | Record only validated child results. | Consume execution evidence. |
+| BE-008 | Recovery/failure blocks recording. | Unresolved failure cannot record parent. | Reconcile child outcomes. |
 
 ---
 
 ## Architecture decision
 
-Every browser action/assertion must match the next expected confirmed operation by run_id, plan_id/version, step_id, operation_id, type/subtype, target/locator, and assertion data.
+Recording is built only after backend execution/assertion success evidence. Parent step contains ordered recorded children. expected_outcome remains parent metadata only.
+
+## Parent Status
+
+- Status: Done
+- Progress: Done
+- Reason: `code_update` now uses only recorded child evidence; the focused backend contract suite passed after the narrow BE-009 fix.
+
+## Child Tasks
+
+| Child task | Status | Evidence |
+|---|---|---|
+| BE-009.1 Add recording/codegen truth contract tests | Done | `tests/test_recording_codegen_truth_contract.py` covers parent metadata, child ordering, and code-update shape |
+| BE-009.2 Prevent code_update from trusting generated_line without successful child evidence | Done | commit `ad480ff`; `agent.py` `_build_code_update_payload` now filters to successful/recorded child evidence only |
+| BE-009.3 Preserve expected_outcome as parent metadata only | Done | `tests/test_recording_codegen_truth_contract.py` asserts children exclude `expected_outcome` and `observed_outcome` |
+| BE-009.4 Preserve child operation order from execution evidence | Done | `tests/test_recording_codegen_truth_contract.py` and `tests/test_code_update.py` verify ordered child code lines |
+| BE-009.5 Verify recording/codegen regression suite | Done | Focused backend contract suite passed `59 passed` after the BE-009.2 fix |
+
+### Done Children
+
+- `BE-009.1` Add recording/codegen truth contract tests
+- `BE-009.2` Prevent code_update from trusting generated_line without successful child evidence
+- `BE-009.3` Preserve expected_outcome as parent metadata only
+- `BE-009.4` Preserve child operation order from execution evidence
+- `BE-009.5` Verify recording/codegen regression suite
+
+## Evidence
+
+- `tests/test_recording_codegen_truth_contract.py` already covers the parent/child recording contract and the unresolved-child xfail gap.
+- `agent.py` `_build_code_update_payload` now filters out unresolved or failed child evidence and no longer falls back to `generated_line`.
+- Commit `ad480ff` (`fix: require evidence-backed code updates`) landed the narrow BE-009 fix.
+- Focused backend contract suite passed `59 passed`.
+- Branch status: branch-only on `dev1/backend-isolation-contract-tests`.
+
+## Next Action
+
+- None.
 
 ---
 
@@ -113,7 +108,7 @@ Every browser action/assertion must match the next expected confirmed operation 
 | Dependency type | Items | Meaning |
 |---|---|---|
 | Upstream | SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001 | Planning rules and runtime state foundation |
-| Direct blockers | BE-009 recording builder, execution E2E, code_update correctness | Cannot proceed safely without this story or approved mocks |
+| Direct blockers | code_update, recorded UI, BE-010 completion guard, BE-012 replay smoke | Cannot proceed safely without this story or approved mocks |
 | Indirect consumers | EPIC-005 frontend, EPIC-006 E2E, EPIC-008 recording/codegen, EPIC-009 trace | Eventually depend on this contract |
 | Parallel safe with mocks | DEV-2 LLM policy planning, DEV-3 Shadow DOM shell, DEV-4 harness skeleton | May proceed only without inventing final backend truth |
 | Conflict zones | `agent.py`, WebSocket command/event paths, runtime state, frontend lifecycle store | Inspect before editing |
@@ -147,8 +142,8 @@ This story unlocks downstream implementation by producing a precise backend cont
 
 | Item | Required fields | Rules | Used by |
 |---|---|---|---|
-| ConfirmedExecutionContract | run_id, plan_id/version, ordered_step_ids, current cursors, status | required | execution authority |
-| ContractOperation | operation_id, step_id, type/subtype, target, locator_ref, expected_value | required | validation target |
+| RecordedStep | recorded_step_id, source_step_id, run_id, plan_id/version, parent_intent, expected_outcome_metadata, observed_outcome?, children, evidence_refs | required | recorded parent |
+| RecordedChild | operation_id, type/subtype, locator?, input/value?, result, evidence_ref | required | recorded child |
 
 ---
 
@@ -162,12 +157,11 @@ For P0, this story may use in-memory runtime structures unless existing repo arc
 
 | Test ID | Layer | Scenario | Input/Setup | Expected result | Source rule protected |
 |---|---|---|---|---|---|
-| BE006-U-001 | Unit | expected op allowed | matching op | allowed | contract validation |
-| BE006-U-002 | Unit | wrong operation_id | mismatch | rejected | child identity |
-| BE006-U-003 | Unit | wrong step_id | mismatch | rejected | step isolation |
-| BE006-U-004 | Unit | wrong assertion value | mismatch | rejected | assertion semantics |
-| BE006-U-005 | Unit | cursor advances only on success | LLM says success | no advance | backend evidence |
-| BE006-I-001 | Integration | multi-step isolation | op from step 2 during step 1 | rejected | no contamination |
+| BE009-U-001 | Unit | record after all children success | child results success | recorded parent | evidence recording |
+| BE009-U-002 | Unit | required child failed | failed child | no record/recovery | child reconciliation |
+| BE009-U-003 | Unit | LLM emits step_recorded | model output | ignored | backend recording |
+| BE009-U-004 | Unit | expected_outcome leakage | metadata present | not assertion target | metadata rule |
+| BE009-I-001 | Integration | execution→recording | BE-006 success | step_recorded event-ready | lifecycle |
 
 ---
 
