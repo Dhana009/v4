@@ -1,7 +1,7 @@
 # E2E-002 Backend event stream capture and assertion utilities
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Planned  
 **Priority:** P0  
 **Epic:** EPIC-006 E2E Harness and Real-world Fixtures  
 **Owner:** DEV-4 E2E Harness + Fixtures + Evidence  
@@ -46,6 +46,14 @@ Fixed:
 | E2E002-U-003 | Unit | assert no event | passes/fails correctly |
 | E2E002-I-001 | Integration | capture plan_ready | event saved |
 | E2E002-I-002 | Integration | rejection captured | rejection code asserted |
+
+## Codex task breakdown
+
+| Task | Status | Notes |
+|---|---|---|
+| E2E-002A | In Progress | Map current event capture helpers and artifact outputs to the contract rows. |
+| E2E-002B | Planned | Add focused unit regressions for event filters and missing-event failure modes. |
+| E2E-002C | Planned | Add focused integration regressions for capture-before-action and failure artifacts. |
 
 ## Edge cases
 

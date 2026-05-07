@@ -531,6 +531,44 @@ Safe next action:
   rerun the same E2E suite in an environment that allows local loopback binds, or attach the harness to an already-running local backend/static server that does not require new socket creation
 ```
 
+### Next DEV-4 slice
+
+```text
+Selected story: E2E-002 Backend event stream capture and assertion utilities
+Story status: Planned
+Why next: the socket blocker is parked, backend contracts are already merged, and the next evidence-readiness step is to strengthen typed event capture/assertion coverage without touching product runtime logic.
+Selected subtask: E2E-002A map current event capture helpers and artifact outputs to the contract rows
+Selected subtask status: In Progress
+Scope:
+  tests/e2e/harness.py
+  tests/test_e2e_harness.py
+  .tasks-md/Backlog/E2E-002 Backend event stream capture and assertion utilities.md
+  .tasks-md/Planning/DEVELOPER-EXECUTION-PLAN-001 Four Developer Branch Checkpoint and Merge Plan.md
+Allowed files:
+  tests/e2e/harness.py
+  tests/test_e2e_harness.py
+  .tasks-md/Backlog/E2E-002 Backend event stream capture and assertion utilities.md
+  .tasks-md/Planning/DEVELOPER-EXECUTION-PLAN-001 Four Developer Branch Checkpoint and Merge Plan.md
+Forbidden files:
+  agent.py
+  server.py
+  runtime/**
+  frontend/**
+  fixtures/**
+  AGENTS.md
+  .DS_Store
+  CI/config
+Test plan:
+  start with tests/test_e2e_harness.py focused regressions for event helpers and artifact metadata
+  then add the smallest targeted coverage for capture-before-action and failure-artifact assertions
+  defer all live E2E runs until the next implementation slice is ready
+Stop conditions:
+  event capture semantics are unclear
+  changing the helper would require backend contract changes
+  implementation would touch forbidden runtime or frontend paths
+  new coverage would depend on the blocked socket environment
+```
+
 ### Matrix areas
 
 ```text
