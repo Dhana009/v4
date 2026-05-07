@@ -783,7 +783,8 @@ Status note:
 - No merge to main yet.
 - LLM-005 through LLM-010 are finalized and moved to Done after verification.
 - Next approved DEV-2 slice is `DOM-001` through `DOM-005`.
-- DOM-001 through DOM-005 tests-first slice started on `dev2/llm-dom-test-mapping`; no implementation yet; expected xfail gaps documented in `tests/test_dom_locator_contracts.py`.
+- DOM-001 through DOM-005 implementation completed on `dev2/llm-dom-test-mapping`; focused verification passed with `tests/test_dom_locator_contracts.py` at `8/8`; no merge to main yet.
+- DOM-006 through DOM-010 remain Backlog.
 - Shared/blocked rows: `DOM-010` with DEV-4 fixtures.
 - Next checkpoint: proceed to the next approved DEV-2 slice after board review.
 - MR-3C implementation is complete.

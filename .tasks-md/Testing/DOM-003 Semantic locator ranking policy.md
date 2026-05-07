@@ -1,67 +1,71 @@
-# DOM-002 Element identity and candidate model
+# DOM-003 Semantic locator ranking policy
 
 **Type:** Story  
-**Status:** Inprogress  
+**Status:** Testing  
 **Priority:** P0  
 **Epic:** EPIC-004 DOM and Locator Strategy  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
 **Readiness:** Ready for repo inspection; not ready for implementation  
-**Dependencies:** DOM-001, EPIC-004  
-**Blocks:** DOM-003, DOM-004, DOM-005, DOM-006, DOM-008  
+**Dependencies:** DOM-001, DOM-002, EPIC-004  
+**Blocks:** DOM-004, DOM-008, BE-006 execution validation  
 **Version:** Batch 05 v1  
 
 ---
 
 ## Product contribution
 
-This story defines what an element candidate is. It prevents the system from treating a raw DOM node or selected span as the whole target.
+This story defines deterministic ranking of locator candidates before LLM escalation.
 
 ## Architecture decision
 
-Fixed:
+Fixed ranking preference:
 
-- element candidate includes semantic identity, accessibility evidence, text, ancestry, section scope, and locator candidates
-- candidate is not executable until validation
-- parent/ancestor candidates are explicit
+```text
+data-testid where approved/stable
+role + accessible name
+label / placeholder
+alt/title
+scoped exact text
+section/container scoped locator
+stable id
+scoped CSS fallback
+XPath only as last resort/diagnostic
+```
 
-## Candidate schema
+LLM can suggest candidate ranking only when deterministic evidence is insufficient.
 
-| Field | Required | Meaning |
+## Ranking contract
+
+| Signal | Preferred use | Risk |
 |---|---|---|
-| candidate_id | Yes | stable candidate id |
-| element_ref | Yes | backend/browser reference |
-| role | Optional | ARIA/native role |
-| accessible_name | Optional | name |
-| text | Optional | visible text |
-| label/placeholder/alt/title | Optional | semantic evidence |
-| data_testid | Optional | test id |
-| tag | Yes | DOM tag |
-| attributes_summary | Optional | useful attrs only |
-| visibility/enabled | Optional | state |
-| ancestor_chain | Yes | useful parent candidates |
-| section_ref | Optional | section/container |
-| candidate_type | Yes | action_target/assertion_target/container/text_block |
-| risk_flags | Optional | duplicate/hidden/weak/text-only |
+| data-testid | stable automation target | bad if generated/dynamic |
+| role/name | primary Playwright style | duplicate names |
+| label | form controls | label association missing |
+| placeholder | fallback for inputs | placeholder changes |
+| scoped text | assertions/links/buttons | duplicate text |
+| stable id | fallback | dynamic ids |
+| CSS | scoped fallback | brittle |
+| XPath | last resort | brittle |
 
 ## Test matrix
 
 | Test ID | Layer | Scenario | Expected |
 |---|---|---|---|
-| DOM002-U-001 | Unit | button with label | candidate has role/name |
-| DOM002-U-002 | Unit | nested span in button | ancestor button candidate included |
-| DOM002-U-003 | Unit | card CTA duplicate | section_ref included |
-| DOM002-U-004 | Unit | code block text | text_block candidate |
-| DOM002-U-005 | Unit | hidden candidate | risk flag |
+| DOM003-U-001 | Unit | role/name exists | ranked first |
+| DOM003-U-002 | Unit | duplicate text in sections | scoped candidate preferred |
+| DOM003-U-003 | Unit | data-testid available | high rank |
+| DOM003-U-004 | Unit | dynamic class only | risk high |
+| DOM003-U-005 | Unit | XPath candidate | last resort |
 
 ## Edge cases
 
-- non-interactive span clicked by picker
+- same accessible name multiple times
+- generated IDs
+- empty accessible name
 - icon-only button
-- duplicate cards
-- table row action
-- label text separate from input
+- multilingual text
 
 ---
 
@@ -119,10 +123,10 @@ Stop if:
 
 ## Codex execution summary
 
-First Codex task for DOM-002 should be read-only:
+First Codex task for DOM-003 should be read-only:
 
 ```text
-Read DOM-002, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
+Read DOM-003, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
 Do not edit code.
 Inspect current DOM/locator ownership and report narrow implementation path.
 Do not implement until repo-inspection report is reviewed.

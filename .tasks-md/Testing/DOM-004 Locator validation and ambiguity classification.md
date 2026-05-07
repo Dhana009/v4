@@ -1,71 +1,63 @@
-# DOM-003 Semantic locator ranking policy
+# DOM-004 Locator validation and ambiguity classification
 
 **Type:** Story  
-**Status:** Inprogress  
+**Status:** Testing  
 **Priority:** P0  
 **Epic:** EPIC-004 DOM and Locator Strategy  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
 **Readiness:** Ready for repo inspection; not ready for implementation  
-**Dependencies:** DOM-001, DOM-002, EPIC-004  
-**Blocks:** DOM-004, DOM-008, BE-006 execution validation  
+**Dependencies:** DOM-002, DOM-003, BE-006, EVENT-005  
+**Blocks:** execution contract, recovery, update_locator flow  
 **Version:** Batch 05 v1  
 
 ---
 
 ## Product contribution
 
-This story defines deterministic ranking of locator candidates before LLM escalation.
+This story validates locator candidates in the browser and classifies ambiguity before execution.
 
 ## Architecture decision
 
-Fixed ranking preference:
+Fixed:
 
-```text
-data-testid where approved/stable
-role + accessible name
-label / placeholder
-alt/title
-scoped exact text
-section/container scoped locator
-stable id
-scoped CSS fallback
-XPath only as last resort/diagnostic
-```
+- backend/browser validation is final locator truth
+- validation returns unique/multiple/none/stale/hidden/disabled/wrong_page/unsupported
+- LLM confidence does not replace validation
+- ambiguity routes to user clarification or recovery
 
-LLM can suggest candidate ranking only when deterministic evidence is insufficient.
+## Validation result schema
 
-## Ranking contract
-
-| Signal | Preferred use | Risk |
+| Field | Required | Meaning |
 |---|---|---|
-| data-testid | stable automation target | bad if generated/dynamic |
-| role/name | primary Playwright style | duplicate names |
-| label | form controls | label association missing |
-| placeholder | fallback for inputs | placeholder changes |
-| scoped text | assertions/links/buttons | duplicate text |
-| stable id | fallback | dynamic ids |
-| CSS | scoped fallback | brittle |
-| XPath | last resort | brittle |
+| locator_ref | Yes | locator candidate reference |
+| status | Yes | unique/multiple/none/stale/hidden/disabled/wrong_page/unsupported |
+| match_count | Yes | number of matches |
+| visible_count | Optional | visible matches |
+| selected_element_ref | Conditional | unique valid match |
+| ambiguity_candidates | Optional | when multiple |
+| failure_reason | Optional | reason |
+| evidence_ref | Optional | screenshot/trace/dom ref |
 
 ## Test matrix
 
 | Test ID | Layer | Scenario | Expected |
 |---|---|---|---|
-| DOM003-U-001 | Unit | role/name exists | ranked first |
-| DOM003-U-002 | Unit | duplicate text in sections | scoped candidate preferred |
-| DOM003-U-003 | Unit | data-testid available | high rank |
-| DOM003-U-004 | Unit | dynamic class only | risk high |
-| DOM003-U-005 | Unit | XPath candidate | last resort |
+| DOM004-U-001 | Unit | unique locator | status unique |
+| DOM004-U-002 | Unit | multiple matches | status multiple |
+| DOM004-U-003 | Unit | no match | status none |
+| DOM004-U-004 | Unit | hidden match | status hidden |
+| DOM004-U-005 | Unit | wrong page | status wrong_page |
+| DOM004-I-001 | Integration | action before validation | blocked |
 
 ## Edge cases
 
-- same accessible name multiple times
-- generated IDs
-- empty accessible name
-- icon-only button
-- multilingual text
+- detached element after validation
+- multiple visible exact matches
+- locator unique but disabled
+- validation across navigation
+- iframe unsupported
 
 ---
 
@@ -123,10 +115,10 @@ Stop if:
 
 ## Codex execution summary
 
-First Codex task for DOM-003 should be read-only:
+First Codex task for DOM-004 should be read-only:
 
 ```text
-Read DOM-003, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
+Read DOM-004, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
 Do not edit code.
 Inspect current DOM/locator ownership and report narrow implementation path.
 Do not implement until repo-inspection report is reviewed.
