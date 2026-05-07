@@ -1,14 +1,14 @@
 # BE-008 Backend recovery state ownership
 
 **Type:** Story  
-**Status:** Planning  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-001 Backend Runtime Truth  
 **Owner:** DEV-1 Backend Runtime + Event Truth  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Planning; recovery lifecycle audit still open  
-**Progress:** Mostly Done  
+**Readiness:** Done; all child tasks complete  
+**Progress:** Done  
 **Dependencies:** SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001  
 **Blocks:** BE-010 completion guard, BE-009 recording builder, E2E recovery flow  
 **Version:** Batch 02 v1  
@@ -27,9 +27,9 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 ## Parent Status
 
-- Status: Planning
-- Progress: Mostly Done
-- Reason: recovery-needed state, backend isolation coverage, follow-up reset fixes, and cross-run recovery protection are covered; one lifecycle audit child remains.
+- Status: Done
+- Progress: Done
+- Reason: recovery-needed state, backend isolation coverage, follow-up reset fixes, cross-run recovery protection, and remaining lifecycle audit are complete.
 
 ## Child Tasks
 
@@ -39,7 +39,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 | BE-008.2 Add backend isolation test for recovery state leakage | Done | commit `1b8c084`; `tests/test_backend_isolation_contract.py` |
 | BE-008.3 Fix `_pending_failure_followup` reset across runs | Done | commit `1b8c084`; `tests/test_recovery_scope_guard.py` |
 | BE-008.4 Ensure recovery state cannot complete unrelated/new run | Done | `tests/test_backend_isolation_contract.py`, `tests/test_recovery_scope_guard.py` |
-| BE-008.5 Identify remaining recovery lifecycle gaps | In Progress | remaining recovery lifecycle audit in progress |
+| BE-008.5 Identify remaining recovery lifecycle gaps | Done | `runtime/event_contracts.py`, `agent.py`, `tests/test_backend_isolation_contract.py`, `tests/test_recovery_scope_guard.py`, `tests/test_event_contract.py`; focused suite `58 passed, 1 xfailed` |
 
 ### Done Children
 
@@ -47,10 +47,11 @@ user intent → plan/correction/confirmation → backend validation → executio
 - `BE-008.2` Add backend isolation test for recovery state leakage
 - `BE-008.3` Fix `_pending_failure_followup` reset across runs
 - `BE-008.4` Ensure recovery state cannot complete unrelated/new run
+- `BE-008.5` Identify remaining recovery lifecycle gaps
 
 ### In Progress Children
 
-- `BE-008.5` Identify remaining recovery lifecycle gaps
+- None
 
 ### Remaining Planning Children
 
@@ -58,14 +59,13 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 ## Evidence
 
-- Commit `f7e3847` added the backend event/command seam including `recovery_needed` payloads.
-- Commit `1b8c084` isolated backend recovery state between runs.
-- `tests/test_event_contract.py`, `tests/test_backend_isolation_contract.py`, and `tests/test_recovery_scope_guard.py` cover recovery ownership and leakage protection.
-- The latest focused backend set passed `47` tests.
+- `runtime/event_contracts.py` and `agent.py` recovery-state paths were audited for remaining lifecycle gaps.
+- `tests/test_backend_isolation_contract.py`, `tests/test_recovery_scope_guard.py`, and `tests/test_event_contract.py` stay green in the focused backend sweep.
+- The focused backend contract suite passed `58` tests with `1` xfailed.
 
 ## Next Action
 
-- Finish the remaining recovery lifecycle audit before moving BE-008 beyond Planning.
+- None; BE-008 is complete.
 
 ---
 

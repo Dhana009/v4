@@ -1,14 +1,14 @@
 # BE-004 Active plan store and plan_ready ownership
 
 **Type:** Story  
-**Status:** Planning  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-001 Backend Runtime Truth  
 **Owner:** DEV-1 Backend Runtime + Event Truth  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Planning; versioning-gap child still open  
-**Progress:** Partially Done  
+**Readiness:** Done; all child tasks complete  
+**Progress:** Done  
 **Dependencies:** SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001  
 **Blocks:** BE-005 confirmation gate, BE-006 execution contract, BE-007 correction diff  
 **Version:** Batch 02 v1  
@@ -27,9 +27,9 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 ## Parent Status
 
-- Status: Planning
-- Progress: Partially Done
-- Reason: active-plan ownership, stale-confirm rejection, and late-confirmation protection are in place, but the remaining versioning-gap child keeps the parent in Planning.
+- Status: Done
+- Progress: Done
+- Reason: active-plan ownership, stale-confirm rejection, late-confirmation protection, and remaining versioning-gap audit are complete.
 
 ## Child Tasks
 
@@ -39,7 +39,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 | BE-004.2 Store run_id/plan context on active plan | Done | commits `176cad2` and `6b03a82`; confirmation path is run-scoped |
 | BE-004.3 Reject stale confirmations against active plan context | Done | commit `176cad2`; stale plan confirmation guard in `agent.py` |
 | BE-004.4 Ensure late confirmation cannot reopen completed run | Done | commit `6b03a82`; late-confirmation rejection for completed runs |
-| BE-004.5 Identify remaining active plan store/versioning gaps | In Progress | remaining active-plan versioning audit in progress |
+| BE-004.5 Identify remaining active plan store/versioning gaps | Done | `agent.py` active-plan state and plan confirmation flow; `tests/test_backend_isolation_contract.py`, `tests/test_late_event_contract.py`, `tests/test_event_sequence_contract.py`; focused suite `58 passed, 1 xfailed` |
 
 ### Done Children
 
@@ -47,10 +47,11 @@ user intent → plan/correction/confirmation → backend validation → executio
 - `BE-004.2` Store run_id/plan context on active plan
 - `BE-004.3` Reject stale confirmations against active plan context
 - `BE-004.4` Ensure late confirmation cannot reopen completed run
+- `BE-004.5` Identify remaining active plan store/versioning gaps
 
 ### In Progress Children
 
-- `BE-004.5` Identify remaining active plan store/versioning gaps
+- None
 
 ### Remaining Planning Children
 
@@ -58,14 +59,13 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 ## Evidence
 
-- Commit `176cad2` rejected stale plan confirmations.
-- Commit `6b03a82` rejected late confirmations for completed runs.
-- Related tests include `tests/test_event_sequence_contract.py` and `tests/test_late_event_contract.py`.
-- Focused backend contract verification passed `47` tests.
+- `agent.py` active-plan state ownership and plan confirmation flow were audited for remaining versioning gaps.
+- `tests/test_backend_isolation_contract.py`, `tests/test_late_event_contract.py`, and `tests/test_event_sequence_contract.py` stay green in the focused backend sweep.
+- The focused backend contract suite passed `58` tests with `1` xfailed.
 
 ## Next Action
 
-- Close the remaining plan-store/versioning gap before moving the parent story out of Planning.
+- None; BE-004 is complete.
 
 ---
 

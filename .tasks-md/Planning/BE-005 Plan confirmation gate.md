@@ -1,14 +1,14 @@
 # BE-005 Plan confirmation gate
 
 **Type:** Story  
-**Status:** Planning  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-001 Backend Runtime Truth  
 **Owner:** DEV-1 Backend Runtime + Event Truth  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Planning; versioning audit still open  
-**Progress:** Mostly Done  
+**Readiness:** Done; all child tasks complete  
+**Progress:** Done  
 **Dependencies:** SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001  
 **Blocks:** BE-006 execution contract, LLM Mode execution, BE-009 recording  
 **Version:** Batch 02 v1  
@@ -27,9 +27,9 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 ## Parent Status
 
-- Status: Planning
-- Progress: Mostly Done
-- Reason: confirmation gating, stale confirmation rejection, and legacy bare-confirm compatibility are covered; one remaining audit child stays open.
+- Status: Done
+- Progress: Done
+- Reason: confirmation gating, stale confirmation rejection, legacy bare-confirm compatibility, and remaining audit are complete.
 
 ## Child Tasks
 
@@ -39,7 +39,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 | BE-005.2 Require backend-owned confirmation before execution | Done | commit `176cad2`; `tests/test_event_sequence_contract.py` |
 | BE-005.3 Reject stale confirmation against active run/plan context | Done | commits `176cad2`, `6b03a82`; `tests/test_late_event_contract.py` |
 | BE-005.4 Preserve safe legacy bare confirmation compatibility | Done | `runtime/event_contracts.py` accepts confirmed commands with active run context; `tests/test_event_sequence_contract.py`, `tests/test_late_event_contract.py` |
-| BE-005.5 Audit remaining confirmation/versioning gaps | In Progress | remaining confirmation/versioning audit in progress |
+| BE-005.5 Audit remaining confirmation/versioning gaps | Done | `runtime/event_contracts.py`, `agent.py`, `tests/test_event_sequence_contract.py`, `tests/test_late_event_contract.py`; focused suite `58 passed, 1 xfailed` |
 
 ### Done Children
 
@@ -47,10 +47,11 @@ user intent → plan/correction/confirmation → backend validation → executio
 - `BE-005.2` Require backend-owned confirmation before execution
 - `BE-005.3` Reject stale confirmation against active run/plan context
 - `BE-005.4` Preserve safe legacy bare confirmation compatibility
+- `BE-005.5` Audit remaining confirmation/versioning gaps
 
 ### In Progress Children
 
-- `BE-005.5` Audit remaining confirmation/versioning gaps
+- None
 
 ### Remaining Planning Children
 
@@ -58,16 +59,13 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 ## Evidence
 
-- Commit `f117599` added the core command/sequence contract coverage.
-- Commit `176cad2` rejected stale plan confirmations.
-- Commit `cd438d7` rejected stale backend commands.
-- Commit `6b03a82` rejected late confirmations for completed runs.
-- `tests/test_event_sequence_contract.py` and `tests/test_late_event_contract.py` cover the confirmation gate and stale/late cases.
-- The latest focused backend set passed `47` tests.
+- `runtime/event_contracts.py` and `agent.py` confirmation-handling paths were audited for remaining versioning gaps.
+- `tests/test_event_sequence_contract.py` and `tests/test_late_event_contract.py` stay green in the focused backend sweep.
+- The focused backend contract suite passed `58` tests with `1` xfailed.
 
 ## Next Action
 
-- Close the remaining confirmation/versioning audit before moving BE-005 beyond Planning.
+- None; BE-005 is complete.
 
 ---
 

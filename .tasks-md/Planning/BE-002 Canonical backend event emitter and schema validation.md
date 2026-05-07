@@ -1,14 +1,14 @@
 # BE-002 Canonical backend event emitter and schema validation
 
 **Type:** Story  
-**Status:** Planning  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-001 Backend Runtime Truth  
 **Owner:** DEV-1 Backend Runtime + Event Truth  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Planning; schema-gap child still open  
-**Progress:** Mostly Done  
+**Readiness:** Done; all child tasks complete  
+**Progress:** Done  
 **Dependencies:** SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001  
 **Blocks:** DEV-3 frontend lifecycle rendering, DEV-4 event capture, BE-003 rejection flow, BE-010 run_completed event  
 **Version:** Batch 02 v1  
@@ -27,9 +27,9 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 ## Parent Status
 
-- Status: Planning
-- Progress: Mostly Done
-- Reason: the backend event contract tests, event seam, and session-state handshake are in place, but the remaining schema-gap child keeps the parent in Planning.
+- Status: Done
+- Progress: Done
+- Reason: event helper/seam coverage, session-state handshake, and remaining schema-gap audit are complete.
 
 ## Child Tasks
 
@@ -40,7 +40,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 | BE-002.3 Add explicit run_completed event contract | Done | covered by `f7e3847` contract seam and the event-contract suite |
 | BE-002.4 Add explicit recovery_needed event contract | Done | covered by `f7e3847` contract seam and the event-contract suite |
 | BE-002.5 Add session_state websocket event contract | Done | commits `f7e1c61` and `680aa8f`; websocket/session-state handshake and status update |
-| BE-002.6 Identify remaining canonical event envelope/schema gaps | In Progress | remaining canonical schema audit in progress |
+| BE-002.6 Identify remaining canonical event envelope/schema gaps | Done | `runtime/event_contracts.py`, `tests/test_event_contract.py`, `tests/test_event_sequence_contract.py`, `tests/test_process_boundary_contract.py`; focused suite `58 passed, 1 xfailed` |
 
 ### Done Children
 
@@ -49,10 +49,11 @@ user intent → plan/correction/confirmation → backend validation → executio
 - `BE-002.3` Add explicit run_completed event contract
 - `BE-002.4` Add explicit recovery_needed event contract
 - `BE-002.5` Add session_state websocket event contract
+- `BE-002.6` Identify remaining canonical event envelope/schema gaps
 
 ### In Progress Children
 
-- `BE-002.6` Identify remaining canonical event envelope/schema gaps
+- None
 
 ### Remaining Planning Children
 
@@ -60,15 +61,13 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 ## Evidence
 
-- Commit `f117599` added backend event contract coverage tests.
-- Commit `f7e3847` introduced `runtime/event_contracts.py` and the backend event/command seam.
-- Commit `f7e1c61` emitted `session_state` on websocket connect and was merged to local main at `908f4d0`.
-- Commit `680aa8f` updated the session state contract status.
-- Focused verification passed `43` backend/event tests and `11` websocket/session tests.
+- `runtime/event_contracts.py` canonical envelope helpers and the related contract tests cover the remaining schema-gap audit.
+- `tests/test_event_contract.py`, `tests/test_event_sequence_contract.py`, and `tests/test_process_boundary_contract.py` remain green in the focused backend sweep.
+- The focused backend contract suite passed `58` tests with `1` xfailed.
 
 ## Next Action
 
-- Close the final schema-gap audit and confirm no additional canonical event envelopes are missing before moving the parent story out of Planning.
+- None; BE-002 is complete.
 
 ---
 

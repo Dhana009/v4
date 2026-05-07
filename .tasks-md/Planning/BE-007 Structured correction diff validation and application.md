@@ -1,14 +1,14 @@
 # BE-007 Structured correction diff validation and application
 
 **Type:** Story  
-**Status:** Planning  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-001 Backend Runtime Truth  
 **Owner:** DEV-1 Backend Runtime + Event Truth  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Planning; structured-diff audit still open  
-**Progress:** Partially Done  
+**Readiness:** Done; all child tasks complete  
+**Progress:** Done  
 **Dependencies:** SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001  
 **Blocks:** Correction flow, LLM plan-diff story, BE-004 active plan versions  
 **Version:** Batch 02 v1  
@@ -27,9 +27,9 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 ## Parent Status
 
-- Status: Planning
-- Progress: Partially Done
-- Reason: correction ownership, stale correction rejection, and wrong-run mutation blocking are covered; the structured diff audit remains open.
+- Status: Done
+- Progress: Done
+- Reason: correction ownership, stale correction rejection, wrong-run mutation blocking, and structured-diff audit are complete.
 
 ## Child Tasks
 
@@ -39,7 +39,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 | BE-007.2 Add stale correction command rejection tests | Done | commit `98944ad`; `tests/test_late_event_contract.py` |
 | BE-007.3 Reject stale correction run_id mismatch with typed rejection | Done | commit `cd438d7`; `tests/test_late_event_contract.py` |
 | BE-007.4 Ensure correction cannot mutate wrong/current run | Done | `tests/test_late_event_contract.py`, `tests/test_command_contract.py` |
-| BE-007.5 Identify remaining structured diff validation gaps | In Progress | remaining structured diff-validation audit in progress |
+| BE-007.5 Identify remaining structured correction diff validation gaps | Done | `runtime/event_contracts.py`, `agent.py`, `tests/test_late_event_contract.py`, `tests/test_command_contract.py`; focused suite `58 passed, 1 xfailed` |
 
 ### Done Children
 
@@ -47,10 +47,11 @@ user intent → plan/correction/confirmation → backend validation → executio
 - `BE-007.2` Add stale correction command rejection tests
 - `BE-007.3` Reject stale correction run_id mismatch with typed rejection
 - `BE-007.4` Ensure correction cannot mutate wrong/current run
+- `BE-007.5` Identify remaining structured correction diff validation gaps
 
 ### In Progress Children
 
-- `BE-007.5` Identify remaining structured diff validation gaps
+- None
 
 ### Remaining Planning Children
 
@@ -58,15 +59,13 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 ## Evidence
 
-- Commit `f7e3847` added the backend command validation seam that correction handling uses.
-- Commit `98944ad` added late-event/correction contract coverage.
-- Commit `cd438d7` rejected stale backend commands.
-- `tests/test_late_event_contract.py` includes the stale correction run mismatch and typed rejection cases.
-- The latest focused backend set passed `47` tests.
+- `runtime/event_contracts.py` and `agent.py` correction-handling paths were audited for remaining structured-diff gaps.
+- `tests/test_late_event_contract.py` and `tests/test_command_contract.py` stay green in the focused backend sweep.
+- The focused backend contract suite passed `58` tests with `1` xfailed.
 
 ## Next Action
 
-- Close the remaining structured diff validation audit before moving BE-007 beyond Planning.
+- None; BE-007 is complete.
 
 ---
 

@@ -1,14 +1,14 @@
 # BE-003 Backend command validation and typed rejection
 
 **Type:** Story  
-**Status:** Planning  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-001 Backend Runtime Truth  
 **Owner:** DEV-1 Backend Runtime + Event Truth  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Planning; validation-gap child still open  
-**Progress:** Mostly Done  
+**Readiness:** Done; all child tasks complete  
+**Progress:** Done  
 **Dependencies:** SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001  
 **Blocks:** BE-004 active plan validation, BE-005 confirmation, BE-007 correction, BE-012 replay commands  
 **Version:** Batch 02 v1  
@@ -27,9 +27,9 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 ## Parent Status
 
-- Status: Planning
-- Progress: Mostly Done
-- Reason: command contract tests, typed rejection, stale-command rejection, and process-boundary coverage are done; the remaining validation-gap audit keeps the parent in Planning.
+- Status: Done
+- Progress: Done
+- Reason: command contract coverage, typed rejection, stale-command rejection, process-boundary coverage, and remaining validation-gap audit are complete.
 
 ## Child Tasks
 
@@ -40,7 +40,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 | BE-003.3 Add server-side command validation boundary | Done | commit `f7e3847`; `agent.py`, `server.py` |
 | BE-003.4 Reject stale confirmed/correction commands by run_id | Done | commit `cd438d7`; stale backend command rejection in `agent.py` |
 | BE-003.5 Add process-boundary malformed/unknown command tests | Done | commit `2011da2`; `tests/test_process_boundary_contract.py` |
-| BE-003.6 Identify any remaining command validation gaps | In Progress | remaining command-validation audit in progress |
+| BE-003.6 Identify any remaining command validation gaps | Done | `runtime/event_contracts.py`, `agent.py`, `tests/test_command_contract.py`, `tests/test_late_event_contract.py`, `tests/test_process_boundary_contract.py`; focused suite `58 passed, 1 xfailed` |
 
 ### Done Children
 
@@ -49,10 +49,11 @@ user intent → plan/correction/confirmation → backend validation → executio
 - `BE-003.3` Add server-side command validation boundary
 - `BE-003.4` Reject stale confirmed/correction commands by run_id
 - `BE-003.5` Add process-boundary malformed/unknown command tests
+- `BE-003.6` Identify any remaining command validation gaps
 
 ### In Progress Children
 
-- `BE-003.6` Identify any remaining command validation gaps
+- None
 
 ### Remaining Planning Children
 
@@ -60,15 +61,13 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 ## Evidence
 
-- Commit `f117599` added command contract coverage.
-- Commit `f7e3847` added the backend command validation seam.
-- Commit `cd438d7` rejected stale backend commands.
-- Commit `2011da2` added process-boundary contract tests.
-- Focused backend contract verification passed `47` tests.
+- `runtime/event_contracts.py` and `agent.py` command validation paths were audited for remaining gaps.
+- `tests/test_command_contract.py`, `tests/test_late_event_contract.py`, and `tests/test_process_boundary_contract.py` stay green in the focused backend sweep.
+- The focused backend contract suite passed `58` tests with `1` xfailed.
 
 ## Next Action
 
-- Confirm there are no remaining command-validation edge cases before moving the parent story out of Planning.
+- None; BE-003 is complete.
 
 ---
 

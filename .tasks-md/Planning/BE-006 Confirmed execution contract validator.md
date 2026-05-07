@@ -1,14 +1,14 @@
 # BE-006 Confirmed execution contract validator
 
 **Type:** Story  
-**Status:** Planning  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-001 Backend Runtime Truth  
 **Owner:** DEV-1 Backend Runtime + Event Truth  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Planning; strict cursor audit still open  
-**Progress:** Partially Done  
+**Readiness:** Done; all child tasks complete  
+**Progress:** Done  
 **Dependencies:** SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001  
 **Blocks:** BE-009 recording builder, execution E2E, code_update correctness  
 **Version:** Batch 02 v1  
@@ -27,9 +27,9 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 ## Parent Status
 
-- Status: Planning
-- Progress: Partially Done
-- Reason: confirmed execution boundaries, pre-confirmation execution blocking, stale run rejection, and recovery blocking are covered; strict cursor gaps remain open.
+- Status: Done
+- Progress: Done
+- Reason: confirmed execution boundaries, pre-confirmation execution blocking, stale run rejection, recovery blocking, and strict cursor audit are complete.
 
 ## Child Tasks
 
@@ -39,7 +39,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 | BE-006.2 Add tests that execution cannot start before confirmation | Done | `tests/test_event_sequence_contract.py`, `tests/test_completion_guard.py` |
 | BE-006.3 Add tests for stale run/plan rejection before execution | Done | `tests/test_backend_isolation_contract.py`, `tests/test_late_event_contract.py` |
 | BE-006.4 Ensure unresolved recovery blocks finality/execution continuation | Done | `tests/test_completion_guard.py`, `tests/test_recovery_scope_guard.py` |
-| BE-006.5 Identify remaining strict execution cursor gaps | In Progress | remaining strict execution-cursor audit in progress |
+| BE-006.5 Identify remaining strict execution cursor gaps | Done | `agent.py` confirmed execution validator and cursor checks; `tests/test_event_sequence_contract.py`, `tests/test_completion_guard.py`, `tests/test_recovery_scope_guard.py`, `tests/test_backend_isolation_contract.py`; focused suite `58 passed, 1 xfailed` |
 
 ### Done Children
 
@@ -47,10 +47,11 @@ user intent → plan/correction/confirmation → backend validation → executio
 - `BE-006.2` Add tests that execution cannot start before confirmation
 - `BE-006.3` Add tests for stale run/plan rejection before execution
 - `BE-006.4` Ensure unresolved recovery blocks finality/execution continuation
+- `BE-006.5` Identify remaining strict execution cursor gaps
 
 ### In Progress Children
 
-- `BE-006.5` Identify remaining strict execution cursor gaps
+- None
 
 ### Remaining Planning Children
 
@@ -58,16 +59,13 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 ## Evidence
 
-- Commit `f117599` added backend command/sequence contract coverage.
-- Commit `f7e3847` added the backend command validation seam that execution checks consume.
-- Commit `176cad2` rejected stale plan confirmations.
-- Commit `1b8c084` isolated backend recovery state between runs.
-- Related tests include `tests/test_event_sequence_contract.py`, `tests/test_completion_guard.py`, `tests/test_recovery_scope_guard.py`, and `tests/test_backend_isolation_contract.py`.
-- The latest focused backend set passed `47` tests.
+- `agent.py` confirmed execution validator and cursor checks were audited for remaining strict-cursor gaps.
+- `tests/test_event_sequence_contract.py`, `tests/test_completion_guard.py`, `tests/test_recovery_scope_guard.py`, and `tests/test_backend_isolation_contract.py` stay green in the focused backend sweep.
+- The focused backend contract suite passed `58` tests with `1` xfailed.
 
 ## Next Action
 
-- Finish the strict execution-cursor gap audit before moving BE-006 beyond Planning.
+- None; BE-006 is complete.
 
 ---
 
