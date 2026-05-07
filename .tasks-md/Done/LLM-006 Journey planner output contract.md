@@ -1,77 +1,79 @@
-# LLM-010 LLM telemetry, token budget, and cost guard
+# LLM-006 Journey planner output contract
 
 **Type:** Story  
-**Status:** Inprogress  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-003 LLM Runtime Controller  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
 **Readiness:** Ready for repo inspection; not ready for implementation  
-**Dependencies:** LLM-001, LLM-002, LLM-004  
-**Blocks:** trace/observability, cost control, regression evidence  
+**Dependencies:** LLM-001, LLM-004, LLM-005, BE-004, EVENT-004  
+**Blocks:** active plan store, plan_ready UI, execution contract  
 **Version:** Batch 04 v1  
 
 ---
 
 ## Product contribution
 
-This story makes LLM usage observable and controlled without reducing correctness.
+This story defines what the journey planner may output as a plan proposal.
 
 ## Architecture decision
 
 Fixed:
 
-- every LLM call logs purpose/model/schema/tokens/latency/status
-- token optimization cannot remove safety-critical context
-- telemetry supports debugging and cost review
-- failures include validation/retry outcome
+- journey planner proposes plan only
+- backend validates/stores active plan
+- plan includes ordered steps and child operations
+- expected_outcome is metadata only
+- no execution permission from planner output
 
-## Telemetry schema
+## Journey plan schema
+
+| Field | Required | Meaning |
+|---|---|---|
+| plan_intent | Yes | user-level goal |
+| steps | Yes | ordered planned steps |
+| assumptions | Optional | explicit assumptions |
+| clarifications_needed | Optional | missing info |
+| risks | Optional | permission/ambiguity |
+| confidence | Yes | high/medium/low |
+
+### Planned step
 
 | Field | Required |
 |---|---|
-| call_id | Yes |
-| purpose | Yes |
-| model | Yes |
-| schema_id/version | Conditional |
-| message_count | Yes |
-| estimated_input_tokens | Yes |
-| estimated_output_tokens | Optional |
-| tools_exposed_count | Yes |
-| skills_loaded | Yes |
-| latency_ms | Yes |
-| validation_status | Yes |
-| retry_count | Yes |
-| error_code | Optional |
+| proposed_step_id | Optional/backend may assign |
+| intent | Yes |
+| expected_outcome_metadata | Optional |
+| children | Yes |
+| precondition/postcondition | Optional |
 
-## Budget policy
+### Planned operation
 
-| Situation | Required behavior |
+| Field | Required |
 |---|---|
-| context too large | trim irrelevant context only |
-| required skill missing | stop |
-| required source missing | stop |
-| low-value trace context | summarize |
-| safety-critical context | keep |
+| type/subtype | Yes |
+| target_semantic_name | Conditional |
+| locator_candidate_ref | Optional |
+| assertion_type/value | Conditional |
+| order_index | Yes |
 
 ## Test matrix
 
 | Test ID | Layer | Scenario | Expected |
 |---|---|---|---|
-| LLM010-U-001 | Unit | call telemetry | required fields logged |
-| LLM010-U-002 | Unit | invalid schema retry | retry_count logged |
-| LLM010-U-003 | Unit | context budget exceeded | safe trim |
-| LLM010-U-004 | Unit | required skill removed | rejected/stop |
-| LLM010-I-001 | Integration | controller call emits telemetry | traceable output |
+| LLM006-C-001 | Contract | valid plan | accepted by schema |
+| LLM006-C-002 | Contract | plan has execution_result | rejected |
+| LLM006-C-003 | Contract | expected_outcome as assertion target | rejected |
+| LLM006-I-001 | Integration | valid plan to BE-004 | active plan candidate |
 
 ## Edge cases
 
-- streaming response
-- model route fallback
-- local model vs API model
-- token estimator mismatch
-- telemetry logging failure
+- plan with no children
+- duplicate operation order
+- assertion without expected value
+- high confidence but missing target
 
 ---
 
@@ -130,10 +132,10 @@ After reading this story, Codex should be able to explain:
 
 ## Codex execution summary
 
-First Codex task for LLM-010 should be read-only:
+First Codex task for LLM-006 should be read-only:
 
 ```text
-Read LLM-010, SOURCE-001, PLAN-002, PLAN-005, EPIC-003, and required skills.
+Read LLM-006, SOURCE-001, PLAN-002, PLAN-005, EPIC-003, and required skills.
 Do not edit code.
 Do not inspect unrelated product areas.
 Inspect current LLM runtime ownership and report a narrow implementation path.

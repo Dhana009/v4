@@ -15,16 +15,24 @@ from runtime.tool_registry import PLANNING_SAFE_TOOL_NAMES
 
 
 EXPECTED_TELEMETRY_FIELDS = {
+    "call_id",
     "purpose",
     "model",
     "skill_count",
+    "skills_loaded",
     "tool_count",
+    "tools_exposed_count",
     "context_mode",
     "context_level",
     "token_budget",
+    "estimated_input_tokens",
+    "estimated_output_tokens",
     "retry_count",
     "validation_status",
     "latency_ms",
+    "schema_id",
+    "schema_version",
+    "error_code",
 }
 
 EXECUTION_TOOL_NAMES = {

@@ -6,7 +6,7 @@ import inspect
 import time
 from typing import Any
 
-from runtime.telemetry import estimate_messages_tokens
+from runtime.telemetry import estimate_messages_tokens, estimate_tools_tokens
 from runtime.tool_registry import PLANNING_SAFE_TOOL_NAMES
 
 
@@ -34,14 +34,22 @@ LOCATOR_SKILL = "locator_strategy"
 DEFAULT_TELEMETRY_FIELDS = {
     "purpose": "str",
     "model": "str",
+    "call_id": "str",
     "skill_count": "int",
+    "skills_loaded": "list[str]",
     "tool_count": "int",
+    "tools_exposed_count": "int",
     "context_mode": "str",
     "context_level": "str",
     "token_budget": "int",
+    "estimated_input_tokens": "int",
+    "estimated_output_tokens": "int|None",
     "retry_count": "int",
     "validation_status": "str",
     "latency_ms": "int",
+    "schema_id": "str",
+    "schema_version": "int",
+    "error_code": "str|None",
 }
 
 PLANNING_TOOL_NAMES = (
@@ -418,16 +426,24 @@ def _maybe_await(value: Any) -> Any:
 
 @dataclass(slots=True)
 class ControllerTelemetry:
+    call_id: str
     purpose: str
     model: str
     skill_count: int
+    skills_loaded: list[str]
     tool_count: int
+    tools_exposed_count: int
     context_mode: str
     context_level: str
     token_budget: int
+    estimated_input_tokens: int
+    estimated_output_tokens: int | None
     retry_count: int
     validation_status: str
     latency_ms: int
+    schema_id: str
+    schema_version: int
+    error_code: str | None
 
 
 class LLMRuntimeController:
@@ -678,16 +694,24 @@ class LLMRuntimeController:
             return
 
         payload = {
+            "call_id": telemetry_record.call_id,
             "purpose": telemetry_record.purpose,
             "model": telemetry_record.model,
             "skill_count": telemetry_record.skill_count,
+            "skills_loaded": list(telemetry_record.skills_loaded),
             "tool_count": telemetry_record.tool_count,
+            "tools_exposed_count": telemetry_record.tools_exposed_count,
             "context_mode": telemetry_record.context_mode,
             "context_level": telemetry_record.context_level,
             "token_budget": telemetry_record.token_budget,
+            "estimated_input_tokens": telemetry_record.estimated_input_tokens,
+            "estimated_output_tokens": telemetry_record.estimated_output_tokens,
             "retry_count": telemetry_record.retry_count,
             "validation_status": telemetry_record.validation_status,
             "latency_ms": telemetry_record.latency_ms,
+            "schema_id": telemetry_record.schema_id,
+            "schema_version": telemetry_record.schema_version,
+            "error_code": telemetry_record.error_code,
         }
 
         for method_name in ("record", "emit", "log", "record_call"):
@@ -710,15 +734,38 @@ class LLMRuntimeController:
         backend_applied: bool = False,
         skill_count: int = 0,
         tool_count: int = 0,
+        tools_exposed_count: int | None = None,
+        skills_loaded: list[str] | None = None,
         context_mode: str = "compact",
         context_level: str = "compact",
         token_budget: int = 0,
+        call_id: str = "llm_unknown",
+        estimated_input_tokens: int = 0,
+        estimated_output_tokens: int | None = None,
         latency_ms: int = 0,
+        schema_id: str | None = None,
+        schema_version: int | None = None,
+        error_code: str | None = None,
     ) -> dict[str, Any]:
+        normalized_skills_loaded = list(skills_loaded or [])
+        normalized_tools_exposed_count = int(
+            tool_count if tools_exposed_count is None else tools_exposed_count
+        )
+        normalized_schema_id = str(
+            schema_id
+            or _value(_value(policy, "output_schema", default={}), "schema_id", default=f"{purpose}.v1")
+        )
+        normalized_schema_version = int(
+            schema_version
+            or _value(_value(policy, "output_schema", default={}), "schema_version", default=1)
+            or 1
+        )
         return {
+            "call_id": call_id,
             "purpose": purpose,
             "purpose_id": _value(policy, "purpose_id", "purpose", default=purpose),
-            "schema_id": _value(_value(policy, "output_schema", default={}), "schema_id", default=f"{purpose}.v1"),
+            "schema_id": normalized_schema_id,
+            "schema_version": normalized_schema_version,
             "model": model,
             "used_model": model,
             "model_called": model_called,
@@ -735,20 +782,33 @@ class LLMRuntimeController:
             "errors": list(errors or []),
             "skill_count": skill_count,
             "tool_count": tool_count,
+            "tools_exposed_count": normalized_tools_exposed_count,
+            "skills_loaded": normalized_skills_loaded,
             "context_mode": context_mode,
             "context_level": context_level,
             "token_budget": token_budget,
+            "estimated_input_tokens": estimated_input_tokens,
+            "estimated_output_tokens": estimated_output_tokens,
+            "error_code": error_code,
             "telemetry_fields": {
+                "call_id": call_id,
                 "purpose": purpose,
                 "model": model,
                 "skill_count": skill_count,
+                "skills_loaded": normalized_skills_loaded,
                 "tool_count": tool_count,
+                "tools_exposed_count": normalized_tools_exposed_count,
                 "context_mode": context_mode,
                 "context_level": context_level,
                 "token_budget": token_budget,
+                "estimated_input_tokens": estimated_input_tokens,
+                "estimated_output_tokens": estimated_output_tokens,
                 "retry_count": retry_count,
                 "validation_status": validation_status,
                 "latency_ms": latency_ms,
+                "schema_id": normalized_schema_id,
+                "schema_version": normalized_schema_version,
+                "error_code": error_code,
             },
         }
 
@@ -905,9 +965,20 @@ class LLMRuntimeController:
         token_budget = int(_value(resolved_policy, "token_budget", "budget", default=0) or 0)
         context_policy_value = _value(resolved_policy, "context_policy", "context", default={})
         context_level = str(_value(context_policy_value, "context_level", "level", "mode", "context_mode", default="compact"))
+        output_schema_value = output_schema or _value(resolved_policy, "output_schema", default={})
+        schema_id = str(
+            _value(
+                output_schema_value,
+                "schema_id",
+                default=output_schema_value if isinstance(output_schema_value, str) else f"{normalized_purpose}.v1",
+            )
+        )
+        schema_version = int(_value(output_schema_value, "schema_version", default=1) or 1)
+        call_id = f"{normalized_purpose}-{time.time_ns()}"
 
         started_at = time.perf_counter()
         if deterministic_safe:
+            deterministic_input_tokens = estimate_messages_tokens(messages or [])
             result = self._build_result(
                 purpose=normalized_purpose,
                 policy=resolved_policy,
@@ -923,24 +994,40 @@ class LLMRuntimeController:
                 backend_applied=False,
                 skill_count=0,
                 tool_count=0,
+                tools_exposed_count=0,
+                skills_loaded=[],
                 context_mode=str(context_mode or _value(context_policy_value, "context_mode", default="compact")),
                 context_level=context_level,
                 token_budget=token_budget,
+                call_id=call_id,
+                estimated_input_tokens=deterministic_input_tokens,
+                estimated_output_tokens=None,
                 latency_ms=max(0, int((time.perf_counter() - started_at) * 1000)),
+                schema_id=schema_id,
+                schema_version=schema_version,
+                error_code=None,
             )
             self._emit_telemetry(
                 resolved_telemetry_sink,
                 ControllerTelemetry(
+                    call_id=call_id,
                     purpose=normalized_purpose,
                     model=resolved_model,
                     skill_count=0,
+                    skills_loaded=[],
                     tool_count=0,
+                    tools_exposed_count=0,
                     context_mode=str(context_mode or _value(context_policy_value, "context_mode", default="compact")),
                     context_level=context_level,
                     token_budget=token_budget,
+                    estimated_input_tokens=deterministic_input_tokens,
+                    estimated_output_tokens=None,
                     retry_count=0,
                     validation_status="deterministic",
                     latency_ms=max(0, int((time.perf_counter() - started_at) * 1000)),
+                    schema_id=schema_id,
+                    schema_version=schema_version,
+                    error_code=None,
                 ),
             )
             return result
@@ -970,6 +1057,11 @@ class LLMRuntimeController:
             policy=resolved_policy,
         )
         tool_count = len(exposed_tools)
+        estimated_input_tokens = int(
+            _value(prepared_metadata, "final_estimated_tokens", "estimated_message_tokens", default=estimated_message_tokens)
+            or estimated_message_tokens
+            or 0
+        ) + estimate_tools_tokens(exposed_tools)
 
         retry_policy_value = retry_policy
         if retry_policy_value is None:
@@ -991,6 +1083,57 @@ class LLMRuntimeController:
         validation_status = "invalid"
         errors: list[Any] = []
         model_called = False
+
+        if token_budget and estimated_input_tokens > token_budget:
+            failure_result = self._build_result(
+                purpose=normalized_purpose,
+                policy=resolved_policy,
+                model=resolved_model,
+                model_called=False,
+                validation_status="budget_exceeded",
+                retry_count=0,
+                parsed_output=None,
+                errors=["TOKEN_BUDGET_EXCEEDED"],
+                backend_applied=False,
+                skill_count=skill_count if skill_count else len(loaded_skill_names),
+                tool_count=tool_count,
+                tools_exposed_count=tool_count,
+                skills_loaded=loaded_skill_names,
+                context_mode=effective_context_mode,
+                context_level=context_level,
+                token_budget=token_budget,
+                call_id=call_id,
+                estimated_input_tokens=estimated_input_tokens,
+                estimated_output_tokens=None,
+                latency_ms=max(0, int((time.perf_counter() - started_at) * 1000)),
+                schema_id=schema_id,
+                schema_version=schema_version,
+                error_code="TOKEN_BUDGET_EXCEEDED",
+            )
+            self._emit_telemetry(
+                resolved_telemetry_sink,
+                ControllerTelemetry(
+                    call_id=call_id,
+                    purpose=normalized_purpose,
+                    model=resolved_model,
+                    skill_count=failure_result["skill_count"],
+                    skills_loaded=list(loaded_skill_names),
+                    tool_count=tool_count,
+                    tools_exposed_count=tool_count,
+                    context_mode=effective_context_mode,
+                    context_level=context_level,
+                    token_budget=token_budget,
+                    estimated_input_tokens=estimated_input_tokens,
+                    estimated_output_tokens=None,
+                    retry_count=0,
+                    validation_status="budget_exceeded",
+                    latency_ms=failure_result["telemetry_fields"]["latency_ms"],
+                    schema_id=schema_id,
+                    schema_version=schema_version,
+                    error_code="TOKEN_BUDGET_EXCEEDED",
+                ),
+            )
+            return failure_result
 
         for attempt_index in range(max_attempts):
             if attempt_index > 0:
@@ -1047,24 +1190,40 @@ class LLMRuntimeController:
                     backend_applied=False,
                     skill_count=skill_count if skill_count else len(loaded_skill_names),
                     tool_count=tool_count,
+                    tools_exposed_count=tool_count,
+                    skills_loaded=loaded_skill_names,
                     context_mode=effective_context_mode,
                     context_level=context_level,
                     token_budget=token_budget,
+                    call_id=call_id,
+                    estimated_input_tokens=estimated_input_tokens,
+                    estimated_output_tokens=None,
                     latency_ms=max(0, int((time.perf_counter() - started_at) * 1000)),
+                    schema_id=schema_id,
+                    schema_version=schema_version,
+                    error_code=None,
                 )
                 self._emit_telemetry(
                     resolved_telemetry_sink,
                     ControllerTelemetry(
+                        call_id=call_id,
                         purpose=normalized_purpose,
                         model=resolved_model,
                         skill_count=result["skill_count"],
+                        skills_loaded=list(loaded_skill_names),
                         tool_count=tool_count,
+                        tools_exposed_count=tool_count,
                         context_mode=effective_context_mode,
                         context_level=context_level,
                         token_budget=token_budget,
+                        estimated_input_tokens=estimated_input_tokens,
+                        estimated_output_tokens=None,
                         retry_count=attempt_index,
                         validation_status="valid",
                         latency_ms=result["telemetry_fields"]["latency_ms"],
+                        schema_id=schema_id,
+                        schema_version=schema_version,
+                        error_code=None,
                     ),
                 )
                 return result
@@ -1085,24 +1244,40 @@ class LLMRuntimeController:
             backend_applied=False,
             skill_count=skill_count if skill_count else len(loaded_skill_names),
             tool_count=tool_count,
+            tools_exposed_count=tool_count,
+            skills_loaded=loaded_skill_names,
             context_mode=effective_context_mode,
             context_level=context_level,
             token_budget=token_budget,
+            call_id=call_id,
+            estimated_input_tokens=estimated_input_tokens,
+            estimated_output_tokens=None,
             latency_ms=max(0, int((time.perf_counter() - started_at) * 1000)),
+            schema_id=schema_id,
+            schema_version=schema_version,
+            error_code="SCHEMA_RETRY_FAILED",
         )
         self._emit_telemetry(
             resolved_telemetry_sink,
             ControllerTelemetry(
+                call_id=call_id,
                 purpose=normalized_purpose,
                 model=resolved_model,
                 skill_count=failure_result["skill_count"],
+                skills_loaded=list(loaded_skill_names),
                 tool_count=tool_count,
+                tools_exposed_count=tool_count,
                 context_mode=effective_context_mode,
                 context_level=context_level,
                 token_budget=token_budget,
+                estimated_input_tokens=estimated_input_tokens,
+                estimated_output_tokens=None,
                 retry_count=max_attempts - 1,
                 validation_status="retry_failed",
                 latency_ms=failure_result["telemetry_fields"]["latency_ms"],
+                schema_id=schema_id,
+                schema_version=schema_version,
+                error_code="SCHEMA_RETRY_FAILED",
             ),
         )
         return failure_result

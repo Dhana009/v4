@@ -777,11 +777,12 @@ Status note:
 - Focused verification passed: `tests/test_llm_planning_contracts.py` now passes `12/12`; nearby runtime/helper suites passed `37/37`.
 - No merge to main yet.
 - Next planned slice is `LLM-008` through `LLM-010`.
-- MR-3E tests-only started on `dev2/llm-dom-test-mapping`; active scope is `LLM-008` through `LLM-010`.
-- Specialist contract tests added in `tests/test_llm_specialist_contracts.py`; no implementation yet.
-- Verification passed: `python -m py_compile runtime/llm_runtime_controller.py runtime/llm_controller.py tests/test_llm_runtime_controller_contract.py`; `python -m pytest tests/test_llm_runtime_controller_contract.py -q` passed 7/7; `python -m pytest tests/test_context_manager.py tests/test_tool_registry.py tests/test_skill_loading.py -q` passed 30/30.
-- Implementation commit: `240ddac8768bf9667542fa908157d6df62102e10`.
-- No additional implementation changes in this finalize step.
+- MR-3E implementation completed for `LLM-008` through `LLM-010`.
+- Focused verification passed: `tests/test_llm_planning_contracts.py` + `tests/test_llm_specialist_contracts.py` + `tests/test_llm_runtime_controller_contract.py` passed `28/28`; nearby runtime/helper suites passed `30/30`.
+- Optional coverage tool was unavailable in this environment (`--cov` not recognized by the installed pytest).
+- No merge to main yet.
+- LLM-005 through LLM-010 are finalized and moved to Done after verification.
+- Next approved DEV-2 slice is `DOM-001` through `DOM-005`.
 - Shared/blocked rows: `DOM-010` with DEV-4 fixtures.
 - Next checkpoint: proceed to the next approved DEV-2 slice after board review.
 - MR-3C implementation is complete.

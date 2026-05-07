@@ -14,16 +14,24 @@ from runtime.llm_runtime_controller import LLMRuntimeController, PURPOSE_REGISTR
 
 
 EXPECTED_TELEMETRY_FIELDS = {
+    "call_id",
     "purpose",
     "model",
     "skill_count",
+    "skills_loaded",
     "tool_count",
+    "tools_exposed_count",
     "context_mode",
     "context_level",
     "token_budget",
+    "estimated_input_tokens",
+    "estimated_output_tokens",
     "retry_count",
     "validation_status",
     "latency_ms",
+    "schema_id",
+    "schema_version",
+    "error_code",
 }
 
 EXECUTION_TOOL_NAMES = {
@@ -235,6 +243,42 @@ class ContractValidator:
         }
 
 
+class OverBudgetContextManager(FakeContextManager):
+    def __init__(self, *, estimated_message_tokens: int) -> None:
+        super().__init__()
+        self._estimated_message_tokens = estimated_message_tokens
+
+    def prepare_messages(
+        self,
+        messages: list[dict[str, Any]],
+        *,
+        purpose: str,
+        run_id: str | None = None,
+        step_id: str | None = None,
+        context_mode: str = "normal",
+        metadata: dict[str, Any] | None = None,
+        **kwargs: Any,
+    ) -> SimpleNamespace:
+        payload = {
+            "messages": deepcopy(messages),
+            "purpose": purpose,
+            "run_id": run_id,
+            "step_id": step_id,
+            "context_mode": context_mode,
+            "metadata": deepcopy(metadata or {}),
+            "kwargs": dict(kwargs),
+        }
+        self.calls.append(payload)
+        return SimpleNamespace(
+            messages=payload["messages"],
+            purpose=purpose,
+            context_mode=context_mode,
+            metadata=payload["metadata"],
+            message_count=len(messages),
+            estimated_message_tokens=self._estimated_message_tokens,
+        )
+
+
 def _make_controller(
     recorder: FakeCallRecorder,
     telemetry_sink: FakeTelemetrySink,
@@ -322,6 +366,38 @@ def _recovery_option_check(raw_output: dict[str, Any]) -> list[str]:
         if option.get("risk") not in {"low", "medium", "high"}:
             errors.append(f"suggested_options[{index}].risk")
     return errors
+
+
+def _assert_rich_telemetry(
+    payload: dict[str, Any],
+    *,
+    purpose: str,
+    model: str,
+    skill_names: list[str],
+    tool_count: int,
+    token_budget: int,
+    validation_status: str,
+    context_mode: str = "compact",
+    context_level: str = "compact",
+    error_code: str | None = None,
+) -> None:
+    assert payload["call_id"]
+    assert payload["purpose"] == purpose
+    assert payload["model"] == model
+    assert payload["skill_count"] == len(skill_names)
+    assert payload["skills_loaded"] == skill_names
+    assert payload["tool_count"] == tool_count
+    assert payload["tools_exposed_count"] == tool_count
+    assert payload["context_mode"] == context_mode
+    assert payload["context_level"] == context_level
+    assert payload["token_budget"] == token_budget
+    assert payload["estimated_input_tokens"] >= 0
+    assert payload["estimated_output_tokens"] is None
+    assert payload["retry_count"] >= 0
+    assert payload["validation_status"] == validation_status
+    assert payload["schema_id"] == f"{purpose}.v1"
+    assert payload["schema_version"] == 1
+    assert payload["error_code"] == error_code
 
 
 @pytest.mark.parametrize(
@@ -414,7 +490,7 @@ def test_llm_008_009_010_purpose_policies_are_complete_and_inspectable(
     telemetry_fields = policy["telemetry_fields"]
     assert telemetry_fields["purpose"] == purpose
     assert telemetry_fields["model"] == "str"
-    assert EXPECTED_TELEMETRY_FIELDS.issubset(telemetry_fields)
+    assert set(telemetry_fields) == EXPECTED_TELEMETRY_FIELDS
 
 
 def test_llm_008_locator_specialist_advisory_only_boundary() -> None:
@@ -471,14 +547,28 @@ def test_llm_008_locator_specialist_advisory_only_boundary() -> None:
 
     assert result["validation_status"] == "valid"
     assert result["tool_count"] == 5
-    assert result["telemetry_fields"]["token_budget"] == 2200
+    _assert_rich_telemetry(
+        result["telemetry_fields"],
+        purpose="locator_specialist",
+        model="main",
+        skill_names=["llm_runtime_controller", "locator_strategy"],
+        tool_count=5,
+        token_budget=2200,
+        validation_status="valid",
+    )
     assert result["parsed_output"]["candidate_locators"][0]["strategy"] == "role"
     assert result["parsed_output"]["needs_user_selection"] is False
     assert len(recorder.calls) == 1
     assert len(telemetry_sink.records) == 1
-    assert telemetry_sink.records[0]["validation_status"] == "valid"
-    assert telemetry_sink.records[0]["tool_count"] == 5
-    assert telemetry_sink.records[0]["token_budget"] == 2200
+    _assert_rich_telemetry(
+        telemetry_sink.records[0],
+        purpose="locator_specialist",
+        model="main",
+        skill_names=["llm_runtime_controller", "locator_strategy"],
+        tool_count=5,
+        token_budget=2200,
+        validation_status="valid",
+    )
     assert skill_manager.calls[0]["loaded_skill_names"] == [
         "llm_runtime_controller",
         "locator_strategy",
@@ -534,14 +624,28 @@ def test_llm_009_recovery_diagnoser_contract_and_runtime_truth_boundary() -> Non
 
     assert result["validation_status"] == "valid"
     assert result["tool_count"] == 2
-    assert result["telemetry_fields"]["token_budget"] == 1800
+    _assert_rich_telemetry(
+        result["telemetry_fields"],
+        purpose="recovery_diagnoser",
+        model="main",
+        skill_names=["llm_runtime_controller", "prompt_persona_skill_loading"],
+        tool_count=2,
+        token_budget=1800,
+        validation_status="valid",
+    )
     assert result["parsed_output"]["suggested_options"][0]["option_type"] == "update_locator"
     assert result["parsed_output"]["suggested_options"][0]["backend_validation_needed"] is True
     assert len(recorder.calls) == 1
     assert len(telemetry_sink.records) == 1
-    assert telemetry_sink.records[0]["validation_status"] == "valid"
-    assert telemetry_sink.records[0]["tool_count"] == 2
-    assert telemetry_sink.records[0]["token_budget"] == 1800
+    _assert_rich_telemetry(
+        telemetry_sink.records[0],
+        purpose="recovery_diagnoser",
+        model="main",
+        skill_names=["llm_runtime_controller", "prompt_persona_skill_loading"],
+        tool_count=2,
+        token_budget=1800,
+        validation_status="valid",
+    )
     assert skill_manager.calls[0]["loaded_skill_names"] == [
         "llm_runtime_controller",
         "prompt_persona_skill_loading",
@@ -579,7 +683,16 @@ def test_llm_010_deterministic_trace_summarizer_skips_model_call_and_keeps_budge
     assert result["validation_status"] == "deterministic"
     assert result["model_called"] is False
     assert result["token_budget"] == 1000
-    assert result["telemetry_fields"]["token_budget"] == 1000
+    _assert_rich_telemetry(
+        result["telemetry_fields"],
+        purpose="trace_summarizer",
+        model="cheap",
+        skill_names=[],
+        tool_count=0,
+        token_budget=1000,
+        validation_status="deterministic",
+        error_code=None,
+    )
     assert result["parsed_output"] == {
         "purpose": "trace_summarizer",
         "deterministic_reason": "trace already summarized",
@@ -589,9 +702,75 @@ def test_llm_010_deterministic_trace_summarizer_skips_model_call_and_keeps_budge
     assert context_manager.calls == []
     assert skill_manager.calls == []
     assert len(telemetry_sink.records) == 1
-    assert telemetry_sink.records[0]["validation_status"] == "deterministic"
-    assert telemetry_sink.records[0]["token_budget"] == 1000
-    assert EXPECTED_TELEMETRY_FIELDS.issubset(telemetry_sink.records[0])
+    _assert_rich_telemetry(
+        telemetry_sink.records[0],
+        purpose="trace_summarizer",
+        model="cheap",
+        skill_names=[],
+        tool_count=0,
+        token_budget=1000,
+        validation_status="deterministic",
+        error_code=None,
+    )
+
+
+def test_llm_010_budget_guard_rejects_over_budget_calls_without_model_call() -> None:
+    recorder = FakeCallRecorder()
+    telemetry_sink = FakeTelemetrySink()
+    context_manager = OverBudgetContextManager(estimated_message_tokens=6000)
+    skill_manager = FakeSkillManager()
+    controller = LLMRuntimeController(
+        purpose_registry=PURPOSE_REGISTRY,
+        schema_validator=FailIfCalledValidator(),
+        context_manager=context_manager,
+        skill_manager=skill_manager,
+        telemetry_sink=telemetry_sink,
+        model_client=FakeOpenAIClient(recorder),
+    )
+
+    result = asyncio.run(
+        controller.call(
+            purpose="recovery_diagnoser",
+            messages=[
+                {
+                    "role": "user",
+                    "content": "x" * 4000,
+                }
+            ],
+            tools=MIXED_TOOLS,
+        )
+    )
+
+    assert result["validation_status"] == "budget_exceeded"
+    assert result["model_called"] is False
+    assert result["retry_count"] == 0
+    assert result["parsed_output"] is None
+    assert result["error_code"] == "TOKEN_BUDGET_EXCEEDED"
+    assert result["telemetry_fields"]["estimated_input_tokens"] > result["token_budget"]
+    _assert_rich_telemetry(
+        result["telemetry_fields"],
+        purpose="recovery_diagnoser",
+        model="main",
+        skill_names=["llm_runtime_controller", "prompt_persona_skill_loading"],
+        tool_count=2,
+        token_budget=1800,
+        validation_status="budget_exceeded",
+        error_code="TOKEN_BUDGET_EXCEEDED",
+    )
+    assert recorder.calls == []
+    assert len(context_manager.calls) == 1
+    assert len(skill_manager.calls) == 1
+    assert len(telemetry_sink.records) == 1
+    _assert_rich_telemetry(
+        telemetry_sink.records[0],
+        purpose="recovery_diagnoser",
+        model="main",
+        skill_names=["llm_runtime_controller", "prompt_persona_skill_loading"],
+        tool_count=2,
+        token_budget=1800,
+        validation_status="budget_exceeded",
+        error_code="TOKEN_BUDGET_EXCEEDED",
+    )
 
 
 @pytest.mark.parametrize(
@@ -726,7 +905,16 @@ def test_llm_008_009_invalid_specialist_outputs_fail_closed(
     assert result["retry_count"] == 1
     assert result["parsed_output"] is None
     assert result["tool_count"] == expected_tool_count
+    assert result["error_code"] == "SCHEMA_RETRY_FAILED"
     assert len(recorder.calls) == 2
     assert len(telemetry_sink.records) == 1
-    assert telemetry_sink.records[0]["validation_status"] == "retry_failed"
-    assert telemetry_sink.records[0]["tool_count"] == expected_tool_count
+    _assert_rich_telemetry(
+        telemetry_sink.records[0],
+        purpose=purpose,
+        model="main" if purpose == "journey_planner" else "cheap" if purpose == "intent_classifier" or purpose == "clarification_generator" else "main",
+        skill_names=["llm_runtime_controller", "locator_strategy"] if purpose == "locator_specialist" else ["llm_runtime_controller", "prompt_persona_skill_loading"],
+        tool_count=expected_tool_count,
+        token_budget=2200 if purpose == "locator_specialist" else 1800,
+        validation_status="retry_failed",
+        error_code="SCHEMA_RETRY_FAILED",
+    )

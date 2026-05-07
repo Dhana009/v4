@@ -1,73 +1,70 @@
-# LLM-008 Locator specialist boundary and escalation policy
+# LLM-009 Recovery diagnoser output contract
 
 **Type:** Story  
-**Status:** Inprogress  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-003 LLM Runtime Controller  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
 **Readiness:** Ready for repo inspection; not ready for implementation  
-**Dependencies:** LLM-001, LLM-003, LLM-004, BE-006  
-**Blocks:** DOM/locator epic, execution validation  
+**Dependencies:** LLM-001, LLM-004, BE-008, EVENT-007  
+**Blocks:** recovery UI and backend recovery decisions  
 **Version:** Batch 04 v1  
 
 ---
 
 ## Product contribution
 
-This story defines when and how a locator specialist may help without owning locator truth.
+This story defines how LLM helps diagnose failure without resolving recovery truth.
 
 ## Architecture decision
 
 Fixed:
 
-- deterministic locator evidence first
-- locator specialist suggests candidates/explanations only
-- backend/browser validation decides final locator
-- ambiguous locator asks user or routes recovery
-- no action execution from locator specialist
+- recovery diagnoser suggests cause/options
+- backend owns recovery state
+- LLM cannot mark resolved/skipped/completed
+- unsupported capability becomes gap
 
-## Locator specialist output schema
+## Recovery diagnosis schema
 
 | Field | Required |
 |---|---|
-| target_summary | Yes |
-| candidate_locators | Yes |
-| recommended_candidate_id | Optional |
-| ambiguity_reason | Optional |
-| needs_user_selection | Yes |
+| failure_summary | Yes |
+| likely_cause | Yes |
+| suggested_options | Yes |
+| recommended_option | Optional |
+| needs_user_input | Yes |
+| unsupported_capability | Optional |
 | confidence | Yes |
-| validation_requirements | Yes |
 
-### Candidate locator
+### Suggested option
 
 | Field | Required |
 |---|---|
-| candidate_id | Yes |
-| strategy | role/label/text/testid/css/xpath/etc. |
-| selector_or_locator | Yes |
-| scope | Optional |
-| rationale | Yes |
+| option_id | Yes |
+| option_type | retry/update_locator/skip/stop/clarify/gap |
+| label | Yes |
 | risk | low/medium/high |
+| backend_validation_needed | Yes |
 
 ## Test matrix
 
 | Test ID | Layer | Scenario | Expected |
 |---|---|---|---|
-| LLM008-C-001 | Contract | valid candidates | accepted |
-| LLM008-C-002 | Contract | candidate executes action | rejected |
-| LLM008-U-001 | Unit | deterministic evidence sufficient | no LLM needed |
-| LLM008-U-002 | Unit | ambiguous candidates | needs_user_selection |
-| LLM008-I-001 | Integration | candidate to backend validation | backend decides |
+| LLM009-C-001 | Contract | valid diagnosis | accepted |
+| LLM009-C-002 | Contract | output says resolved | rejected |
+| LLM009-C-003 | Contract | skip without backend validation | rejected |
+| LLM009-I-001 | Integration | diagnosis to BE-008 | recovery options only |
 
 ## Edge cases
 
-- duplicate CTA text
-- nested span target
-- code block assertion
-- hidden element candidate
-- dynamic list/table row
+- stale page after failure
+- locator changed
+- permission issue
+- unsupported capability
+- repeated same failure
 
 ---
 
@@ -126,10 +123,10 @@ After reading this story, Codex should be able to explain:
 
 ## Codex execution summary
 
-First Codex task for LLM-008 should be read-only:
+First Codex task for LLM-009 should be read-only:
 
 ```text
-Read LLM-008, SOURCE-001, PLAN-002, PLAN-005, EPIC-003, and required skills.
+Read LLM-009, SOURCE-001, PLAN-002, PLAN-005, EPIC-003, and required skills.
 Do not edit code.
 Do not inspect unrelated product areas.
 Inspect current LLM runtime ownership and report a narrow implementation path.
