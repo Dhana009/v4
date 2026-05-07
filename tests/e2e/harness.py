@@ -251,6 +251,28 @@ def _append_event_evidence_summary(summary_text: str, event_evidence: Mapping[st
     return f"{summary_prefix}## Event evidence\n\n```json\n{evidence_json}\n```\n"
 
 
+def _build_failure_event_evidence(
+    event_evidence: Mapping[str, Any] | None,
+    expected_event_type: str | None,
+    observed_event_types: Sequence[str] | None,
+) -> dict[str, Any] | None:
+    normalized_event_evidence = _normalize_event_evidence(event_evidence)
+    normalized_observed_event_types = [str(event_type) for event_type in observed_event_types] if observed_event_types is not None else []
+
+    if normalized_event_evidence:
+        return normalized_event_evidence
+
+    if expected_event_type is None and not normalized_observed_event_types:
+        return None
+
+    built_event_evidence: dict[str, Any] = {}
+    if expected_event_type is not None:
+        built_event_evidence["expected_event_type"] = str(expected_event_type)
+    if normalized_observed_event_types:
+        built_event_evidence["observed_event_types"] = normalized_observed_event_types
+    return built_event_evidence
+
+
 def collect_events(source: Any, event_type: str | None = None) -> list[Any]:
     events: list[Any]
     if isinstance(source, Sequence) and not isinstance(source, (str, bytes, bytearray, Path)):
@@ -720,6 +742,9 @@ class E2ESession:
     failure_artifacts_captured: bool = False
     result_status: str = "unknown"
     result_error_summary: str | None = None
+    failure_expected_event_type: str | None = None
+    failure_observed_event_types: list[str] = field(default_factory=list)
+    failure_event_evidence: dict[str, Any] | None = None
 
     def log_stage_ok(self, stage: str) -> None:
         self.current_stage = stage
@@ -765,13 +790,26 @@ class E2ESession:
             "active_mode": active_mode or None,
         }
 
-    async def save_failure_artifacts(self, reason: str, stage: str | None = None) -> dict[str, Any]:
+    async def save_failure_artifacts(
+        self,
+        reason: str,
+        stage: str | None = None,
+        *,
+        expected_event_type: str | None = None,
+        observed_event_types: Sequence[str] | None = None,
+        event_evidence: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
         if self.failure_artifacts_captured:
             return {}
         self.failure_artifacts_captured = True
         self.result_status = "failed"
         self.result_error_summary = reason
         stage_name = stage or self.current_stage
+        normalized_observed_event_types = [str(event_type) for event_type in observed_event_types] if observed_event_types is not None else []
+        stored_event_evidence = _build_failure_event_evidence(event_evidence, expected_event_type, normalized_observed_event_types)
+        self.failure_expected_event_type = expected_event_type
+        self.failure_observed_event_types = normalized_observed_event_types
+        self.failure_event_evidence = stored_event_evidence
         ensure_directory(self.artifact_dir)
         backend_log_text = self._backend_log_text()
         backend_tail = tail_lines_text(backend_log_text, 30)
@@ -798,6 +836,9 @@ class E2ESession:
             "frontend_console_tail_path": str(self.artifact_dir / "frontend.console.tail.log"),
             "stage": stage_name,
             "reason": reason,
+            "expected_event_type": expected_event_type,
+            "observed_event_types": normalized_observed_event_types,
+            "event_evidence": stored_event_evidence,
             "page_state": page_state,
             "page_error": page_error,
             "llm_triggered": llm_triggered,
@@ -805,8 +846,20 @@ class E2ESession:
             "backend_lifecycle_markers": lifecycle_markers,
             "stage_history": self.stage_history + [stage_name],
         }
+        failure_text_lines = [
+            f"stage={stage_name}",
+            f"reason={reason}",
+            f"artifact_dir={self.artifact_dir}",
+        ]
+        if expected_event_type is not None:
+            failure_text_lines.append(f"expected_event_type={expected_event_type}")
+        if normalized_observed_event_types:
+            failure_text_lines.append(f"observed_event_types={normalized_observed_event_types!r}")
+        if stored_event_evidence is not None:
+            failure_text_lines.append("event_evidence=")
+            failure_text_lines.append(json.dumps(stored_event_evidence, indent=2, sort_keys=True))
         (self.artifact_dir / "failure.txt").write_text(
-            f"stage={stage_name}\nreason={reason}\nartifact_dir={self.artifact_dir}\n",
+            "\n".join(failure_text_lines) + "\n",
             encoding="utf-8",
         )
         (self.artifact_dir / "failure-context.json").write_text(
@@ -890,6 +943,7 @@ class E2ESession:
             created_at=self.created_at,
             artifact_texts=artifact_texts,
             optional_absence_notes=DEFAULT_E2E_OPTIONAL_ABSENCE_NOTES,
+            event_evidence=self.failure_event_evidence,
             run_id=self.run_id,
         )
 

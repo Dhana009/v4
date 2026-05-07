@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import sys
 from pathlib import Path
@@ -38,6 +39,81 @@ def _event(event_type: str, run_id: str = "run-123", **payload: object) -> dict[
     }
     event.update(payload)
     return event
+
+
+class _FakeLocator:
+    def __init__(self, text: str = "", visible: bool = False) -> None:
+        self._text = text
+        self._visible = visible
+
+    @property
+    def first(self) -> "_FakeLocator":
+        return self
+
+    async def is_visible(self) -> bool:
+        return self._visible
+
+    async def inner_text(self) -> str:
+        return self._text
+
+
+class _FakePage:
+    def __init__(self, url: str = "http://example.test/agents.html") -> None:
+        self.url = url
+
+    def locator(self, selector: str) -> _FakeLocator:
+        if selector == "#autoworkbench-root .ide-panel":
+            return _FakeLocator(visible=False)
+        if selector == ".ide-tab.active":
+            return _FakeLocator(text="")
+        if selector == ".ide-hd-state":
+            return _FakeLocator(text="")
+        return _FakeLocator()
+
+    async def screenshot(self, path: str, full_page: bool = True) -> None:  # noqa: ARG002
+        Path(path).write_text("fake screenshot", encoding="utf-8")
+
+    async def content(self) -> str:
+        return "<html><body>fake page</body></html>"
+
+
+class _FakeBrowser:
+    async def close(self) -> None:
+        return None
+
+
+class _FakePlaywright:
+    async def stop(self) -> None:
+        return None
+
+
+def _make_failure_session(tmp_path: Path) -> harness.E2ESession:
+    stdout_path = tmp_path / "backend.stdout.log"
+    stderr_path = tmp_path / "backend.stderr.log"
+    stdout_path.write_text("[PLAN_READY] backend ready\n", encoding="utf-8")
+    stderr_path.write_text("", encoding="utf-8")
+    backend = SimpleNamespace(
+        name="autoworkbench-backend",
+        stdout_path=stdout_path,
+        stderr_path=stderr_path,
+        stop=lambda: None,
+        poll=lambda: None,
+        returncode=None,
+    )
+    static_server = SimpleNamespace(stop=lambda: None)
+    return harness.E2ESession(
+        artifact_dir=tmp_path,
+        test_name="failure_artifacts",
+        run_id="run-123",
+        created_at="2026-05-07T00:00:00Z",
+        static_server=static_server,
+        backend=backend,
+        playwright=_FakePlaywright(),
+        browser=_FakeBrowser(),
+        context=SimpleNamespace(),
+        page=_FakePage(),
+        console_entries=[],
+    )
 
 
 def test_resolve_e2e_port_prefers_explicit_value_then_env(monkeypatch) -> None:
@@ -417,3 +493,104 @@ def test_finalize_test_result_can_record_event_evidence_presence_and_absence_met
 
     assert manifest["event_evidence"] == event_evidence
     assert result["event_evidence"] == event_evidence
+
+
+def test_failure_artifacts_record_expected_and_observed_event_metadata(tmp_path: Path) -> None:
+    session = _make_failure_session(tmp_path)
+    captured_before_action = harness.collect_events(
+        [
+            _event("run_started"),
+        ]
+    )
+    observed_events = [
+        _event("run_started"),
+        _event("step_executing"),
+    ]
+    event_evidence = {
+        "captured_before_action": [event["type"] for event in captured_before_action],
+        "expected_event_type": "plan_ready",
+        "observed_event_types": [event["type"] for event in observed_events],
+    }
+
+    context = asyncio.run(
+        session.save_failure_artifacts(
+            "missing plan_ready event",
+            stage="awaiting_plan_ready",
+            expected_event_type="plan_ready",
+            observed_event_types=[event["type"] for event in observed_events],
+            event_evidence=event_evidence,
+        )
+    )
+
+    failure_text = (tmp_path / "failure.txt").read_text(encoding="utf-8")
+    failure_context = json.loads((tmp_path / "failure-context.json").read_text(encoding="utf-8"))
+
+    assert context["expected_event_type"] == "plan_ready"
+    assert context["observed_event_types"] == ["run_started", "step_executing"]
+    assert context["event_evidence"] == event_evidence
+    assert failure_context["expected_event_type"] == "plan_ready"
+    assert failure_context["observed_event_types"] == ["run_started", "step_executing"]
+    assert failure_context["event_evidence"] == event_evidence
+    assert "expected_event_type=plan_ready" in failure_text
+    assert "observed_event_types=['run_started', 'step_executing']" in failure_text
+    assert "captured_before_action" in failure_text
+
+
+def test_failure_artifacts_will_persist_event_evidence_through_close(tmp_path: Path) -> None:
+    session = _make_failure_session(tmp_path)
+    event_evidence = {
+        "captured_before_action": ["run_started"],
+        "expected_event_type": "plan_ready",
+        "observed_event_types": ["run_started", "step_executing"],
+        "present": ["backend.log", "summary.md"],
+    }
+
+    asyncio.run(
+        session.save_failure_artifacts(
+            "missing plan_ready event",
+            stage="awaiting_plan_ready",
+            expected_event_type="plan_ready",
+            observed_event_types=["run_started", "step_executing"],
+            event_evidence=event_evidence,
+        )
+    )
+    asyncio.run(session.close())
+
+    manifest = json.loads((tmp_path / "manifest.json").read_text(encoding="utf-8"))
+    result = json.loads((tmp_path / "test-result.json").read_text(encoding="utf-8"))
+    summary = (tmp_path / "summary.md").read_text(encoding="utf-8")
+
+    assert manifest["optional_absence_notes"] == NORMALIZED_EVIDENCE_NOTES
+    assert not (tmp_path / "events.ndjson").exists()
+    assert not (tmp_path / "commands.json").exists()
+    assert not (tmp_path / "rejections.json").exists()
+    assert manifest["event_evidence"] == event_evidence
+    assert result["event_evidence"] == event_evidence
+    assert "## Event evidence" in summary
+    assert '"expected_event_type": "plan_ready"' in summary
+    assert '"observed_event_types": [' in summary
+
+
+def test_failure_summary_mentions_expected_and_observed_event_types(tmp_path: Path) -> None:
+    session = _make_failure_session(tmp_path)
+    event_evidence = {
+        "captured_before_action": ["run_started"],
+        "expected_event_type": "plan_ready",
+        "observed_event_types": ["run_started"],
+    }
+
+    asyncio.run(
+        session.save_failure_artifacts(
+            "missing plan_ready event",
+            stage="awaiting_plan_ready",
+            expected_event_type="plan_ready",
+            observed_event_types=["run_started"],
+            event_evidence=event_evidence,
+        )
+    )
+
+    failure_text = (tmp_path / "failure.txt").read_text(encoding="utf-8")
+
+    assert "expected_event_type=plan_ready" in failure_text
+    assert "observed_event_types=['run_started']" in failure_text
+    assert "missing plan_ready event" in failure_text
