@@ -19,6 +19,14 @@ def _send_payload_blocks(source: str) -> list[str]:
     return re.findall(r"sendPayload\s*\(\s*\{(?P<body>.*?)\}\s*,", source, re.S)
 
 
+def _snippet_between(source: str, start_marker: str, end_marker: str) -> str:
+    start = source.find(start_marker)
+    assert start != -1, f"missing start marker: {start_marker}"
+    end = source.find(end_marker, start + len(start_marker))
+    assert end != -1, f"missing end marker: {end_marker}"
+    return source[start:end]
+
+
 def test_frontend_event_store_shell_is_source_anchored() -> None:
     main = _read(FRONTEND_MAIN)
 
@@ -122,3 +130,72 @@ def test_frontend_rejection_rendering_should_preserve_backend_reason_and_state()
     assert "rejection_code" in main
     assert "current_state" in main
     assert "lastError" in panel
+
+
+@pytest.mark.parametrize(
+    ("handler_name", "start_marker", "end_marker", "forbidden_markers"),
+    [
+        (
+            "confirm",
+            "  const handleConfirmPlan = useCallback(() => {",
+            "  }, [appendConversation, appendTimeline, sendPayload]);",
+            ("setRunState(", "setInteractionMode(", "setPlan("),
+        ),
+        (
+            "correction",
+            "  const handleSendPlanCorrection = useCallback(() => {",
+            "  }, [appendConversation, appendTimeline, plan, planCorrectionText, sendPayload]);",
+            ("setRunState(", "setInteractionMode(", "setPlan("),
+        ),
+        (
+            "clarification",
+            '  const handleSendClarificationAnswer = useCallback(\n    (answerOverride = "") => {',
+            '    [appendConversation, appendTimeline, clarificationAnswerText, sendPayload]\n  );',
+            ("setRunState(", "setInteractionMode(", "setClarificationQuestion(", "setClarificationOptions("),
+        ),
+        (
+            "recovery",
+            "  const handleSendRecoveryInstruction = useCallback(() => {",
+            "  }, [appendConversation, appendTimeline, recoveryText, sendPayload]);",
+            ("setRunState(", "setInteractionMode("),
+        ),
+    ],
+)
+def test_frontend_command_handlers_do_not_locally_mutate_lifecycle_truth(
+    handler_name: str,
+    start_marker: str,
+    end_marker: str,
+    forbidden_markers: tuple[str, ...],
+) -> None:
+    main = _read(FRONTEND_MAIN)
+    snippet = _snippet_between(main, start_marker, end_marker)
+
+    assert "sendPayload(" in snippet, f"{handler_name} should still submit a typed command"
+    for marker in forbidden_markers:
+        assert marker not in snippet, f"{handler_name} should not optimistically mutate lifecycle truth"
+
+
+def test_frontend_runtime_rejected_reports_without_flipping_lifecycle_truth() -> None:
+    main = _read(FRONTEND_MAIN)
+    snippet = _snippet_between(main, '        case "runtime_rejected": {', '        case "llm_result": {')
+
+    assert "setLastError(rejectionReason);" in snippet
+    assert "appendTimeline([rejectionCode, rejectionReason, currentStateSummary].filter(Boolean).join(\" · \"), \"err\");" in snippet
+    assert "setRunState(" not in snippet
+    assert "setInteractionMode(" not in snippet
+
+
+def test_frontend_backend_events_remain_the_only_lifecycle_source() -> None:
+    main = _read(FRONTEND_MAIN)
+    snippet = _snippet_between(main, "  const handleBackendMessage = useCallback(\n    (message) => {", "  useEffect(() => {")
+
+    assert 'case "status": {' in snippet
+    assert 'case "llm_thinking":' in snippet
+    assert 'case "plan_ready": {' in snippet
+    assert 'case "clarification_needed": {' in snippet
+    assert 'case "error":' in snippet
+    assert 'case "step_recorded": {' in snippet
+    assert "setRunState(" in snippet
+    assert "setInteractionMode(" in snippet
+    assert "setPlan(" in snippet
+    assert "setRecordedSteps(" in snippet

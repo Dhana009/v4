@@ -79,6 +79,17 @@ Fixed:
 - no browser-startup E2E tests were run for this slice
 - no backend/runtime/LLM/DOM changes
 
+## MR-4H read-model purity hardening
+
+- read-model purity tests added in `tests/test_frontend_event_command_contract.py`
+- optimistic lifecycle mutation removed from confirm, correction, clarification, and recovery command handlers in `frontend/src/main.jsx`
+- backend events remain the only lifecycle/read-model transition source
+- `python -m py_compile tests/test_frontend_event_command_contract.py` passed
+- `python -m pytest tests/test_frontend_event_command_contract.py tests/test_command_contract.py tests/test_process_boundary_contract.py tests/test_plan_correction.py tests/test_late_event_contract.py -q` returned `78 passed`
+- `cd frontend && npm run build` succeeded
+- remaining known gap: the frontend reports rejected commands through `lastError` and timeline only; no separate pending-command banner is surfaced in the panel
+- no backend/runtime/LLM/DOM changes
+
 ## Store state slices
 
 | Slice | Source event families |

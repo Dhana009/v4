@@ -1812,8 +1812,6 @@ function useAutoWorkbenchTransport(config) {
 
     if (sent) {
       appendConversation("user", "Confirmed.");
-      setRunState("executing");
-      setInteractionMode("executing");
       setPlanCorrectionText("");
       appendTimeline("Confirmation sent.", "ok");
     }
@@ -1848,8 +1846,6 @@ function useAutoWorkbenchTransport(config) {
 
     if (sent) {
       appendConversation("user", correction);
-      setRunState("planning");
-      setInteractionMode("planning");
       setPlanCorrectionText("");
       appendTimeline("Correction sent.", "ok");
     }
@@ -1881,10 +1877,6 @@ function useAutoWorkbenchTransport(config) {
       if (sent) {
         appendConversation("user", answer);
         appendTimeline("Clarification answer sent.", "ok");
-        setRunState("executing");
-        setInteractionMode("executing");
-        setClarificationQuestion("");
-        setClarificationOptions([]);
         setClarificationAnswerText("");
       }
     },
@@ -1914,8 +1906,6 @@ function useAutoWorkbenchTransport(config) {
     if (sent) {
       appendConversation("user", instruction);
       appendTimeline("Recovery instruction sent.", "ok");
-      setRunState("recovery");
-      setInteractionMode("recovery");
       setRecoveryText("");
     }
   }, [appendConversation, appendTimeline, recoveryText, sendPayload]);

@@ -79,6 +79,18 @@ Fixed:
 - no browser-startup E2E tests were run for this slice
 - no backend/runtime/LLM/DOM changes
 
+## MR-4H command-purity hardening
+
+- read-model purity tests added alongside the command envelope contract coverage
+- confirm, correction, clarification, and recovery handlers no longer optimistically mutate lifecycle truth in `frontend/src/main.jsx`
+- typed command envelopes and backend command contract shapes remain unchanged
+- backend `runtime_rejected` stays the rejection-reporting path and does not infer lifecycle success
+- `python -m py_compile tests/test_frontend_event_command_contract.py` passed
+- `python -m pytest tests/test_frontend_event_command_contract.py tests/test_command_contract.py tests/test_process_boundary_contract.py tests/test_plan_correction.py tests/test_late_event_contract.py -q` returned `78 passed`
+- `cd frontend && npm run build` succeeded
+- remaining known gap: the frontend has no separate pending-command banner; it relies on backend events and the debug/error surface
+- no backend/runtime/LLM/DOM changes
+
 ## Edge cases
 
 - double click confirm
