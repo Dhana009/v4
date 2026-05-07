@@ -1,7 +1,7 @@
 # LLM-006 Journey planner output contract
 
 **Type:** Story  
-**Status:** In Progress  
+**Status:** Testing  
 **Priority:** P0  
 **Epic:** EPIC-003 LLM Runtime Controller  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  

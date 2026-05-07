@@ -1,70 +1,60 @@
-# LLM-007 Plan correction diff output contract
+# LLM-005 Intent classification and clarification routing
 
 **Type:** Story  
-**Status:** In Progress  
+**Status:** Testing  
 **Priority:** P0  
 **Epic:** EPIC-003 LLM Runtime Controller  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
 **Readiness:** Ready for repo inspection; not ready for implementation  
-**Dependencies:** LLM-001, LLM-004, BE-007, EVENT-004  
-**Blocks:** safe correction flow  
+**Dependencies:** LLM-001, LLM-002, LLM-004, EVENT-007  
+**Blocks:** LLM-006 journey planner, clarification UI  
 **Version:** Batch 04 v1  
 
 ---
 
 ## Product contribution
 
-This story defines the LLM output contract for plan corrections.
+This story decides whether user input is ready for planning or needs clarification.
 
 ## Architecture decision
 
 Fixed:
 
-- LLM outputs structured diff, not full plan overwrite
-- backend applies/rejects diff
-- invalid schema retries once then fail closed
-- removals/reorders require explicit reason
+- intent classifier does not create plan directly
+- missing information routes to clarification
+- backend emits clarification_needed; LLM only proposes question/options
+- no guessing for ambiguous target/scope/data
 
-## Correction diff output schema
+## Intent output schema
 
-| Field | Required |
-|---|---|
-| correction_intent | Yes |
-| target_plan_id/version | Yes |
-| operations | Yes |
-| reasoning_summary | Optional |
-| ambiguity | Optional |
-| requires_user_clarification | Yes |
-
-### Diff operation
-
-| Field | Required |
-|---|---|
-| action | add/update/remove/reorder |
-| target_type | step/operation |
-| target_id | Conditional |
-| patch | Conditional |
-| position | Conditional |
-| reason | Yes |
+| Field | Required | Meaning |
+|---|---|---|
+| intent_type | Yes | create_plan/correction/question/replay/unknown |
+| confidence | Yes | high/medium/low |
+| missing_info | Yes | list |
+| clarification_question | Conditional | question text |
+| suggested_options | Optional | choices |
+| risk_flags | Optional | permission/destructive/ambiguous |
+| planner_ready | Yes | boolean |
 
 ## Test matrix
 
 | Test ID | Layer | Scenario | Expected |
 |---|---|---|---|
-| LLM007-C-001 | Contract | valid update diff | accepted |
-| LLM007-C-002 | Contract | full plan replacement | rejected |
-| LLM007-C-003 | Contract | remove without reason | rejected |
-| LLM007-C-004 | Contract | invalid twice | fail closed |
-| LLM007-I-001 | Integration | correction diff to BE-007 | backend validates |
+| LLM005-U-001 | Unit | clear automation intent | planner_ready true |
+| LLM005-U-002 | Unit | ambiguous target | clarification |
+| LLM005-U-003 | Unit | missing test data | clarification |
+| LLM005-U-004 | Unit | low confidence | clarification |
+| LLM005-I-001 | Integration | classifier clarification | EVENT-007 shape compatible |
 
 ## Edge cases
 
-- reorder with dependency conflict
-- correction target missing
-- LLM drops child silently
-- user correction ambiguous
+- user says “do it”
+- multiple possible targets
+- destructive request
+- correction disguised as new plan
 
 ---
 
@@ -123,10 +113,10 @@ After reading this story, Codex should be able to explain:
 
 ## Codex execution summary
 
-First Codex task for LLM-007 should be read-only:
+First Codex task for LLM-005 should be read-only:
 
 ```text
-Read LLM-007, SOURCE-001, PLAN-002, PLAN-005, EPIC-003, and required skills.
+Read LLM-005, SOURCE-001, PLAN-002, PLAN-005, EPIC-003, and required skills.
 Do not edit code.
 Do not inspect unrelated product areas.
 Inspect current LLM runtime ownership and report a narrow implementation path.

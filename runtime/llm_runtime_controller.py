@@ -661,6 +661,9 @@ class LLMRuntimeController:
 
         allowed_names = set(self._tool_names_for_phase(policy, phase))
         if not allowed_names:
+            normalized_phase = str(phase or "").strip().lower() or "planning"
+            if normalized_phase in {"planning", "awaiting_confirmation"}:
+                return []
             return filtered_tools
 
         final_tools: list[Any] = []
@@ -1117,4 +1120,3 @@ def _tool_name(tool: Any, index: int = 0) -> str:
             return str(name)
     text = str(tool).strip()
     return text or f"tool_{index + 1}"
-

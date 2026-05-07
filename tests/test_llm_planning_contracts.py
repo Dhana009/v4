@@ -545,8 +545,6 @@ def test_llm_005_intent_classifier_returns_clarification_ready_payload() -> None
     assert len(recorder.calls) == 1
     assert len(telemetry_sink.records) == 1
     assert telemetry_sink.records[0]["validation_status"] == "valid"
-    if result["tool_count"] != 0:
-        pytest.xfail("intent_classifier tool pruning is not yet enforced by the current controller seam")
     assert result["tool_count"] == 0
     assert telemetry_sink.records[0]["tool_count"] == 0
     assert telemetry_sink.records[0]["skill_count"] == 2
@@ -686,7 +684,7 @@ def test_llm_007_plan_diff_editor_returns_mutation_only_diff() -> None:
                 ),
                 field_check=_intent_classifier_errors,
             ),
-            None,
+            0,
         ),
         (
             "clarification_generator",
@@ -779,7 +777,7 @@ def test_llm_005_006_007_invalid_outputs_fail_closed_after_one_retry(
     purpose: str,
     bad_output: dict[str, Any],
     validator: ContractValidator,
-    expected_tool_count: int | None,
+    expected_tool_count: int,
 ) -> None:
     result, recorder, telemetry_sink = _run_contract_call(
         purpose,
@@ -794,7 +792,6 @@ def test_llm_005_006_007_invalid_outputs_fail_closed_after_one_retry(
     assert len(recorder.calls) == 2
     assert len(telemetry_sink.records) == 1
     assert telemetry_sink.records[0]["validation_status"] == "retry_failed"
-    if expected_tool_count is not None:
-        assert result["tool_count"] == expected_tool_count
-        assert telemetry_sink.records[0]["tool_count"] == expected_tool_count
+    assert result["tool_count"] == expected_tool_count
+    assert telemetry_sink.records[0]["tool_count"] == expected_tool_count
     assert telemetry_sink.records[0]["skill_count"] == 2
