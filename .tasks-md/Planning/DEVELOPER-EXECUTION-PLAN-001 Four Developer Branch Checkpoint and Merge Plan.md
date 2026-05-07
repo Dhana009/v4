@@ -571,150 +571,30 @@ CI/local tier plan proposed
 
 ---
 
-### MR-1A: Backend/event first-slice mapping
+### DEV-1 board index
 
 Owner: DEV-1  
-Type: mapping  
-Production code: no  
-Merge when:
-
-```text
-selected matrix rows mapped to repo tests/proposed files
-missing tests identified
-commands listed
-allowed/forbidden files documented
-```
-
----
-
-### MR-1B: Backend/event tests only
-
-Owner: DEV-1  
-Type: tests only  
-Production code: no  
-Status: completed in `f117599` and merged into local main at `eb1bd31`
-Verification: `9 passed, 16 xfailed`
-Merge when:
-
-```text
-selected P0 tests created/updated
-expected failures documented if implementation is missing
-existing tests still pass or failures are explained
-```
-
----
-
-### MR-1C: Backend/event narrow implementation
-
-Owner: DEV-1  
-Type: implementation  
-Status: completed in `f7e3847` and merged into local main at `eb1bd31`
-Verification: `41 passed, 2 xfailed`
-Deferred seams: none
-Merge when:
-
-```text
-MR-1B tests pass
-no broad refactor
-affected regression tests pass
-architecture invariants preserved
-```
-
----
-
-### MR-1D: Stale confirmation / run-context guard
-
-Owner: DEV-1  
-Type: implementation  
-Status: completed in `176cad2` and merged into local main at `eb1bd31`
-Verification: `42 passed, 1 xfailed`
-Deferred seams: none
-Merge when:
-
-```text
-active-plan confirmation context is validated
-stale confirmation cannot trigger execution
-typed runtime_rejected is emitted for mismatched context
-affected regression tests pass
-```
-
----
-
-### MR-1E: Session state websocket handshake
-
-Owner: DEV-1  
-Type: implementation  
-Status: completed in `f7e1c61` and merged into local main at `908f4d0`
-Verification: `43 passed` for focused backend/event suite; `11 passed` for websocket/session suite
-Deferred seams: none
-Merge when:
-
-```text
-session_state is the first websocket handshake event
-status/ready still follows if needed
-session_state is typed backend truth, not frontend inference
-affected backend/event and websocket/session tests pass
-```
-
----
-
-### DEV-1 branch status board
-
-```text
-Branch: `dev1/backend-isolation-contract-tests`
+Branch: `dev1/backend-isolation-contract-tests`  
 Main baseline: `908f4d0`
 
-Done / Completed
-- Backend/event foundation established on DEV-1 branch
-- Merged to local main
-  - MR-1B backend/event contract tests completed in `f117599`
-  - MR-1C typed backend event/command seam completed in `f7e3847`
-  - MR-1D stale confirmation/run-context guard completed in `176cad2`
-  - MR-1E session_state websocket handshake completed in `f7e1c61`
-- Done on DEV-1 branch, pending later batch merge to main
-  - MR-1A backend/event mapping completed
-  - Backend isolation recovery-state leak fixed, commit `1b8c084`
-  - Snapshot/archive contract tests added, commit `112a481`
-  - Late-event contract tests added, commit `98944ad`
-  - Stale backend command rejection implemented, commit `cd438d7`
-  - Late confirmation rejection for completed runs implemented, commit `6b03a82`
-  - Process-boundary contract tests added, commit `2011da2`
-  - Safe backend snapshot/archive loader seam added, commit `ac1bcb5`
-  - Recording/codegen truth contract tests added, commit `8932478`
+The detailed DEV-1 board now lives in folder-state files:
 
-In Progress
-- Recording/codegen truth implementation
-- Current contract test slice: `tests/test_recording_codegen_truth_contract.py`
-- Exposed gap: `agent.py::_build_code_update_payload(...)` still lets `generated_line` be used when child evidence is unresolved or failed.
-- Intended next implementation: require `code_update` lines to come only from successful or recorded backend child-operation evidence.
+| State | File | Current meaning |
+|---|---|---|
+| Done | [`Done/DEV-1 Backend Runtime and Recording Done.md`](../Done/DEV-1%20Backend%20Runtime%20and%20Recording%20Done.md) | completed work split into merged-to-main and branch-only done items |
+| In Progress | [`Inprogress/DEV-1 Recording Codegen Truth Implementation.md`](../Inprogress/DEV-1%20Recording%20Codegen%20Truth%20Implementation.md) | the only active DEV-1 implementation slice |
+| Planning / Pending | [`Planning/DEV-1 Planned Backend Contract Work.md`](./DEV-1%20Planned%20Backend%20Contract%20Work.md) | picked-but-not-started backend slices |
+| Testing | [`Testing/DEV-1 Backend Contract Testing Queue.md`](../Testing/DEV-1%20Backend%20Contract%20Testing%20Queue.md) | no active DEV-1 testing item right now |
+| Backlog / Deferred | [`Backlog/DEV-1 Deferred Backend and Cross-Lane Work.md`](../Backlog/DEV-1%20Deferred%20Backend%20and%20Cross-Lane%20Work.md) | out-of-scope and cross-lane deferred work |
 
-Pending / Planned DEV-1
-- Complete recording/codegen truth implementation.
-- Replay smoke/basic replay contract hardening.
-- Backend restart/session-load integration beyond the narrow loader seam.
-- Load-session/reconnect integration beyond `session_state` shape.
-- Broader save/load/replay evidence checks if scoped to backend only.
-- Update `.tasks-md` after the branch batch is finalized.
+Current board summary:
+- Done: backend/event foundation, MR-1B through MR-1E, recovery isolation, snapshot/archive loader, late-event/late-command/process-boundary contracts, recording/codegen contract tests.
+- In Progress: recording/codegen truth implementation.
+- Planning: replay smoke, restart/session-load, reconnect/session_state extension, broader save/load/replay evidence checks.
+- Backlog: replay repair, full session restore UX, cross-lane frontend/LLM-DOM/E2E/trace/capabilities work.
 
-Deferred / Not Current DEV-1 Slice
-- Broad replay repair.
-- Full session restore UX.
-- Frontend Shadow DOM.
-- LLM/DOM locator intelligence.
-- E2E artifact harness and fixtures.
-- Trace/export/redaction harness.
-- Advanced browser capabilities.
-
-Current verification
-- Last full focused backend contract set before the recording/codegen slice: `47 passed`.
-- Recording/codegen truth contract slice: `50 passed, 1 xfailed`.
-- Broader stale model file has known old failures and is not the active target.
-- No push was done.
-- Forbidden files were not touched.
-- `AGENTS.md` was not staged or committed.
-- `.DS_Store` was not staged or committed.
-- Dirty state expected: `AGENTS.md` only.
-```
+Current verification note:
+- The focused backend contract suite and the recording/codegen contract slice have been verified previously; see the folder-state files for the exact item-level results.
 
 ---
 
