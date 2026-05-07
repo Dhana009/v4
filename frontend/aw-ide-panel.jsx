@@ -417,6 +417,11 @@ function IDEClarificationCard({
 }) {
   const hasOptions = Array.isArray(options) && options.length > 0;
   const text = question || "The agent needs a clarification before it can continue.";
+  const answerRef = React.useRef(null);
+
+  React.useEffect(() => {
+    answerRef.current?.focus?.();
+  }, [question, hasOptions]);
 
   return (
     <IDECard
@@ -456,7 +461,10 @@ function IDEClarificationCard({
         </div>
       )}
       <textarea
+        ref={answerRef}
         className="ide-input"
+        data-testid="clarification-answer"
+        aria-label="Clarification answer"
         rows={3}
         placeholder="Answer clarification…"
         value={answerText}
@@ -468,6 +476,11 @@ function IDEClarificationCard({
 
 function IDERecovery({ message, currentUrl, recoveryText = "", onRecoveryTextChange, onSendRecoveryInstruction }) {
   const issue = message || "Action failed. The agent needs recovery guidance.";
+  const recoveryRef = React.useRef(null);
+
+  React.useEffect(() => {
+    recoveryRef.current?.focus?.();
+  }, [issue, currentUrl]);
 
   return (
     <IDECard
@@ -498,7 +511,10 @@ function IDERecovery({ message, currentUrl, recoveryText = "", onRecoveryTextCha
         </div>
       )}
       <textarea
+        ref={recoveryRef}
         className="ide-input"
+        data-testid="recovery-instruction"
+        aria-label="Recovery instruction"
         rows={3}
         placeholder="Tell the agent how to recover..."
         value={recoveryText}
@@ -1529,6 +1545,8 @@ function IDEPendingSteps({
     <IDECard
       color="amber"
       title="// pending steps"
+      testId="steps"
+      ariaLabel="Steps"
       footer={
         !compact && onAddStep
           ? [

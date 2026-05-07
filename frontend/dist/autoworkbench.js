@@ -24923,6 +24923,10 @@
   }) {
     const hasOptions = Array.isArray(options) && options.length > 0;
     const text = question || "The agent needs a clarification before it can continue.";
+    const answerRef = import_react.default.useRef(null);
+    import_react.default.useEffect(() => {
+      answerRef.current?.focus?.();
+    }, [question, hasOptions]);
     return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
       IDECard,
       {
@@ -24962,7 +24966,10 @@
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
             "textarea",
             {
+              ref: answerRef,
               className: "ide-input",
+              "data-testid": "clarification-answer",
+              "aria-label": "Clarification answer",
               rows: 3,
               placeholder: "Answer clarification\u2026",
               value: answerText,
@@ -24975,6 +24982,10 @@
   }
   function IDERecovery({ message, currentUrl, recoveryText = "", onRecoveryTextChange, onSendRecoveryInstruction }) {
     const issue = message || "Action failed. The agent needs recovery guidance.";
+    const recoveryRef = import_react.default.useRef(null);
+    import_react.default.useEffect(() => {
+      recoveryRef.current?.focus?.();
+    }, [issue, currentUrl]);
     return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
       IDECard,
       {
@@ -25007,7 +25018,10 @@
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
             "textarea",
             {
+              ref: recoveryRef,
               className: "ide-input",
+              "data-testid": "recovery-instruction",
+              "aria-label": "Recovery instruction",
               rows: 3,
               placeholder: "Tell the agent how to recover...",
               value: recoveryText,
@@ -25914,6 +25928,8 @@
       {
         color: "amber",
         title: "// pending steps",
+        testId: "steps",
+        ariaLabel: "Steps",
         footer: !compact && onAddStep ? [
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ide-btn primary", type: "button", style: { flex: 1, justifyContent: "center" }, onClick: () => onAddStep?.(), children: "+ Step" }, "add")
         ] : null,
