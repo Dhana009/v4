@@ -142,30 +142,6 @@ Do not modify code.
 Do not create tests yet.
 ```
 
-### Board note
-
-BE-001 through BE-004 have now been decomposed into measurable subtasks and moved to Planning on the DEV-1 board. Leave BE-005 through BE-012 untouched for this batch.
-
-### Board note
-
-BE-005 through BE-008 have now been decomposed into measurable subtasks and moved to Planning on the DEV-1 board. Leave BE-009 through BE-012 untouched for this batch.
-
-### Board note
-
-BE-001 through BE-008 audit children were moved through In Progress and closed as Done on the DEV-1 board after focused backend contract verification. Leave BE-009 through BE-012 untouched for the next batch.
-
-### Board note
-
-BE-001 through BE-012 have now been moved to Done on the DEV-1 board. The planned DEV-1 backend P0 scope is complete.
-
-### Board note
-
-Next step is full backend verification and coverage review before any merge/push decision.
-
-### Board note
-
-Deferred items remain outside the done scope, including broad replay repair, full session restore UX, frontend/LLM/DOM/E2E/trace work, and advanced browser capabilities.
-
 ### Selected first-slice matrix areas
 
 ```text
@@ -534,45 +510,20 @@ Safe next action:
 ### Next DEV-4 slice
 
 ```text
-Selected story: TRACE-009 Artifact bundle and export format
-Story status: Done
-Why complete: harness-side artifact emission across events.ndjson, commands.json, and rejections.json is verified, and the remaining artifact-bundle work is now focused elsewhere without touching product/runtime/frontend code.
-Completed subtask: TRACE-009A map current artifact writers and summary/manifest/result fields for event, command, and rejection evidence
-Completed subtask status: Done
-Verification: read-only mapping complete; no files changed
-Completed subtask: TRACE-009B add red tests for events.ndjson emission baseline only
-Completed subtask status: Done
-Verification: python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
-Verification: python -m pytest tests/test_e2e_harness.py -q -> 22 passed
-Completed subtask: TRACE-009C add red tests for commands.json emission baseline only
-Completed subtask status: Done
-Verification: python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
-Verification: python -m pytest tests/test_e2e_harness.py -q -> 25 passed
-Completed subtask: TRACE-009D add red tests for rejections.json emission baseline only
-Completed subtask status: Done
-Verification: python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
-Verification: python -m pytest tests/test_e2e_harness.py -q -> 28 passed
-Implementation note: commands.json and rejections.json emission baselines implemented.
-Completed subtask: TRACE-009E consolidate events, commands, and rejections artifact emission into one harness path
-Completed subtask status: Done
-Verification: python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
-Verification: python -m pytest tests/test_e2e_harness.py -q -> 30 passed
-Implementation note: existing harness already supported the consolidated path; no code changes were required beyond the added regression coverage.
-Completed subtask: TRACE-009F verify focused tests and record evidence
-Completed subtask status: Done
-Verification: python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
-Verification: python -m pytest tests/test_e2e_harness.py -q -> 30 passed
-Completion note: events.ndjson emitted, commands.json emitted, rejections.json emitted, manifest includes all three, file_hashes cover all three, and optional absence notes remove emitted artifacts.
-Remaining deferred gaps: trace.ndjson, redaction-report.json, live E2E validation if loopback bind remains blocked.
+Selected story: E2E-002 Backend event stream capture and assertion utilities
+Story status: Planned
+Why next: the socket blocker is parked, backend contracts are already merged, and the next evidence-readiness step is to strengthen typed event capture/assertion coverage without touching product runtime logic.
+Selected subtask: E2E-002A map current event capture helpers and artifact outputs to the contract rows
+Selected subtask status: In Progress
 Scope:
   tests/e2e/harness.py
   tests/test_e2e_harness.py
-  .tasks-md/Backlog/TRACE-009 Artifact bundle and export format.md
+  .tasks-md/Backlog/E2E-002 Backend event stream capture and assertion utilities.md
   .tasks-md/Planning/DEVELOPER-EXECUTION-PLAN-001 Four Developer Branch Checkpoint and Merge Plan.md
 Allowed files:
   tests/e2e/harness.py
   tests/test_e2e_harness.py
-  .tasks-md/Backlog/TRACE-009 Artifact bundle and export format.md
+  .tasks-md/Backlog/E2E-002 Backend event stream capture and assertion utilities.md
   .tasks-md/Planning/DEVELOPER-EXECUTION-PLAN-001 Four Developer Branch Checkpoint and Merge Plan.md
 Forbidden files:
   agent.py
@@ -583,19 +534,15 @@ Forbidden files:
   AGENTS.md
   .DS_Store
   CI/config
-Executed subtasks:
-  TRACE-009D add red tests for rejections.json emission baseline
-  TRACE-009E consolidate events, commands, and rejections artifact emission into one harness path
-  TRACE-009F verify focused tests and record evidence
-Verification commands:
-  python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
-  python -m pytest tests/test_e2e_harness.py -q -> 30 passed
+Test plan:
+  start with tests/test_e2e_harness.py focused regressions for event helpers and artifact metadata
+  then add the smallest targeted coverage for capture-before-action and failure-artifact assertions
+  defer all live E2E runs until the next implementation slice is ready
 Stop conditions:
-  artifact emission semantics are unclear without repo evidence
+  event capture semantics are unclear
   changing the helper would require backend contract changes
   implementation would touch forbidden runtime or frontend paths
-  new coverage would depend on the blocked socket or browser environment
-  implementation would broaden beyond the harness/evidence layer
+  new coverage would depend on the blocked socket environment
 ```
 
 ### Matrix areas
@@ -692,30 +639,54 @@ CI/local tier plan proposed
 
 ---
 
-### DEV-1 board index
+### MR-1A: Backend/event first-slice mapping
 
 Owner: DEV-1  
-Branch: `dev1/backend-isolation-contract-tests`  
-Main baseline: `908f4d0`
+Type: mapping  
+Production code: no  
+Merge when:
 
-The detailed DEV-1 board now lives in folder-state files:
+```text
+selected matrix rows mapped to repo tests/proposed files
+missing tests identified
+commands listed
+allowed/forbidden files documented
+```
 
-| State | File | Current meaning |
-|---|---|---|
-| Done | [`Done/DEV-1 Backend Runtime and Recording Done.md`](../Done/DEV-1%20Backend%20Runtime%20and%20Recording%20Done.md) | completed work split into merged-to-main and branch-only done items |
-| In Progress | [`Inprogress/DEV-1 Recording Codegen Truth Implementation.md`](../Inprogress/DEV-1%20Recording%20Codegen%20Truth%20Implementation.md) | the only active DEV-1 implementation slice |
-| Planning / Pending | [`Planning/DEV-1 Planned Backend Contract Work.md`](./DEV-1%20Planned%20Backend%20Contract%20Work.md) | picked-but-not-started backend slices |
-| Testing | [`Testing/DEV-1 Backend Contract Testing Queue.md`](../Testing/DEV-1%20Backend%20Contract%20Testing%20Queue.md) | no active DEV-1 testing item right now |
-| Backlog / Deferred | [`Backlog/DEV-1 Deferred Backend and Cross-Lane Work.md`](../Backlog/DEV-1%20Deferred%20Backend%20and%20Cross-Lane%20Work.md) | out-of-scope and cross-lane deferred work |
+---
 
-Current board summary:
-- Done: backend/event foundation, MR-1B through MR-1E, recovery isolation, snapshot/archive loader, late-event/late-command/process-boundary contracts, recording/codegen contract tests.
-- In Progress: recording/codegen truth implementation.
-- Planning: replay smoke, restart/session-load, reconnect/session_state extension, broader save/load/replay evidence checks.
-- Backlog: replay repair, full session restore UX, cross-lane frontend/LLM-DOM/E2E/trace/capabilities work.
+### MR-1B: Backend/event tests only
 
-Current verification note:
-- The focused backend contract suite and the recording/codegen contract slice have been verified previously; see the folder-state files for the exact item-level results.
+Owner: DEV-1  
+Type: tests only  
+Production code: no  
+Status: completed in `f117599`
+Verification: `9 passed, 16 xfailed`
+Merge when:
+
+```text
+selected P0 tests created/updated
+expected failures documented if implementation is missing
+existing tests still pass or failures are explained
+```
+
+---
+
+### MR-1C: Backend/event narrow implementation
+
+Owner: DEV-1  
+Type: implementation  
+Status: completed in `f7e3847`
+Verification: `41 passed, 2 xfailed`
+Deferred seams: `session_state` shape, stale confirmation run context
+Merge when:
+
+```text
+MR-1B tests pass
+no broad refactor
+affected regression tests pass
+architecture invariants preserved
+```
 
 ---
 
@@ -761,38 +732,6 @@ fixture needs documented
 first safe LLM test slice proposed
 blocked rows identified
 ```
-
-Status note:
-- MR-3A mapping completed on `dev2/llm-dom-test-mapping`.
-- Source docs read, including the three Complete LLM Mode specs.
-- DEV-2 backlog items identified: `DOM-001..DOM-010` and `LLM-001..LLM-010`.
-- DEV-2 planned scope remains the full `DOM-001..DOM-010` plus `LLM-001..LLM-010` backlog set; this board has no separate Planned lane, so backlog is the planned state.
-- First In Progress slice is `LLM-001` through `LLM-004`.
-- MR-3B tests-only started on `dev2/llm-dom-test-mapping`; active slice is `LLM-001` through `LLM-004`.
-- MR-3C finalized on `dev2/llm-dom-test-mapping`; `runtime/llm_runtime_controller.py` now satisfies the 7 contract tests for the LLM Runtime Controller foundation.
-- LLM-001 through LLM-004 moved to Done after final verification.
-- MR-3D tests-only started on `dev2/llm-dom-test-mapping`; active scope is `LLM-005` through `LLM-007`.
-- Tests-only phase; no implementation yet.
-- MR-3D implementation completed for `LLM-005` through `LLM-007`.
-- Focused verification passed: `tests/test_llm_planning_contracts.py` now passes `12/12`; nearby runtime/helper suites passed `37/37`.
-- No merge to main yet.
-- Next planned slice is `LLM-008` through `LLM-010`.
-- MR-3E implementation completed for `LLM-008` through `LLM-010`.
-- Focused verification passed: `tests/test_llm_planning_contracts.py` + `tests/test_llm_specialist_contracts.py` + `tests/test_llm_runtime_controller_contract.py` passed `28/28`; nearby runtime/helper suites passed `30/30`.
-- Optional coverage tool was unavailable in this environment (`--cov` not recognized by the installed pytest).
-- No merge to main yet.
-- LLM-005 through LLM-010 are finalized and moved to Done after verification.
-- Next approved DEV-2 slice is `DOM-001` through `DOM-005`.
-- DOM-001 through DOM-005 finalized and moved to Done on `dev2/llm-dom-test-mapping`; focused verification passed with `tests/test_dom_locator_contracts.py` at `8/8`; no implementation changes in this finalize step; no merge to main yet.
-- DOM-006 through DOM-010 started as the next Inprogress slice.
-- DOM-006 through DOM-010 tests-first slice started on `dev2/llm-dom-test-mapping`; advanced contract tests are being added before implementation, and missing seams are marked xfail with explicit reasons.
-- DOM-006 through DOM-010 implementation completed on `dev2/llm-dom-test-mapping`; advanced DOM contract tests now pass, no merge to main yet, no push.
-- DEV-2 LLM + DOM planned scope completed on branch; LLM-001 through LLM-010 Done and DOM-001 through DOM-010 Done.
-- Final verification passed; no merge to main; no push in this task; AGENTS.md left unstaged.
-- Shared/blocked rows: `DOM-010` with DEV-4 fixtures.
-- Next checkpoint: proceed to the next approved DEV-2 slice after board review.
-- MR-3C implementation is complete.
-- Test-first work for the LLM Runtime Controller foundation slice is complete.
 
 ---
 
