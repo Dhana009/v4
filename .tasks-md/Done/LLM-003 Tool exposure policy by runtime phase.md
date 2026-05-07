@@ -1,13 +1,13 @@
 # LLM-003 Tool exposure policy by runtime phase
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-003 LLM Runtime Controller  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Ready for repo inspection; not ready for implementation  
+**Readiness:** Done; MR-3C finalized  
 **Dependencies:** LLM-001, LLM-002, BE-001, BE-003, EVENT-002  
 **Blocks:** safe LLM tool use, execution contract  
 **Version:** Batch 04 v1  
