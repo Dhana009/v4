@@ -39,7 +39,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 | BE-006.2 Add tests that execution cannot start before confirmation | Done | `tests/test_event_sequence_contract.py`, `tests/test_completion_guard.py` |
 | BE-006.3 Add tests for stale run/plan rejection before execution | Done | `tests/test_backend_isolation_contract.py`, `tests/test_late_event_contract.py` |
 | BE-006.4 Ensure unresolved recovery blocks finality/execution continuation | Done | `tests/test_completion_guard.py`, `tests/test_recovery_scope_guard.py` |
-| BE-006.5 Identify remaining strict execution cursor gaps | Planning | remaining strict-cursor audit child |
+| BE-006.5 Identify remaining strict execution cursor gaps | In Progress | remaining strict execution-cursor audit in progress |
 
 ### Done Children
 
@@ -48,9 +48,13 @@ user intent → plan/correction/confirmation → backend validation → executio
 - `BE-006.3` Add tests for stale run/plan rejection before execution
 - `BE-006.4` Ensure unresolved recovery blocks finality/execution continuation
 
-### Remaining Planning Children
+### In Progress Children
 
 - `BE-006.5` Identify remaining strict execution cursor gaps
+
+### Remaining Planning Children
+
+- None
 
 ## Evidence
 

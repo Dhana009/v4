@@ -40,7 +40,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 | BE-003.3 Add server-side command validation boundary | Done | commit `f7e3847`; `agent.py`, `server.py` |
 | BE-003.4 Reject stale confirmed/correction commands by run_id | Done | commit `cd438d7`; stale backend command rejection in `agent.py` |
 | BE-003.5 Add process-boundary malformed/unknown command tests | Done | commit `2011da2`; `tests/test_process_boundary_contract.py` |
-| BE-003.6 Identify any remaining command validation gaps | Planning | remaining validation-gap child |
+| BE-003.6 Identify any remaining command validation gaps | In Progress | remaining command-validation audit in progress |
 
 ### Done Children
 
@@ -50,9 +50,13 @@ user intent → plan/correction/confirmation → backend validation → executio
 - `BE-003.4` Reject stale confirmed/correction commands by run_id
 - `BE-003.5` Add process-boundary malformed/unknown command tests
 
-### Remaining Planning Children
+### In Progress Children
 
 - `BE-003.6` Identify any remaining command validation gaps
+
+### Remaining Planning Children
+
+- None
 
 ## Evidence
 

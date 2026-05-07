@@ -39,7 +39,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 | BE-004.2 Store run_id/plan context on active plan | Done | commits `176cad2` and `6b03a82`; confirmation path is run-scoped |
 | BE-004.3 Reject stale confirmations against active plan context | Done | commit `176cad2`; stale plan confirmation guard in `agent.py` |
 | BE-004.4 Ensure late confirmation cannot reopen completed run | Done | commit `6b03a82`; late-confirmation rejection for completed runs |
-| BE-004.5 Identify remaining active plan store/versioning gaps | Planning | remaining versioning-gap child |
+| BE-004.5 Identify remaining active plan store/versioning gaps | In Progress | remaining active-plan versioning audit in progress |
 
 ### Done Children
 
@@ -48,9 +48,13 @@ user intent → plan/correction/confirmation → backend validation → executio
 - `BE-004.3` Reject stale confirmations against active plan context
 - `BE-004.4` Ensure late confirmation cannot reopen completed run
 
-### Remaining Planning Children
+### In Progress Children
 
 - `BE-004.5` Identify remaining active plan store/versioning gaps
+
+### Remaining Planning Children
+
+- None
 
 ## Evidence
 

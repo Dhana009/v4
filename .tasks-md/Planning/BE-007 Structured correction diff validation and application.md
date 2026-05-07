@@ -39,7 +39,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 | BE-007.2 Add stale correction command rejection tests | Done | commit `98944ad`; `tests/test_late_event_contract.py` |
 | BE-007.3 Reject stale correction run_id mismatch with typed rejection | Done | commit `cd438d7`; `tests/test_late_event_contract.py` |
 | BE-007.4 Ensure correction cannot mutate wrong/current run | Done | `tests/test_late_event_contract.py`, `tests/test_command_contract.py` |
-| BE-007.5 Identify remaining structured diff validation gaps | Planning | remaining structured-diff audit child |
+| BE-007.5 Identify remaining structured diff validation gaps | In Progress | remaining structured diff-validation audit in progress |
 
 ### Done Children
 
@@ -48,9 +48,13 @@ user intent → plan/correction/confirmation → backend validation → executio
 - `BE-007.3` Reject stale correction run_id mismatch with typed rejection
 - `BE-007.4` Ensure correction cannot mutate wrong/current run
 
-### Remaining Planning Children
+### In Progress Children
 
 - `BE-007.5` Identify remaining structured diff validation gaps
+
+### Remaining Planning Children
+
+- None
 
 ## Evidence
 

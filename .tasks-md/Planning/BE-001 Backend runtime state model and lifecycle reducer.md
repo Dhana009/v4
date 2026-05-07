@@ -50,22 +50,26 @@ Without this story, later features cannot be trusted because runtime state may a
 
 | Child task | Status | Evidence |
 |---|---|---|
-| BE-001.1 Map current backend lifecycle state fields and reset boundaries | Planning | still needs explicit lifecycle-field and reset-boundary mapping |
+| BE-001.1 Map current backend lifecycle state fields and reset boundaries | In Progress | currently under backend lifecycle-field audit |
 | BE-001.2 Add backend isolation contract tests | Done | commit `1b8c084`; `tests/test_backend_isolation_contract.py`; backend isolation suite passed |
 | BE-001.3 Fix recovery-state reset leak across runs | Done | commit `1b8c084`; recovery-state isolation fix verified on branch |
-| BE-001.4 Add lifecycle reset regression coverage | Planning | remaining regression-coverage child |
-| BE-001.5 Define remaining lifecycle reducer gaps, if any | Planning | final gap-audit child |
+| BE-001.4 Add lifecycle reset regression coverage | In Progress | currently under lifecycle regression audit |
+| BE-001.5 Define remaining lifecycle reducer gaps, if any | In Progress | final lifecycle-gap audit in progress |
 
 ### Done Children
 
 - `BE-001.2` Add backend isolation contract tests
 - `BE-001.3` Fix recovery-state reset leak across runs
 
-### Remaining Planning Children
+### In Progress Children
 
 - `BE-001.1` Map current backend lifecycle state fields and reset boundaries
 - `BE-001.4` Add lifecycle reset regression coverage
 - `BE-001.5` Define remaining lifecycle reducer gaps, if any
+
+### Remaining Planning Children
+
+- None
 
 ## Evidence
 

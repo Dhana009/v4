@@ -39,7 +39,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 | BE-005.2 Require backend-owned confirmation before execution | Done | commit `176cad2`; `tests/test_event_sequence_contract.py` |
 | BE-005.3 Reject stale confirmation against active run/plan context | Done | commits `176cad2`, `6b03a82`; `tests/test_late_event_contract.py` |
 | BE-005.4 Preserve safe legacy bare confirmation compatibility | Done | `runtime/event_contracts.py` accepts confirmed commands with active run context; `tests/test_event_sequence_contract.py`, `tests/test_late_event_contract.py` |
-| BE-005.5 Audit remaining confirmation/versioning gaps | Planning | remaining confirmation/versioning audit child |
+| BE-005.5 Audit remaining confirmation/versioning gaps | In Progress | remaining confirmation/versioning audit in progress |
 
 ### Done Children
 
@@ -48,9 +48,13 @@ user intent → plan/correction/confirmation → backend validation → executio
 - `BE-005.3` Reject stale confirmation against active run/plan context
 - `BE-005.4` Preserve safe legacy bare confirmation compatibility
 
-### Remaining Planning Children
+### In Progress Children
 
 - `BE-005.5` Audit remaining confirmation/versioning gaps
+
+### Remaining Planning Children
+
+- None
 
 ## Evidence
 

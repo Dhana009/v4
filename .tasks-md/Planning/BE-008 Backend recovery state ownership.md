@@ -39,7 +39,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 | BE-008.2 Add backend isolation test for recovery state leakage | Done | commit `1b8c084`; `tests/test_backend_isolation_contract.py` |
 | BE-008.3 Fix `_pending_failure_followup` reset across runs | Done | commit `1b8c084`; `tests/test_recovery_scope_guard.py` |
 | BE-008.4 Ensure recovery state cannot complete unrelated/new run | Done | `tests/test_backend_isolation_contract.py`, `tests/test_recovery_scope_guard.py` |
-| BE-008.5 Identify remaining recovery lifecycle gaps | Planning | remaining recovery-lifecycle audit child |
+| BE-008.5 Identify remaining recovery lifecycle gaps | In Progress | remaining recovery lifecycle audit in progress |
 
 ### Done Children
 
@@ -48,9 +48,13 @@ user intent → plan/correction/confirmation → backend validation → executio
 - `BE-008.3` Fix `_pending_failure_followup` reset across runs
 - `BE-008.4` Ensure recovery state cannot complete unrelated/new run
 
-### Remaining Planning Children
+### In Progress Children
 
 - `BE-008.5` Identify remaining recovery lifecycle gaps
+
+### Remaining Planning Children
+
+- None
 
 ## Evidence
 

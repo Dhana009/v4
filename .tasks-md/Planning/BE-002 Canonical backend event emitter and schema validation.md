@@ -40,7 +40,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 | BE-002.3 Add explicit run_completed event contract | Done | covered by `f7e3847` contract seam and the event-contract suite |
 | BE-002.4 Add explicit recovery_needed event contract | Done | covered by `f7e3847` contract seam and the event-contract suite |
 | BE-002.5 Add session_state websocket event contract | Done | commits `f7e1c61` and `680aa8f`; websocket/session-state handshake and status update |
-| BE-002.6 Identify remaining canonical event envelope/schema gaps | Planning | remaining schema-gap child |
+| BE-002.6 Identify remaining canonical event envelope/schema gaps | In Progress | remaining canonical schema audit in progress |
 
 ### Done Children
 
@@ -50,9 +50,13 @@ user intent → plan/correction/confirmation → backend validation → executio
 - `BE-002.4` Add explicit recovery_needed event contract
 - `BE-002.5` Add session_state websocket event contract
 
-### Remaining Planning Children
+### In Progress Children
 
 - `BE-002.6` Identify remaining canonical event envelope/schema gaps
+
+### Remaining Planning Children
+
+- None
 
 ## Evidence
 
