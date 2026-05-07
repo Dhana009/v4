@@ -142,6 +142,10 @@ Do not modify code.
 Do not create tests yet.
 ```
 
+### Board note
+
+BE-001 through BE-004 have now been decomposed into measurable subtasks and moved to Planning on the DEV-1 board. Leave BE-005 through BE-012 untouched for this batch.
+
 ### Selected first-slice matrix areas
 
 ```text

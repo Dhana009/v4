@@ -1,13 +1,14 @@
 # BE-001 Backend runtime state model and lifecycle reducer
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Planning  
 **Priority:** P0  
 **Epic:** EPIC-001 Backend Runtime Truth  
 **Owner:** DEV-1 Backend Runtime + Event Truth  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Ready for repo inspection; not ready for implementation  
+**Readiness:** Planning; remaining child tasks still open  
+**Progress:** Partially Done  
 **Dependencies:** SOURCE-001, PLAN-002, PLAN-005, EPIC-001  
 **Blocks:** BE-002, BE-003, BE-004, BE-005, BE-006, BE-010, FE lifecycle rendering, E2E lifecycle assertions  
 **Version:** v4 after Codex Batch 01 reviews  
@@ -38,6 +39,43 @@ Without this story, later features cannot be trusted because runtime state may a
 - legacy overlay state
 - scattered globals
 - last-successful-action heuristics
+
+## Parent Status
+
+- Status: Planning
+- Progress: Partially Done
+- Reason: BE-001.2 and BE-001.3 are done on the DEV-1 branch, but the lifecycle-field mapping and regression-coverage children remain open.
+
+## Child Tasks
+
+| Child task | Status | Evidence |
+|---|---|---|
+| BE-001.1 Map current backend lifecycle state fields and reset boundaries | Planning | still needs explicit lifecycle-field and reset-boundary mapping |
+| BE-001.2 Add backend isolation contract tests | Done | commit `1b8c084`; `tests/test_backend_isolation_contract.py`; backend isolation suite passed |
+| BE-001.3 Fix recovery-state reset leak across runs | Done | commit `1b8c084`; recovery-state isolation fix verified on branch |
+| BE-001.4 Add lifecycle reset regression coverage | Planning | remaining regression-coverage child |
+| BE-001.5 Define remaining lifecycle reducer gaps, if any | Planning | final gap-audit child |
+
+### Done Children
+
+- `BE-001.2` Add backend isolation contract tests
+- `BE-001.3` Fix recovery-state reset leak across runs
+
+### Remaining Planning Children
+
+- `BE-001.1` Map current backend lifecycle state fields and reset boundaries
+- `BE-001.4` Add lifecycle reset regression coverage
+- `BE-001.5` Define remaining lifecycle reducer gaps, if any
+
+## Evidence
+
+- Commit `1b8c084` isolated backend recovery state between runs.
+- `tests/test_backend_isolation_contract.py` was added.
+- Backend isolation/focused suite passed, and the later focused set passed `47` tests.
+
+## Next Action
+
+- Close the lifecycle-field mapping and regression-coverage gaps before moving the parent story beyond Planning.
 
 ---
 

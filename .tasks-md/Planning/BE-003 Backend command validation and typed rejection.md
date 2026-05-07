@@ -1,28 +1,70 @@
-# BE-002 Canonical backend event emitter and schema validation
+# BE-003 Backend command validation and typed rejection
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Planning  
 **Priority:** P0  
 **Epic:** EPIC-001 Backend Runtime Truth  
 **Owner:** DEV-1 Backend Runtime + Event Truth  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Ready for repo inspection; not ready for implementation  
+**Readiness:** Planning; validation-gap child still open  
+**Progress:** Mostly Done  
 **Dependencies:** SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001  
-**Blocks:** DEV-3 frontend lifecycle rendering, DEV-4 event capture, BE-003 rejection flow, BE-010 run_completed event  
+**Blocks:** BE-004 active plan validation, BE-005 confirmation, BE-007 correction, BE-012 replay commands  
 **Version:** Batch 02 v1  
 
 ---
 
 ## Product contribution
 
-Creates the canonical backend event layer so frontend, E2E, trace, recording/replay, and user-facing state render from typed backend truth instead of logs, LLM prose, or ad hoc WebSocket payloads.
+Ensures frontend/user commands are requests to the backend, not direct mutations of runtime truth. This protects confirm, correction, replay, skip, stop, and update_locator flows.
 
 This story contributes to the final Complete LLM Mode workflow by strengthening the backend-owned runtime truth path:
 
 ```text
 user intent → plan/correction/confirmation → backend validation → execution/recording/replay/completion
 ```
+
+## Parent Status
+
+- Status: Planning
+- Progress: Mostly Done
+- Reason: command contract tests, typed rejection, stale-command rejection, and process-boundary coverage are done; the remaining validation-gap audit keeps the parent in Planning.
+
+## Child Tasks
+
+| Child task | Status | Evidence |
+|---|---|---|
+| BE-003.1 Add command contract tests | Done | commit `f117599`; `tests/test_command_contract.py` |
+| BE-003.2 Add runtime_rejected typed payload | Done | commit `f7e3847`; `runtime/event_contracts.py` |
+| BE-003.3 Add server-side command validation boundary | Done | commit `f7e3847`; `agent.py`, `server.py` |
+| BE-003.4 Reject stale confirmed/correction commands by run_id | Done | commit `cd438d7`; stale backend command rejection in `agent.py` |
+| BE-003.5 Add process-boundary malformed/unknown command tests | Done | commit `2011da2`; `tests/test_process_boundary_contract.py` |
+| BE-003.6 Identify any remaining command validation gaps | Planning | remaining validation-gap child |
+
+### Done Children
+
+- `BE-003.1` Add command contract tests
+- `BE-003.2` Add runtime_rejected typed payload
+- `BE-003.3` Add server-side command validation boundary
+- `BE-003.4` Reject stale confirmed/correction commands by run_id
+- `BE-003.5` Add process-boundary malformed/unknown command tests
+
+### Remaining Planning Children
+
+- `BE-003.6` Identify any remaining command validation gaps
+
+## Evidence
+
+- Commit `f117599` added command contract coverage.
+- Commit `f7e3847` added the backend command validation seam.
+- Commit `cd438d7` rejected stale backend commands.
+- Commit `2011da2` added process-boundary contract tests.
+- Focused backend contract verification passed `47` tests.
+
+## Next Action
+
+- Confirm there are no remaining command-validation edge cases before moving the parent story out of Planning.
 
 ---
 
@@ -39,7 +81,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 ## System role
 
-| Layer | Relationship to BE-002 |
+| Layer | Relationship to BE-003 |
 |---|---|
 | Backend | Primary owner and source of truth |
 | LLM | Proposes only; cannot own runtime truth |
@@ -53,15 +95,16 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 | Source | Extracted rule | Planning interpretation | Story impact |
 |---|---|---|---|
-| SOURCE-001 | Every important lifecycle change must become a typed backend event. | State changes cannot remain only in logs or frontend assumptions. | Define event factory/schema validation. |
-| Backend Event Contract | Canonical events include plan_ready, clarification_needed, recovery_needed, step_validating, step_executing, step_recorded, step_failed, step_skipped, code_update, replay_started, replay_result, run_completed, session_state, capability_gap_recorded. | Frontend and E2E need stable event names/payloads. | New backend work emits canonical names; adapters are temporary only. |
-| BE-001 | State transitions are backend-owned and event-compatible. | Events expose state truth, not create it. | Consume transition results and serialize them safely. |
+| SOURCE-001 | Frontend collects input; backend owns truth. | Commands request state change but do not own it. | Validate commands before mutation. |
+| Backend Event Contract | Commands include run_steps/llm_run, confirmed, correction, option_selected, replay_step, replay_operation, replay_all, skip_step, stop_run, save_session, load_session, update_locator. | Backend needs canonical command schemas. | Define validation/rejection paths. |
+| BE-001 | Runtime state determines legal transitions. | Commands validate against RunState/PlanState/StepState/OperationState. | Accept/reject based on current state. |
+| BE-002 | Invalid command should return typed evidence. | Use runtime_rejected payload. | No free-form errors only. |
 
 ---
 
 ## Architecture decision
 
-Backend event factory validates event type and required identifiers before emission. Runtime truth events are produced from backend state transitions. LLM/frontend cannot emit runtime-truth events directly.
+All commands are schema-validated and state-validated before runtime mutation. Unsupported, stale, malformed, or state-incompatible commands fail closed with typed rejection evidence.
 
 ---
 
@@ -70,7 +113,7 @@ Backend event factory validates event type and required identifiers before emiss
 | Dependency type | Items | Meaning |
 |---|---|---|
 | Upstream | SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001 | Planning rules and runtime state foundation |
-| Direct blockers | DEV-3 frontend lifecycle rendering, DEV-4 event capture, BE-003 rejection flow, BE-010 run_completed event | Cannot proceed safely without this story or approved mocks |
+| Direct blockers | BE-004 active plan validation, BE-005 confirmation, BE-007 correction, BE-012 replay commands | Cannot proceed safely without this story or approved mocks |
 | Indirect consumers | EPIC-005 frontend, EPIC-006 E2E, EPIC-008 recording/codegen, EPIC-009 trace | Eventually depend on this contract |
 | Parallel safe with mocks | DEV-2 LLM policy planning, DEV-3 Shadow DOM shell, DEV-4 harness skeleton | May proceed only without inventing final backend truth |
 | Conflict zones | `agent.py`, WebSocket command/event paths, runtime state, frontend lifecycle store | Inspect before editing |
@@ -104,14 +147,12 @@ This story unlocks downstream implementation by producing a precise backend cont
 
 | Item | Required fields | Rules | Used by |
 |---|---|---|---|
-| run_started | run_id | status, started_at | RunState.planning |
-| plan_ready | run_id, plan_id, plan_version | steps, summary, status | PlanState.awaiting_confirmation |
-| clarification_needed | run_id, clarification_id | question, options, reason | RunState.clarification |
-| step_validating | run_id, step_id, operation_id? | target/locator context | OperationState.validating |
-| step_executing | run_id, step_id, operation_id | operation type/subtype | OperationState.executing |
-| step_failed/recovery_needed | run_id, step_id, operation_id? | error_summary, options | RunState.recovery |
-| step_recorded | run_id, step_id | recorded parent/children | RecordingState |
-| run_completed | run_id | summary/counts | RunState.completed |
+| run_steps/llm_run | intent or steps | no conflicting active run unless explicit policy | creates planning state |
+| confirmed | run_id, plan_id/version | RunState.plan_review + current PlanState | moves to execution path |
+| correction | run_id, plan_id/version, message/diff | plan_review and current version | routes to BE-007 |
+| skip_step | run_id, step_id, reason | step not already terminal | terminal skipped path |
+| stop_run | run_id | non-terminal run | stopped |
+| replay_step/operation/all | recorded target | no active live execution unless policy allows | replay path |
 
 ---
 
@@ -125,12 +166,12 @@ For P0, this story may use in-memory runtime structures unless existing repo arc
 
 | Test ID | Layer | Scenario | Input/Setup | Expected result | Source rule protected |
 |---|---|---|---|---|---|
-| BE002-C-001 | Contract | valid plan_ready | PlanState.awaiting_confirmation | event accepted | typed events |
-| BE002-C-002 | Contract | missing type | payload without type | rejected | schema validation |
-| BE002-C-003 | Contract | unknown event type | unsupported type | rejected | canonical names |
-| BE002-C-004 | Contract | step event missing step_id | step_executing without step_id | rejected | identity |
-| BE002-C-005 | Contract | runtime_rejected shape | rejection payload | accepted | structured rejection |
-| BE002-I-001 | Integration | invalid event blocked | bad event through bridge | not emitted | frontend safety |
+| BE003-C-001 | Contract | command missing type | payload no type | rejected | schema |
+| BE003-U-001 | Unit | confirm without active plan | confirmed command | runtime_rejected | active plan truth |
+| BE003-U-002 | Unit | stale confirm | old plan_version | rejected | version safety |
+| BE003-U-003 | Unit | skip without reason | skip_step | rejected | explicit terminal |
+| BE003-U-004 | Unit | frontend completion mutation | status=completed | rejected | frontend renders only |
+| BE003-I-001 | Integration | valid confirm path | plan_review + confirmed | accepted transition | confirmation |
 
 ---
 

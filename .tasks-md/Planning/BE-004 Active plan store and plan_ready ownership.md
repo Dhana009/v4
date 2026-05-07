@@ -1,28 +1,67 @@
-# BE-003 Backend command validation and typed rejection
+# BE-004 Active plan store and plan_ready ownership
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Planning  
 **Priority:** P0  
 **Epic:** EPIC-001 Backend Runtime Truth  
 **Owner:** DEV-1 Backend Runtime + Event Truth  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Ready for repo inspection; not ready for implementation  
+**Readiness:** Planning; versioning-gap child still open  
+**Progress:** Partially Done  
 **Dependencies:** SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001  
-**Blocks:** BE-004 active plan validation, BE-005 confirmation, BE-007 correction, BE-012 replay commands  
+**Blocks:** BE-005 confirmation gate, BE-006 execution contract, BE-007 correction diff  
 **Version:** Batch 02 v1  
 
 ---
 
 ## Product contribution
 
-Ensures frontend/user commands are requests to the backend, not direct mutations of runtime truth. This protects confirm, correction, replay, skip, stop, and update_locator flows.
+Makes plan_ready a backend-owned active plan/version, not an LLM message or frontend preview. This lets backend know exactly which plan is corrected, confirmed, and executed.
 
 This story contributes to the final Complete LLM Mode workflow by strengthening the backend-owned runtime truth path:
 
 ```text
 user intent → plan/correction/confirmation → backend validation → execution/recording/replay/completion
 ```
+
+## Parent Status
+
+- Status: Planning
+- Progress: Partially Done
+- Reason: active-plan ownership, stale-confirm rejection, and late-confirmation protection are in place, but the remaining versioning-gap child keeps the parent in Planning.
+
+## Child Tasks
+
+| Child task | Status | Evidence |
+|---|---|---|
+| BE-004.1 Map active plan state ownership in backend | Done | commit `176cad2`; stale plan confirmation path grounded in backend state |
+| BE-004.2 Store run_id/plan context on active plan | Done | commits `176cad2` and `6b03a82`; confirmation path is run-scoped |
+| BE-004.3 Reject stale confirmations against active plan context | Done | commit `176cad2`; stale plan confirmation guard in `agent.py` |
+| BE-004.4 Ensure late confirmation cannot reopen completed run | Done | commit `6b03a82`; late-confirmation rejection for completed runs |
+| BE-004.5 Identify remaining active plan store/versioning gaps | Planning | remaining versioning-gap child |
+
+### Done Children
+
+- `BE-004.1` Map active plan state ownership in backend
+- `BE-004.2` Store run_id/plan context on active plan
+- `BE-004.3` Reject stale confirmations against active plan context
+- `BE-004.4` Ensure late confirmation cannot reopen completed run
+
+### Remaining Planning Children
+
+- `BE-004.5` Identify remaining active plan store/versioning gaps
+
+## Evidence
+
+- Commit `176cad2` rejected stale plan confirmations.
+- Commit `6b03a82` rejected late confirmations for completed runs.
+- Related tests include `tests/test_event_sequence_contract.py` and `tests/test_late_event_contract.py`.
+- Focused backend contract verification passed `47` tests.
+
+## Next Action
+
+- Close the remaining plan-store/versioning gap before moving the parent story out of Planning.
 
 ---
 
@@ -39,7 +78,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 ## System role
 
-| Layer | Relationship to BE-003 |
+| Layer | Relationship to BE-004 |
 |---|---|
 | Backend | Primary owner and source of truth |
 | LLM | Proposes only; cannot own runtime truth |
@@ -53,16 +92,15 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 | Source | Extracted rule | Planning interpretation | Story impact |
 |---|---|---|---|
-| SOURCE-001 | Frontend collects input; backend owns truth. | Commands request state change but do not own it. | Validate commands before mutation. |
-| Backend Event Contract | Commands include run_steps/llm_run, confirmed, correction, option_selected, replay_step, replay_operation, replay_all, skip_step, stop_run, save_session, load_session, update_locator. | Backend needs canonical command schemas. | Define validation/rejection paths. |
-| BE-001 | Runtime state determines legal transitions. | Commands validate against RunState/PlanState/StepState/OperationState. | Accept/reject based on current state. |
-| BE-002 | Invalid command should return typed evidence. | Use runtime_rejected payload. | No free-form errors only. |
+| Product Workflows | User can correct plan; revised plan shown; only corrected plan executes. | Plan identity/version/history are required. | Implement ActivePlan store. |
+| SOURCE-001 | Backend owns plan mutation acceptance. | LLM plan text is proposal only. | Active plan mutation through backend only. |
+| Handoff | Pending step identity remains stable through plan_ready/correction/confirmation/execution/recording. | Plan must preserve stable step/operation IDs where valid. | Store ordered plan children. |
 
 ---
 
 ## Architecture decision
 
-All commands are schema-validated and state-validated before runtime mutation. Unsupported, stale, malformed, or state-incompatible commands fail closed with typed rejection evidence.
+Active plan is a backend object with plan_id/version/status. plan_ready is emitted from that object. Correction creates a new validated version. Confirmation locks current version.
 
 ---
 
@@ -71,7 +109,7 @@ All commands are schema-validated and state-validated before runtime mutation. U
 | Dependency type | Items | Meaning |
 |---|---|---|
 | Upstream | SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001 | Planning rules and runtime state foundation |
-| Direct blockers | BE-004 active plan validation, BE-005 confirmation, BE-007 correction, BE-012 replay commands | Cannot proceed safely without this story or approved mocks |
+| Direct blockers | BE-005 confirmation gate, BE-006 execution contract, BE-007 correction diff | Cannot proceed safely without this story or approved mocks |
 | Indirect consumers | EPIC-005 frontend, EPIC-006 E2E, EPIC-008 recording/codegen, EPIC-009 trace | Eventually depend on this contract |
 | Parallel safe with mocks | DEV-2 LLM policy planning, DEV-3 Shadow DOM shell, DEV-4 harness skeleton | May proceed only without inventing final backend truth |
 | Conflict zones | `agent.py`, WebSocket command/event paths, runtime state, frontend lifecycle store | Inspect before editing |
@@ -105,12 +143,9 @@ This story unlocks downstream implementation by producing a precise backend cont
 
 | Item | Required fields | Rules | Used by |
 |---|---|---|---|
-| run_steps/llm_run | intent or steps | no conflicting active run unless explicit policy | creates planning state |
-| confirmed | run_id, plan_id/version | RunState.plan_review + current PlanState | moves to execution path |
-| correction | run_id, plan_id/version, message/diff | plan_review and current version | routes to BE-007 |
-| skip_step | run_id, step_id, reason | step not already terminal | terminal skipped path |
-| stop_run | run_id | non-terminal run | stopped |
-| replay_step/operation/all | recorded target | no active live execution unless policy allows | replay path |
+| ActivePlan | plan_id, run_id, version, status | draft/awaiting_confirmation/corrected/confirmed/rejected/cancelled | source for plan_ready |
+| ActivePlanStep | step_id, parent_intent, expected_outcome_metadata, children | ordered parent step | source for execution contract |
+| ActivePlanOperation | operation_id, step_id, type/subtype, target, locator_ref, order_index | ordered child operation | source for BE-006 |
 
 ---
 
@@ -124,12 +159,11 @@ For P0, this story may use in-memory runtime structures unless existing repo arc
 
 | Test ID | Layer | Scenario | Input/Setup | Expected result | Source rule protected |
 |---|---|---|---|---|---|
-| BE003-C-001 | Contract | command missing type | payload no type | rejected | schema |
-| BE003-U-001 | Unit | confirm without active plan | confirmed command | runtime_rejected | active plan truth |
-| BE003-U-002 | Unit | stale confirm | old plan_version | rejected | version safety |
-| BE003-U-003 | Unit | skip without reason | skip_step | rejected | explicit terminal |
-| BE003-U-004 | Unit | frontend completion mutation | status=completed | rejected | frontend renders only |
-| BE003-I-001 | Integration | valid confirm path | plan_review + confirmed | accepted transition | confirmation |
+| BE004-U-001 | Unit | create active plan | plan proposal | plan_id/version set | backend plan truth |
+| BE004-U-002 | Unit | correction increments version | correction diff | version+history updated | stale safety |
+| BE004-U-003 | Unit | stale confirm rejected | old version confirm | runtime_rejected | version safety |
+| BE004-U-004 | Unit | discussion no mutation | chat message | active plan unchanged | no prose mutation |
+| BE004-I-001 | Integration | plan_ready→correction→plan_ready | corrected plan | old plan cannot execute | correction path |
 
 ---
 
