@@ -17,6 +17,10 @@ const DEFAULT_CONFIG = {
 };
 
 const SHADOW_HOST_ID = "aw-shadow-host";
+const SHADOW_MOUNT_ID = "aw-shadow-mount";
+const SHADOW_STYLE_ID = "aw-shadow-style";
+const SHADOW_STYLE_FLAG = "data-autoworkbench-shadow-style";
+const AUTOWORKBENCH_STYLE_ID = "autoworkbench-style";
 
 const RUN_STATE_ALIASES = {
   idle: "idle",
@@ -137,6 +141,37 @@ function ensureShadowHost(host) {
   }
 
   return shadowRoot;
+}
+
+function ensureShadowStyles(shadowRoot) {
+  if (!shadowRoot) {
+    return;
+  }
+
+  if (shadowRoot.querySelector(`[${SHADOW_STYLE_FLAG}="true"]`)) {
+    return;
+  }
+
+  const sourceStyle = document.getElementById(AUTOWORKBENCH_STYLE_ID);
+  if (!sourceStyle || !sourceStyle.textContent) {
+    return;
+  }
+
+  const shadowStyle = sourceStyle.cloneNode(true);
+  shadowStyle.id = SHADOW_STYLE_ID;
+  shadowStyle.setAttribute(SHADOW_STYLE_FLAG, "true");
+  shadowRoot.appendChild(shadowStyle);
+}
+
+function ensureShadowMount(shadowRoot) {
+  let mount = shadowRoot.querySelector(`#${SHADOW_MOUNT_ID}`);
+  if (!mount) {
+    mount = document.createElement("div");
+    mount.id = SHADOW_MOUNT_ID;
+    mount.setAttribute("data-testid", "aw-shadow-mount");
+    shadowRoot.appendChild(mount);
+  }
+  return mount;
 }
 
 function resolveWsUrl(config = {}) {
@@ -2448,19 +2483,28 @@ function AutoWorkbenchRuntime({ config }) {
 }
 
 let currentRoot = null;
-let currentNode = null;
+let currentHostNode = null;
+let currentMountNode = null;
 
 function renderInto(node, config) {
-  if (currentRoot && currentNode !== node) {
-    currentRoot.unmount();
-    currentRoot = null;
+  const shadowRoot = ensureShadowHost(node);
+  const mountNode = shadowRoot ? ensureShadowMount(shadowRoot) : node;
+
+  if (shadowRoot) {
+    ensureShadowStyles(shadowRoot);
   }
 
-  ensureShadowHost(node);
+  if (currentRoot && (currentHostNode !== node || currentMountNode !== mountNode)) {
+    currentRoot.unmount();
+    currentRoot = null;
+    currentHostNode = null;
+    currentMountNode = null;
+  }
 
   if (!currentRoot) {
-    currentRoot = createRoot(node);
-    currentNode = node;
+    currentRoot = createRoot(mountNode);
+    currentHostNode = node;
+    currentMountNode = mountNode;
   }
 
   currentRoot.render(<AutoWorkbenchRuntime config={config} />);
@@ -2476,7 +2520,8 @@ function unmount() {
   if (currentRoot) {
     currentRoot.unmount();
     currentRoot = null;
-    currentNode = null;
+    currentHostNode = null;
+    currentMountNode = null;
   }
 }
 

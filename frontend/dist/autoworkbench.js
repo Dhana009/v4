@@ -26219,6 +26219,10 @@
     density: "compact"
   };
   var SHADOW_HOST_ID = "aw-shadow-host";
+  var SHADOW_MOUNT_ID = "aw-shadow-mount";
+  var SHADOW_STYLE_ID = "aw-shadow-style";
+  var SHADOW_STYLE_FLAG = "data-autoworkbench-shadow-style";
+  var AUTOWORKBENCH_STYLE_ID = "autoworkbench-style";
   var RUN_STATE_ALIASES = {
     idle: "idle",
     planning: "planning",
@@ -26325,6 +26329,32 @@
       shadowRoot.appendChild(marker);
     }
     return shadowRoot;
+  }
+  function ensureShadowStyles(shadowRoot) {
+    if (!shadowRoot) {
+      return;
+    }
+    if (shadowRoot.querySelector(`[${SHADOW_STYLE_FLAG}="true"]`)) {
+      return;
+    }
+    const sourceStyle = document.getElementById(AUTOWORKBENCH_STYLE_ID);
+    if (!sourceStyle || !sourceStyle.textContent) {
+      return;
+    }
+    const shadowStyle = sourceStyle.cloneNode(true);
+    shadowStyle.id = SHADOW_STYLE_ID;
+    shadowStyle.setAttribute(SHADOW_STYLE_FLAG, "true");
+    shadowRoot.appendChild(shadowStyle);
+  }
+  function ensureShadowMount(shadowRoot) {
+    let mount2 = shadowRoot.querySelector(`#${SHADOW_MOUNT_ID}`);
+    if (!mount2) {
+      mount2 = document.createElement("div");
+      mount2.id = SHADOW_MOUNT_ID;
+      mount2.setAttribute("data-testid", "aw-shadow-mount");
+      shadowRoot.appendChild(mount2);
+    }
+    return mount2;
   }
   function resolveWsUrl(config = {}) {
     const candidates = [
@@ -28303,16 +28333,24 @@
     );
   }
   var currentRoot = null;
-  var currentNode = null;
+  var currentHostNode = null;
+  var currentMountNode = null;
   function renderInto(node, config) {
-    if (currentRoot && currentNode !== node) {
+    const shadowRoot = ensureShadowHost(node);
+    const mountNode = shadowRoot ? ensureShadowMount(shadowRoot) : node;
+    if (shadowRoot) {
+      ensureShadowStyles(shadowRoot);
+    }
+    if (currentRoot && (currentHostNode !== node || currentMountNode !== mountNode)) {
       currentRoot.unmount();
       currentRoot = null;
+      currentHostNode = null;
+      currentMountNode = null;
     }
-    ensureShadowHost(node);
     if (!currentRoot) {
-      currentRoot = (0, import_client.createRoot)(node);
-      currentNode = node;
+      currentRoot = (0, import_client.createRoot)(mountNode);
+      currentHostNode = node;
+      currentMountNode = mountNode;
     }
     currentRoot.render(/* @__PURE__ */ (0, import_jsx_runtime3.jsx)(AutoWorkbenchRuntime, { config }));
   }
@@ -28325,7 +28363,8 @@
     if (currentRoot) {
       currentRoot.unmount();
       currentRoot = null;
-      currentNode = null;
+      currentHostNode = null;
+      currentMountNode = null;
     }
   }
   window.AutoWorkbench = {

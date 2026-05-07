@@ -8,10 +8,10 @@
 **Branch:** `dev3/frontend-test-harness-mapping`  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** MR-4D test-only slice started; Shadow DOM mount / harness transition contracts added  
+**Readiness:** MR-4E narrow implementation complete; Shadow DOM React mount and shadow-first harness lookup added  
 **Dependencies:** EVENT-010, TEST-FE-001, TEST-MATRIX-FE-001, TEST-MATRIX-EVENT-001, TEST-MATRIX-E2E-001  
 **Blocks:** MR-4B test-only slice selection, safe migration sequencing  
-**Version:** MR-4D v1  
+**Version:** MR-4E v1  
 
 ---
 
@@ -178,6 +178,18 @@ Do not expand MR-4B into implementation until the mapping report is reviewed.
 - added an xfailed shadow-root-aware lookup helper contract
 - `python -m pytest tests/test_frontend_shadow_dom_contract.py tests/test_browser_injection.py tests/test_e2e_harness.py -q` returned `35 passed, 2 xfailed`
 - no frontend/source changes
+
+## MR-4E implementation evidence
+
+- mounted the actual React/product UI inside the Shadow DOM root in `frontend/src/main.jsx`
+- preserved the existing `#autoworkbench-root` light-DOM host for compatibility
+- preserved `window.IDEPanel`
+- added shadow-root style cloning so the UI remains styled inside the shadow tree
+- updated `tests/e2e/harness.py` with `find_autoworkbench_panel` and `wait_for_autoworkbench_ready` helpers that prefer Shadow DOM lookup and fall back to `#autoworkbench-root .ide-panel`
+- `cd frontend && npm run build` succeeded
+- `python -m pytest tests/test_frontend_shadow_dom_contract.py tests/test_browser_injection.py tests/test_e2e_harness.py -q` returned `37 passed`
+- the previous 2 xfails are now green
+- no backend/runtime/LLM/DOM changes
 
 ## Test matrix
 
