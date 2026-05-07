@@ -1,13 +1,13 @@
 # FE-009 Frontend test hooks and accessibility contract
 
 **Type:** Story  
-**Status:** In Progress  
+**Status:** Testing  
 **Priority:** P0  
 **Epic:** EPIC-005 Shadow DOM Frontend  
 **Owner:** DEV-3 Shadow DOM Frontend + Typed Rendering  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** In progress; repo inspection complete  
+**Readiness:** Testing evidence complete  
 **Dependencies:** FE-001, FE-002, FE-003, PLAN-005  
 **Blocks:** DEV-4 E2E UI tests, accessibility-safe UI  
 **Version:** Batch 06 v1  
@@ -44,6 +44,8 @@ Fixed:
 ## Delivery notes
 
 - Tests added: `tests/test_frontend_accessibility_focus.py`
+- Test commit: `ab21a56` `test: add frontend accessibility focus coverage`
+- Implementation commit: `ef492cf` `feat: add frontend accessibility focus hooks`
 - Implementation summary: clarification and recovery now expose explicit focus refs/hooks plus labeled, testable textareas; the Steps surface now has an explicit stable hook and accessible label.
 - Commands/results: `python -m py_compile tests/test_frontend_accessibility_focus.py`; `python -m pytest tests/test_frontend_accessibility_focus.py tests/test_frontend_shadow_dom_contract.py tests/test_frontend_plan_recovery_rendering.py tests/test_frontend_recorded_code_rendering.py -q` → `24 passed`; `cd frontend && npm run build`; broader regression run → `108 passed`.
 - Remaining known gaps: trace/picker/replay remain outside FE-009; legacy header accessibility was not expanded because the current Shadow DOM panel already covers the active tab hooks.
