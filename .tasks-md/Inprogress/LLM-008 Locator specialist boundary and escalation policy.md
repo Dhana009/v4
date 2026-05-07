@@ -1,77 +1,73 @@
-# LLM-010 LLM telemetry, token budget, and cost guard
+# LLM-008 Locator specialist boundary and escalation policy
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Inprogress  
 **Priority:** P0  
 **Epic:** EPIC-003 LLM Runtime Controller  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
 **Readiness:** Ready for repo inspection; not ready for implementation  
-**Dependencies:** LLM-001, LLM-002, LLM-004  
-**Blocks:** trace/observability, cost control, regression evidence  
+**Dependencies:** LLM-001, LLM-003, LLM-004, BE-006  
+**Blocks:** DOM/locator epic, execution validation  
 **Version:** Batch 04 v1  
 
 ---
 
 ## Product contribution
 
-This story makes LLM usage observable and controlled without reducing correctness.
+This story defines when and how a locator specialist may help without owning locator truth.
 
 ## Architecture decision
 
 Fixed:
 
-- every LLM call logs purpose/model/schema/tokens/latency/status
-- token optimization cannot remove safety-critical context
-- telemetry supports debugging and cost review
-- failures include validation/retry outcome
+- deterministic locator evidence first
+- locator specialist suggests candidates/explanations only
+- backend/browser validation decides final locator
+- ambiguous locator asks user or routes recovery
+- no action execution from locator specialist
 
-## Telemetry schema
+## Locator specialist output schema
 
 | Field | Required |
 |---|---|
-| call_id | Yes |
-| purpose | Yes |
-| model | Yes |
-| schema_id/version | Conditional |
-| message_count | Yes |
-| estimated_input_tokens | Yes |
-| estimated_output_tokens | Optional |
-| tools_exposed_count | Yes |
-| skills_loaded | Yes |
-| latency_ms | Yes |
-| validation_status | Yes |
-| retry_count | Yes |
-| error_code | Optional |
+| target_summary | Yes |
+| candidate_locators | Yes |
+| recommended_candidate_id | Optional |
+| ambiguity_reason | Optional |
+| needs_user_selection | Yes |
+| confidence | Yes |
+| validation_requirements | Yes |
 
-## Budget policy
+### Candidate locator
 
-| Situation | Required behavior |
+| Field | Required |
 |---|---|
-| context too large | trim irrelevant context only |
-| required skill missing | stop |
-| required source missing | stop |
-| low-value trace context | summarize |
-| safety-critical context | keep |
+| candidate_id | Yes |
+| strategy | role/label/text/testid/css/xpath/etc. |
+| selector_or_locator | Yes |
+| scope | Optional |
+| rationale | Yes |
+| risk | low/medium/high |
 
 ## Test matrix
 
 | Test ID | Layer | Scenario | Expected |
 |---|---|---|---|
-| LLM010-U-001 | Unit | call telemetry | required fields logged |
-| LLM010-U-002 | Unit | invalid schema retry | retry_count logged |
-| LLM010-U-003 | Unit | context budget exceeded | safe trim |
-| LLM010-U-004 | Unit | required skill removed | rejected/stop |
-| LLM010-I-001 | Integration | controller call emits telemetry | traceable output |
+| LLM008-C-001 | Contract | valid candidates | accepted |
+| LLM008-C-002 | Contract | candidate executes action | rejected |
+| LLM008-U-001 | Unit | deterministic evidence sufficient | no LLM needed |
+| LLM008-U-002 | Unit | ambiguous candidates | needs_user_selection |
+| LLM008-I-001 | Integration | candidate to backend validation | backend decides |
 
 ## Edge cases
 
-- streaming response
-- model route fallback
-- local model vs API model
-- token estimator mismatch
-- telemetry logging failure
+- duplicate CTA text
+- nested span target
+- code block assertion
+- hidden element candidate
+- dynamic list/table row
 
 ---
 
@@ -130,10 +126,10 @@ After reading this story, Codex should be able to explain:
 
 ## Codex execution summary
 
-First Codex task for LLM-010 should be read-only:
+First Codex task for LLM-008 should be read-only:
 
 ```text
-Read LLM-010, SOURCE-001, PLAN-002, PLAN-005, EPIC-003, and required skills.
+Read LLM-008, SOURCE-001, PLAN-002, PLAN-005, EPIC-003, and required skills.
 Do not edit code.
 Do not inspect unrelated product areas.
 Inspect current LLM runtime ownership and report a narrow implementation path.

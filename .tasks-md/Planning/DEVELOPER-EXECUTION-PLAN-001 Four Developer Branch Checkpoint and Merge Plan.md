@@ -777,6 +777,8 @@ Status note:
 - Focused verification passed: `tests/test_llm_planning_contracts.py` now passes `12/12`; nearby runtime/helper suites passed `37/37`.
 - No merge to main yet.
 - Next planned slice is `LLM-008` through `LLM-010`.
+- MR-3E tests-only started on `dev2/llm-dom-test-mapping`; active scope is `LLM-008` through `LLM-010`.
+- Specialist contract tests added in `tests/test_llm_specialist_contracts.py`; no implementation yet.
 - Verification passed: `python -m py_compile runtime/llm_runtime_controller.py runtime/llm_controller.py tests/test_llm_runtime_controller_contract.py`; `python -m pytest tests/test_llm_runtime_controller_contract.py -q` passed 7/7; `python -m pytest tests/test_context_manager.py tests/test_tool_registry.py tests/test_skill_loading.py -q` passed 30/30.
 - Implementation commit: `240ddac8768bf9667542fa908157d6df62102e10`.
 - No additional implementation changes in this finalize step.
