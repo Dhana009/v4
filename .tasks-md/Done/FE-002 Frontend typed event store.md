@@ -1,13 +1,13 @@
 # FE-002 Frontend typed event store
 
 **Type:** Story  
-**Status:** Testing  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-005 Shadow DOM Frontend  
 **Owner:** DEV-3 Shadow DOM Frontend + Typed Rendering  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Pending-command metadata and read-model purity verified; frontend event-store / command-dispatch contracts green  
+**Readiness:** Frontend event-store and command-dispatch contracts verified and complete  
 **Dependencies:** FE-001, EVENT-001, EVENT-003  
 **Blocks:** FE-004, FE-005, FE-006, FE-007, DEV-4 UI assertions  
 **Version:** MR-4F v1  
@@ -36,12 +36,11 @@ Fixed:
 - [x] add test-only slice
 - [x] verification commands
 - [x] stop before implementation unless tests exist and fail/xfail narrowly
-- [ ] implementation MR scope after tests
+- [x] implementation MR scope after tests
 
 ## MR-4F scope note
 
-- FE-002 is the selected next slice.
-- FE-003 remains the follow-on command-dispatch dependency and stays blocked until FE-002 shell expectations are pinned down.
+- Historical note: FE-002 and FE-003 were delivered together as the frontend event-store / command-dispatch pair.
 
 ## MR-4F test-only slice evidence
 
@@ -53,15 +52,15 @@ Fixed:
 
 ## MR-4G event-store test-only slice
 
-- [ ] map FE-002 source rows
-- [ ] inventory existing backend command/event contract tests
-- [ ] define frontend event read-model expectations
-- [ ] define frontend no-inference expectations for completed / recorded / recovery state
-- [ ] negative cases: out-of-order backend events, unknown events, stale / duplicate terminal events
-- [ ] boundary cases: rejected commands do not mutate the event store
-- [ ] test-only slice
-- [ ] narrow implementation slice only after tests exist
-- [ ] verification commands
+- [x] map FE-002 source rows
+- [x] inventory existing backend command/event contract tests
+- [x] define frontend event read-model expectations
+- [x] define frontend no-inference expectations for completed / recorded / recovery state
+- [x] negative cases: out-of-order backend events, unknown events, stale / duplicate terminal events
+- [x] boundary cases: rejected commands do not mutate the event store
+- [x] test-only slice
+- [x] narrow implementation slice only after tests exist
+- [x] verification commands
 
 ## MR-4G scope note
 
@@ -102,13 +101,13 @@ Fixed:
 - remaining known gap: pending command metadata is stored in the frontend runtime state but not yet surfaced as a dedicated visible panel card
 - no backend/runtime/LLM/DOM changes
 
-## Testing evidence
+## Done evidence
 
 - implementation commit: `95afc7d` (`feat: track frontend pending command state`)
 - prior purity commit: `35c26d2` (`feat: harden frontend command lifecycle purity`)
 - latest focused result: `python -m pytest tests/test_frontend_event_command_contract.py tests/test_command_contract.py tests/test_process_boundary_contract.py tests/test_plan_correction.py tests/test_late_event_contract.py -q` returned `84 passed`
 - build result: `cd frontend && npm run build` succeeded
-- remaining known gap: pending-command metadata is tracked in runtime state but not yet surfaced as a dedicated visible panel card
+- remaining pending-command banner is future UX polish, not part of FE-002 acceptance
 - no backend/runtime/LLM/DOM changes
 
 ## Store state slices

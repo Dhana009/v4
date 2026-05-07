@@ -1,13 +1,13 @@
 # FE-003 Command dispatcher and backend command envelope
 
 **Type:** Story  
-**Status:** Testing  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-005 Shadow DOM Frontend  
 **Owner:** DEV-3 Shadow DOM Frontend + Typed Rendering  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Pending-command metadata and typed command contracts verified; frontend dispatcher contract green  
+**Readiness:** Frontend command dispatcher and typed command-envelope contracts verified and complete  
 **Dependencies:** FE-001, EVENT-002, EVENT-003, BE-003  
 **Blocks:** FE-004, FE-005, FE-008, replay controls  
 **Version:** MR-4G v1  
@@ -52,15 +52,15 @@ Fixed:
 
 ## MR-4G test-only subtasks
 
-- [ ] map FE-003 source rows
-- [ ] inventory existing backend command/event contract tests
-- [ ] define frontend command dispatcher expectations
-- [ ] define typed command-envelope context fields for confirm / correction / clarification / recovery
-- [ ] negative cases: stale / duplicate / missing command context
-- [ ] boundary cases: rejected command, unknown command, disconnected submission
-- [ ] test-only slice
-- [ ] narrow implementation slice only after tests exist
-- [ ] verification commands
+- [x] map FE-003 source rows
+- [x] inventory existing backend command/event contract tests
+- [x] define frontend command dispatcher expectations
+- [x] define typed command-envelope context fields for confirm / correction / clarification / recovery
+- [x] negative cases: stale / duplicate / missing command context
+- [x] boundary cases: rejected command, unknown command, disconnected submission
+- [x] test-only slice
+- [x] narrow implementation slice only after tests exist
+- [x] verification commands
 
 ## MR-4G scope note
 
@@ -104,13 +104,13 @@ Fixed:
 - remaining known gap: pending command metadata is tracked in runtime state but not surfaced as a dedicated panel card yet
 - no backend/runtime/LLM/DOM changes
 
-## Testing evidence
+## Done evidence
 
 - implementation commit: `95afc7d` (`feat: track frontend pending command state`)
 - prior command-purity commit: `35c26d2` (`feat: harden frontend command lifecycle purity`)
 - latest focused result: `python -m pytest tests/test_frontend_event_command_contract.py tests/test_command_contract.py tests/test_process_boundary_contract.py tests/test_plan_correction.py tests/test_late_event_contract.py -q` returned `84 passed`
 - build result: `cd frontend && npm run build` succeeded
-- remaining known gap: pending-command metadata is tracked in runtime state but not surfaced as a dedicated panel card yet
+- pending-command banner is future UX polish, not part of FE-003 acceptance
 - no backend/runtime/LLM/DOM changes
 
 ## Edge cases

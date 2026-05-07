@@ -1,13 +1,13 @@
 # FE-008 Picker and element candidate UI
 
 **Type:** Story  
-**Status:** Testing  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-005 Shadow DOM Frontend  
 **Owner:** DEV-3 Shadow DOM Frontend + Typed Rendering  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Frontend display/proposal slice accepted; backend/browser locator validation remains downstream  
+**Readiness:** Picker candidate display/proposal slice accepted and complete  
 **Dependencies:** FE-002, FE-003, DOM-002, DOM-005, DOM-009  
 **Blocks:** locator/picker workflow, DOM E2E  
 **Version:** Batch 06 v1  
@@ -73,14 +73,14 @@ Fixed:
 - Backend/browser validation remains required before locator activation.
 - No backend/runtime/LLM/DOM changes were made for this slice.
 
-## Verification
+## Done evidence
 
 - Added: `tests/test_frontend_picker_candidate_ui.py`
 - Focused suite: `tests/test_frontend_picker_candidate_ui.py tests/test_frontend_accessibility_focus.py tests/test_frontend_event_command_contract.py -q`
 - Result: `25 passed`
 - Build required if frontend source changes: `cd frontend && npm run build`
 - Build result: passed
-- Remaining dependency: backend/browser locator validation still owns final locator truth.
+- backend/browser locator validation remains the external truth owner for activation
 
 ## Edge cases
 

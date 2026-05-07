@@ -1,13 +1,13 @@
 # FE-009 Frontend test hooks and accessibility contract
 
 **Type:** Story  
-**Status:** Testing  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-005 Shadow DOM Frontend  
 **Owner:** DEV-3 Shadow DOM Frontend + Typed Rendering  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Testing evidence complete  
+**Readiness:** Frontend accessibility hooks accepted and complete  
 **Dependencies:** FE-001, FE-002, FE-003, PLAN-005  
 **Blocks:** DEV-4 E2E UI tests, accessibility-safe UI  
 **Version:** Batch 06 v1  
@@ -41,7 +41,7 @@ Fixed:
 - verification commands
 - stop conditions
 
-## Delivery notes
+## Done evidence
 
 - Tests added: `tests/test_frontend_accessibility_focus.py`
 - Test commit: `ab21a56` `test: add frontend accessibility focus coverage`

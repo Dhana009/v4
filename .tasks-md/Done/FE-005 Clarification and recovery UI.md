@@ -1,13 +1,13 @@
 # FE-005 Clarification and recovery UI
 
 **Type:** Story  
-**Status:** Testing  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-005 Shadow DOM Frontend  
 **Owner:** DEV-3 Shadow DOM Frontend + Typed Rendering  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Focused frontend contract tests and build passed; ready for acceptance  
+**Readiness:** Clarification and recovery UI accepted and complete  
 **Dependencies:** FE-002, FE-003, EVENT-007, BE-008  
 **Blocks:** clarification/recovery flows, E2E negative paths  
 **Version:** Batch 06 v1  
@@ -29,18 +29,18 @@ Fixed:
 
 ## Subtasks
 
-- [ ] source-rule mapping
-- [ ] existing frontend/backend event coverage inventory
-- [ ] clarification_needed rendering expectations
-- [ ] recovery_needed rendering expectations
-- [ ] runtime_rejected display expectations
-- [ ] command actions available from each UI state
-- [ ] negative cases: unknown/malformed/missing payloads must not fake lifecycle truth
-- [ ] boundary cases: stale run_id, duplicate events, recovery open blocks completed UI
-- [ ] test-only slice
-- [ ] narrow implementation slice
-- [ ] verification commands
-- [ ] stop conditions
+- [x] source-rule mapping
+- [x] existing frontend/backend event coverage inventory
+- [x] clarification_needed rendering expectations
+- [x] recovery_needed rendering expectations
+- [x] runtime_rejected display expectations
+- [x] command actions available from each UI state
+- [x] negative cases: unknown/malformed/missing payloads must not fake lifecycle truth
+- [x] boundary cases: stale run_id, duplicate events, recovery open blocks completed UI
+- [x] test-only slice
+- [x] narrow implementation slice
+- [x] verification commands
+- [x] stop conditions
 
 ## UI contract
 
@@ -70,12 +70,12 @@ Fixed:
 
 ---
 
-## Testing evidence
+## Done evidence
 
 - tests added: `tests/test_frontend_plan_recovery_rendering.py`
 - implementation summary: `recovery_needed` now drives the backend-owned recovery read-model in `frontend/src/main.jsx`; recovery instruction sending stays typed/pending-only and does not locally close lifecycle truth
 - commands/results: `python -m py_compile tests/test_frontend_plan_recovery_rendering.py`; `python -m pytest tests/test_frontend_plan_recovery_rendering.py tests/test_frontend_event_command_contract.py tests/test_command_contract.py tests/test_plan_correction.py tests/test_late_event_contract.py -q` → `88 passed`; `cd frontend && npm run build` passed
-- remaining known gaps: recovery option variants like `skip_step`, `stop_run`, and `update_locator` remain backend-contract work and are not part of this slice
+- remaining recovery command variants are backend-contract work outside FE-005
 - no backend/runtime/LLM/DOM changes
 
 ---
