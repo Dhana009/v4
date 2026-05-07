@@ -450,6 +450,14 @@ function normalizePendingCommands(commands) {
   return [];
 }
 
+function normalizeCodeDiagnostics(diagnostics) {
+  if (!Array.isArray(diagnostics) || diagnostics.length === 0) {
+    return [];
+  }
+
+  return diagnostics.map((entry) => (entry && typeof entry === "object" ? { ...entry } : entry)).filter((entry) => entry != null);
+}
+
 const EXPECTED_OUTCOME_TYPES = [
   "navigation",
   "modal",
@@ -1502,6 +1510,7 @@ function useAutoWorkbenchTransport(config) {
   const [pendingSteps, setPendingSteps] = useState(() => normalizePendingSteps(config.pendingSteps));
   const [recordedSteps, setRecordedSteps] = useState(() => normalizeRecordedSteps(config.recordedSteps));
   const [lastReplayByStepId, setLastReplayByStepId] = useState({});
+  const [codeDiagnostics, setCodeDiagnostics] = useState(() => normalizeCodeDiagnostics(config.codeDiagnostics));
   const [interactionMode, setInteractionMode] = useState(
     () => normalizeInteractionMode(config.interactionMode ?? config.mode ?? config.runState ?? config.state) || "planning"
   );
@@ -2309,6 +2318,9 @@ function useAutoWorkbenchTransport(config) {
           if (nextCode) {
             setCodePreview(nextCode);
           }
+          setCodeDiagnostics(
+            normalizeCodeDiagnostics(payload && typeof payload === "object" ? payload.diagnostics : [])
+          );
           acknowledgePendingCommands(type, {
             backend_event: type,
           });
@@ -2648,6 +2660,7 @@ function useAutoWorkbenchTransport(config) {
     pendingCommands,
     recordedSteps,
     lastReplayByStepId,
+    codeDiagnostics,
     planCorrectionText,
     clarificationQuestion,
     clarificationOptions,
@@ -2689,6 +2702,7 @@ function useAutoWorkbenchTransport(config) {
     setPendingSteps,
     setPendingCommands,
     setRecordedSteps,
+    setCodeDiagnostics,
     updatePendingStepIntent,
     addPendingStep,
     removePendingStep,

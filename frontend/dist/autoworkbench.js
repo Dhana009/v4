@@ -26571,6 +26571,12 @@
     }
     return [];
   }
+  function normalizeCodeDiagnostics(diagnostics) {
+    if (!Array.isArray(diagnostics) || diagnostics.length === 0) {
+      return [];
+    }
+    return diagnostics.map((entry) => entry && typeof entry === "object" ? { ...entry } : entry).filter((entry) => entry != null);
+  }
   var EXPECTED_OUTCOME_TYPES2 = [
     "navigation",
     "modal",
@@ -27445,6 +27451,7 @@
     const [pendingSteps, setPendingSteps] = (0, import_react2.useState)(() => normalizePendingSteps(config.pendingSteps));
     const [recordedSteps, setRecordedSteps] = (0, import_react2.useState)(() => normalizeRecordedSteps(config.recordedSteps));
     const [lastReplayByStepId, setLastReplayByStepId] = (0, import_react2.useState)({});
+    const [codeDiagnostics, setCodeDiagnostics] = (0, import_react2.useState)(() => normalizeCodeDiagnostics(config.codeDiagnostics));
     const [interactionMode, setInteractionMode] = (0, import_react2.useState)(
       () => normalizeInteractionMode(config.interactionMode ?? config.mode ?? config.runState ?? config.state) || "planning"
     );
@@ -28162,6 +28169,9 @@
             if (nextCode) {
               setCodePreview(nextCode);
             }
+            setCodeDiagnostics(
+              normalizeCodeDiagnostics(payload && typeof payload === "object" ? payload.diagnostics : [])
+            );
             acknowledgePendingCommands(type, {
               backend_event: type
             });
@@ -28470,6 +28480,7 @@
       pendingCommands,
       recordedSteps,
       lastReplayByStepId,
+      codeDiagnostics,
       planCorrectionText,
       clarificationQuestion,
       clarificationOptions,
@@ -28511,6 +28522,7 @@
       setPendingSteps,
       setPendingCommands,
       setRecordedSteps,
+      setCodeDiagnostics,
       updatePendingStepIntent,
       addPendingStep,
       removePendingStep,
