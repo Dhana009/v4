@@ -2120,6 +2120,29 @@ function useAutoWorkbenchTransport(config) {
           appendTimeline("Clarification needed", "warn");
           break;
         }
+        case "recovery_needed": {
+          const recoveryReason = firstNonEmptyText(
+            payload && typeof payload === "object" ? payload.error_summary : "",
+            payload && typeof payload === "object" ? payload.message : "",
+            payload && typeof payload === "object" ? payload.detail : "",
+            text,
+            "Recovery needed"
+          );
+          setRunState("recovery");
+          setInteractionMode("recovery");
+          setLastError(recoveryReason);
+          setPlanCorrectionText("");
+          setClarificationQuestion("");
+          setClarificationOptions([]);
+          setClarificationAnswerText("");
+          setRecoveryText("");
+          acknowledgePendingCommands(type, {
+            backend_event: type,
+          });
+          appendConversation("system", recoveryReason);
+          appendTimeline(recoveryReason, "err");
+          break;
+        }
         case "error":
           setRunState("recovery");
           setInteractionMode("recovery");

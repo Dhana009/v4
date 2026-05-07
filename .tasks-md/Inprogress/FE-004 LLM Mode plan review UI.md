@@ -70,23 +70,13 @@ Fixed:
 
 ---
 
-## Repo-inspection requirement
+## Testing evidence
 
-Before implementation, Codex must inspect and report:
-
-- current frontend entry points and overlay injection path
-- current Shadow DOM host/components if any
-- current WebSocket/event consumer code
-- current command sending code
-- current plan/recorded/code/trace UI state ownership
-- current picker/element-info UI behavior
-- current tests and frontend test hooks
-- current legacy overlay dependencies
-- proposed narrow implementation path
-
-Use the repo-inspection template from `PLAN-002`.
-
-No implementation until the repo-inspection report is reviewed.
+- tests added: `tests/test_frontend_plan_recovery_rendering.py`
+- implementation summary: plan review is already backend-driven through `plan_ready`; confirm/correction remain typed command paths with pending metadata only, and the Shadow DOM runtime bridge still forwards plan/clarification/recovery state into the panel
+- commands/results: `python -m py_compile tests/test_frontend_plan_recovery_rendering.py`; `python -m pytest tests/test_frontend_plan_recovery_rendering.py tests/test_frontend_event_command_contract.py tests/test_command_contract.py tests/test_plan_correction.py tests/test_late_event_contract.py -q` → `88 passed`; `cd frontend && npm run build` passed
+- remaining known gaps: recovery-side option/skip/stop/update_locator actions are still backend-contract work and are not part of this slice
+- no backend/runtime/LLM/DOM changes
 
 ---
 
@@ -104,14 +94,3 @@ Stop if:
 - Shadow DOM isolation conflicts with product page behavior
 
 ---
-
-## Codex execution summary
-
-First Codex task for FE-004 should be read-only:
-
-```text
-Read FE-004, SOURCE-001, PLAN-002, PLAN-005, EPIC-005, EPIC-002, EVENT-001, EVENT-002, and required skills.
-Do not edit code.
-Inspect current frontend/runtime UI ownership and report a narrow implementation path.
-Do not implement until repo-inspection report is reviewed.
-```
