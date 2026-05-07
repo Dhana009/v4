@@ -941,6 +941,84 @@ function describeElementTargetOption(candidate, index) {
   return parts.join(" · ");
 }
 
+function summarizePickerCandidateMetadata(candidate) {
+  if (!candidate || typeof candidate !== "object") {
+    return [];
+  }
+
+  const metadata = [];
+  const candidateId = firstText(candidate.candidate_id, candidate.candidateId, candidate.id);
+  const locator = firstText(
+    candidate.locator,
+    candidate.selector_or_locator,
+    candidate.selectorOrLocator,
+    candidate.selector,
+    candidate.selectorHint,
+    candidate.locatorHint
+  );
+  const strategy = firstText(candidate.strategy, candidate.source, candidate.candidate_type, candidate.candidateType);
+  const confidence = firstText(candidate.confidence, candidate.score);
+  const count = firstText(candidate.count, candidate.match_count, candidate.matchCount);
+  const visibility = candidate.hidden === true
+    ? "hidden"
+    : firstText(candidate.visibility, candidate.visible === false ? "hidden" : "");
+  const scope = firstText(candidate.scope, candidate.container, candidate.section_ref, candidate.sectionRef);
+  const riskFlags = Array.isArray(candidate.risk_flags) ? candidate.risk_flags.filter(Boolean).map((value) => firstText(value)).filter(Boolean).join(", ") : "";
+  const risk = firstText(candidate.risk, candidate.fragility_warning, candidate.fragilityWarning, candidate.warning, riskFlags);
+  const evidenceRef = firstText(candidate.evidence_ref, candidate.evidenceRef, candidate.trace_ref, candidate.traceRef);
+
+  if (candidateId) metadata.push({ label: "candidate_id", value: candidateId });
+  if (locator) metadata.push({ label: "locator", value: locator });
+  if (strategy) metadata.push({ label: "strategy", value: strategy });
+  if (confidence) metadata.push({ label: Number.isFinite(Number(confidence)) ? "confidence" : "score", value: confidence });
+  if (count) metadata.push({ label: "count", value: count });
+  if (visibility) metadata.push({ label: "visibility", value: visibility });
+  if (scope) metadata.push({ label: "scope", value: scope });
+  if (risk) metadata.push({ label: "risk", value: risk });
+  if (evidenceRef) metadata.push({ label: "evidence_ref", value: evidenceRef });
+
+  return metadata;
+}
+
+function summarizePickerCandidateWarning(candidate, candidateCount = 0) {
+  const warnings = [];
+  if (!candidate || typeof candidate !== "object") {
+    return candidateCount > 0 ? "No locator candidates available." : "No locator candidates yet.";
+  }
+
+  if (Number.isInteger(candidateCount) && candidateCount > 1) {
+    warnings.push(`Multiple candidates require backend validation (${candidateCount}).`);
+  }
+
+  const visibility = firstText(candidate.visibility, candidate.visible === false ? "hidden" : "");
+  const hidden = candidate.hidden === true || visibility === "hidden";
+  if (hidden) {
+    warnings.push("Hidden candidate requires validation.");
+  }
+
+  const confidenceValue = Number(firstText(candidate.confidence, candidate.score));
+  if (Number.isFinite(confidenceValue) && confidenceValue < 0.7) {
+    warnings.push(`Low confidence candidate (${firstText(candidate.confidence, candidate.score)}).`);
+  }
+
+  const evidenceRef = firstText(candidate.evidence_ref, candidate.evidenceRef, candidate.trace_ref, candidate.traceRef);
+  if (!evidenceRef) {
+    warnings.push("Evidence ref missing.");
+  }
+
+  const riskFlags = Array.isArray(candidate.risk_flags) ? candidate.risk_flags.filter(Boolean).map((value) => firstText(value)).filter(Boolean) : [];
+  if (riskFlags.length > 0) {
+    warnings.push(`Risk flags: ${riskFlags.join(", ")}.`);
+  }
+
+  const candidateType = firstText(candidate.candidate_type, candidate.candidateType);
+  if (!candidateType) {
+    warnings.push("Candidate type missing.");
+  }
+
+  return warnings.join(" ");
+}
+
 function shortenText(text, maxLength = 48) {
   const value = firstText(text);
   if (!value) {
@@ -1390,6 +1468,8 @@ function IDEPendingStepCard({
   const outcomeLine = expectedOutcomeType ? formatExpectedOutcomeSummary(expectedOutcome) : "";
   const validationMessage = needsExpectedOutcome ? "Expected outcome required for click-like steps." : "";
   const targetSelectValue = selectedCandidateIndex === null ? "" : String(selectedCandidateIndex);
+  const candidateMetadata = summarizePickerCandidateMetadata(selectedCandidate);
+  const candidateWarning = summarizePickerCandidateWarning(selectedCandidate, candidateList.length);
 
   const elementSummary = selectedCandidate ? (
     <PendingChipRow elementInfo={selectedCandidate} intent={intent} />
@@ -1422,24 +1502,46 @@ function IDEPendingStepCard({
           {compact ? <IDEBadge kind={statusKind}>{statusLabel}</IDEBadge> : null}
         </div>
         <div className="ide-step-elements">{elementSummary}</div>
-        {candidateList.length > 1 && (
-          <div className="ide-step-target">
+        {candidateList.length > 0 && (
+          <div className="ide-step-target" data-testid="picker-candidates" aria-label="Locator candidates">
             <div className="ide-step-target-label">Selected target</div>
             <div className="ide-step-target-summary">Current: {currentTargetLabel}</div>
             {exactTargetLabel && exactTargetLabel !== currentTargetLabel && (
               <div className="ide-step-target-picked">Exact pick: {exactTargetLabel}</div>
             )}
-            <select
-              className="ide-input ide-step-target-select"
-              value={targetSelectValue}
-              onChange={(event) => onChangeElementTarget?.(step.id, Number(event.target.value))}
-            >
-              {candidateList.map((candidate, candidateIndex) => (
-                <option key={`${candidate.level ?? candidateIndex}-${candidate.tag || "element"}-${candidateIndex}`} value={candidateIndex}>
-                  {describeElementTargetOption(candidate, candidateIndex)}
-                </option>
-              ))}
-            </select>
+            {candidateMetadata.length > 0 && (
+              <div className="ide-step-target-metadata" style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                {candidateMetadata.map((item) => (
+                  <span
+                    key={`${item.label}:${item.value}`}
+                    className="ide-badge b-await"
+                    style={{ fontSize: 10, lineHeight: 1.2 }}
+                  >
+                    {item.label}: {shortenText(item.value, 56)}
+                  </span>
+                ))}
+              </div>
+            )}
+            {candidateWarning && (
+              <div className="ide-step-validation" data-testid="picker-candidate-warning">
+                {candidateWarning}
+              </div>
+            )}
+            {candidateList.length > 1 && (
+              <select
+                className="ide-input ide-step-target-select"
+                data-testid="picker-candidate-select"
+                aria-label="Choose locator candidate"
+                value={targetSelectValue}
+                onChange={(event) => onChangeElementTarget?.(step.id, Number(event.target.value))}
+              >
+                {candidateList.map((candidate, candidateIndex) => (
+                  <option key={`${candidate.level ?? candidateIndex}-${candidate.tag || "element"}-${candidateIndex}`} value={candidateIndex}>
+                    {describeElementTargetOption(candidate, candidateIndex)}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         )}
         {!compact && (
