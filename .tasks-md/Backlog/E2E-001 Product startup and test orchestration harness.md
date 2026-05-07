@@ -1,7 +1,7 @@
 # E2E-001 Product startup and test orchestration harness
 
 **Type:** Story  
-**Status:** Blocked  
+**Status:** Backlog  
 **Priority:** P0  
 **Epic:** EPIC-006 E2E Harness and Real-world Fixtures  
 **Owner:** DEV-4 E2E Harness + Fixtures + Evidence  
@@ -17,10 +17,6 @@
 ## Product contribution
 
 This story creates the single reliable way to start the product under test and run product-level regression flows.
-
-## Blocking note
-
-Local loopback socket allocation is blocked in this environment, so the startup harness slice is parked until the E2E runner can bind a local server port again.
 
 ## Source evidence table
 

@@ -142,6 +142,30 @@ Do not modify code.
 Do not create tests yet.
 ```
 
+### Board note
+
+BE-001 through BE-004 have now been decomposed into measurable subtasks and moved to Planning on the DEV-1 board. Leave BE-005 through BE-012 untouched for this batch.
+
+### Board note
+
+BE-005 through BE-008 have now been decomposed into measurable subtasks and moved to Planning on the DEV-1 board. Leave BE-009 through BE-012 untouched for this batch.
+
+### Board note
+
+BE-001 through BE-008 audit children were moved through In Progress and closed as Done on the DEV-1 board after focused backend contract verification. Leave BE-009 through BE-012 untouched for the next batch.
+
+### Board note
+
+BE-001 through BE-012 have now been moved to Done on the DEV-1 board. The planned DEV-1 backend P0 scope is complete.
+
+### Board note
+
+Next step is full backend verification and coverage review before any merge/push decision.
+
+### Board note
+
+Deferred items remain outside the done scope, including broad replay repair, full session restore UX, frontend/LLM/DOM/E2E/trace work, and advanced browser capabilities.
+
 ### Selected first-slice matrix areas
 
 ```text
@@ -477,103 +501,6 @@ Dirty state:
   AGENTS.md may remain dirty as local metadata; do not stage it.
 ```
 
-### DEV-4 blocker slice
-
-```text
-Selected story: E2E-001 Product startup and test orchestration harness
-Story status: Planned
-Selected subtask: E2E-001A remove socket.bind-based free-port probing from tests/e2e/harness.py and add focused regression coverage in tests/test_e2e_harness.py
-Selected subtask status: Blocked
-Blocker note: DEV-1 is blocked by the DEV-4 E2E socket bind issue at tests/e2e/harness.py:61
-Exact reason: the local sandbox denies loopback socket binds for both the harness and the fixture static server, so the four E2E tests fail during startup with PermissionError [Errno 1] Operation not permitted.
-Scope:
-  tests/e2e/harness.py
-  tests/test_e2e_harness.py
-  .tasks-md/Planning/DEVELOPER-EXECUTION-PLAN-001 Four Developer Branch Checkpoint and Merge Plan.md
-Forbidden:
-  agent.py
-  server.py
-  runtime/**
-  frontend/**
-  fixtures/**
-  AGENTS.md
-  .DS_Store
-  CI/config
-Verification:
-  python -m pytest tests/test_e2e_harness.py -q
-  python -m pytest tests/e2e/test_basic_click_flow.py tests/e2e/test_correction_assert_then_click_flow.py tests/e2e/test_exact_text_assertion_flow.py tests/e2e/test_visible_assertion_flow.py -q
-  python -m pytest tests -q if the environment allows local socket allocation
-Safe next action:
-  rerun the same E2E suite in an environment that allows local loopback binds, or attach the harness to an already-running local backend/static server that does not require new socket creation
-```
-
-### Next DEV-4 slice
-
-```text
-Selected story: TRACE-009 Artifact bundle and export format
-Story status: Done
-Why complete: harness-side artifact emission across events.ndjson, commands.json, and rejections.json is verified, and the remaining artifact-bundle work is now focused elsewhere without touching product/runtime/frontend code.
-Completed subtask: TRACE-009A map current artifact writers and summary/manifest/result fields for event, command, and rejection evidence
-Completed subtask status: Done
-Verification: read-only mapping complete; no files changed
-Completed subtask: TRACE-009B add red tests for events.ndjson emission baseline only
-Completed subtask status: Done
-Verification: python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
-Verification: python -m pytest tests/test_e2e_harness.py -q -> 22 passed
-Completed subtask: TRACE-009C add red tests for commands.json emission baseline only
-Completed subtask status: Done
-Verification: python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
-Verification: python -m pytest tests/test_e2e_harness.py -q -> 25 passed
-Completed subtask: TRACE-009D add red tests for rejections.json emission baseline only
-Completed subtask status: Done
-Verification: python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
-Verification: python -m pytest tests/test_e2e_harness.py -q -> 28 passed
-Implementation note: commands.json and rejections.json emission baselines implemented.
-Completed subtask: TRACE-009E consolidate events, commands, and rejections artifact emission into one harness path
-Completed subtask status: Done
-Verification: python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
-Verification: python -m pytest tests/test_e2e_harness.py -q -> 30 passed
-Implementation note: existing harness already supported the consolidated path; no code changes were required beyond the added regression coverage.
-Completed subtask: TRACE-009F verify focused tests and record evidence
-Completed subtask status: Done
-Verification: python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
-Verification: python -m pytest tests/test_e2e_harness.py -q -> 30 passed
-Completion note: events.ndjson emitted, commands.json emitted, rejections.json emitted, manifest includes all three, file_hashes cover all three, and optional absence notes remove emitted artifacts.
-Remaining deferred gaps: trace.ndjson, redaction-report.json, live E2E validation if loopback bind remains blocked.
-Scope:
-  tests/e2e/harness.py
-  tests/test_e2e_harness.py
-  .tasks-md/Backlog/TRACE-009 Artifact bundle and export format.md
-  .tasks-md/Planning/DEVELOPER-EXECUTION-PLAN-001 Four Developer Branch Checkpoint and Merge Plan.md
-Allowed files:
-  tests/e2e/harness.py
-  tests/test_e2e_harness.py
-  .tasks-md/Backlog/TRACE-009 Artifact bundle and export format.md
-  .tasks-md/Planning/DEVELOPER-EXECUTION-PLAN-001 Four Developer Branch Checkpoint and Merge Plan.md
-Forbidden files:
-  agent.py
-  server.py
-  runtime/**
-  frontend/**
-  fixtures/**
-  AGENTS.md
-  .DS_Store
-  CI/config
-Executed subtasks:
-  TRACE-009D add red tests for rejections.json emission baseline
-  TRACE-009E consolidate events, commands, and rejections artifact emission into one harness path
-  TRACE-009F verify focused tests and record evidence
-Verification commands:
-  python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
-  python -m pytest tests/test_e2e_harness.py -q -> 30 passed
-Stop conditions:
-  artifact emission semantics are unclear without repo evidence
-  changing the helper would require backend contract changes
-  implementation would touch forbidden runtime or frontend paths
-  new coverage would depend on the blocked socket or browser environment
-  implementation would broaden beyond the harness/evidence layer
-```
-
 ### Matrix areas
 
 ```text
@@ -668,54 +595,30 @@ CI/local tier plan proposed
 
 ---
 
-### MR-1A: Backend/event first-slice mapping
+### DEV-1 board index
 
 Owner: DEV-1  
-Type: mapping  
-Production code: no  
-Merge when:
+Branch: `dev1/backend-isolation-contract-tests`  
+Main baseline: `908f4d0`
 
-```text
-selected matrix rows mapped to repo tests/proposed files
-missing tests identified
-commands listed
-allowed/forbidden files documented
-```
+The detailed DEV-1 board now lives in folder-state files:
 
----
+| State | File | Current meaning |
+|---|---|---|
+| Done | [`Done/DEV-1 Backend Runtime and Recording Done.md`](../Done/DEV-1%20Backend%20Runtime%20and%20Recording%20Done.md) | completed work split into merged-to-main and branch-only done items |
+| In Progress | [`Inprogress/DEV-1 Recording Codegen Truth Implementation.md`](../Inprogress/DEV-1%20Recording%20Codegen%20Truth%20Implementation.md) | the only active DEV-1 implementation slice |
+| Planning / Pending | [`Planning/DEV-1 Planned Backend Contract Work.md`](./DEV-1%20Planned%20Backend%20Contract%20Work.md) | picked-but-not-started backend slices |
+| Testing | [`Testing/DEV-1 Backend Contract Testing Queue.md`](../Testing/DEV-1%20Backend%20Contract%20Testing%20Queue.md) | no active DEV-1 testing item right now |
+| Backlog / Deferred | [`Backlog/DEV-1 Deferred Backend and Cross-Lane Work.md`](../Backlog/DEV-1%20Deferred%20Backend%20and%20Cross-Lane%20Work.md) | out-of-scope and cross-lane deferred work |
 
-### MR-1B: Backend/event tests only
+Current board summary:
+- Done: backend/event foundation, MR-1B through MR-1E, recovery isolation, snapshot/archive loader, late-event/late-command/process-boundary contracts, recording/codegen contract tests.
+- In Progress: recording/codegen truth implementation.
+- Planning: replay smoke, restart/session-load, reconnect/session_state extension, broader save/load/replay evidence checks.
+- Backlog: replay repair, full session restore UX, cross-lane frontend/LLM-DOM/E2E/trace/capabilities work.
 
-Owner: DEV-1  
-Type: tests only  
-Production code: no  
-Status: completed in `f117599`
-Verification: `9 passed, 16 xfailed`
-Merge when:
-
-```text
-selected P0 tests created/updated
-expected failures documented if implementation is missing
-existing tests still pass or failures are explained
-```
-
----
-
-### MR-1C: Backend/event narrow implementation
-
-Owner: DEV-1  
-Type: implementation  
-Status: completed in `f7e3847`
-Verification: `41 passed, 2 xfailed`
-Deferred seams: `session_state` shape, stale confirmation run context
-Merge when:
-
-```text
-MR-1B tests pass
-no broad refactor
-affected regression tests pass
-architecture invariants preserved
-```
+Current verification note:
+- The focused backend contract suite and the recording/codegen contract slice have been verified previously; see the folder-state files for the exact item-level results.
 
 ---
 

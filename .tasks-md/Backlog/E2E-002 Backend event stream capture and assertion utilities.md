@@ -1,7 +1,7 @@
 # E2E-002 Backend event stream capture and assertion utilities
 
 **Type:** Story  
-**Status:** Planned  
+**Status:** Backlog  
 **Priority:** P0  
 **Epic:** EPIC-006 E2E Harness and Real-world Fixtures  
 **Owner:** DEV-4 E2E Harness + Fixtures + Evidence  
@@ -46,14 +46,6 @@ Fixed:
 | E2E002-U-003 | Unit | assert no event | passes/fails correctly |
 | E2E002-I-001 | Integration | capture plan_ready | event saved |
 | E2E002-I-002 | Integration | rejection captured | rejection code asserted |
-
-## Codex task breakdown
-
-| Task | Status | Notes |
-|---|---|---|
-| E2E-002A | Done | Completed mapping of current event capture helpers and artifact outputs to the contract rows. |
-| E2E-002B | Done | Test-first, harness-unit only. Deterministic event helper layer implemented; tests/test_e2e_harness.py passes 17/17. |
-| E2E-002C | Done | Test-first, harness-integration only. Capture-before-action and failure-artifact regressions implemented; tests/test_e2e_harness.py passes 20/20. |
 
 ## Edge cases
 
