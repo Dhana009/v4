@@ -1,13 +1,13 @@
 # FE-006 Recorded steps and code panel rendering
 
 **Type:** Story  
-**Status:** Inprogress  
+**Status:** Testing  
 **Priority:** P0  
 **Epic:** EPIC-005 Shadow DOM Frontend  
 **Owner:** DEV-3 Shadow DOM Frontend + Typed Rendering  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Repo inspection complete; test-first implementation in progress  
+**Readiness:** Focused frontend contract tests and build passed; ready for acceptance  
 **Dependencies:** FE-002, EVENT-006, BE-009  
 **Blocks:** recorded/code UI, E2E recording assertions  
 **Version:** Batch 06 v1  
