@@ -1,13 +1,13 @@
 # FE-007 Trace and diagnostic panel
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** In Progress  
 **Priority:** P0  
 **Epic:** EPIC-005 Shadow DOM Frontend  
 **Owner:** DEV-3 Shadow DOM Frontend + Typed Rendering  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Ready for repo inspection; not ready for implementation  
+**Readiness:** Frontend inspection complete; frontend-only trace slice implemented and awaiting board transition  
 **Dependencies:** FE-002, EVENT-003, EVENT-010, LLM-010  
 **Blocks:** debuggability, E2E evidence review  
 **Version:** Batch 06 v1  
@@ -26,6 +26,39 @@ Fixed:
 - does not invent runtime state
 - rejection/failure/telemetry entries are structured
 - large payloads are summarized or linked by evidence_ref
+
+## Subtasks
+
+- source-rule mapping
+- DEV-4 artifact/evidence output inventory
+- frontend trace event/read-model expectations
+- trace display-only rules
+- redaction status display expectations
+- artifact link/manifest summary display expectations if metadata exists
+- negative cases: trace rows must not mutate lifecycle/runtime state
+- boundary cases: missing evidence_ref, redaction warning, unsupported/unknown trace row, absent optional artifact
+- test-only slice
+- narrow frontend implementation slice
+- explicit remaining backend/exporter dependency
+- verification commands
+- stop conditions
+
+## Delivery notes
+
+- Frontend-only trace display slice implemented: render backend/evidence metadata as read-only trace rows.
+- Trace rows are display-only and do not mutate runState, interactionMode, recordedSteps, codePreview, or pending command truth.
+- `traceEntries` are sourced from backend/evidence messages through the frontend read model and rendered in the Shadow DOM debug pane.
+- Backend/exporter/redaction work remains outside this slice and is still required for the full FE-007 story.
+- Remaining dependency: exporter-fed artifact manifests, redaction report output, and full evidence bundle validation from DEV-4/backend work.
+
+## Verification
+
+- Added: `tests/test_frontend_trace_display.py`
+- Focused suite: `tests/test_frontend_trace_display.py tests/test_frontend_accessibility_focus.py tests/test_frontend_event_command_contract.py tests/test_e2e_harness.py -q`
+- Result: `68 passed`
+- Build: `cd frontend && npm run build`
+- Result: passed
+- No backend/runtime/LLM/DOM changes
 
 ## Trace sources
 

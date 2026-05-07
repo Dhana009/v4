@@ -1618,9 +1618,90 @@ function IDECodePreview({ codePreview, live = false }) {
   );
 }
 
-function IDEDebugPane({ connectionStatus, lastEvent, lastError }) {
+function IDETraceArtifactRow({ artifact }) {
+  if (!artifact) {
+    return null;
+  }
+
+  return (
+    <div className="ide-trace-artifact" data-testid="trace-artifact">
+      <div className="ide-trace-artifact-head">
+        <span className="ide-trace-artifact-label">{artifact.label || artifact.key}</span>
+        {artifact.status && <IDEBadge kind={artifact.status === "err" ? "failed" : artifact.status === "warn" ? "await" : "recorded"}>{artifact.status}</IDEBadge>}
+      </div>
+      {artifact.path && <code className="ide-trace-artifact-path">{artifact.path}</code>}
+      {artifact.note && <div className="ide-trace-warning">{artifact.note}</div>}
+    </div>
+  );
+}
+
+function IDETraceRow({ entry }) {
+  if (!entry) {
+    return null;
+  }
+
+  const severityKind = entry.severity === "err" ? "failed" : entry.severity === "warn" ? "await" : "recorded";
+  const label = entry.type ? entry.type.replace(/_/g, " ") : "trace event";
+
+  return (
+    <div className={`ide-trace-row s-${entry.severity || "ok"}`} data-testid="trace-row" aria-label={`Trace row ${label}`}>
+      <div className="ide-trace-row-head">
+        <span className="ide-trace-row-type">{label}</span>
+        <IDEBadge kind={severityKind}>{entry.severity === "err" ? "Error" : entry.severity === "warn" ? "Warn" : "Trace"}</IDEBadge>
+        {entry.timestamp && <span className="ide-trace-row-time">{entry.timestamp}</span>}
+        {entry.category && <span className="ide-trace-row-category">{entry.category}</span>}
+        {entry.source && <span className="ide-trace-row-source">{entry.source}</span>}
+      </div>
+      {entry.summary && <div className="ide-trace-row-summary">{entry.summary}</div>}
+      <div className="ide-trace-row-meta">
+        {entry.evidenceRef && <div className="ide-trace-row-evidence">evidence_ref: {entry.evidenceRef}</div>}
+        {entry.redactionStatus && <div className="ide-trace-row-redaction">redaction: {entry.redactionStatus}</div>}
+        {entry.redactionWarning && <div className="ide-trace-warning">{entry.redactionWarning}</div>}
+        {entry.rejectionReason && <div className="ide-trace-row-rejection">rejection: {entry.rejectionReason}</div>}
+        {entry.currentStateLabel && <div className="ide-trace-row-state">current_state: {entry.currentStateLabel}</div>}
+        {entry.diagnostic && <div className="ide-trace-warning">{entry.diagnostic}</div>}
+      </div>
+      {Array.isArray(entry.artifacts) && entry.artifacts.length > 0 && (
+        <div className="ide-trace-artifact-list" data-testid="trace-artifacts">
+          {entry.artifacts.map((artifact) => (
+            <IDETraceArtifactRow key={`${entry.id}-${artifact.key}`} artifact={artifact} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function IDEDebugPane({ connectionStatus, lastEvent, lastError, traceEntries = [] }) {
+  const artifacts = traceEntries.reduce((accumulated, entry) => {
+    if (Array.isArray(entry?.artifacts) && entry.artifacts.length > 0) {
+      accumulated.push(...entry.artifacts);
+    }
+    return accumulated;
+  }, []);
+
   return (
     <div data-testid="trace" aria-label="Trace">
+      <IDECard color="blue" title="// trace log" testId="trace-log" ariaLabel="Trace log">
+        {traceEntries.length > 0 ? (
+          <div className="ide-trace-list" role="list">
+            {traceEntries.map((entry) => (
+              <IDETraceRow key={entry.id} entry={entry} />
+            ))}
+          </div>
+        ) : (
+          <div className="ide-empty-state">No trace evidence yet.</div>
+        )}
+      </IDECard>
+      {artifacts.length > 0 && (
+        <IDECard color="green" title="// evidence bundle" testId="trace-artifacts" ariaLabel="Evidence bundle">
+          <div className="ide-trace-artifact-list">
+            {artifacts.map((artifact, index) => (
+              <IDETraceArtifactRow key={`${artifact.key || artifact.label || "artifact"}-${index}`} artifact={artifact} />
+            ))}
+          </div>
+        </IDECard>
+      )}
       <IDECard color="red" title="// transport">
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 11.5 }}>
           <div style={{ padding: "6px 8px", background: "#faf7f3", border: "1px solid #ede8e0", borderRadius: 2 }}>
@@ -1750,6 +1831,7 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
   const codePreview = typeof runtime.codePreview === "string" ? runtime.codePreview : "";
   const lastError = typeof runtime.lastError === "string" ? runtime.lastError : "";
   const lastEvent = runtime.lastEvent || null;
+  const traceEntries = Array.isArray(runtime.traceEntries) ? runtime.traceEntries : [];
   const activePickerStepId = typeof runtime.activePickerStepId === "string" ? runtime.activePickerStepId : "";
   const stepCount = pendingSteps.length + recordedSteps.length;
   const showPlanReview = interactionMode === "plan_review";
@@ -1881,7 +1963,7 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
         )}
         {tab === "debug" && (
           <>
-            <IDEDebugPane connectionStatus={connectionStatus} lastEvent={lastEvent} lastError={lastError} />
+            <IDEDebugPane connectionStatus={connectionStatus} lastEvent={lastEvent} lastError={lastError} traceEntries={traceEntries} />
             <IDETimeline state={panelState} events={timeline} live={live} />
           </>
         )}

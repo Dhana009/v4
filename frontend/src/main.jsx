@@ -627,6 +627,256 @@ function firstRawText(...values) {
   return "";
 }
 
+const KNOWN_TRACE_EVENT_TYPES = new Set([
+  "browser_ready",
+  "status",
+  "llm_thinking",
+  "plan_ready",
+  "clarification_needed",
+  "recovery_needed",
+  "error",
+  "runtime_rejected",
+  "llm_result",
+  "step_recorded",
+  "code_update",
+  "replay_started",
+  "replay_result",
+  "capability_gap_recorded",
+  "trace_summary",
+  "save_snapshot",
+  "saved_snapshot",
+  "snapshot_saved",
+  "element_attached",
+  "command_accepted",
+  "command_rejected",
+]);
+
+const TRACE_ARTIFACT_LABELS = {
+  manifest: "manifest.json",
+  test_result: "test-result.json",
+  summary: "summary.md",
+  events: "events.ndjson",
+  commands: "commands.json",
+  rejections: "rejections.json",
+  redaction_report: "redaction-report.json",
+};
+
+function normalizeTraceArtifact(artifact, index = 0) {
+  if (artifact == null) {
+    return null;
+  }
+
+  const source = typeof artifact === "object" ? artifact : { path: artifact };
+  const kind = firstNonEmptyText(source.key, source.kind, source.name, source.type, `artifact-${index + 1}`)
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  const label = firstNonEmptyText(
+    source.label,
+    source.title,
+    TRACE_ARTIFACT_LABELS[kind],
+    kind.replace(/_/g, "-"),
+    kind
+  );
+  const path = firstNonEmptyText(source.path, source.file_path, source.filePath, source.href, source.url, source.value);
+  const status = firstNonEmptyText(source.status, source.state, source.redaction_status, source.redactionStatus)
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  const note = firstNonEmptyText(source.note, source.summary, source.message, source.warning, source.redaction_warning, source.redactionWarning);
+
+  return {
+    key: kind,
+    label,
+    ...(path ? { path } : {}),
+    ...(status ? { status } : {}),
+    ...(note ? { note } : {}),
+  };
+}
+
+function normalizeTraceArtifacts(artifacts) {
+  if (Array.isArray(artifacts)) {
+    return artifacts.map((artifact, index) => normalizeTraceArtifact(artifact, index)).filter(Boolean);
+  }
+
+  if (artifacts && typeof artifacts === "object") {
+    return Object.entries(artifacts)
+      .map(([key, value], index) => {
+        if (value && typeof value === "object") {
+          return normalizeTraceArtifact({ key, ...value }, index);
+        }
+        return normalizeTraceArtifact({ key, value, path: value }, index);
+      })
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function normalizeTraceEntry(entry, index = 0) {
+  if (!entry || typeof entry !== "object") {
+    return null;
+  }
+
+  const payload = entry.payload && typeof entry.payload === "object" ? entry.payload : {};
+  const raw = entry.raw && typeof entry.raw === "object" ? entry.raw : entry;
+  const type = firstNonEmptyText(entry.type, entry.event, entry.name, entry.kind, payload.type, raw.type, "trace")
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  const category = firstNonEmptyText(entry.category, entry.source_type, entry.sourceType, entry.kind, payload.category, payload.kind, raw.category, raw.kind);
+  const timestamp = firstNonEmptyText(
+    entry.timestamp,
+    entry.created_at,
+    entry.createdAt,
+    payload.timestamp,
+    payload.created_at,
+    payload.createdAt,
+    raw.timestamp,
+    raw.created_at,
+    raw.createdAt
+  );
+  const source = firstNonEmptyText(entry.source, entry.owner, entry.origin, payload.source, payload.owner, payload.origin, payload.actor, raw.source, raw.owner);
+  const summary = firstNonEmptyText(
+    entry.summary,
+    payload.summary,
+    payload.message,
+    payload.text,
+    payload.detail,
+    raw.summary,
+    raw.message,
+    raw.text,
+    raw.detail,
+    extractText(payload),
+    extractText(raw),
+    type.replace(/_/g, " ")
+  );
+  const evidenceRef = firstNonEmptyText(
+    entry.evidenceRef,
+    entry.evidence_ref,
+    payload.evidence_ref,
+    payload.evidenceRef,
+    payload.artifact_path,
+    payload.artifactPath,
+    payload.path,
+    raw.evidence_ref,
+    raw.evidenceRef,
+    raw.artifact_path,
+    raw.artifactPath,
+    raw.path
+  );
+  const redactionStatus = firstNonEmptyText(
+    entry.redactionStatus,
+    entry.redaction_status,
+    payload.redaction_status,
+    payload.redactionStatus,
+    payload.redaction_report,
+    payload.redactionReport,
+    raw.redaction_status,
+    raw.redactionStatus,
+    raw.redaction_report,
+    raw.redactionReport
+  );
+  const redactionWarning = firstNonEmptyText(
+    entry.redactionWarning,
+    entry.redaction_warning,
+    payload.redaction_warning,
+    payload.redactionWarning,
+    payload.redaction_message,
+    payload.redactionMessage,
+    raw.redaction_warning,
+    raw.redactionWarning
+  );
+  const rejectionReason = type === "runtime_rejected"
+    ? firstNonEmptyText(
+        entry.rejectionReason,
+        entry.rejection_reason,
+        payload.rejection_reason,
+        payload.rejectionReason,
+        payload.message,
+        payload.detail,
+        raw.rejection_reason,
+        raw.rejectionReason,
+        raw.message,
+        raw.detail,
+        summary
+      )
+    : "";
+  const currentState = type === "runtime_rejected"
+    ? entry.currentState ?? entry.current_state ?? payload.current_state ?? payload.currentState ?? raw.current_state ?? raw.currentState ?? null
+    : null;
+  const currentStateLabel = currentState && typeof currentState === "object"
+    ? [
+        firstNonEmptyText(currentState.phase, currentState.state),
+        firstNonEmptyText(currentState.run_id, currentState.runId, currentState.plan_id, currentState.planId),
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
+  const artifacts = normalizeTraceArtifacts(entry.artifacts ?? payload.artifacts ?? payload.artifact_bundle ?? payload.artifactBundle ?? raw.artifacts);
+  const requiresEvidence = Boolean(
+    evidenceRef ||
+      redactionStatus ||
+      redactionWarning ||
+      rejectionReason ||
+      currentStateLabel ||
+      artifacts.length > 0 ||
+      ["runtime_rejected", "replay_result", "step_recorded", "code_update", "capability_gap_recorded", "trace_summary"].includes(type)
+  );
+  const knownType = KNOWN_TRACE_EVENT_TYPES.has(type);
+  const diagnostic = !knownType
+    ? `Unknown trace event: ${type}`
+    : requiresEvidence && !evidenceRef
+      ? "Evidence ref missing"
+      : "";
+  const severity = !knownType
+    ? "warn"
+    : rejectionReason || redactionWarning
+      ? "err"
+      : diagnostic
+        ? "warn"
+        : "ok";
+
+  return {
+    id: firstNonEmptyText(entry.id, raw.id, payload.id, payload.trace_id, payload.traceId, `${type}-${index + 1}`),
+    type,
+    category,
+    timestamp,
+    source,
+    summary,
+    evidenceRef,
+    redactionStatus,
+    redactionWarning,
+    rejectionReason,
+    currentState,
+    currentStateLabel,
+    artifacts,
+    diagnostic,
+    severity,
+    raw,
+  };
+}
+
+function normalizeTraceEntries(entries) {
+  if (!Array.isArray(entries) || entries.length === 0) {
+    return [];
+  }
+
+  return entries.map((entry, index) => normalizeTraceEntry(entry, index)).filter(Boolean);
+}
+
+function mergeTraceEntryList(current, nextEntry, limit = 120) {
+  if (!nextEntry) {
+    return Array.isArray(current) ? current : [];
+  }
+
+  const nextId = firstNonEmptyText(nextEntry.id);
+  const next = Array.isArray(current) ? current.filter((entry) => firstNonEmptyText(entry?.id) !== nextId) : [];
+  next.unshift(nextEntry);
+  return next.slice(0, limit);
+}
+
+function buildTraceEntryFromBackendMessage(message) {
+  return normalizeTraceEntry(message);
+}
+
 function collectStepReferenceValues(...sources) {
   const values = [];
   const seen = new Set();
@@ -1501,6 +1751,7 @@ function useAutoWorkbenchTransport(config) {
   const [runState, setRunState] = useState(() => normalizeRunState(config.runState ?? config.state) || "planning");
   const [conversation, setConversation] = useState([]);
   const [timeline, setTimeline] = useState([]);
+  const [traceEntries, setTraceEntries] = useState(() => normalizeTraceEntries(config.traceEntries));
   const [plan, setPlan] = useState(null);
   const [codePreview, setCodePreview] = useState("");
   const [lastError, setLastError] = useState("");
@@ -1560,6 +1811,14 @@ function useAutoWorkbenchTransport(config) {
       pendingCommandsRef.current = next;
       return next;
     });
+  }, []);
+
+  const recordTraceEntry = useCallback((traceEntry) => {
+    if (!traceEntry || typeof traceEntry !== "object") {
+      return;
+    }
+
+    setTraceEntries((current) => mergeTraceEntryList(current, traceEntry));
   }, []);
 
   const recordPendingCommand = useCallback(
@@ -2058,6 +2317,10 @@ function useAutoWorkbenchTransport(config) {
       const type = String(message?.type || "status").toLowerCase();
       const payload = message?.payload;
       const text = extractText(payload) || extractText(message?.raw) || type.replace(/_/g, " ");
+      const traceEntry = buildTraceEntryFromBackendMessage(message);
+      if (traceEntry) {
+        recordTraceEntry(traceEntry);
+      }
 
       switch (type) {
         case "browser_ready":
@@ -2655,6 +2918,7 @@ function useAutoWorkbenchTransport(config) {
     interactionMode,
     conversation,
     timeline,
+    traceEntries,
     plan,
     pendingSteps,
     pendingCommands,
@@ -2701,6 +2965,7 @@ function useAutoWorkbenchTransport(config) {
     setRecoveryText,
     setPendingSteps,
     setPendingCommands,
+    setTraceEntries,
     setRecordedSteps,
     setCodeDiagnostics,
     updatePendingStepIntent,
