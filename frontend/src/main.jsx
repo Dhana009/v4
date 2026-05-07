@@ -16,6 +16,13 @@ const DEFAULT_CONFIG = {
   density: "compact",
 };
 
+const SHADOW_HOST_ID = "aw-shadow-host";
+const SHADOW_MOUNT_ID = "aw-shadow-mount";
+const SHADOW_STYLE_ID = "aw-shadow-style";
+const SHADOW_STYLE_FLAG = "data-autoworkbench-shadow-style";
+const AUTOWORKBENCH_STYLE_ID = "autoworkbench-style";
+const FRONTEND_COMMAND_SCHEMA_VERSION = "autoworkbench.command.v1";
+
 const RUN_STATE_ALIASES = {
   idle: "idle",
   planning: "planning",
@@ -119,6 +126,55 @@ function resolveMountNode(root) {
   return node;
 }
 
+function ensureShadowHost(host) {
+  if (!host || typeof host.attachShadow !== "function") {
+    return null;
+  }
+
+  const shadowRoot = host.shadowRoot || host.attachShadow({ mode: "open" });
+  let marker = shadowRoot.querySelector(`#${SHADOW_HOST_ID}`);
+  if (!marker) {
+    marker = document.createElement("div");
+    marker.id = SHADOW_HOST_ID;
+    marker.setAttribute("data-testid", "aw-shadow-host");
+    marker.setAttribute("aria-hidden", "true");
+    shadowRoot.appendChild(marker);
+  }
+
+  return shadowRoot;
+}
+
+function ensureShadowStyles(shadowRoot) {
+  if (!shadowRoot) {
+    return;
+  }
+
+  if (shadowRoot.querySelector(`[${SHADOW_STYLE_FLAG}="true"]`)) {
+    return;
+  }
+
+  const sourceStyle = document.getElementById(AUTOWORKBENCH_STYLE_ID);
+  if (!sourceStyle || !sourceStyle.textContent) {
+    return;
+  }
+
+  const shadowStyle = sourceStyle.cloneNode(true);
+  shadowStyle.id = SHADOW_STYLE_ID;
+  shadowStyle.setAttribute(SHADOW_STYLE_FLAG, "true");
+  shadowRoot.appendChild(shadowStyle);
+}
+
+function ensureShadowMount(shadowRoot) {
+  let mount = shadowRoot.querySelector(`#${SHADOW_MOUNT_ID}`);
+  if (!mount) {
+    mount = document.createElement("div");
+    mount.id = SHADOW_MOUNT_ID;
+    mount.setAttribute("data-testid", "aw-shadow-mount");
+    shadowRoot.appendChild(mount);
+  }
+  return mount;
+}
+
 function resolveWsUrl(config = {}) {
   const candidates = [
     config.wsUrl,
@@ -185,6 +241,35 @@ function normalizeBackendMessage(raw) {
     payload: { text: String(parsed ?? "") },
     raw: parsed,
   };
+}
+
+function createFrontendCommandId() {
+  const randomUuid = globalThis?.crypto?.randomUUID;
+  if (typeof randomUuid === "function") {
+    return randomUuid.call(globalThis.crypto);
+  }
+
+  return `cmd-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function buildFrontendCommandEnvelope(commandType, payload = {}) {
+  const normalizedPayload = payload && typeof payload === "object" ? { ...payload } : {};
+  const envelope = {
+    type: firstNonEmptyText(commandType),
+    schema_version: FRONTEND_COMMAND_SCHEMA_VERSION,
+    command_id: createFrontendCommandId(),
+    source: "frontend",
+    payload: normalizedPayload,
+  };
+
+  for (const [key, value] of Object.entries(normalizedPayload)) {
+    if (Object.prototype.hasOwnProperty.call(envelope, key)) {
+      continue;
+    }
+    envelope[key] = value;
+  }
+
+  return envelope;
 }
 
 function formatTimestamp(date = new Date()) {
@@ -311,6 +396,7 @@ function normalizePlanPayload(payload) {
 }
 
 let pendingStepCounter = 0;
+let pendingCommandSequence = 0;
 
 function createPendingStep(intent = "", elementInfo = null, recorded = false) {
   pendingStepCounter += 1;
@@ -322,6 +408,54 @@ function createPendingStep(intent = "", elementInfo = null, recorded = false) {
     recorded,
     status: "draft",
   };
+}
+
+function normalizePendingCommandStatus(status) {
+  const value = firstNonEmptyText(status).toLowerCase();
+  if (["pending", "acknowledged", "rejected"].includes(value)) {
+    return value;
+  }
+  return "pending";
+}
+
+function normalizePendingCommand(command, index = 0) {
+  if (!command || typeof command !== "object") {
+    return null;
+  }
+
+  const commandId = firstNonEmptyText(command.command_id, command.commandId, command.id);
+  const commandType = firstNonEmptyText(command.command_type, command.commandType, command.type);
+  if (!commandId || !commandType) {
+    return null;
+  }
+
+  const createdSequence = Number(command.created_sequence ?? command.createdSequence);
+
+  return {
+    ...command,
+    command_id: commandId,
+    command_type: commandType,
+    created_at: firstNonEmptyText(command.created_at, command.createdAt) || new Date().toISOString(),
+    created_sequence: Number.isFinite(createdSequence) ? createdSequence : index + 1,
+    status: normalizePendingCommandStatus(command.status),
+    source: firstNonEmptyText(command.source) || "frontend",
+  };
+}
+
+function normalizePendingCommands(commands) {
+  if (Array.isArray(commands) && commands.length > 0) {
+    return commands.map((command, index) => normalizePendingCommand(command, index)).filter(Boolean);
+  }
+
+  return [];
+}
+
+function normalizeCodeDiagnostics(diagnostics) {
+  if (!Array.isArray(diagnostics) || diagnostics.length === 0) {
+    return [];
+  }
+
+  return diagnostics.map((entry) => (entry && typeof entry === "object" ? { ...entry } : entry)).filter((entry) => entry != null);
 }
 
 const EXPECTED_OUTCOME_TYPES = [
@@ -491,6 +625,256 @@ function firstRawText(...values) {
     }
   }
   return "";
+}
+
+const KNOWN_TRACE_EVENT_TYPES = new Set([
+  "browser_ready",
+  "status",
+  "llm_thinking",
+  "plan_ready",
+  "clarification_needed",
+  "recovery_needed",
+  "error",
+  "runtime_rejected",
+  "llm_result",
+  "step_recorded",
+  "code_update",
+  "replay_started",
+  "replay_result",
+  "capability_gap_recorded",
+  "trace_summary",
+  "save_snapshot",
+  "saved_snapshot",
+  "snapshot_saved",
+  "element_attached",
+  "command_accepted",
+  "command_rejected",
+]);
+
+const TRACE_ARTIFACT_LABELS = {
+  manifest: "manifest.json",
+  test_result: "test-result.json",
+  summary: "summary.md",
+  events: "events.ndjson",
+  commands: "commands.json",
+  rejections: "rejections.json",
+  redaction_report: "redaction-report.json",
+};
+
+function normalizeTraceArtifact(artifact, index = 0) {
+  if (artifact == null) {
+    return null;
+  }
+
+  const source = typeof artifact === "object" ? artifact : { path: artifact };
+  const kind = firstNonEmptyText(source.key, source.kind, source.name, source.type, `artifact-${index + 1}`)
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  const label = firstNonEmptyText(
+    source.label,
+    source.title,
+    TRACE_ARTIFACT_LABELS[kind],
+    kind.replace(/_/g, "-"),
+    kind
+  );
+  const path = firstNonEmptyText(source.path, source.file_path, source.filePath, source.href, source.url, source.value);
+  const status = firstNonEmptyText(source.status, source.state, source.redaction_status, source.redactionStatus)
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  const note = firstNonEmptyText(source.note, source.summary, source.message, source.warning, source.redaction_warning, source.redactionWarning);
+
+  return {
+    key: kind,
+    label,
+    ...(path ? { path } : {}),
+    ...(status ? { status } : {}),
+    ...(note ? { note } : {}),
+  };
+}
+
+function normalizeTraceArtifacts(artifacts) {
+  if (Array.isArray(artifacts)) {
+    return artifacts.map((artifact, index) => normalizeTraceArtifact(artifact, index)).filter(Boolean);
+  }
+
+  if (artifacts && typeof artifacts === "object") {
+    return Object.entries(artifacts)
+      .map(([key, value], index) => {
+        if (value && typeof value === "object") {
+          return normalizeTraceArtifact({ key, ...value }, index);
+        }
+        return normalizeTraceArtifact({ key, value, path: value }, index);
+      })
+      .filter(Boolean);
+  }
+
+  return [];
+}
+
+function normalizeTraceEntry(entry, index = 0) {
+  if (!entry || typeof entry !== "object") {
+    return null;
+  }
+
+  const payload = entry.payload && typeof entry.payload === "object" ? entry.payload : {};
+  const raw = entry.raw && typeof entry.raw === "object" ? entry.raw : entry;
+  const type = firstNonEmptyText(entry.type, entry.event, entry.name, entry.kind, payload.type, raw.type, "trace")
+    .toLowerCase()
+    .replace(/[\s-]+/g, "_");
+  const category = firstNonEmptyText(entry.category, entry.source_type, entry.sourceType, entry.kind, payload.category, payload.kind, raw.category, raw.kind);
+  const timestamp = firstNonEmptyText(
+    entry.timestamp,
+    entry.created_at,
+    entry.createdAt,
+    payload.timestamp,
+    payload.created_at,
+    payload.createdAt,
+    raw.timestamp,
+    raw.created_at,
+    raw.createdAt
+  );
+  const source = firstNonEmptyText(entry.source, entry.owner, entry.origin, payload.source, payload.owner, payload.origin, payload.actor, raw.source, raw.owner);
+  const summary = firstNonEmptyText(
+    entry.summary,
+    payload.summary,
+    payload.message,
+    payload.text,
+    payload.detail,
+    raw.summary,
+    raw.message,
+    raw.text,
+    raw.detail,
+    extractText(payload),
+    extractText(raw),
+    type.replace(/_/g, " ")
+  );
+  const evidenceRef = firstNonEmptyText(
+    entry.evidenceRef,
+    entry.evidence_ref,
+    payload.evidence_ref,
+    payload.evidenceRef,
+    payload.artifact_path,
+    payload.artifactPath,
+    payload.path,
+    raw.evidence_ref,
+    raw.evidenceRef,
+    raw.artifact_path,
+    raw.artifactPath,
+    raw.path
+  );
+  const redactionStatus = firstNonEmptyText(
+    entry.redactionStatus,
+    entry.redaction_status,
+    payload.redaction_status,
+    payload.redactionStatus,
+    payload.redaction_report,
+    payload.redactionReport,
+    raw.redaction_status,
+    raw.redactionStatus,
+    raw.redaction_report,
+    raw.redactionReport
+  );
+  const redactionWarning = firstNonEmptyText(
+    entry.redactionWarning,
+    entry.redaction_warning,
+    payload.redaction_warning,
+    payload.redactionWarning,
+    payload.redaction_message,
+    payload.redactionMessage,
+    raw.redaction_warning,
+    raw.redactionWarning
+  );
+  const rejectionReason = type === "runtime_rejected"
+    ? firstNonEmptyText(
+        entry.rejectionReason,
+        entry.rejection_reason,
+        payload.rejection_reason,
+        payload.rejectionReason,
+        payload.message,
+        payload.detail,
+        raw.rejection_reason,
+        raw.rejectionReason,
+        raw.message,
+        raw.detail,
+        summary
+      )
+    : "";
+  const currentState = type === "runtime_rejected"
+    ? entry.currentState ?? entry.current_state ?? payload.current_state ?? payload.currentState ?? raw.current_state ?? raw.currentState ?? null
+    : null;
+  const currentStateLabel = currentState && typeof currentState === "object"
+    ? [
+        firstNonEmptyText(currentState.phase, currentState.state),
+        firstNonEmptyText(currentState.run_id, currentState.runId, currentState.plan_id, currentState.planId),
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : "";
+  const artifacts = normalizeTraceArtifacts(entry.artifacts ?? payload.artifacts ?? payload.artifact_bundle ?? payload.artifactBundle ?? raw.artifacts);
+  const requiresEvidence = Boolean(
+    evidenceRef ||
+      redactionStatus ||
+      redactionWarning ||
+      rejectionReason ||
+      currentStateLabel ||
+      artifacts.length > 0 ||
+      ["runtime_rejected", "replay_result", "step_recorded", "code_update", "capability_gap_recorded", "trace_summary"].includes(type)
+  );
+  const knownType = KNOWN_TRACE_EVENT_TYPES.has(type);
+  const diagnostic = !knownType
+    ? `Unknown trace event: ${type}`
+    : requiresEvidence && !evidenceRef
+      ? "Evidence ref missing"
+      : "";
+  const severity = !knownType
+    ? "warn"
+    : rejectionReason || redactionWarning
+      ? "err"
+      : diagnostic
+        ? "warn"
+        : "ok";
+
+  return {
+    id: firstNonEmptyText(entry.id, raw.id, payload.id, payload.trace_id, payload.traceId, `${type}-${index + 1}`),
+    type,
+    category,
+    timestamp,
+    source,
+    summary,
+    evidenceRef,
+    redactionStatus,
+    redactionWarning,
+    rejectionReason,
+    currentState,
+    currentStateLabel,
+    artifacts,
+    diagnostic,
+    severity,
+    raw,
+  };
+}
+
+function normalizeTraceEntries(entries) {
+  if (!Array.isArray(entries) || entries.length === 0) {
+    return [];
+  }
+
+  return entries.map((entry, index) => normalizeTraceEntry(entry, index)).filter(Boolean);
+}
+
+function mergeTraceEntryList(current, nextEntry, limit = 120) {
+  if (!nextEntry) {
+    return Array.isArray(current) ? current : [];
+  }
+
+  const nextId = firstNonEmptyText(nextEntry.id);
+  const next = Array.isArray(current) ? current.filter((entry) => firstNonEmptyText(entry?.id) !== nextId) : [];
+  next.unshift(nextEntry);
+  return next.slice(0, limit);
+}
+
+function buildTraceEntryFromBackendMessage(message) {
+  return normalizeTraceEntry(message);
 }
 
 function collectStepReferenceValues(...sources) {
@@ -1367,14 +1751,17 @@ function useAutoWorkbenchTransport(config) {
   const [runState, setRunState] = useState(() => normalizeRunState(config.runState ?? config.state) || "planning");
   const [conversation, setConversation] = useState([]);
   const [timeline, setTimeline] = useState([]);
+  const [traceEntries, setTraceEntries] = useState(() => normalizeTraceEntries(config.traceEntries));
   const [plan, setPlan] = useState(null);
   const [codePreview, setCodePreview] = useState("");
   const [lastError, setLastError] = useState("");
   const [lastEvent, setLastEvent] = useState(null);
   const [lastSavedSnapshot, setLastSavedSnapshot] = useState(null);
+  const [pendingCommands, setPendingCommands] = useState(() => normalizePendingCommands(config.pendingCommands));
   const [pendingSteps, setPendingSteps] = useState(() => normalizePendingSteps(config.pendingSteps));
   const [recordedSteps, setRecordedSteps] = useState(() => normalizeRecordedSteps(config.recordedSteps));
   const [lastReplayByStepId, setLastReplayByStepId] = useState({});
+  const [codeDiagnostics, setCodeDiagnostics] = useState(() => normalizeCodeDiagnostics(config.codeDiagnostics));
   const [interactionMode, setInteractionMode] = useState(
     () => normalizeInteractionMode(config.interactionMode ?? config.mode ?? config.runState ?? config.state) || "planning"
   );
@@ -1390,8 +1777,13 @@ function useAutoWorkbenchTransport(config) {
   const attemptRef = useRef(0);
   const mountedRef = useRef(true);
   const planRef = useRef(null);
+  const pendingCommandsRef = useRef([]);
   const activePickerStepIdRef = useRef("");
   const pendingStepsRef = useRef([]);
+
+  useLayoutEffect(() => {
+    pendingCommandsRef.current = pendingCommands;
+  }, [pendingCommands]);
 
   useLayoutEffect(() => {
     activePickerStepIdRef.current = activePickerStepId;
@@ -1412,6 +1804,97 @@ function useAutoWorkbenchTransport(config) {
       return next;
     });
   }, []);
+
+  const updatePendingCommands = useCallback((updater) => {
+    setPendingCommands((current) => {
+      const next = typeof updater === "function" ? updater(current) : updater;
+      pendingCommandsRef.current = next;
+      return next;
+    });
+  }, []);
+
+  const recordTraceEntry = useCallback((traceEntry) => {
+    if (!traceEntry || typeof traceEntry !== "object") {
+      return;
+    }
+
+    setTraceEntries((current) => mergeTraceEntryList(current, traceEntry));
+  }, []);
+
+  const recordPendingCommand = useCallback(
+    (commandEnvelope, metadata = {}) => {
+      const commandId = firstNonEmptyText(commandEnvelope?.command_id, commandEnvelope?.commandId);
+      const commandType = firstNonEmptyText(commandEnvelope?.type);
+      if (!commandId || !commandType) {
+        return;
+      }
+
+      const pendingCommand = {
+        command_id: commandId,
+        command_type: commandType,
+        created_at: new Date().toISOString(),
+        created_sequence: pendingCommandSequence += 1,
+        status: "pending",
+        source: "frontend",
+        ...metadata,
+      };
+
+      updatePendingCommands((current) => [...current, pendingCommand].slice(-20));
+    },
+    [updatePendingCommands]
+  );
+
+  const acknowledgePendingCommands = useCallback(
+    (eventType, metadata = {}) => {
+      updatePendingCommands((current) => {
+        const index = current.findIndex((command) => command && command.status === "pending");
+        if (index === -1) {
+          return current;
+        }
+
+        const next = current.slice();
+        next[index] = {
+          ...next[index],
+          status: "acknowledged",
+          acknowledged_at: new Date().toISOString(),
+          acknowledged_by: eventType,
+          ...metadata,
+        };
+        return next;
+      });
+    },
+    [updatePendingCommands]
+  );
+
+  const rejectPendingCommand = useCallback(
+    (commandId, metadata = {}) => {
+      const rejectionId = firstNonEmptyText(commandId);
+      if (!rejectionId) {
+        return false;
+      }
+
+      let matched = false;
+      updatePendingCommands((current) => {
+        const index = current.findIndex((command) => firstNonEmptyText(command?.command_id) === rejectionId);
+        if (index === -1) {
+          return current;
+        }
+
+        matched = true;
+        const next = current.slice();
+        next[index] = {
+          ...next[index],
+          status: "rejected",
+          rejected_at: new Date().toISOString(),
+          ...metadata,
+        };
+        return next;
+      });
+
+      return matched;
+    },
+    [updatePendingCommands]
+  );
 
   const updateLastReplayByStepId = useCallback((stepId, replayStatus) => {
     const replayStepId = firstNonEmptyText(stepId);
@@ -1704,21 +2187,34 @@ function useAutoWorkbenchTransport(config) {
   }, [sendPayload]);
 
   const handleConfirmPlan = useCallback(() => {
-    const sent = sendPayload(
-      {
-        type: "confirmed",
-      },
-      "WebSocket not connected."
-    );
+    const currentPlan = planRef.current && typeof planRef.current === "object" ? planRef.current : null;
+    const rawPlan = currentPlan && typeof currentPlan.raw === "object" ? currentPlan.raw : {};
+    const commandPayload = {};
+    const planId = firstNonEmptyText(rawPlan.plan_id, rawPlan.planId, rawPlan.id);
+    const planVersion = firstNonEmptyText(rawPlan.plan_version, rawPlan.planVersion);
+    const runId = firstNonEmptyText(rawPlan.run_id, rawPlan.runId);
+    if (planId) {
+      commandPayload.plan_id = planId;
+    }
+    if (planVersion) {
+      commandPayload.plan_version = planVersion;
+    }
+    if (runId) {
+      commandPayload.run_id = runId;
+    }
+
+    const commandEnvelope = buildFrontendCommandEnvelope("confirmed", commandPayload);
+    const sent = sendPayload(commandEnvelope, "WebSocket not connected.");
 
     if (sent) {
       appendConversation("user", "Confirmed.");
-      setRunState("executing");
-      setInteractionMode("executing");
+      recordPendingCommand(commandEnvelope, {
+        ui_label: "Confirm Plan",
+      });
       setPlanCorrectionText("");
       appendTimeline("Confirmation sent.", "ok");
     }
-  }, [appendConversation, appendTimeline, sendPayload]);
+  }, [appendConversation, appendTimeline, recordPendingCommand, sendPayload]);
 
   const handleSendPlanCorrection = useCallback(() => {
     const correction = planCorrectionText.trim();
@@ -1726,32 +2222,34 @@ function useAutoWorkbenchTransport(config) {
       appendTimeline("Correction is empty.", "warn");
       return;
     }
-    const planId = firstNonEmptyText(plan?.raw?.plan_id, plan?.raw?.planId, plan?.raw?.id);
+    const currentPlan = planRef.current && typeof planRef.current === "object" ? planRef.current : null;
+    const rawPlan = currentPlan && typeof currentPlan.raw === "object" ? currentPlan.raw : {};
+    const planId = firstNonEmptyText(rawPlan.plan_id, rawPlan.planId, rawPlan.id);
+    const planVersion = firstNonEmptyText(rawPlan.plan_version, rawPlan.planVersion);
     const targetStepId = firstNonEmptyText(
-      plan?.raw?.target_step_id,
-      plan?.raw?.targetStepId,
-      plan?.steps?.[0]?.step_id,
-      plan?.steps?.[0]?.stepId
+      rawPlan.target_step_id,
+      rawPlan.targetStepId,
+      currentPlan?.steps?.[0]?.step_id,
+      currentPlan?.steps?.[0]?.stepId
     );
 
-    const sent = sendPayload(
-      {
-        type: "correction",
-        message: correction,
-        planId,
-        targetStepId,
-      },
-      "WebSocket not connected."
-    );
+    const commandEnvelope = buildFrontendCommandEnvelope("correction", {
+      message: correction,
+      ...(planId ? { plan_id: planId } : {}),
+      ...(planVersion ? { plan_version: planVersion } : {}),
+      ...(targetStepId ? { step_id: targetStepId } : {}),
+    });
+    const sent = sendPayload(commandEnvelope, "WebSocket not connected.");
 
     if (sent) {
       appendConversation("user", correction);
-      setRunState("planning");
-      setInteractionMode("planning");
+      recordPendingCommand(commandEnvelope, {
+        ui_label: "Plan correction",
+      });
       setPlanCorrectionText("");
       appendTimeline("Correction sent.", "ok");
     }
-  }, [appendConversation, appendTimeline, plan, planCorrectionText, sendPayload]);
+  }, [appendConversation, appendTimeline, plan, planCorrectionText, recordPendingCommand, sendPayload]);
 
   const handleSendClarificationAnswer = useCallback(
     (answerOverride = "") => {
@@ -1760,28 +2258,30 @@ function useAutoWorkbenchTransport(config) {
         appendTimeline("Clarification answer is empty.", "warn");
         return;
       }
+      const currentPlan = planRef.current && typeof planRef.current === "object" ? planRef.current : null;
+      const rawPlan = currentPlan && typeof currentPlan.raw === "object" ? currentPlan.raw : {};
+      const planId = firstNonEmptyText(rawPlan.plan_id, rawPlan.planId, rawPlan.id);
+      const planVersion = firstNonEmptyText(rawPlan.plan_version, rawPlan.planVersion);
 
-      const sent = sendPayload(
-        {
-          type: "option_selected",
-          value: answer,
-          answer,
-          message: answer,
-        },
-        "WebSocket not connected."
-      );
+      const commandEnvelope = buildFrontendCommandEnvelope("option_selected", {
+        value: answer,
+        answer,
+        message: answer,
+        ...(planId ? { plan_id: planId } : {}),
+        ...(planVersion ? { plan_version: planVersion } : {}),
+      });
+      const sent = sendPayload(commandEnvelope, "WebSocket not connected.");
 
       if (sent) {
         appendConversation("user", answer);
+        recordPendingCommand(commandEnvelope, {
+          ui_label: "Clarification answer",
+        });
         appendTimeline("Clarification answer sent.", "ok");
-        setRunState("executing");
-        setInteractionMode("executing");
-        setClarificationQuestion("");
-        setClarificationOptions([]);
         setClarificationAnswerText("");
       }
     },
-    [appendConversation, appendTimeline, clarificationAnswerText, sendPayload]
+    [appendConversation, appendTimeline, clarificationAnswerText, recordPendingCommand, sendPayload]
   );
 
   const handleSendRecoveryInstruction = useCallback(() => {
@@ -1790,29 +2290,37 @@ function useAutoWorkbenchTransport(config) {
       appendTimeline("Recovery instruction is empty.", "warn");
       return;
     }
+    const currentPlan = planRef.current && typeof planRef.current === "object" ? planRef.current : null;
+    const rawPlan = currentPlan && typeof currentPlan.raw === "object" ? currentPlan.raw : {};
+    const planId = firstNonEmptyText(rawPlan.plan_id, rawPlan.planId, rawPlan.id);
+    const planVersion = firstNonEmptyText(rawPlan.plan_version, rawPlan.planVersion);
 
-    const sent = sendPayload(
-      {
-        type: "correction",
-        message: instruction,
-      },
-      "WebSocket not connected."
-    );
+    const commandEnvelope = buildFrontendCommandEnvelope("correction", {
+      message: instruction,
+      ...(planId ? { plan_id: planId } : {}),
+      ...(planVersion ? { plan_version: planVersion } : {}),
+    });
+    const sent = sendPayload(commandEnvelope, "WebSocket not connected.");
 
     if (sent) {
       appendConversation("user", instruction);
+      recordPendingCommand(commandEnvelope, {
+        ui_label: "Recovery instruction",
+      });
       appendTimeline("Recovery instruction sent.", "ok");
-      setRunState("recovery");
-      setInteractionMode("recovery");
       setRecoveryText("");
     }
-  }, [appendConversation, appendTimeline, recoveryText, sendPayload]);
+  }, [appendConversation, appendTimeline, recordPendingCommand, recoveryText, sendPayload]);
 
   const handleBackendMessage = useCallback(
     (message) => {
       const type = String(message?.type || "status").toLowerCase();
       const payload = message?.payload;
       const text = extractText(payload) || extractText(message?.raw) || type.replace(/_/g, " ");
+      const traceEntry = buildTraceEntryFromBackendMessage(message);
+      if (traceEntry) {
+        recordTraceEntry(traceEntry);
+      }
 
       switch (type) {
         case "browser_ready":
@@ -1832,12 +2340,19 @@ function useAutoWorkbenchTransport(config) {
               setInteractionMode(nextState);
             }
           }
+          acknowledgePendingCommands(type, {
+            backend_event: type,
+            backend_state: nextState || "",
+          });
           appendTimeline(text || "Status update", "ok");
           break;
         }
         case "llm_thinking":
           setRunState("planning");
           setInteractionMode("planning");
+          acknowledgePendingCommands(type, {
+            backend_event: type,
+          });
           appendTimeline(text || "LLM thinking", "active");
           appendConversation("agent", text || "Thinking…");
           break;
@@ -1851,6 +2366,10 @@ function useAutoWorkbenchTransport(config) {
           setRecoveryText("");
           const nextPlan = normalizePlanPayload(payload);
           setPlan(nextPlan);
+          acknowledgePendingCommands(type, {
+            backend_event: type,
+            plan_id: firstNonEmptyText(nextPlan?.raw?.plan_id, nextPlan?.raw?.planId, nextPlan?.raw?.id),
+          });
           appendTimeline(nextPlan?.summary ? `Plan ready · ${nextPlan.summary}` : "Plan ready", "warn");
           if (nextPlan?.summary) {
             appendConversation("agent", nextPlan.summary);
@@ -1866,8 +2385,34 @@ function useAutoWorkbenchTransport(config) {
           setClarificationAnswerText("");
           setPlanCorrectionText("");
           setRecoveryText("");
+          acknowledgePendingCommands(type, {
+            backend_event: type,
+          });
           appendConversation("agent", clarification.question || "Clarification needed");
           appendTimeline("Clarification needed", "warn");
+          break;
+        }
+        case "recovery_needed": {
+          const recoveryReason = firstNonEmptyText(
+            payload && typeof payload === "object" ? payload.error_summary : "",
+            payload && typeof payload === "object" ? payload.message : "",
+            payload && typeof payload === "object" ? payload.detail : "",
+            text,
+            "Recovery needed"
+          );
+          setRunState("recovery");
+          setInteractionMode("recovery");
+          setLastError(recoveryReason);
+          setPlanCorrectionText("");
+          setClarificationQuestion("");
+          setClarificationOptions([]);
+          setClarificationAnswerText("");
+          setRecoveryText("");
+          acknowledgePendingCommands(type, {
+            backend_event: type,
+          });
+          appendConversation("system", recoveryReason);
+          appendTimeline(recoveryReason, "err");
           break;
         }
         case "error":
@@ -1879,9 +2424,51 @@ function useAutoWorkbenchTransport(config) {
           setClarificationAnswerText("");
           setPlanCorrectionText("");
           setRecoveryText("");
+          acknowledgePendingCommands(type, {
+            backend_event: type,
+          });
           appendConversation("system", text || "Error");
           appendTimeline(text || "Error", "err");
           break;
+        case "runtime_rejected": {
+          const rejectionCommandId = firstNonEmptyText(
+            payload && typeof payload === "object" ? payload.command_id : "",
+            payload && typeof payload === "object" ? payload.commandId : "",
+            message && typeof message === "object" ? message.command_id : "",
+            message && typeof message === "object" ? message.commandId : ""
+          );
+          const rejectionCode = firstNonEmptyText(
+            payload && typeof payload === "object" ? payload.rejection_code : "",
+            payload && typeof payload === "object" ? payload.rejectionCode : ""
+          );
+          const rejectionReason = firstNonEmptyText(
+            payload && typeof payload === "object" ? payload.message : "",
+            payload && typeof payload === "object" ? payload.detail : "",
+            text,
+            "Command rejected"
+          );
+          const currentState = payload && typeof payload === "object" ? payload.current_state : null;
+          const currentStateSummary =
+            currentState && typeof currentState === "object"
+              ? [
+                  firstNonEmptyText(currentState.phase, currentState.state),
+                  firstNonEmptyText(currentState.run_id, currentState.plan_id),
+                ]
+                  .filter(Boolean)
+                  .join(" · ")
+              : "";
+
+          if (rejectionCommandId) {
+            rejectPendingCommand(rejectionCommandId, {
+              rejection_code: rejectionCode,
+              rejection_reason: rejectionReason,
+              current_state: currentState,
+            });
+          }
+          setLastError(rejectionReason);
+          appendTimeline([rejectionCode, rejectionReason, currentStateSummary].filter(Boolean).join(" · "), "err");
+          break;
+        }
         case "llm_result": {
           const resultSuccess = message?.success;
           const resultMessage = message?.message;
@@ -1901,6 +2488,10 @@ function useAutoWorkbenchTransport(config) {
             appendConversation("agent", text || "LLM result received");
             appendTimeline(text || "LLM result received", "ok");
           }
+          acknowledgePendingCommands(type, {
+            backend_event: type,
+            success: Boolean(resultSuccess),
+          });
           {
             const nextCode = extractCodePreview(payload);
             if (nextCode) {
@@ -1971,6 +2562,10 @@ function useAutoWorkbenchTransport(config) {
           const planCompleted = Boolean(nextPlan && Array.isArray(nextPlan.steps) && nextPlan.steps.length > 0 && nextPlan.steps.every(isPlanStepCompleted));
           setRunState((current) => (current === "completed" ? current : planCompleted ? "completed" : "executing"));
           setInteractionMode(planCompleted ? "completed" : "executing");
+          acknowledgePendingCommands(type, {
+            backend_event: type,
+            recorded_step_id: firstNonEmptyText(nextRecordedStep.id, nextRecordedStep.step_id),
+          });
           appendTimeline(
             `Recorded: ${firstNonEmptyText(nextRecordedStep.action, "recorded")} — ${firstNonEmptyText(
               nextRecordedStep.element_name,
@@ -1986,6 +2581,12 @@ function useAutoWorkbenchTransport(config) {
           if (nextCode) {
             setCodePreview(nextCode);
           }
+          setCodeDiagnostics(
+            normalizeCodeDiagnostics(payload && typeof payload === "object" ? payload.diagnostics : [])
+          );
+          acknowledgePendingCommands(type, {
+            backend_event: type,
+          });
           appendTimeline(text || "Code updated", "ok");
           break;
         }
@@ -2200,7 +2801,7 @@ function useAutoWorkbenchTransport(config) {
           break;
       }
     },
-    [appendConversation, appendTimeline]
+    [acknowledgePendingCommands, appendConversation, appendTimeline, rejectPendingCommand]
   );
 
   useEffect(() => {
@@ -2317,10 +2918,13 @@ function useAutoWorkbenchTransport(config) {
     interactionMode,
     conversation,
     timeline,
+    traceEntries,
     plan,
     pendingSteps,
+    pendingCommands,
     recordedSteps,
     lastReplayByStepId,
+    codeDiagnostics,
     planCorrectionText,
     clarificationQuestion,
     clarificationOptions,
@@ -2360,7 +2964,10 @@ function useAutoWorkbenchTransport(config) {
     setClarificationAnswerText,
     setRecoveryText,
     setPendingSteps,
+    setPendingCommands,
+    setTraceEntries,
     setRecordedSteps,
+    setCodeDiagnostics,
     updatePendingStepIntent,
     addPendingStep,
     removePendingStep,
@@ -2379,7 +2986,7 @@ function useAutoWorkbenchTransport(config) {
 
 function AutoWorkbenchRuntime({ config }) {
   const normalized = normalizeConfig(config);
-  const transport = useAutoWorkbenchTransport(config);
+  const transport = useFrontendEventStore(config);
   const [tab, setTab] = useState(normalized.tab);
 
   useEffect(() => {
@@ -2427,18 +3034,33 @@ function AutoWorkbenchRuntime({ config }) {
   );
 }
 
+function useFrontendEventStore(config) {
+  return useAutoWorkbenchTransport(config);
+}
+
 let currentRoot = null;
-let currentNode = null;
+let currentHostNode = null;
+let currentMountNode = null;
 
 function renderInto(node, config) {
-  if (currentRoot && currentNode !== node) {
+  const shadowRoot = ensureShadowHost(node);
+  const mountNode = shadowRoot ? ensureShadowMount(shadowRoot) : node;
+
+  if (shadowRoot) {
+    ensureShadowStyles(shadowRoot);
+  }
+
+  if (currentRoot && (currentHostNode !== node || currentMountNode !== mountNode)) {
     currentRoot.unmount();
     currentRoot = null;
+    currentHostNode = null;
+    currentMountNode = null;
   }
 
   if (!currentRoot) {
-    currentRoot = createRoot(node);
-    currentNode = node;
+    currentRoot = createRoot(mountNode);
+    currentHostNode = node;
+    currentMountNode = mountNode;
   }
 
   currentRoot.render(<AutoWorkbenchRuntime config={config} />);
@@ -2454,7 +3076,8 @@ function unmount() {
   if (currentRoot) {
     currentRoot.unmount();
     currentRoot = null;
-    currentNode = null;
+    currentHostNode = null;
+    currentMountNode = null;
   }
 }
 

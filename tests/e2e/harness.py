@@ -1202,13 +1202,22 @@ class E2ESession:
         marker_line = _detect_marker_line(lines, E2E_LLM_MARKERS)
         return marker_line is not None, marker_line
 
+    async def find_autoworkbench_panel(self) -> Any:
+        shadow_panel = self.page.locator("#aw-root").first
+        try:
+            if await shadow_panel.count() > 0:
+                return shadow_panel
+        except Exception:
+            pass
+        return self.page.locator("#autoworkbench-root .ide-panel").first
+
     async def _page_state(self) -> dict[str, Any]:
         current_url = getattr(self.page, "url", "")
         overlay_visible = False
         active_tab = ""
         active_mode = ""
         try:
-            overlay_visible = bool(await self.page.locator("#autoworkbench-root .ide-panel").first.is_visible())
+            overlay_visible = bool(await (await self.find_autoworkbench_panel()).is_visible())
         except Exception:
             overlay_visible = False
         try:
@@ -1548,7 +1557,19 @@ async def start_e2e_session(*, test_name: str, app_root: Path) -> AsyncIterator[
 
 
 async def wait_for_overlay_ready(page: Any, timeout_ms: int = 10000) -> None:
+    await wait_for_autoworkbench_ready(page, timeout_ms=timeout_ms)
+
+
+async def wait_for_autoworkbench_ready(page: Any, timeout_ms: int = 10000) -> None:
     await page.locator("#autoworkbench-root").wait_for(state="attached", timeout=timeout_ms)
+    panel = page.locator("#aw-root").first
+    try:
+        if await panel.count() > 0:
+            await panel.wait_for(state="visible", timeout=timeout_ms)
+        else:
+            await page.locator("#autoworkbench-root .ide-panel").first.wait_for(state="visible", timeout=timeout_ms)
+    except Exception:
+        await page.locator("#autoworkbench-root .ide-panel").first.wait_for(state="visible", timeout=timeout_ms)
     await page.get_by_role("button", name="Run Pending Steps").first.wait_for(state="visible", timeout=timeout_ms)
 
 

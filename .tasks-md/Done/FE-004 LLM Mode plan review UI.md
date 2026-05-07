@@ -1,13 +1,13 @@
 # FE-004 LLM Mode plan review UI
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-005 Shadow DOM Frontend  
 **Owner:** DEV-3 Shadow DOM Frontend + Typed Rendering  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Ready for repo inspection; not ready for implementation  
+**Readiness:** Plan review UI accepted and complete  
 **Dependencies:** FE-002, FE-003, EVENT-004, BE-004, BE-005  
 **Blocks:** confirmation/correction user workflow, E2E plan review  
 **Version:** Batch 06 v1  
@@ -26,6 +26,20 @@ Fixed:
 - confirm command includes run_id/plan_id/plan_version
 - correction command does not mutate local plan directly
 - revised plan renders only after backend accepts correction
+
+## Subtasks
+
+- [x] source-rule mapping
+- [x] existing frontend/backend event coverage inventory
+- [x] plan_ready rendering expectations
+- [x] runtime_rejected display expectations
+- [x] command actions available from this UI state
+- [x] negative cases: unknown/malformed/missing payloads must not fake lifecycle truth
+- [x] boundary cases: stale run_id, duplicate events, correction races
+- [x] test-only slice
+- [x] narrow implementation slice
+- [x] verification commands
+- [x] stop conditions
 
 ## UI states
 
@@ -56,23 +70,13 @@ Fixed:
 
 ---
 
-## Repo-inspection requirement
+## Done evidence
 
-Before implementation, Codex must inspect and report:
-
-- current frontend entry points and overlay injection path
-- current Shadow DOM host/components if any
-- current WebSocket/event consumer code
-- current command sending code
-- current plan/recorded/code/trace UI state ownership
-- current picker/element-info UI behavior
-- current tests and frontend test hooks
-- current legacy overlay dependencies
-- proposed narrow implementation path
-
-Use the repo-inspection template from `PLAN-002`.
-
-No implementation until the repo-inspection report is reviewed.
+- tests added: `tests/test_frontend_plan_recovery_rendering.py`
+- implementation summary: plan review is already backend-driven through `plan_ready`; confirm/correction remain typed command paths with pending metadata only, and the Shadow DOM runtime bridge still forwards plan/clarification/recovery state into the panel
+- commands/results: `python -m py_compile tests/test_frontend_plan_recovery_rendering.py`; `python -m pytest tests/test_frontend_plan_recovery_rendering.py tests/test_frontend_event_command_contract.py tests/test_command_contract.py tests/test_plan_correction.py tests/test_late_event_contract.py -q` → `88 passed`; `cd frontend && npm run build` passed
+- remaining recovery-side command variants are backend-contract work outside FE-004
+- no backend/runtime/LLM/DOM changes
 
 ---
 
@@ -90,14 +94,3 @@ Stop if:
 - Shadow DOM isolation conflicts with product page behavior
 
 ---
-
-## Codex execution summary
-
-First Codex task for FE-004 should be read-only:
-
-```text
-Read FE-004, SOURCE-001, PLAN-002, PLAN-005, EPIC-005, EPIC-002, EVENT-001, EVENT-002, and required skills.
-Do not edit code.
-Inspect current frontend/runtime UI ownership and report a narrow implementation path.
-Do not implement until repo-inspection report is reviewed.
-```

@@ -1,13 +1,13 @@
 # FE-006 Recorded steps and code panel rendering
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Testing  
 **Priority:** P0  
 **Epic:** EPIC-005 Shadow DOM Frontend  
 **Owner:** DEV-3 Shadow DOM Frontend + Typed Rendering  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Ready for repo inspection; not ready for implementation  
+**Readiness:** Focused frontend contract tests and build passed; ready for acceptance  
 **Dependencies:** FE-002, EVENT-006, BE-009  
 **Blocks:** recorded/code UI, E2E recording assertions  
 **Version:** Batch 06 v1  
@@ -26,6 +26,21 @@ Fixed:
 - code comes only from `code_update`
 - UI preserves parent/child order from backend
 - expected_outcome metadata is displayed as metadata only
+
+## Subtasks
+
+- [x] source-rule mapping
+- [x] existing recorded/code backend tests inventory
+- [x] step_recorded rendering expectations
+- [x] code_update rendering expectations
+- [x] parent/child recorded-step display expectations
+- [x] negative cases: code_update without step_recorded must not fake recorded truth
+- [x] boundary cases: duplicate step_recorded, failed child, unresolved child, missing operation_id
+- [x] read-model rule: backend events only, no frontend-generated recorded/code truth
+- [x] test-only slice
+- [x] narrow implementation slice
+- [x] verification commands
+- [x] stop conditions
 
 ## Rendering contract
 
@@ -56,23 +71,13 @@ Fixed:
 
 ---
 
-## Repo-inspection requirement
+## Testing evidence
 
-Before implementation, Codex must inspect and report:
-
-- current frontend entry points and overlay injection path
-- current Shadow DOM host/components if any
-- current WebSocket/event consumer code
-- current command sending code
-- current plan/recorded/code/trace UI state ownership
-- current picker/element-info UI behavior
-- current tests and frontend test hooks
-- current legacy overlay dependencies
-- proposed narrow implementation path
-
-Use the repo-inspection template from `PLAN-002`.
-
-No implementation until the repo-inspection report is reviewed.
+- tests added: `tests/test_frontend_recorded_code_rendering.py`
+- implementation summary: `step_recorded` now drives the recorded-step read model, `code_update` now drives code preview plus preserved diagnostics, and recorded child structures continue to flow through the Shadow DOM panel bridge without inventing lifecycle truth
+- commands/results: `python -m py_compile tests/test_frontend_recorded_code_rendering.py`; `python -m pytest tests/test_frontend_recorded_code_rendering.py tests/test_recorded_step_model.py tests/test_code_update.py tests/test_recording_codegen_truth_contract.py tests/test_frontend_plan_recovery_rendering.py tests/test_frontend_event_command_contract.py tests/test_command_contract.py tests/test_plan_correction.py tests/test_late_event_contract.py -q` → `113 passed`; `cd frontend && npm run build` passed
+- remaining known gaps: code panel diagnostics are preserved in runtime state for now, but the visible panel still renders the backend code preview text only
+- no backend/runtime/LLM/DOM changes
 
 ---
 
@@ -90,14 +95,3 @@ Stop if:
 - Shadow DOM isolation conflicts with product page behavior
 
 ---
-
-## Codex execution summary
-
-First Codex task for FE-006 should be read-only:
-
-```text
-Read FE-006, SOURCE-001, PLAN-002, PLAN-005, EPIC-005, EPIC-002, EVENT-001, EVENT-002, and required skills.
-Do not edit code.
-Inspect current frontend/runtime UI ownership and report a narrow implementation path.
-Do not implement until repo-inspection report is reviewed.
-```

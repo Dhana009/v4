@@ -32,9 +32,14 @@ function IDEBadge({ kind, children }) {
   return <span className={`ide-badge b-${kind}`}>{children}</span>;
 }
 
-function IDECard({ color, title, children, footer }) {
+function IDECard({ color, title, children, footer, testId, ariaLabel, id }) {
   return (
-    <div className={`ide-card c-${color || "ink"}`}>
+    <div
+      id={id}
+      className={`ide-card c-${color || "ink"}`}
+      data-testid={testId}
+      aria-label={ariaLabel}
+    >
       <div className="ide-card-hd">
         <div className="ide-card-hd-label">{title}</div>
       </div>
@@ -258,7 +263,7 @@ function IDEConversation({ state, messages = [], live = false }) {
   }, [rows.length]);
 
   return (
-    <IDECard color="violet" title="// conversation">
+    <IDECard color="violet" title="// conversation" testId="llm" ariaLabel="LLM">
       <div ref={scrollRef} className="ide-scrollbox ide-scrollbox-conversation" style={{ maxHeight: 228 }}>
         <div style={{ marginInline: -10 }}>
         {rows.map((m, i) => {
@@ -317,6 +322,8 @@ function IDEPlanReview({
     <IDECard
       color="blue"
       title="// plan review"
+      testId="plan-review"
+      ariaLabel="plan review"
       footer={[
         <button
           key="c"
@@ -410,11 +417,18 @@ function IDEClarificationCard({
 }) {
   const hasOptions = Array.isArray(options) && options.length > 0;
   const text = question || "The agent needs a clarification before it can continue.";
+  const answerRef = React.useRef(null);
+
+  React.useEffect(() => {
+    answerRef.current?.focus?.();
+  }, [question, hasOptions]);
 
   return (
     <IDECard
       color="violet"
       title="// clarification needed"
+      testId="clarification"
+      ariaLabel="clarification"
       footer={[
         <button
           key="s"
@@ -447,7 +461,10 @@ function IDEClarificationCard({
         </div>
       )}
       <textarea
+        ref={answerRef}
         className="ide-input"
+        data-testid="clarification-answer"
+        aria-label="Clarification answer"
         rows={3}
         placeholder="Answer clarification…"
         value={answerText}
@@ -459,11 +476,18 @@ function IDEClarificationCard({
 
 function IDERecovery({ message, currentUrl, recoveryText = "", onRecoveryTextChange, onSendRecoveryInstruction }) {
   const issue = message || "Action failed. The agent needs recovery guidance.";
+  const recoveryRef = React.useRef(null);
+
+  React.useEffect(() => {
+    recoveryRef.current?.focus?.();
+  }, [issue, currentUrl]);
 
   return (
     <IDECard
       color="red"
       title="// recovery needed"
+      testId="recovery"
+      ariaLabel="recovery"
       footer={[
         <button
           key="s"
@@ -487,7 +511,10 @@ function IDERecovery({ message, currentUrl, recoveryText = "", onRecoveryTextCha
         </div>
       )}
       <textarea
+        ref={recoveryRef}
         className="ide-input"
+        data-testid="recovery-instruction"
+        aria-label="Recovery instruction"
         rows={3}
         placeholder="Tell the agent how to recover..."
         value={recoveryText}
@@ -914,6 +941,84 @@ function describeElementTargetOption(candidate, index) {
   return parts.join(" · ");
 }
 
+function summarizePickerCandidateMetadata(candidate) {
+  if (!candidate || typeof candidate !== "object") {
+    return [];
+  }
+
+  const metadata = [];
+  const candidateId = firstText(candidate.candidate_id, candidate.candidateId, candidate.id);
+  const locator = firstText(
+    candidate.locator,
+    candidate.selector_or_locator,
+    candidate.selectorOrLocator,
+    candidate.selector,
+    candidate.selectorHint,
+    candidate.locatorHint
+  );
+  const strategy = firstText(candidate.strategy, candidate.source, candidate.candidate_type, candidate.candidateType);
+  const confidence = firstText(candidate.confidence, candidate.score);
+  const count = firstText(candidate.count, candidate.match_count, candidate.matchCount);
+  const visibility = candidate.hidden === true
+    ? "hidden"
+    : firstText(candidate.visibility, candidate.visible === false ? "hidden" : "");
+  const scope = firstText(candidate.scope, candidate.container, candidate.section_ref, candidate.sectionRef);
+  const riskFlags = Array.isArray(candidate.risk_flags) ? candidate.risk_flags.filter(Boolean).map((value) => firstText(value)).filter(Boolean).join(", ") : "";
+  const risk = firstText(candidate.risk, candidate.fragility_warning, candidate.fragilityWarning, candidate.warning, riskFlags);
+  const evidenceRef = firstText(candidate.evidence_ref, candidate.evidenceRef, candidate.trace_ref, candidate.traceRef);
+
+  if (candidateId) metadata.push({ label: "candidate_id", value: candidateId });
+  if (locator) metadata.push({ label: "locator", value: locator });
+  if (strategy) metadata.push({ label: "strategy", value: strategy });
+  if (confidence) metadata.push({ label: Number.isFinite(Number(confidence)) ? "confidence" : "score", value: confidence });
+  if (count) metadata.push({ label: "count", value: count });
+  if (visibility) metadata.push({ label: "visibility", value: visibility });
+  if (scope) metadata.push({ label: "scope", value: scope });
+  if (risk) metadata.push({ label: "risk", value: risk });
+  if (evidenceRef) metadata.push({ label: "evidence_ref", value: evidenceRef });
+
+  return metadata;
+}
+
+function summarizePickerCandidateWarning(candidate, candidateCount = 0) {
+  const warnings = [];
+  if (!candidate || typeof candidate !== "object") {
+    return candidateCount > 0 ? "No locator candidates available." : "No locator candidates yet.";
+  }
+
+  if (Number.isInteger(candidateCount) && candidateCount > 1) {
+    warnings.push(`Multiple candidates require backend validation (${candidateCount}).`);
+  }
+
+  const visibility = firstText(candidate.visibility, candidate.visible === false ? "hidden" : "");
+  const hidden = candidate.hidden === true || visibility === "hidden";
+  if (hidden) {
+    warnings.push("Hidden candidate requires validation.");
+  }
+
+  const confidenceValue = Number(firstText(candidate.confidence, candidate.score));
+  if (Number.isFinite(confidenceValue) && confidenceValue < 0.7) {
+    warnings.push(`Low confidence candidate (${firstText(candidate.confidence, candidate.score)}).`);
+  }
+
+  const evidenceRef = firstText(candidate.evidence_ref, candidate.evidenceRef, candidate.trace_ref, candidate.traceRef);
+  if (!evidenceRef) {
+    warnings.push("Evidence ref missing.");
+  }
+
+  const riskFlags = Array.isArray(candidate.risk_flags) ? candidate.risk_flags.filter(Boolean).map((value) => firstText(value)).filter(Boolean) : [];
+  if (riskFlags.length > 0) {
+    warnings.push(`Risk flags: ${riskFlags.join(", ")}.`);
+  }
+
+  const candidateType = firstText(candidate.candidate_type, candidate.candidateType);
+  if (!candidateType) {
+    warnings.push("Candidate type missing.");
+  }
+
+  return warnings.join(" ");
+}
+
 function shortenText(text, maxLength = 48) {
   const value = firstText(text);
   if (!value) {
@@ -1166,7 +1271,13 @@ function IDERecordedStepsSection({
     : null;
 
   return (
-    <IDECard color={steps.length ? "green" : null} title="// recorded steps" footer={footer}>
+    <IDECard
+      color={steps.length ? "green" : null}
+      title="// recorded steps"
+      testId="recorded"
+      ariaLabel="Recorded"
+      footer={footer}
+    >
       <div className="ide-scrollbox ide-scrollbox-recorded" style={{ maxHeight: 300 }}>
         {steps.length > 0 ? (
           <div className="ide-step-list">
@@ -1252,7 +1363,13 @@ function IDERecordedOutput({
     : null;
 
   return (
-    <IDECard color={recordedCount > 0 ? "green" : null} title="// recorded output" footer={footer}>
+    <IDECard
+      color={recordedCount > 0 ? "green" : null}
+      title="// recorded output"
+      testId="recorded"
+      ariaLabel="Recorded"
+      footer={footer}
+    >
       <div className="ide-stats">
         <div className="ide-stat">
           <div className={`ide-stat-num${recordedCount > 0 ? " s-green" : ""}`}>{recordedCount}</div>
@@ -1351,6 +1468,8 @@ function IDEPendingStepCard({
   const outcomeLine = expectedOutcomeType ? formatExpectedOutcomeSummary(expectedOutcome) : "";
   const validationMessage = needsExpectedOutcome ? "Expected outcome required for click-like steps." : "";
   const targetSelectValue = selectedCandidateIndex === null ? "" : String(selectedCandidateIndex);
+  const candidateMetadata = summarizePickerCandidateMetadata(selectedCandidate);
+  const candidateWarning = summarizePickerCandidateWarning(selectedCandidate, candidateList.length);
 
   const elementSummary = selectedCandidate ? (
     <PendingChipRow elementInfo={selectedCandidate} intent={intent} />
@@ -1383,24 +1502,46 @@ function IDEPendingStepCard({
           {compact ? <IDEBadge kind={statusKind}>{statusLabel}</IDEBadge> : null}
         </div>
         <div className="ide-step-elements">{elementSummary}</div>
-        {candidateList.length > 1 && (
-          <div className="ide-step-target">
+        {candidateList.length > 0 && (
+          <div className="ide-step-target" data-testid="picker-candidates" aria-label="Locator candidates">
             <div className="ide-step-target-label">Selected target</div>
             <div className="ide-step-target-summary">Current: {currentTargetLabel}</div>
             {exactTargetLabel && exactTargetLabel !== currentTargetLabel && (
               <div className="ide-step-target-picked">Exact pick: {exactTargetLabel}</div>
             )}
-            <select
-              className="ide-input ide-step-target-select"
-              value={targetSelectValue}
-              onChange={(event) => onChangeElementTarget?.(step.id, Number(event.target.value))}
-            >
-              {candidateList.map((candidate, candidateIndex) => (
-                <option key={`${candidate.level ?? candidateIndex}-${candidate.tag || "element"}-${candidateIndex}`} value={candidateIndex}>
-                  {describeElementTargetOption(candidate, candidateIndex)}
-                </option>
-              ))}
-            </select>
+            {candidateMetadata.length > 0 && (
+              <div className="ide-step-target-metadata" style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+                {candidateMetadata.map((item) => (
+                  <span
+                    key={`${item.label}:${item.value}`}
+                    className="ide-badge b-await"
+                    style={{ fontSize: 10, lineHeight: 1.2 }}
+                  >
+                    {item.label}: {shortenText(item.value, 56)}
+                  </span>
+                ))}
+              </div>
+            )}
+            {candidateWarning && (
+              <div className="ide-step-validation" data-testid="picker-candidate-warning">
+                {candidateWarning}
+              </div>
+            )}
+            {candidateList.length > 1 && (
+              <select
+                className="ide-input ide-step-target-select"
+                data-testid="picker-candidate-select"
+                aria-label="Choose locator candidate"
+                value={targetSelectValue}
+                onChange={(event) => onChangeElementTarget?.(step.id, Number(event.target.value))}
+              >
+                {candidateList.map((candidate, candidateIndex) => (
+                  <option key={`${candidate.level ?? candidateIndex}-${candidate.tag || "element"}-${candidateIndex}`} value={candidateIndex}>
+                    {describeElementTargetOption(candidate, candidateIndex)}
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
         )}
         {!compact && (
@@ -1506,6 +1647,8 @@ function IDEPendingSteps({
     <IDECard
       color="amber"
       title="// pending steps"
+      testId="steps"
+      ariaLabel="Steps"
       footer={
         !compact && onAddStep
           ? [
@@ -1569,7 +1712,7 @@ function IDECodePreview({ codePreview, live = false }) {
       : "Generated Playwright code will appear here.";
 
   return (
-    <IDECard color="ink" title="// code preview">
+    <IDECard color="ink" title="// code preview" testId="code" ariaLabel="Code">
       <pre className="ide-code" style={{ marginTop: 0, whiteSpace: "pre-wrap" }}>
         {text}
       </pre>
@@ -1577,9 +1720,90 @@ function IDECodePreview({ codePreview, live = false }) {
   );
 }
 
-function IDEDebugPane({ connectionStatus, lastEvent, lastError }) {
+function IDETraceArtifactRow({ artifact }) {
+  if (!artifact) {
+    return null;
+  }
+
   return (
-    <>
+    <div className="ide-trace-artifact" data-testid="trace-artifact">
+      <div className="ide-trace-artifact-head">
+        <span className="ide-trace-artifact-label">{artifact.label || artifact.key}</span>
+        {artifact.status && <IDEBadge kind={artifact.status === "err" ? "failed" : artifact.status === "warn" ? "await" : "recorded"}>{artifact.status}</IDEBadge>}
+      </div>
+      {artifact.path && <code className="ide-trace-artifact-path">{artifact.path}</code>}
+      {artifact.note && <div className="ide-trace-warning">{artifact.note}</div>}
+    </div>
+  );
+}
+
+function IDETraceRow({ entry }) {
+  if (!entry) {
+    return null;
+  }
+
+  const severityKind = entry.severity === "err" ? "failed" : entry.severity === "warn" ? "await" : "recorded";
+  const label = entry.type ? entry.type.replace(/_/g, " ") : "trace event";
+
+  return (
+    <div className={`ide-trace-row s-${entry.severity || "ok"}`} data-testid="trace-row" aria-label={`Trace row ${label}`}>
+      <div className="ide-trace-row-head">
+        <span className="ide-trace-row-type">{label}</span>
+        <IDEBadge kind={severityKind}>{entry.severity === "err" ? "Error" : entry.severity === "warn" ? "Warn" : "Trace"}</IDEBadge>
+        {entry.timestamp && <span className="ide-trace-row-time">{entry.timestamp}</span>}
+        {entry.category && <span className="ide-trace-row-category">{entry.category}</span>}
+        {entry.source && <span className="ide-trace-row-source">{entry.source}</span>}
+      </div>
+      {entry.summary && <div className="ide-trace-row-summary">{entry.summary}</div>}
+      <div className="ide-trace-row-meta">
+        {entry.evidenceRef && <div className="ide-trace-row-evidence">evidence_ref: {entry.evidenceRef}</div>}
+        {entry.redactionStatus && <div className="ide-trace-row-redaction">redaction: {entry.redactionStatus}</div>}
+        {entry.redactionWarning && <div className="ide-trace-warning">{entry.redactionWarning}</div>}
+        {entry.rejectionReason && <div className="ide-trace-row-rejection">rejection: {entry.rejectionReason}</div>}
+        {entry.currentStateLabel && <div className="ide-trace-row-state">current_state: {entry.currentStateLabel}</div>}
+        {entry.diagnostic && <div className="ide-trace-warning">{entry.diagnostic}</div>}
+      </div>
+      {Array.isArray(entry.artifacts) && entry.artifacts.length > 0 && (
+        <div className="ide-trace-artifact-list" data-testid="trace-artifacts">
+          {entry.artifacts.map((artifact) => (
+            <IDETraceArtifactRow key={`${entry.id}-${artifact.key}`} artifact={artifact} />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function IDEDebugPane({ connectionStatus, lastEvent, lastError, traceEntries = [] }) {
+  const artifacts = traceEntries.reduce((accumulated, entry) => {
+    if (Array.isArray(entry?.artifacts) && entry.artifacts.length > 0) {
+      accumulated.push(...entry.artifacts);
+    }
+    return accumulated;
+  }, []);
+
+  return (
+    <div data-testid="trace" aria-label="Trace">
+      <IDECard color="blue" title="// trace log" testId="trace-log" ariaLabel="Trace log">
+        {traceEntries.length > 0 ? (
+          <div className="ide-trace-list" role="list">
+            {traceEntries.map((entry) => (
+              <IDETraceRow key={entry.id} entry={entry} />
+            ))}
+          </div>
+        ) : (
+          <div className="ide-empty-state">No trace evidence yet.</div>
+        )}
+      </IDECard>
+      {artifacts.length > 0 && (
+        <IDECard color="green" title="// evidence bundle" testId="trace-artifacts" ariaLabel="Evidence bundle">
+          <div className="ide-trace-artifact-list">
+            {artifacts.map((artifact, index) => (
+              <IDETraceArtifactRow key={`${artifact.key || artifact.label || "artifact"}-${index}`} artifact={artifact} />
+            ))}
+          </div>
+        </IDECard>
+      )}
       <IDECard color="red" title="// transport">
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 11.5 }}>
           <div style={{ padding: "6px 8px", background: "#faf7f3", border: "1px solid #ede8e0", borderRadius: 2 }}>
@@ -1612,7 +1836,7 @@ function IDEDebugPane({ connectionStatus, lastEvent, lastError }) {
           <div style={{ fontSize: 11.5, color: "#4a4640", lineHeight: 1.6 }}>{lastError}</div>
         </IDECard>
       )}
-    </>
+    </div>
   );
 }
 
@@ -1709,6 +1933,7 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
   const codePreview = typeof runtime.codePreview === "string" ? runtime.codePreview : "";
   const lastError = typeof runtime.lastError === "string" ? runtime.lastError : "";
   const lastEvent = runtime.lastEvent || null;
+  const traceEntries = Array.isArray(runtime.traceEntries) ? runtime.traceEntries : [];
   const activePickerStepId = typeof runtime.activePickerStepId === "string" ? runtime.activePickerStepId : "";
   const stepCount = pendingSteps.length + recordedSteps.length;
   const showPlanReview = interactionMode === "plan_review";
@@ -1716,7 +1941,7 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
   const showRecovery = interactionMode === "recovery";
 
   return (
-    <div className="ide-panel">
+    <div className="ide-panel" id="aw-root" data-testid="aw-root" aria-label="AutoWorkbench">
       <IDEHeader state={panelState} interactionMode={interactionMode} connectionStatus={connectionStatus} />
       <div className="ide-tabs">
         {[
@@ -1729,6 +1954,24 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
             key={id}
             className={`ide-tab${tab === id ? " active" : ""}`}
             type="button"
+            data-testid={
+              id === "workbench"
+                ? "llm-tab"
+                : id === "steps"
+                  ? "steps-tab"
+                  : id === "code"
+                    ? "code-tab"
+                    : "trace-tab"
+            }
+            aria-label={
+              id === "workbench"
+                ? "LLM"
+                : id === "steps"
+                  ? "Steps"
+                  : id === "code"
+                    ? "Code"
+                    : "Trace"
+            }
             onClick={() => onTabChange?.(id)}
           >
             {label}
@@ -1822,7 +2065,7 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
         )}
         {tab === "debug" && (
           <>
-            <IDEDebugPane connectionStatus={connectionStatus} lastEvent={lastEvent} lastError={lastError} />
+            <IDEDebugPane connectionStatus={connectionStatus} lastEvent={lastEvent} lastError={lastError} traceEntries={traceEntries} />
             <IDETimeline state={panelState} events={timeline} live={live} />
           </>
         )}

@@ -24592,12 +24592,21 @@
   function IDEBadge({ kind, children }) {
     return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: `ide-badge b-${kind}`, children });
   }
-  function IDECard({ color, title, children, footer }) {
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: `ide-card c-${color || "ink"}`, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-card-hd", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-card-hd-label", children: title }) }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-card-body", children }),
-      footer && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { padding: "0 10px 10px", display: "flex", gap: 6 }, children: footer })
-    ] });
+  function IDECard({ color, title, children, footer, testId, ariaLabel, id }) {
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+      "div",
+      {
+        id,
+        className: `ide-card c-${color || "ink"}`,
+        "data-testid": testId,
+        "aria-label": ariaLabel,
+        children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-card-hd", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-card-hd-label", children: title }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-card-body", children }),
+          footer && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { padding: "0 10px 10px", display: "flex", gap: 6 }, children: footer })
+        ]
+      }
+    );
   }
   function getPlanStepChildren(step) {
     if (!step || typeof step !== "object") {
@@ -24789,7 +24798,7 @@
       }
       node.scrollTop = node.scrollHeight;
     }, [rows.length]);
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECard, { color: "violet", title: "// conversation", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { ref: scrollRef, className: "ide-scrollbox ide-scrollbox-conversation", style: { maxHeight: 228 }, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { marginInline: -10 }, children: rows.map((m, i) => {
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECard, { color: "violet", title: "// conversation", testId: "llm", ariaLabel: "LLM", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { ref: scrollRef, className: "ide-scrollbox ide-scrollbox-conversation", style: { maxHeight: 228 }, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { marginInline: -10 }, children: rows.map((m, i) => {
       const who = m.role || m.w || "agent";
       const time = m.time || m.t || "--:--:--";
       const text = m.text !== void 0 ? m.text : m.txt;
@@ -24828,6 +24837,8 @@
       {
         color: "blue",
         title: "// plan review",
+        testId: "plan-review",
+        ariaLabel: "plan review",
         footer: [
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
             "button",
@@ -24912,11 +24923,17 @@
   }) {
     const hasOptions = Array.isArray(options) && options.length > 0;
     const text = question || "The agent needs a clarification before it can continue.";
+    const answerRef = import_react.default.useRef(null);
+    import_react.default.useEffect(() => {
+      answerRef.current?.focus?.();
+    }, [question, hasOptions]);
     return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
       IDECard,
       {
         color: "violet",
         title: "// clarification needed",
+        testId: "clarification",
+        ariaLabel: "clarification",
         footer: [
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
             "button",
@@ -24949,7 +24966,10 @@
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
             "textarea",
             {
+              ref: answerRef,
               className: "ide-input",
+              "data-testid": "clarification-answer",
+              "aria-label": "Clarification answer",
               rows: 3,
               placeholder: "Answer clarification\u2026",
               value: answerText,
@@ -24962,11 +24982,17 @@
   }
   function IDERecovery({ message, currentUrl, recoveryText = "", onRecoveryTextChange, onSendRecoveryInstruction }) {
     const issue = message || "Action failed. The agent needs recovery guidance.";
+    const recoveryRef = import_react.default.useRef(null);
+    import_react.default.useEffect(() => {
+      recoveryRef.current?.focus?.();
+    }, [issue, currentUrl]);
     return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
       IDECard,
       {
         color: "red",
         title: "// recovery needed",
+        testId: "recovery",
+        ariaLabel: "recovery",
         footer: [
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
             "button",
@@ -24992,7 +25018,10 @@
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
             "textarea",
             {
+              ref: recoveryRef,
               className: "ide-input",
+              "data-testid": "recovery-instruction",
+              "aria-label": "Recovery instruction",
               rows: 3,
               placeholder: "Tell the agent how to recover...",
               value: recoveryText,
@@ -25370,6 +25399,70 @@
     }
     return parts.join(" \xB7 ");
   }
+  function summarizePickerCandidateMetadata(candidate) {
+    if (!candidate || typeof candidate !== "object") {
+      return [];
+    }
+    const metadata = [];
+    const candidateId = firstText(candidate.candidate_id, candidate.candidateId, candidate.id);
+    const locator = firstText(
+      candidate.locator,
+      candidate.selector_or_locator,
+      candidate.selectorOrLocator,
+      candidate.selector,
+      candidate.selectorHint,
+      candidate.locatorHint
+    );
+    const strategy = firstText(candidate.strategy, candidate.source, candidate.candidate_type, candidate.candidateType);
+    const confidence = firstText(candidate.confidence, candidate.score);
+    const count = firstText(candidate.count, candidate.match_count, candidate.matchCount);
+    const visibility = candidate.hidden === true ? "hidden" : firstText(candidate.visibility, candidate.visible === false ? "hidden" : "");
+    const scope = firstText(candidate.scope, candidate.container, candidate.section_ref, candidate.sectionRef);
+    const riskFlags = Array.isArray(candidate.risk_flags) ? candidate.risk_flags.filter(Boolean).map((value) => firstText(value)).filter(Boolean).join(", ") : "";
+    const risk = firstText(candidate.risk, candidate.fragility_warning, candidate.fragilityWarning, candidate.warning, riskFlags);
+    const evidenceRef = firstText(candidate.evidence_ref, candidate.evidenceRef, candidate.trace_ref, candidate.traceRef);
+    if (candidateId) metadata.push({ label: "candidate_id", value: candidateId });
+    if (locator) metadata.push({ label: "locator", value: locator });
+    if (strategy) metadata.push({ label: "strategy", value: strategy });
+    if (confidence) metadata.push({ label: Number.isFinite(Number(confidence)) ? "confidence" : "score", value: confidence });
+    if (count) metadata.push({ label: "count", value: count });
+    if (visibility) metadata.push({ label: "visibility", value: visibility });
+    if (scope) metadata.push({ label: "scope", value: scope });
+    if (risk) metadata.push({ label: "risk", value: risk });
+    if (evidenceRef) metadata.push({ label: "evidence_ref", value: evidenceRef });
+    return metadata;
+  }
+  function summarizePickerCandidateWarning(candidate, candidateCount = 0) {
+    const warnings = [];
+    if (!candidate || typeof candidate !== "object") {
+      return candidateCount > 0 ? "No locator candidates available." : "No locator candidates yet.";
+    }
+    if (Number.isInteger(candidateCount) && candidateCount > 1) {
+      warnings.push(`Multiple candidates require backend validation (${candidateCount}).`);
+    }
+    const visibility = firstText(candidate.visibility, candidate.visible === false ? "hidden" : "");
+    const hidden = candidate.hidden === true || visibility === "hidden";
+    if (hidden) {
+      warnings.push("Hidden candidate requires validation.");
+    }
+    const confidenceValue = Number(firstText(candidate.confidence, candidate.score));
+    if (Number.isFinite(confidenceValue) && confidenceValue < 0.7) {
+      warnings.push(`Low confidence candidate (${firstText(candidate.confidence, candidate.score)}).`);
+    }
+    const evidenceRef = firstText(candidate.evidence_ref, candidate.evidenceRef, candidate.trace_ref, candidate.traceRef);
+    if (!evidenceRef) {
+      warnings.push("Evidence ref missing.");
+    }
+    const riskFlags = Array.isArray(candidate.risk_flags) ? candidate.risk_flags.filter(Boolean).map((value) => firstText(value)).filter(Boolean) : [];
+    if (riskFlags.length > 0) {
+      warnings.push(`Risk flags: ${riskFlags.join(", ")}.`);
+    }
+    const candidateType = firstText(candidate.candidate_type, candidate.candidateType);
+    if (!candidateType) {
+      warnings.push("Candidate type missing.");
+    }
+    return warnings.join(" ");
+  }
   function shortenText(text, maxLength = 48) {
     const value = firstText(text);
     if (!value) {
@@ -25587,22 +25680,32 @@
         "replay-all"
       )
     ] : null;
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECard, { color: steps.length ? "green" : null, title: "// recorded steps", footer, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-scrollbox ide-scrollbox-recorded", style: { maxHeight: 300 }, children: steps.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-list", children: steps.map((step, i) => {
-      const stepKey = firstText(step.id, step.step_id, step.stepId);
-      return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-        IDERecordedStepCard,
-        {
-          step,
-          index: i,
-          compact: false,
-          showGeneratedLine: true,
-          replayStatus: stepKey ? lastReplayByStepId[stepKey] : null,
-          onReplay: onReplayRecordedStep,
-          onCopy: onCopyRecordedStep
-        },
-        step.id || `${step.step_number || i}`
-      );
-    }) }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-empty-state", children: "No recorded steps yet." }) }) });
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+      IDECard,
+      {
+        color: steps.length ? "green" : null,
+        title: "// recorded steps",
+        testId: "recorded",
+        ariaLabel: "Recorded",
+        footer,
+        children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-scrollbox ide-scrollbox-recorded", style: { maxHeight: 300 }, children: steps.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-list", children: steps.map((step, i) => {
+          const stepKey = firstText(step.id, step.step_id, step.stepId);
+          return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+            IDERecordedStepCard,
+            {
+              step,
+              index: i,
+              compact: false,
+              showGeneratedLine: true,
+              replayStatus: stepKey ? lastReplayByStepId[stepKey] : null,
+              onReplay: onReplayRecordedStep,
+              onCopy: onCopyRecordedStep
+            },
+            step.id || `${step.step_number || i}`
+          );
+        }) }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-empty-state", children: "No recorded steps yet." }) })
+      }
+    );
   }
   function IDERecordedOutput({
     recordedSteps = [],
@@ -25659,61 +25762,71 @@
         "replay-all"
       )
     ] : null;
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(IDECard, { color: recordedCount > 0 ? "green" : null, title: "// recorded output", footer, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-stats", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-stat", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `ide-stat-num${recordedCount > 0 ? " s-green" : ""}`, children: recordedCount }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-stat-lbl", children: "Recorded steps" })
-        ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-stat", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-stat-num", children: lineCount > 0 ? lineCount : "\u2014" }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-stat-lbl", children: "Code lines" })
-        ] })
-      ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-mini-tabs", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-          "button",
-          {
-            className: `ide-mini-tab${activeTab === "steps" ? " active" : ""}`,
-            type: "button",
-            onClick: () => setActiveTab("steps"),
-            children: "Steps"
-          }
-        ),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-          "button",
-          {
-            className: `ide-mini-tab${activeTab === "code" ? " active" : ""}`,
-            type: "button",
-            onClick: () => setActiveTab("code"),
-            children: "Code"
-          }
-        )
-      ] }),
-      activeTab === "steps" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-scrollbox ide-scrollbox-recorded", style: { maxHeight: 216 }, children: [
-        visibleSteps.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-list", children: visibleSteps.map((step, i) => {
-          const stepKey = firstText(step.id, step.step_id, step.stepId);
-          return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-            IDERecordedStepCard,
-            {
-              step,
-              index: i,
-              compact: true,
-              showGeneratedLine: false,
-              replayStatus: stepKey ? lastReplayByStepId[stepKey] : null,
-              onReplay: onReplayRecordedStep,
-              onCopy: onCopyRecordedStep
-            },
-            step.id || `${step.step_number || i}`
-          );
-        }) }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-empty-state", children: "No recorded steps yet." }),
-        steps.length > visibleSteps.length && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-more-note", children: [
-          "+ ",
-          steps.length - visibleSteps.length,
-          " more in the full Steps tab."
-        ] })
-      ] }) : codeText ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("pre", { className: "ide-code ide-recorded-code", style: { marginTop: 2, whiteSpace: "pre-wrap" }, children: codeText }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-empty-state", children: "No recorded steps yet." })
-    ] });
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+      IDECard,
+      {
+        color: recordedCount > 0 ? "green" : null,
+        title: "// recorded output",
+        testId: "recorded",
+        ariaLabel: "Recorded",
+        footer,
+        children: [
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-stats", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-stat", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `ide-stat-num${recordedCount > 0 ? " s-green" : ""}`, children: recordedCount }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-stat-lbl", children: "Recorded steps" })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-stat", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-stat-num", children: lineCount > 0 ? lineCount : "\u2014" }),
+              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-stat-lbl", children: "Code lines" })
+            ] })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-mini-tabs", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+              "button",
+              {
+                className: `ide-mini-tab${activeTab === "steps" ? " active" : ""}`,
+                type: "button",
+                onClick: () => setActiveTab("steps"),
+                children: "Steps"
+              }
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+              "button",
+              {
+                className: `ide-mini-tab${activeTab === "code" ? " active" : ""}`,
+                type: "button",
+                onClick: () => setActiveTab("code"),
+                children: "Code"
+              }
+            )
+          ] }),
+          activeTab === "steps" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-scrollbox ide-scrollbox-recorded", style: { maxHeight: 216 }, children: [
+            visibleSteps.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-list", children: visibleSteps.map((step, i) => {
+              const stepKey = firstText(step.id, step.step_id, step.stepId);
+              return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+                IDERecordedStepCard,
+                {
+                  step,
+                  index: i,
+                  compact: true,
+                  showGeneratedLine: false,
+                  replayStatus: stepKey ? lastReplayByStepId[stepKey] : null,
+                  onReplay: onReplayRecordedStep,
+                  onCopy: onCopyRecordedStep
+                },
+                step.id || `${step.step_number || i}`
+              );
+            }) }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-empty-state", children: "No recorded steps yet." }),
+            steps.length > visibleSteps.length && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-more-note", children: [
+              "+ ",
+              steps.length - visibleSteps.length,
+              " more in the full Steps tab."
+            ] })
+          ] }) : codeText ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("pre", { className: "ide-code ide-recorded-code", style: { marginTop: 2, whiteSpace: "pre-wrap" }, children: codeText }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-empty-state", children: "No recorded steps yet." })
+        ]
+      }
+    );
   }
   function IDEPendingStepCard({
     step,
@@ -25749,6 +25862,8 @@
     const outcomeLine = expectedOutcomeType ? formatExpectedOutcomeSummary(expectedOutcome) : "";
     const validationMessage = needsExpectedOutcome ? "Expected outcome required for click-like steps." : "";
     const targetSelectValue = selectedCandidateIndex === null ? "" : String(selectedCandidateIndex);
+    const candidateMetadata = summarizePickerCandidateMetadata(selectedCandidate);
+    const candidateWarning = summarizePickerCandidateWarning(selectedCandidate, candidateList.length);
     const elementSummary = selectedCandidate ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(PendingChipRow, { elementInfo: selectedCandidate, intent }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { style: { color: "#8f8a82" }, children: trimmedIntent ? "No element attached." : "Draft step." });
     return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: `ide-step-card${compact ? " is-compact" : ""}${isPicking ? " is-active" : ""}`, children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-numcol", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "ide-step-num", children: stepNumber }) }),
@@ -25771,7 +25886,7 @@
           compact ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEBadge, { kind: statusKind, children: statusLabel }) : null
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-elements", children: elementSummary }),
-        candidateList.length > 1 && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-step-target", children: [
+        candidateList.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-step-target", "data-testid": "picker-candidates", "aria-label": "Locator candidates", children: [
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-target-label", children: "Selected target" }),
           /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-step-target-summary", children: [
             "Current: ",
@@ -25781,10 +25896,26 @@
             "Exact pick: ",
             exactTargetLabel
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+          candidateMetadata.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-target-metadata", style: { display: "flex", flexWrap: "wrap", gap: 4 }, children: candidateMetadata.map((item) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+            "span",
+            {
+              className: "ide-badge b-await",
+              style: { fontSize: 10, lineHeight: 1.2 },
+              children: [
+                item.label,
+                ": ",
+                shortenText(item.value, 56)
+              ]
+            },
+            `${item.label}:${item.value}`
+          )) }),
+          candidateWarning && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-validation", "data-testid": "picker-candidate-warning", children: candidateWarning }),
+          candidateList.length > 1 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
             "select",
             {
               className: "ide-input ide-step-target-select",
+              "data-testid": "picker-candidate-select",
+              "aria-label": "Choose locator candidate",
               value: targetSelectValue,
               onChange: (event) => onChangeElementTarget?.(step.id, Number(event.target.value)),
               children: candidateList.map((candidate, candidateIndex) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("option", { value: candidateIndex, children: describeElementTargetOption(candidate, candidateIndex) }, `${candidate.level ?? candidateIndex}-${candidate.tag || "element"}-${candidateIndex}`))
@@ -25879,6 +26010,8 @@
       {
         color: "amber",
         title: "// pending steps",
+        testId: "steps",
+        ariaLabel: "Steps",
         footer: !compact && onAddStep ? [
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ide-btn primary", type: "button", style: { flex: 1, justifyContent: "center" }, onClick: () => onAddStep?.(), children: "+ Step" }, "add")
         ] : null,
@@ -25920,10 +26053,69 @@
   }
   function IDECodePreview({ codePreview, live = false }) {
     const text = typeof codePreview === "string" && codePreview.trim() ? codePreview.trim() : live ? "Awaiting code_update\u2026" : "Generated Playwright code will appear here.";
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECard, { color: "ink", title: "// code preview", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("pre", { className: "ide-code", style: { marginTop: 0, whiteSpace: "pre-wrap" }, children: text }) });
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECard, { color: "ink", title: "// code preview", testId: "code", ariaLabel: "Code", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("pre", { className: "ide-code", style: { marginTop: 0, whiteSpace: "pre-wrap" }, children: text }) });
   }
-  function IDEDebugPane({ connectionStatus, lastEvent, lastError }) {
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+  function IDETraceArtifactRow({ artifact }) {
+    if (!artifact) {
+      return null;
+    }
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-trace-artifact", "data-testid": "trace-artifact", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-trace-artifact-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ide-trace-artifact-label", children: artifact.label || artifact.key }),
+        artifact.status && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEBadge, { kind: artifact.status === "err" ? "failed" : artifact.status === "warn" ? "await" : "recorded", children: artifact.status })
+      ] }),
+      artifact.path && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "ide-trace-artifact-path", children: artifact.path }),
+      artifact.note && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-trace-warning", children: artifact.note })
+    ] });
+  }
+  function IDETraceRow({ entry }) {
+    if (!entry) {
+      return null;
+    }
+    const severityKind = entry.severity === "err" ? "failed" : entry.severity === "warn" ? "await" : "recorded";
+    const label = entry.type ? entry.type.replace(/_/g, " ") : "trace event";
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: `ide-trace-row s-${entry.severity || "ok"}`, "data-testid": "trace-row", "aria-label": `Trace row ${label}`, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-trace-row-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ide-trace-row-type", children: label }),
+        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEBadge, { kind: severityKind, children: entry.severity === "err" ? "Error" : entry.severity === "warn" ? "Warn" : "Trace" }),
+        entry.timestamp && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ide-trace-row-time", children: entry.timestamp }),
+        entry.category && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ide-trace-row-category", children: entry.category }),
+        entry.source && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ide-trace-row-source", children: entry.source })
+      ] }),
+      entry.summary && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-trace-row-summary", children: entry.summary }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-trace-row-meta", children: [
+        entry.evidenceRef && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-trace-row-evidence", children: [
+          "evidence_ref: ",
+          entry.evidenceRef
+        ] }),
+        entry.redactionStatus && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-trace-row-redaction", children: [
+          "redaction: ",
+          entry.redactionStatus
+        ] }),
+        entry.redactionWarning && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-trace-warning", children: entry.redactionWarning }),
+        entry.rejectionReason && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-trace-row-rejection", children: [
+          "rejection: ",
+          entry.rejectionReason
+        ] }),
+        entry.currentStateLabel && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-trace-row-state", children: [
+          "current_state: ",
+          entry.currentStateLabel
+        ] }),
+        entry.diagnostic && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-trace-warning", children: entry.diagnostic })
+      ] }),
+      Array.isArray(entry.artifacts) && entry.artifacts.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-trace-artifact-list", "data-testid": "trace-artifacts", children: entry.artifacts.map((artifact) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDETraceArtifactRow, { artifact }, `${entry.id}-${artifact.key}`)) })
+    ] });
+  }
+  function IDEDebugPane({ connectionStatus, lastEvent, lastError, traceEntries = [] }) {
+    const artifacts = traceEntries.reduce((accumulated, entry) => {
+      if (Array.isArray(entry?.artifacts) && entry.artifacts.length > 0) {
+        accumulated.push(...entry.artifacts);
+      }
+      return accumulated;
+    }, []);
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { "data-testid": "trace", "aria-label": "Trace", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECard, { color: "blue", title: "// trace log", testId: "trace-log", ariaLabel: "Trace log", children: traceEntries.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-trace-list", role: "list", children: traceEntries.map((entry) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDETraceRow, { entry }, entry.id)) }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-empty-state", children: "No trace evidence yet." }) }),
+      artifacts.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECard, { color: "green", title: "// evidence bundle", testId: "trace-artifacts", ariaLabel: "Evidence bundle", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-trace-artifact-list", children: artifacts.map((artifact, index) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDETraceArtifactRow, { artifact }, `${artifact.key || artifact.label || "artifact"}-${index}`)) }) }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(IDECard, { color: "red", title: "// transport", children: [
         /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 11.5 }, children: [
           /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { padding: "6px 8px", background: "#faf7f3", border: "1px solid #ede8e0", borderRadius: 2 }, children: [
@@ -26033,12 +26225,13 @@
     const codePreview = typeof runtime.codePreview === "string" ? runtime.codePreview : "";
     const lastError = typeof runtime.lastError === "string" ? runtime.lastError : "";
     const lastEvent = runtime.lastEvent || null;
+    const traceEntries = Array.isArray(runtime.traceEntries) ? runtime.traceEntries : [];
     const activePickerStepId = typeof runtime.activePickerStepId === "string" ? runtime.activePickerStepId : "";
     const stepCount = pendingSteps.length + recordedSteps.length;
     const showPlanReview = interactionMode === "plan_review";
     const showClarification = interactionMode === "clarification";
     const showRecovery = interactionMode === "recovery";
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-panel", children: [
+    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-panel", id: "aw-root", "data-testid": "aw-root", "aria-label": "AutoWorkbench", children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEHeader, { state: panelState, interactionMode, connectionStatus }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-tabs", children: [
         ["workbench", "workbench"],
@@ -26050,6 +26243,8 @@
         {
           className: `ide-tab${tab === id ? " active" : ""}`,
           type: "button",
+          "data-testid": id === "workbench" ? "llm-tab" : id === "steps" ? "steps-tab" : id === "code" ? "code-tab" : "trace-tab",
+          "aria-label": id === "workbench" ? "LLM" : id === "steps" ? "Steps" : id === "code" ? "Code" : "Trace",
           onClick: () => onTabChange?.(id),
           children: [
             label,
@@ -26150,7 +26345,7 @@
         ] }),
         tab === "code" && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECodePreview, { codePreview, live }) }),
         tab === "debug" && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEDebugPane, { connectionStatus, lastEvent, lastError }),
+          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEDebugPane, { connectionStatus, lastEvent, lastError, traceEntries }),
           /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDETimeline, { state: panelState, events: timeline, live })
         ] })
       ] }),
@@ -26181,6 +26376,12 @@
     panelWidth: 460,
     density: "compact"
   };
+  var SHADOW_HOST_ID = "aw-shadow-host";
+  var SHADOW_MOUNT_ID = "aw-shadow-mount";
+  var SHADOW_STYLE_ID = "aw-shadow-style";
+  var SHADOW_STYLE_FLAG = "data-autoworkbench-shadow-style";
+  var AUTOWORKBENCH_STYLE_ID = "autoworkbench-style";
+  var FRONTEND_COMMAND_SCHEMA_VERSION = "autoworkbench.command.v1";
   var RUN_STATE_ALIASES = {
     idle: "idle",
     planning: "planning",
@@ -26273,6 +26474,47 @@
     }
     return node;
   }
+  function ensureShadowHost(host) {
+    if (!host || typeof host.attachShadow !== "function") {
+      return null;
+    }
+    const shadowRoot = host.shadowRoot || host.attachShadow({ mode: "open" });
+    let marker = shadowRoot.querySelector(`#${SHADOW_HOST_ID}`);
+    if (!marker) {
+      marker = document.createElement("div");
+      marker.id = SHADOW_HOST_ID;
+      marker.setAttribute("data-testid", "aw-shadow-host");
+      marker.setAttribute("aria-hidden", "true");
+      shadowRoot.appendChild(marker);
+    }
+    return shadowRoot;
+  }
+  function ensureShadowStyles(shadowRoot) {
+    if (!shadowRoot) {
+      return;
+    }
+    if (shadowRoot.querySelector(`[${SHADOW_STYLE_FLAG}="true"]`)) {
+      return;
+    }
+    const sourceStyle = document.getElementById(AUTOWORKBENCH_STYLE_ID);
+    if (!sourceStyle || !sourceStyle.textContent) {
+      return;
+    }
+    const shadowStyle = sourceStyle.cloneNode(true);
+    shadowStyle.id = SHADOW_STYLE_ID;
+    shadowStyle.setAttribute(SHADOW_STYLE_FLAG, "true");
+    shadowRoot.appendChild(shadowStyle);
+  }
+  function ensureShadowMount(shadowRoot) {
+    let mount2 = shadowRoot.querySelector(`#${SHADOW_MOUNT_ID}`);
+    if (!mount2) {
+      mount2 = document.createElement("div");
+      mount2.id = SHADOW_MOUNT_ID;
+      mount2.setAttribute("data-testid", "aw-shadow-mount");
+      shadowRoot.appendChild(mount2);
+    }
+    return mount2;
+  }
   function resolveWsUrl(config = {}) {
     const candidates = [
       config.wsUrl,
@@ -26326,6 +26568,30 @@
       payload: { text: String(parsed ?? "") },
       raw: parsed
     };
+  }
+  function createFrontendCommandId() {
+    const randomUuid = globalThis?.crypto?.randomUUID;
+    if (typeof randomUuid === "function") {
+      return randomUuid.call(globalThis.crypto);
+    }
+    return `cmd-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+  function buildFrontendCommandEnvelope(commandType, payload = {}) {
+    const normalizedPayload = payload && typeof payload === "object" ? { ...payload } : {};
+    const envelope = {
+      type: firstNonEmptyText(commandType),
+      schema_version: FRONTEND_COMMAND_SCHEMA_VERSION,
+      command_id: createFrontendCommandId(),
+      source: "frontend",
+      payload: normalizedPayload
+    };
+    for (const [key, value] of Object.entries(normalizedPayload)) {
+      if (Object.prototype.hasOwnProperty.call(envelope, key)) {
+        continue;
+      }
+      envelope[key] = value;
+    }
+    return envelope;
   }
   function formatTimestamp(date = /* @__PURE__ */ new Date()) {
     return date.toLocaleTimeString([], {
@@ -26418,6 +26684,7 @@
     };
   }
   var pendingStepCounter = 0;
+  var pendingCommandSequence = 0;
   function createPendingStep(intent = "", elementInfo = null, recorded = false) {
     pendingStepCounter += 1;
     return {
@@ -26428,6 +26695,45 @@
       recorded,
       status: "draft"
     };
+  }
+  function normalizePendingCommandStatus(status) {
+    const value = firstNonEmptyText(status).toLowerCase();
+    if (["pending", "acknowledged", "rejected"].includes(value)) {
+      return value;
+    }
+    return "pending";
+  }
+  function normalizePendingCommand(command, index = 0) {
+    if (!command || typeof command !== "object") {
+      return null;
+    }
+    const commandId = firstNonEmptyText(command.command_id, command.commandId, command.id);
+    const commandType = firstNonEmptyText(command.command_type, command.commandType, command.type);
+    if (!commandId || !commandType) {
+      return null;
+    }
+    const createdSequence = Number(command.created_sequence ?? command.createdSequence);
+    return {
+      ...command,
+      command_id: commandId,
+      command_type: commandType,
+      created_at: firstNonEmptyText(command.created_at, command.createdAt) || (/* @__PURE__ */ new Date()).toISOString(),
+      created_sequence: Number.isFinite(createdSequence) ? createdSequence : index + 1,
+      status: normalizePendingCommandStatus(command.status),
+      source: firstNonEmptyText(command.source) || "frontend"
+    };
+  }
+  function normalizePendingCommands(commands) {
+    if (Array.isArray(commands) && commands.length > 0) {
+      return commands.map((command, index) => normalizePendingCommand(command, index)).filter(Boolean);
+    }
+    return [];
+  }
+  function normalizeCodeDiagnostics(diagnostics) {
+    if (!Array.isArray(diagnostics) || diagnostics.length === 0) {
+      return [];
+    }
+    return diagnostics.map((entry) => entry && typeof entry === "object" ? { ...entry } : entry).filter((entry) => entry != null);
   }
   var EXPECTED_OUTCOME_TYPES2 = [
     "navigation",
@@ -26555,6 +26861,208 @@
       }
     }
     return "";
+  }
+  var KNOWN_TRACE_EVENT_TYPES = /* @__PURE__ */ new Set([
+    "browser_ready",
+    "status",
+    "llm_thinking",
+    "plan_ready",
+    "clarification_needed",
+    "recovery_needed",
+    "error",
+    "runtime_rejected",
+    "llm_result",
+    "step_recorded",
+    "code_update",
+    "replay_started",
+    "replay_result",
+    "capability_gap_recorded",
+    "trace_summary",
+    "save_snapshot",
+    "saved_snapshot",
+    "snapshot_saved",
+    "element_attached",
+    "command_accepted",
+    "command_rejected"
+  ]);
+  var TRACE_ARTIFACT_LABELS = {
+    manifest: "manifest.json",
+    test_result: "test-result.json",
+    summary: "summary.md",
+    events: "events.ndjson",
+    commands: "commands.json",
+    rejections: "rejections.json",
+    redaction_report: "redaction-report.json"
+  };
+  function normalizeTraceArtifact(artifact, index = 0) {
+    if (artifact == null) {
+      return null;
+    }
+    const source = typeof artifact === "object" ? artifact : { path: artifact };
+    const kind = firstNonEmptyText(source.key, source.kind, source.name, source.type, `artifact-${index + 1}`).toLowerCase().replace(/[\s-]+/g, "_");
+    const label = firstNonEmptyText(
+      source.label,
+      source.title,
+      TRACE_ARTIFACT_LABELS[kind],
+      kind.replace(/_/g, "-"),
+      kind
+    );
+    const path = firstNonEmptyText(source.path, source.file_path, source.filePath, source.href, source.url, source.value);
+    const status = firstNonEmptyText(source.status, source.state, source.redaction_status, source.redactionStatus).toLowerCase().replace(/[\s-]+/g, "_");
+    const note = firstNonEmptyText(source.note, source.summary, source.message, source.warning, source.redaction_warning, source.redactionWarning);
+    return {
+      key: kind,
+      label,
+      ...path ? { path } : {},
+      ...status ? { status } : {},
+      ...note ? { note } : {}
+    };
+  }
+  function normalizeTraceArtifacts(artifacts) {
+    if (Array.isArray(artifacts)) {
+      return artifacts.map((artifact, index) => normalizeTraceArtifact(artifact, index)).filter(Boolean);
+    }
+    if (artifacts && typeof artifacts === "object") {
+      return Object.entries(artifacts).map(([key, value], index) => {
+        if (value && typeof value === "object") {
+          return normalizeTraceArtifact({ key, ...value }, index);
+        }
+        return normalizeTraceArtifact({ key, value, path: value }, index);
+      }).filter(Boolean);
+    }
+    return [];
+  }
+  function normalizeTraceEntry(entry, index = 0) {
+    if (!entry || typeof entry !== "object") {
+      return null;
+    }
+    const payload = entry.payload && typeof entry.payload === "object" ? entry.payload : {};
+    const raw = entry.raw && typeof entry.raw === "object" ? entry.raw : entry;
+    const type = firstNonEmptyText(entry.type, entry.event, entry.name, entry.kind, payload.type, raw.type, "trace").toLowerCase().replace(/[\s-]+/g, "_");
+    const category = firstNonEmptyText(entry.category, entry.source_type, entry.sourceType, entry.kind, payload.category, payload.kind, raw.category, raw.kind);
+    const timestamp = firstNonEmptyText(
+      entry.timestamp,
+      entry.created_at,
+      entry.createdAt,
+      payload.timestamp,
+      payload.created_at,
+      payload.createdAt,
+      raw.timestamp,
+      raw.created_at,
+      raw.createdAt
+    );
+    const source = firstNonEmptyText(entry.source, entry.owner, entry.origin, payload.source, payload.owner, payload.origin, payload.actor, raw.source, raw.owner);
+    const summary = firstNonEmptyText(
+      entry.summary,
+      payload.summary,
+      payload.message,
+      payload.text,
+      payload.detail,
+      raw.summary,
+      raw.message,
+      raw.text,
+      raw.detail,
+      extractText(payload),
+      extractText(raw),
+      type.replace(/_/g, " ")
+    );
+    const evidenceRef = firstNonEmptyText(
+      entry.evidenceRef,
+      entry.evidence_ref,
+      payload.evidence_ref,
+      payload.evidenceRef,
+      payload.artifact_path,
+      payload.artifactPath,
+      payload.path,
+      raw.evidence_ref,
+      raw.evidenceRef,
+      raw.artifact_path,
+      raw.artifactPath,
+      raw.path
+    );
+    const redactionStatus = firstNonEmptyText(
+      entry.redactionStatus,
+      entry.redaction_status,
+      payload.redaction_status,
+      payload.redactionStatus,
+      payload.redaction_report,
+      payload.redactionReport,
+      raw.redaction_status,
+      raw.redactionStatus,
+      raw.redaction_report,
+      raw.redactionReport
+    );
+    const redactionWarning = firstNonEmptyText(
+      entry.redactionWarning,
+      entry.redaction_warning,
+      payload.redaction_warning,
+      payload.redactionWarning,
+      payload.redaction_message,
+      payload.redactionMessage,
+      raw.redaction_warning,
+      raw.redactionWarning
+    );
+    const rejectionReason = type === "runtime_rejected" ? firstNonEmptyText(
+      entry.rejectionReason,
+      entry.rejection_reason,
+      payload.rejection_reason,
+      payload.rejectionReason,
+      payload.message,
+      payload.detail,
+      raw.rejection_reason,
+      raw.rejectionReason,
+      raw.message,
+      raw.detail,
+      summary
+    ) : "";
+    const currentState = type === "runtime_rejected" ? entry.currentState ?? entry.current_state ?? payload.current_state ?? payload.currentState ?? raw.current_state ?? raw.currentState ?? null : null;
+    const currentStateLabel = currentState && typeof currentState === "object" ? [
+      firstNonEmptyText(currentState.phase, currentState.state),
+      firstNonEmptyText(currentState.run_id, currentState.runId, currentState.plan_id, currentState.planId)
+    ].filter(Boolean).join(" \xB7 ") : "";
+    const artifacts = normalizeTraceArtifacts(entry.artifacts ?? payload.artifacts ?? payload.artifact_bundle ?? payload.artifactBundle ?? raw.artifacts);
+    const requiresEvidence = Boolean(
+      evidenceRef || redactionStatus || redactionWarning || rejectionReason || currentStateLabel || artifacts.length > 0 || ["runtime_rejected", "replay_result", "step_recorded", "code_update", "capability_gap_recorded", "trace_summary"].includes(type)
+    );
+    const knownType = KNOWN_TRACE_EVENT_TYPES.has(type);
+    const diagnostic = !knownType ? `Unknown trace event: ${type}` : requiresEvidence && !evidenceRef ? "Evidence ref missing" : "";
+    const severity = !knownType ? "warn" : rejectionReason || redactionWarning ? "err" : diagnostic ? "warn" : "ok";
+    return {
+      id: firstNonEmptyText(entry.id, raw.id, payload.id, payload.trace_id, payload.traceId, `${type}-${index + 1}`),
+      type,
+      category,
+      timestamp,
+      source,
+      summary,
+      evidenceRef,
+      redactionStatus,
+      redactionWarning,
+      rejectionReason,
+      currentState,
+      currentStateLabel,
+      artifacts,
+      diagnostic,
+      severity,
+      raw
+    };
+  }
+  function normalizeTraceEntries(entries) {
+    if (!Array.isArray(entries) || entries.length === 0) {
+      return [];
+    }
+    return entries.map((entry, index) => normalizeTraceEntry(entry, index)).filter(Boolean);
+  }
+  function mergeTraceEntryList(current, nextEntry, limit = 120) {
+    if (!nextEntry) {
+      return Array.isArray(current) ? current : [];
+    }
+    const nextId = firstNonEmptyText(nextEntry.id);
+    const next = Array.isArray(current) ? current.filter((entry) => firstNonEmptyText(entry?.id) !== nextId) : [];
+    next.unshift(nextEntry);
+    return next.slice(0, limit);
+  }
+  function buildTraceEntryFromBackendMessage(message) {
+    return normalizeTraceEntry(message);
   }
   function collectStepReferenceValues(...sources) {
     const values = [];
@@ -27294,14 +27802,17 @@
     const [runState, setRunState] = (0, import_react2.useState)(() => normalizeRunState(config.runState ?? config.state) || "planning");
     const [conversation, setConversation] = (0, import_react2.useState)([]);
     const [timeline, setTimeline] = (0, import_react2.useState)([]);
+    const [traceEntries, setTraceEntries] = (0, import_react2.useState)(() => normalizeTraceEntries(config.traceEntries));
     const [plan, setPlan] = (0, import_react2.useState)(null);
     const [codePreview, setCodePreview] = (0, import_react2.useState)("");
     const [lastError, setLastError] = (0, import_react2.useState)("");
     const [lastEvent, setLastEvent] = (0, import_react2.useState)(null);
     const [lastSavedSnapshot, setLastSavedSnapshot] = (0, import_react2.useState)(null);
+    const [pendingCommands, setPendingCommands] = (0, import_react2.useState)(() => normalizePendingCommands(config.pendingCommands));
     const [pendingSteps, setPendingSteps] = (0, import_react2.useState)(() => normalizePendingSteps(config.pendingSteps));
     const [recordedSteps, setRecordedSteps] = (0, import_react2.useState)(() => normalizeRecordedSteps(config.recordedSteps));
     const [lastReplayByStepId, setLastReplayByStepId] = (0, import_react2.useState)({});
+    const [codeDiagnostics, setCodeDiagnostics] = (0, import_react2.useState)(() => normalizeCodeDiagnostics(config.codeDiagnostics));
     const [interactionMode, setInteractionMode] = (0, import_react2.useState)(
       () => normalizeInteractionMode(config.interactionMode ?? config.mode ?? config.runState ?? config.state) || "planning"
     );
@@ -27316,8 +27827,12 @@
     const attemptRef = (0, import_react2.useRef)(0);
     const mountedRef = (0, import_react2.useRef)(true);
     const planRef = (0, import_react2.useRef)(null);
+    const pendingCommandsRef = (0, import_react2.useRef)([]);
     const activePickerStepIdRef = (0, import_react2.useRef)("");
     const pendingStepsRef = (0, import_react2.useRef)([]);
+    (0, import_react2.useLayoutEffect)(() => {
+      pendingCommandsRef.current = pendingCommands;
+    }, [pendingCommands]);
     (0, import_react2.useLayoutEffect)(() => {
       activePickerStepIdRef.current = activePickerStepId;
     }, [activePickerStepId]);
@@ -27334,6 +27849,85 @@
         return next;
       });
     }, []);
+    const updatePendingCommands = (0, import_react2.useCallback)((updater) => {
+      setPendingCommands((current) => {
+        const next = typeof updater === "function" ? updater(current) : updater;
+        pendingCommandsRef.current = next;
+        return next;
+      });
+    }, []);
+    const recordTraceEntry = (0, import_react2.useCallback)((traceEntry) => {
+      if (!traceEntry || typeof traceEntry !== "object") {
+        return;
+      }
+      setTraceEntries((current) => mergeTraceEntryList(current, traceEntry));
+    }, []);
+    const recordPendingCommand = (0, import_react2.useCallback)(
+      (commandEnvelope, metadata = {}) => {
+        const commandId = firstNonEmptyText(commandEnvelope?.command_id, commandEnvelope?.commandId);
+        const commandType = firstNonEmptyText(commandEnvelope?.type);
+        if (!commandId || !commandType) {
+          return;
+        }
+        const pendingCommand = {
+          command_id: commandId,
+          command_type: commandType,
+          created_at: (/* @__PURE__ */ new Date()).toISOString(),
+          created_sequence: pendingCommandSequence += 1,
+          status: "pending",
+          source: "frontend",
+          ...metadata
+        };
+        updatePendingCommands((current) => [...current, pendingCommand].slice(-20));
+      },
+      [updatePendingCommands]
+    );
+    const acknowledgePendingCommands = (0, import_react2.useCallback)(
+      (eventType, metadata = {}) => {
+        updatePendingCommands((current) => {
+          const index = current.findIndex((command) => command && command.status === "pending");
+          if (index === -1) {
+            return current;
+          }
+          const next = current.slice();
+          next[index] = {
+            ...next[index],
+            status: "acknowledged",
+            acknowledged_at: (/* @__PURE__ */ new Date()).toISOString(),
+            acknowledged_by: eventType,
+            ...metadata
+          };
+          return next;
+        });
+      },
+      [updatePendingCommands]
+    );
+    const rejectPendingCommand = (0, import_react2.useCallback)(
+      (commandId, metadata = {}) => {
+        const rejectionId = firstNonEmptyText(commandId);
+        if (!rejectionId) {
+          return false;
+        }
+        let matched = false;
+        updatePendingCommands((current) => {
+          const index = current.findIndex((command) => firstNonEmptyText(command?.command_id) === rejectionId);
+          if (index === -1) {
+            return current;
+          }
+          matched = true;
+          const next = current.slice();
+          next[index] = {
+            ...next[index],
+            status: "rejected",
+            rejected_at: (/* @__PURE__ */ new Date()).toISOString(),
+            ...metadata
+          };
+          return next;
+        });
+        return matched;
+      },
+      [updatePendingCommands]
+    );
     const updateLastReplayByStepId = (0, import_react2.useCallback)((stepId, replayStatus) => {
       const replayStepId = firstNonEmptyText(stepId);
       if (!replayStepId) {
@@ -27584,50 +28178,64 @@
       );
     }, [sendPayload]);
     const handleConfirmPlan = (0, import_react2.useCallback)(() => {
-      const sent = sendPayload(
-        {
-          type: "confirmed"
-        },
-        "WebSocket not connected."
-      );
+      const currentPlan = planRef.current && typeof planRef.current === "object" ? planRef.current : null;
+      const rawPlan = currentPlan && typeof currentPlan.raw === "object" ? currentPlan.raw : {};
+      const commandPayload = {};
+      const planId = firstNonEmptyText(rawPlan.plan_id, rawPlan.planId, rawPlan.id);
+      const planVersion = firstNonEmptyText(rawPlan.plan_version, rawPlan.planVersion);
+      const runId = firstNonEmptyText(rawPlan.run_id, rawPlan.runId);
+      if (planId) {
+        commandPayload.plan_id = planId;
+      }
+      if (planVersion) {
+        commandPayload.plan_version = planVersion;
+      }
+      if (runId) {
+        commandPayload.run_id = runId;
+      }
+      const commandEnvelope = buildFrontendCommandEnvelope("confirmed", commandPayload);
+      const sent = sendPayload(commandEnvelope, "WebSocket not connected.");
       if (sent) {
         appendConversation("user", "Confirmed.");
-        setRunState("executing");
-        setInteractionMode("executing");
+        recordPendingCommand(commandEnvelope, {
+          ui_label: "Confirm Plan"
+        });
         setPlanCorrectionText("");
         appendTimeline("Confirmation sent.", "ok");
       }
-    }, [appendConversation, appendTimeline, sendPayload]);
+    }, [appendConversation, appendTimeline, recordPendingCommand, sendPayload]);
     const handleSendPlanCorrection = (0, import_react2.useCallback)(() => {
       const correction = planCorrectionText.trim();
       if (!correction) {
         appendTimeline("Correction is empty.", "warn");
         return;
       }
-      const planId = firstNonEmptyText(plan?.raw?.plan_id, plan?.raw?.planId, plan?.raw?.id);
+      const currentPlan = planRef.current && typeof planRef.current === "object" ? planRef.current : null;
+      const rawPlan = currentPlan && typeof currentPlan.raw === "object" ? currentPlan.raw : {};
+      const planId = firstNonEmptyText(rawPlan.plan_id, rawPlan.planId, rawPlan.id);
+      const planVersion = firstNonEmptyText(rawPlan.plan_version, rawPlan.planVersion);
       const targetStepId = firstNonEmptyText(
-        plan?.raw?.target_step_id,
-        plan?.raw?.targetStepId,
-        plan?.steps?.[0]?.step_id,
-        plan?.steps?.[0]?.stepId
+        rawPlan.target_step_id,
+        rawPlan.targetStepId,
+        currentPlan?.steps?.[0]?.step_id,
+        currentPlan?.steps?.[0]?.stepId
       );
-      const sent = sendPayload(
-        {
-          type: "correction",
-          message: correction,
-          planId,
-          targetStepId
-        },
-        "WebSocket not connected."
-      );
+      const commandEnvelope = buildFrontendCommandEnvelope("correction", {
+        message: correction,
+        ...planId ? { plan_id: planId } : {},
+        ...planVersion ? { plan_version: planVersion } : {},
+        ...targetStepId ? { step_id: targetStepId } : {}
+      });
+      const sent = sendPayload(commandEnvelope, "WebSocket not connected.");
       if (sent) {
         appendConversation("user", correction);
-        setRunState("planning");
-        setInteractionMode("planning");
+        recordPendingCommand(commandEnvelope, {
+          ui_label: "Plan correction"
+        });
         setPlanCorrectionText("");
         appendTimeline("Correction sent.", "ok");
       }
-    }, [appendConversation, appendTimeline, plan, planCorrectionText, sendPayload]);
+    }, [appendConversation, appendTimeline, plan, planCorrectionText, recordPendingCommand, sendPayload]);
     const handleSendClarificationAnswer = (0, import_react2.useCallback)(
       (answerOverride = "") => {
         const answer = firstNonEmptyText(answerOverride, clarificationAnswerText).trim();
@@ -27635,26 +28243,28 @@
           appendTimeline("Clarification answer is empty.", "warn");
           return;
         }
-        const sent = sendPayload(
-          {
-            type: "option_selected",
-            value: answer,
-            answer,
-            message: answer
-          },
-          "WebSocket not connected."
-        );
+        const currentPlan = planRef.current && typeof planRef.current === "object" ? planRef.current : null;
+        const rawPlan = currentPlan && typeof currentPlan.raw === "object" ? currentPlan.raw : {};
+        const planId = firstNonEmptyText(rawPlan.plan_id, rawPlan.planId, rawPlan.id);
+        const planVersion = firstNonEmptyText(rawPlan.plan_version, rawPlan.planVersion);
+        const commandEnvelope = buildFrontendCommandEnvelope("option_selected", {
+          value: answer,
+          answer,
+          message: answer,
+          ...planId ? { plan_id: planId } : {},
+          ...planVersion ? { plan_version: planVersion } : {}
+        });
+        const sent = sendPayload(commandEnvelope, "WebSocket not connected.");
         if (sent) {
           appendConversation("user", answer);
+          recordPendingCommand(commandEnvelope, {
+            ui_label: "Clarification answer"
+          });
           appendTimeline("Clarification answer sent.", "ok");
-          setRunState("executing");
-          setInteractionMode("executing");
-          setClarificationQuestion("");
-          setClarificationOptions([]);
           setClarificationAnswerText("");
         }
       },
-      [appendConversation, appendTimeline, clarificationAnswerText, sendPayload]
+      [appendConversation, appendTimeline, clarificationAnswerText, recordPendingCommand, sendPayload]
     );
     const handleSendRecoveryInstruction = (0, import_react2.useCallback)(() => {
       const instruction = recoveryText.trim();
@@ -27662,26 +28272,34 @@
         appendTimeline("Recovery instruction is empty.", "warn");
         return;
       }
-      const sent = sendPayload(
-        {
-          type: "correction",
-          message: instruction
-        },
-        "WebSocket not connected."
-      );
+      const currentPlan = planRef.current && typeof planRef.current === "object" ? planRef.current : null;
+      const rawPlan = currentPlan && typeof currentPlan.raw === "object" ? currentPlan.raw : {};
+      const planId = firstNonEmptyText(rawPlan.plan_id, rawPlan.planId, rawPlan.id);
+      const planVersion = firstNonEmptyText(rawPlan.plan_version, rawPlan.planVersion);
+      const commandEnvelope = buildFrontendCommandEnvelope("correction", {
+        message: instruction,
+        ...planId ? { plan_id: planId } : {},
+        ...planVersion ? { plan_version: planVersion } : {}
+      });
+      const sent = sendPayload(commandEnvelope, "WebSocket not connected.");
       if (sent) {
         appendConversation("user", instruction);
+        recordPendingCommand(commandEnvelope, {
+          ui_label: "Recovery instruction"
+        });
         appendTimeline("Recovery instruction sent.", "ok");
-        setRunState("recovery");
-        setInteractionMode("recovery");
         setRecoveryText("");
       }
-    }, [appendConversation, appendTimeline, recoveryText, sendPayload]);
+    }, [appendConversation, appendTimeline, recordPendingCommand, recoveryText, sendPayload]);
     const handleBackendMessage = (0, import_react2.useCallback)(
       (message) => {
         const type = String(message?.type || "status").toLowerCase();
         const payload = message?.payload;
         const text = extractText(payload) || extractText(message?.raw) || type.replace(/_/g, " ");
+        const traceEntry = buildTraceEntryFromBackendMessage(message);
+        if (traceEntry) {
+          recordTraceEntry(traceEntry);
+        }
         switch (type) {
           case "browser_ready":
             appendTimeline(text || "Browser ready", "ok");
@@ -27696,12 +28314,19 @@
                 setInteractionMode(nextState);
               }
             }
+            acknowledgePendingCommands(type, {
+              backend_event: type,
+              backend_state: nextState || ""
+            });
             appendTimeline(text || "Status update", "ok");
             break;
           }
           case "llm_thinking":
             setRunState("planning");
             setInteractionMode("planning");
+            acknowledgePendingCommands(type, {
+              backend_event: type
+            });
             appendTimeline(text || "LLM thinking", "active");
             appendConversation("agent", text || "Thinking\u2026");
             break;
@@ -27715,6 +28340,10 @@
             setRecoveryText("");
             const nextPlan = normalizePlanPayload(payload);
             setPlan(nextPlan);
+            acknowledgePendingCommands(type, {
+              backend_event: type,
+              plan_id: firstNonEmptyText(nextPlan?.raw?.plan_id, nextPlan?.raw?.planId, nextPlan?.raw?.id)
+            });
             appendTimeline(nextPlan?.summary ? `Plan ready \xB7 ${nextPlan.summary}` : "Plan ready", "warn");
             if (nextPlan?.summary) {
               appendConversation("agent", nextPlan.summary);
@@ -27730,8 +28359,34 @@
             setClarificationAnswerText("");
             setPlanCorrectionText("");
             setRecoveryText("");
+            acknowledgePendingCommands(type, {
+              backend_event: type
+            });
             appendConversation("agent", clarification.question || "Clarification needed");
             appendTimeline("Clarification needed", "warn");
+            break;
+          }
+          case "recovery_needed": {
+            const recoveryReason = firstNonEmptyText(
+              payload && typeof payload === "object" ? payload.error_summary : "",
+              payload && typeof payload === "object" ? payload.message : "",
+              payload && typeof payload === "object" ? payload.detail : "",
+              text,
+              "Recovery needed"
+            );
+            setRunState("recovery");
+            setInteractionMode("recovery");
+            setLastError(recoveryReason);
+            setPlanCorrectionText("");
+            setClarificationQuestion("");
+            setClarificationOptions([]);
+            setClarificationAnswerText("");
+            setRecoveryText("");
+            acknowledgePendingCommands(type, {
+              backend_event: type
+            });
+            appendConversation("system", recoveryReason);
+            appendTimeline(recoveryReason, "err");
             break;
           }
           case "error":
@@ -27743,9 +28398,45 @@
             setClarificationAnswerText("");
             setPlanCorrectionText("");
             setRecoveryText("");
+            acknowledgePendingCommands(type, {
+              backend_event: type
+            });
             appendConversation("system", text || "Error");
             appendTimeline(text || "Error", "err");
             break;
+          case "runtime_rejected": {
+            const rejectionCommandId = firstNonEmptyText(
+              payload && typeof payload === "object" ? payload.command_id : "",
+              payload && typeof payload === "object" ? payload.commandId : "",
+              message && typeof message === "object" ? message.command_id : "",
+              message && typeof message === "object" ? message.commandId : ""
+            );
+            const rejectionCode = firstNonEmptyText(
+              payload && typeof payload === "object" ? payload.rejection_code : "",
+              payload && typeof payload === "object" ? payload.rejectionCode : ""
+            );
+            const rejectionReason = firstNonEmptyText(
+              payload && typeof payload === "object" ? payload.message : "",
+              payload && typeof payload === "object" ? payload.detail : "",
+              text,
+              "Command rejected"
+            );
+            const currentState = payload && typeof payload === "object" ? payload.current_state : null;
+            const currentStateSummary = currentState && typeof currentState === "object" ? [
+              firstNonEmptyText(currentState.phase, currentState.state),
+              firstNonEmptyText(currentState.run_id, currentState.plan_id)
+            ].filter(Boolean).join(" \xB7 ") : "";
+            if (rejectionCommandId) {
+              rejectPendingCommand(rejectionCommandId, {
+                rejection_code: rejectionCode,
+                rejection_reason: rejectionReason,
+                current_state: currentState
+              });
+            }
+            setLastError(rejectionReason);
+            appendTimeline([rejectionCode, rejectionReason, currentStateSummary].filter(Boolean).join(" \xB7 "), "err");
+            break;
+          }
           case "llm_result": {
             const resultSuccess = message?.success;
             const resultMessage = message?.message;
@@ -27765,6 +28456,10 @@
               appendConversation("agent", text || "LLM result received");
               appendTimeline(text || "LLM result received", "ok");
             }
+            acknowledgePendingCommands(type, {
+              backend_event: type,
+              success: Boolean(resultSuccess)
+            });
             {
               const nextCode = extractCodePreview(payload);
               if (nextCode) {
@@ -27826,6 +28521,10 @@
             const planCompleted = Boolean(nextPlan && Array.isArray(nextPlan.steps) && nextPlan.steps.length > 0 && nextPlan.steps.every(isPlanStepCompleted));
             setRunState((current) => current === "completed" ? current : planCompleted ? "completed" : "executing");
             setInteractionMode(planCompleted ? "completed" : "executing");
+            acknowledgePendingCommands(type, {
+              backend_event: type,
+              recorded_step_id: firstNonEmptyText(nextRecordedStep.id, nextRecordedStep.step_id)
+            });
             appendTimeline(
               `Recorded: ${firstNonEmptyText(nextRecordedStep.action, "recorded")} \u2014 ${firstNonEmptyText(
                 nextRecordedStep.element_name,
@@ -27841,6 +28540,12 @@
             if (nextCode) {
               setCodePreview(nextCode);
             }
+            setCodeDiagnostics(
+              normalizeCodeDiagnostics(payload && typeof payload === "object" ? payload.diagnostics : [])
+            );
+            acknowledgePendingCommands(type, {
+              backend_event: type
+            });
             appendTimeline(text || "Code updated", "ok");
             break;
           }
@@ -28042,7 +28747,7 @@
             break;
         }
       },
-      [appendConversation, appendTimeline]
+      [acknowledgePendingCommands, appendConversation, appendTimeline, rejectPendingCommand]
     );
     (0, import_react2.useEffect)(() => {
       mountedRef.current = true;
@@ -28141,10 +28846,13 @@
       interactionMode,
       conversation,
       timeline,
+      traceEntries,
       plan,
       pendingSteps,
+      pendingCommands,
       recordedSteps,
       lastReplayByStepId,
+      codeDiagnostics,
       planCorrectionText,
       clarificationQuestion,
       clarificationOptions,
@@ -28184,7 +28892,10 @@
       setClarificationAnswerText,
       setRecoveryText,
       setPendingSteps,
+      setPendingCommands,
+      setTraceEntries,
       setRecordedSteps,
+      setCodeDiagnostics,
       updatePendingStepIntent,
       addPendingStep,
       removePendingStep,
@@ -28202,7 +28913,7 @@
   }
   function AutoWorkbenchRuntime({ config }) {
     const normalized = normalizeConfig(config);
-    const transport = useAutoWorkbenchTransport(config);
+    const transport = useFrontendEventStore(config);
     const [tab, setTab] = (0, import_react2.useState)(normalized.tab);
     (0, import_react2.useEffect)(() => {
       setTab(normalized.tab);
@@ -28249,16 +28960,28 @@
       }
     );
   }
+  function useFrontendEventStore(config) {
+    return useAutoWorkbenchTransport(config);
+  }
   var currentRoot = null;
-  var currentNode = null;
+  var currentHostNode = null;
+  var currentMountNode = null;
   function renderInto(node, config) {
-    if (currentRoot && currentNode !== node) {
+    const shadowRoot = ensureShadowHost(node);
+    const mountNode = shadowRoot ? ensureShadowMount(shadowRoot) : node;
+    if (shadowRoot) {
+      ensureShadowStyles(shadowRoot);
+    }
+    if (currentRoot && (currentHostNode !== node || currentMountNode !== mountNode)) {
       currentRoot.unmount();
       currentRoot = null;
+      currentHostNode = null;
+      currentMountNode = null;
     }
     if (!currentRoot) {
-      currentRoot = (0, import_client.createRoot)(node);
-      currentNode = node;
+      currentRoot = (0, import_client.createRoot)(mountNode);
+      currentHostNode = node;
+      currentMountNode = mountNode;
     }
     currentRoot.render(/* @__PURE__ */ (0, import_jsx_runtime3.jsx)(AutoWorkbenchRuntime, { config }));
   }
@@ -28271,7 +28994,8 @@
     if (currentRoot) {
       currentRoot.unmount();
       currentRoot = null;
-      currentNode = null;
+      currentHostNode = null;
+      currentMountNode = null;
     }
   }
   window.AutoWorkbench = {
