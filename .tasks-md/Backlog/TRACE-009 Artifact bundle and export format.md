@@ -1,7 +1,7 @@
 # TRACE-009 Artifact bundle and export format
 
 **Type:** Story  
-**Status:** Planned  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-009 Trace and Observability  
 **Owner:** DEV-1 Backend Runtime + DEV-4 Evidence/Observability  
@@ -106,7 +106,7 @@ test_id, run_id, status, failed_step, key event sequence, artifact files, redact
 | TRACE-009C | Done | Implemented `commands.json` emission baseline; tests/test_e2e_harness.py passes 25/25. |
 | TRACE-009D | Done | Implemented `rejections.json` emission baseline; tests/test_e2e_harness.py passes 28/28. |
 | TRACE-009E | Done | Verified consolidated events, commands, and rejections artifact emission; tests/test_e2e_harness.py passes 30/30. |
-| TRACE-009F | Planned | Verify focused tests and record evidence. |
+| TRACE-009F | Done | Verified focused tests and recorded evidence. Harness-side artifact bundle baseline complete; remaining deferred: trace.ndjson, redaction-report.json, live E2E validation if loopback bind remains blocked. |
 
 ## Edge cases
 
