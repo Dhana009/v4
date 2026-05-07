@@ -1,73 +1,62 @@
-# DOM-008 Locator specialist escalation contract
+# DOM-006 Assertion target classification
 
 **Type:** Story  
-**Status:** Testing
+**Status:** Done
 **Priority:** P0  
 **Epic:** EPIC-004 DOM and Locator Strategy  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
 **Readiness:** Ready for repo inspection; not ready for implementation  
-**Dependencies:** LLM-008, DOM-001, DOM-003, DOM-004  
-**Blocks:** LLM locator specialist, recovery, EPIC-004  
+**Dependencies:** DOM-001, DOM-002, DOM-004, BE-006  
+**Blocks:** assertion execution, recording/codegen  
 **Version:** Batch 05 v1  
 
 ---
 
 ## Product contribution
 
-This story defines when the system escalates to the LLM locator specialist and what the specialist may return.
+This story prevents assertion bugs by separating assertion target, assertion type, expected value, and expected_outcome metadata.
 
 ## Architecture decision
 
 Fixed:
 
-- deterministic locator path runs first
-- escalate only when ambiguity/insufficient evidence remains
-- locator specialist suggests candidates/rationale only
-- backend/browser validation decides final locator
-- low confidence cannot execute
+- expected_outcome is parent metadata only
+- assertion target must come from DOM/locator evidence
+- assertion expected value must come from user intent or validated plan child
+- visible/present assertions cannot silently become text assertions
+- text assertions require explicit expected text/value
 
-## Escalation triggers
+## Assertion classification contract
 
-| Trigger | Required behavior |
-|---|---|
-| multiple candidates | ask specialist or user depending evidence |
-| no deterministic candidate | specialist suggests candidates if context sufficient |
-| weak DOM target | include ancestor/section evidence |
-| low confidence | ask user/request more DOM |
-| unsupported capability | capability gap, not locator guess |
-| hidden/dynamic target | classify and recover |
-
-## Specialist output contract
-
-| Field | Required |
-|---|---|
-| target_summary | Yes |
-| candidate_locators | Yes |
-| recommended_candidate_id | Optional |
-| confidence | Yes |
-| ambiguity_reason | Optional |
-| needs_user_selection | Yes |
-| validation_requirements | Yes |
+| Field | Required | Meaning |
+|---|---|---|
+| assertion_type | Yes | visible/hidden/enabled/disabled/has_text/exact_text/has_value/checked/etc. |
+| target_candidate_id | Yes | DOM target |
+| expected_value | Conditional | text/value where needed |
+| source_of_expected_value | Conditional | user intent/plan child |
+| expected_outcome_metadata_ref | Optional | parent metadata only |
+| compatibility_flags | Optional | e.g., visible+has_text invalid |
 
 ## Test matrix
 
 | Test ID | Layer | Scenario | Expected |
 |---|---|---|---|
-| DOM008-U-001 | Unit | deterministic unique | no escalation |
-| DOM008-U-002 | Unit | duplicate CTA | escalation/ambiguity |
-| DOM008-U-003 | Unit | low confidence | no execution |
-| DOM008-U-004 | Unit | unsupported file upload | capability gap |
-| DOM008-I-001 | Integration | specialist candidate validated | backend decides |
+| DOM006-U-001 | Unit | visible assertion | no expected text needed |
+| DOM006-U-002 | Unit | has_text assertion | expected value required |
+| DOM006-U-003 | Unit | expected_outcome text | not used as target/value |
+| DOM006-U-004 | Unit | exact code block text | text_block target |
+| DOM006-U-005 | Unit | visible + has_text conflict | rejected/normalized |
+| DOM006-I-001 | Integration | assertion plan child | valid action_assert payload |
 
 ## Edge cases
 
-- hallucinated selector
-- no DOM evidence
-- multiple same text elements
-- hidden candidate
-- locator suggestion too broad
+- code command exact text
+- section contains text
+- duplicate target text
+- dynamic generated analysis text
+- whitespace-sensitive text
 
 ---
 
@@ -125,10 +114,10 @@ Stop if:
 
 ## Codex execution summary
 
-First Codex task for DOM-008 should be read-only:
+First Codex task for DOM-006 should be read-only:
 
 ```text
-Read DOM-008, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
+Read DOM-006, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
 Do not edit code.
 Inspect current DOM/locator ownership and report narrow implementation path.
 Do not implement until repo-inspection report is reviewed.

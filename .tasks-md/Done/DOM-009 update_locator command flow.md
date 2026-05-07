@@ -1,62 +1,76 @@
-# DOM-007 Dynamic UI state detection baseline
+# DOM-009 update_locator command flow
 
 **Type:** Story  
-**Status:** Testing
+**Status:** Done
 **Priority:** P0  
 **Epic:** EPIC-004 DOM and Locator Strategy  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
 **Readiness:** Ready for repo inspection; not ready for implementation  
-**Dependencies:** DOM-001, DOM-004, EVENT-007  
-**Blocks:** recovery, observed outcome, modal/dropdown fixtures  
+**Dependencies:** EVENT-002, EVENT-003, DOM-004, DOM-008, BE-003  
+**Blocks:** recovery, replay repair later, frontend locator update UI  
 **Version:** Batch 05 v1  
 
 ---
 
 ## Product contribution
 
-This story creates a baseline classification for dynamic UI states that affect locator/action reliability.
+This story defines a safe command flow to update or replace a locator candidate during recovery or future replay repair.
 
 ## Architecture decision
 
 Fixed:
 
-- P0 detects/classifies dynamic state enough for recovery/trace
-- full advanced handling can be future capability
-- dynamic state classification is evidence, not automatic success
-- unsupported/unknown state can route recovery/capability gap
+- update_locator is a command request, not direct mutation
+- backend validates run/step/operation identity
+- candidate must validate in browser before acceptance
+- old locator history/evidence preserved
+- P0 supports baseline update; robust replay repair is P1
 
-## Dynamic state baseline
+## Command contract
 
-| State | P0 requirement |
-|---|---|
-| modal/dialog open | detect and include dialog context |
-| dropdown/listbox open | detect if visible/options present |
-| toast/alert | detect visible message where possible |
-| loading/spinner | classify loading/unstable |
-| navigation/page change | URL/title change |
-| file picker/upload | capability gap unless supported |
-| popup/new tab/iframe | capability gap/baseline detection |
+| Field | Required | Meaning |
+|---|---|---|
+| type | Yes | update_locator |
+| command_id | Yes | idempotency |
+| run_id | Conditional | active/replay run |
+| step_id | Yes | parent |
+| operation_id | Yes | child |
+| locator_candidate | Conditional | proposed locator |
+| user_hint | Optional | human context |
+| reason | Yes | why updating |
+| source | Yes | frontend/user/system |
+
+## Flow
+
+```text
+update_locator command
+→ command validation
+→ locator validation
+→ accept/reject
+→ event/rejection emitted
+→ execution/replay may retry only after accept
+```
 
 ## Test matrix
 
 | Test ID | Layer | Scenario | Expected |
 |---|---|---|---|
-| DOM007-U-001 | Unit | modal open | modal state detected |
-| DOM007-U-002 | Unit | dropdown open | options detected |
-| DOM007-U-003 | Unit | toast visible | message detected |
-| DOM007-U-004 | Unit | loading state | unstable warning |
-| DOM007-U-005 | Unit | iframe present | unsupported/capability flag |
-| DOM007-I-001 | Integration | action opens modal | observed dynamic state |
+| DOM009-C-001 | Contract | valid update_locator | accepted for validation |
+| DOM009-C-002 | Contract | missing operation_id | rejected |
+| DOM009-U-001 | Unit | candidate validates unique | accepted |
+| DOM009-U-002 | Unit | candidate multiple | rejected/ambiguity |
+| DOM009-U-003 | Unit | stale step | rejected |
+| DOM009-I-001 | Integration | recovery locator update | retry allowed after accept |
 
 ## Edge cases
 
-- hidden modal in DOM
-- dropdown portal outside container
-- toast disappears quickly
-- SPA route change
-- browser permission prompt
+- update during active execution
+- replay locator update
+- locator valid but wrong semantic target
+- user hint only, no selector
+- old locator history missing
 
 ---
 
@@ -114,10 +128,10 @@ Stop if:
 
 ## Codex execution summary
 
-First Codex task for DOM-007 should be read-only:
+First Codex task for DOM-009 should be read-only:
 
 ```text
-Read DOM-007, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
+Read DOM-009, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
 Do not edit code.
 Inspect current DOM/locator ownership and report narrow implementation path.
 Do not implement until repo-inspection report is reviewed.

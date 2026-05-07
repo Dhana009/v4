@@ -787,6 +787,8 @@ Status note:
 - DOM-006 through DOM-010 started as the next Inprogress slice.
 - DOM-006 through DOM-010 tests-first slice started on `dev2/llm-dom-test-mapping`; advanced contract tests are being added before implementation, and missing seams are marked xfail with explicit reasons.
 - DOM-006 through DOM-010 implementation completed on `dev2/llm-dom-test-mapping`; advanced DOM contract tests now pass, no merge to main yet, no push.
+- DEV-2 LLM + DOM planned scope completed on branch; LLM-001 through LLM-010 Done and DOM-001 through DOM-010 Done.
+- Final verification passed; no merge to main; no push in this task; AGENTS.md left unstaged.
 - Shared/blocked rows: `DOM-010` with DEV-4 fixtures.
 - Next checkpoint: proceed to the next approved DEV-2 slice after board review.
 - MR-3C implementation is complete.
