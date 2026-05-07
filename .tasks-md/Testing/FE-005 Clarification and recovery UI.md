@@ -1,13 +1,13 @@
 # FE-005 Clarification and recovery UI
 
 **Type:** Story  
-**Status:** Inprogress  
+**Status:** Testing  
 **Priority:** P0  
 **Epic:** EPIC-005 Shadow DOM Frontend  
 **Owner:** DEV-3 Shadow DOM Frontend + Typed Rendering  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Repo inspection complete; test-first implementation in progress  
+**Readiness:** Focused frontend contract tests and build passed; ready for acceptance  
 **Dependencies:** FE-002, FE-003, EVENT-007, BE-008  
 **Blocks:** clarification/recovery flows, E2E negative paths  
 **Version:** Batch 06 v1  

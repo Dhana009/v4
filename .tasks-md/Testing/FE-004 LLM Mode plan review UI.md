@@ -1,13 +1,13 @@
 # FE-004 LLM Mode plan review UI
 
 **Type:** Story  
-**Status:** Inprogress  
+**Status:** Testing  
 **Priority:** P0  
 **Epic:** EPIC-005 Shadow DOM Frontend  
 **Owner:** DEV-3 Shadow DOM Frontend + Typed Rendering  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Repo inspection complete; test-first implementation in progress  
+**Readiness:** Focused frontend contract tests and build passed; ready for acceptance  
 **Dependencies:** FE-002, FE-003, EVENT-004, BE-004, BE-005  
 **Blocks:** confirmation/correction user workflow, E2E plan review  
 **Version:** Batch 06 v1  
