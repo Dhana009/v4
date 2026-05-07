@@ -1,7 +1,7 @@
 # TRACE-010 Observability regression and redaction policy
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Planned  
 **Priority:** P0  
 **Epic:** EPIC-009 Trace and Observability  
 **Owner:** DEV-1 Backend Runtime + DEV-4 Evidence/Observability  
@@ -94,6 +94,18 @@ Regression requirements:
 
 ---
 
+## Codex task breakdown
+
+| Task | Status | Notes |
+|---|---|---|
+| TRACE-010A | In Progress | Read-only mapping of current redaction/report support, artifact metadata, and evidence paths. |
+| TRACE-010B | Planned | Red tests for `redaction-report.json` baseline. |
+| TRACE-010C | Planned | Red tests for no-secret artifact metadata. |
+| TRACE-010D | Planned | Harness-side implementation. |
+| TRACE-010E | Planned | Verification and evidence capture. |
+
+---
+
 ## Edge cases
 
 - false-positive redaction
@@ -175,9 +187,9 @@ Stop if:
 First Codex task for TRACE-010 should be read-only:
 
 ```text
-Read TRACE-010, SOURCE-001, PLAN-002, PLAN-005, EPIC-009, EPIC-001, EPIC-002, EPIC-006, EPIC-008, and required skills.
+Read TRACE-010, SOURCE-001, PLAN-002, PLAN-005, EPIC-009, EPIC-001, EPIC-002, EPIC-006, EPIC-008, PATCH-008, PATCH-011, and required skills.
 Do not edit code.
-Inspect current trace/observability ownership for Observability regression and redaction policy.
+Inspect current redaction/report support for Observability regression and redaction policy.
 Report gaps, current files, tests, risks, and a narrow implementation plan.
 Do not implement until repo-inspection report is reviewed.
 ```

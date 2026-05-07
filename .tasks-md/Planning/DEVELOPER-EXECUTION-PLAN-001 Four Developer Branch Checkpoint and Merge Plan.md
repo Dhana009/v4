@@ -501,6 +501,88 @@ Dirty state:
   AGENTS.md may remain dirty as local metadata; do not stage it.
 ```
 
+### DEV-4 blocker slice
+
+```text
+Selected story: E2E-001 Product startup and test orchestration harness
+Story status: Planned
+Selected subtask: E2E-001A remove socket.bind-based free-port probing from tests/e2e/harness.py and add focused regression coverage in tests/test_e2e_harness.py
+Selected subtask status: Blocked
+Blocker note: DEV-1 is blocked by the DEV-4 E2E socket bind issue at tests/e2e/harness.py:61
+Exact reason: the local sandbox denies loopback socket binds for both the harness and the fixture static server, so the four E2E tests fail during startup with PermissionError [Errno 1] Operation not permitted.
+Scope:
+  tests/e2e/harness.py
+  tests/test_e2e_harness.py
+  .tasks-md/Planning/DEVELOPER-EXECUTION-PLAN-001 Four Developer Branch Checkpoint and Merge Plan.md
+Forbidden:
+  agent.py
+  server.py
+  runtime/**
+  frontend/**
+  fixtures/**
+  AGENTS.md
+  .DS_Store
+  CI/config
+Verification:
+  python -m pytest tests/test_e2e_harness.py -q
+  python -m pytest tests/e2e/test_basic_click_flow.py tests/e2e/test_correction_assert_then_click_flow.py tests/e2e/test_exact_text_assertion_flow.py tests/e2e/test_visible_assertion_flow.py -q
+  python -m pytest tests -q if the environment allows local socket allocation
+Safe next action:
+  rerun the same E2E suite in an environment that allows local loopback binds, or attach the harness to an already-running local backend/static server that does not require new socket creation
+```
+
+### E2E-002 status
+
+```text
+Selected story: E2E-002 Backend event stream capture and assertion utilities
+Story status: Done
+Completed subtask: event helper and evidence utilities complete
+Completed subtask status: Done
+Verification: python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
+Verification: python -m pytest tests/test_e2e_harness.py -q -> 30 passed
+Completion note: collect_events, wait_for_event, assert_sequence, assert_no_event, event_evidence metadata, and artifact emission helpers are complete.
+```
+
+### TRACE-010 slice
+
+```text
+Selected story: TRACE-010 Observability regression and redaction policy
+Story status: Planned
+Why next: TRACE-009 artifact export is complete, and TRACE-010 is the next non-socket DEV-4 evidence slice because redaction-report.json is the remaining acceptance gap for trace/export safety and has explicit TRACE-RED matrix coverage.
+Phase: task-state only; no implementation yet.
+Scope:
+  .tasks-md/Planning/TRACE-010 Observability regression and redaction policy.md
+  .tasks-md/Planning/DEVELOPER-EXECUTION-PLAN-001 Four Developer Branch Checkpoint and Merge Plan.md
+  tests/e2e/harness.py
+  tests/test_e2e_harness.py
+Allowed files:
+  .tasks-md/Planning/TRACE-010 Observability regression and redaction policy.md
+  .tasks-md/Planning/DEVELOPER-EXECUTION-PLAN-001 Four Developer Branch Checkpoint and Merge Plan.md
+  tests/e2e/harness.py
+  tests/test_e2e_harness.py
+Forbidden files:
+  agent.py
+  server.py
+  runtime/**
+  frontend/**
+  fixtures/**
+  AGENTS.md
+  .DS_Store
+Test plan:
+  TRACE-RED-001
+  TRACE-RED-002
+  TRACE-RED-003
+  TRACE-EXP-001
+  TRACE-EXP-002
+First test-first step:
+  read-only mapping of current redaction/report support and no-secret artifact metadata
+Stop conditions:
+  redaction policy remains unclear
+  implementation would touch runtime or frontend truth
+  redaction report would become a second source of truth
+  evidence would require socket-bound browser startup in the blocked environment
+```
+
 ### Matrix areas
 
 ```text
@@ -664,6 +746,38 @@ fixture needs documented
 first safe LLM test slice proposed
 blocked rows identified
 ```
+
+Status note:
+- MR-3A mapping completed on `dev2/llm-dom-test-mapping`.
+- Source docs read, including the three Complete LLM Mode specs.
+- DEV-2 backlog items identified: `DOM-001..DOM-010` and `LLM-001..LLM-010`.
+- DEV-2 planned scope remains the full `DOM-001..DOM-010` plus `LLM-001..LLM-010` backlog set; this board has no separate Planned lane, so backlog is the planned state.
+- First In Progress slice is `LLM-001` through `LLM-004`.
+- MR-3B tests-only started on `dev2/llm-dom-test-mapping`; active slice is `LLM-001` through `LLM-004`.
+- MR-3C finalized on `dev2/llm-dom-test-mapping`; `runtime/llm_runtime_controller.py` now satisfies the 7 contract tests for the LLM Runtime Controller foundation.
+- LLM-001 through LLM-004 moved to Done after final verification.
+- MR-3D tests-only started on `dev2/llm-dom-test-mapping`; active scope is `LLM-005` through `LLM-007`.
+- Tests-only phase; no implementation yet.
+- MR-3D implementation completed for `LLM-005` through `LLM-007`.
+- Focused verification passed: `tests/test_llm_planning_contracts.py` now passes `12/12`; nearby runtime/helper suites passed `37/37`.
+- No merge to main yet.
+- Next planned slice is `LLM-008` through `LLM-010`.
+- MR-3E implementation completed for `LLM-008` through `LLM-010`.
+- Focused verification passed: `tests/test_llm_planning_contracts.py` + `tests/test_llm_specialist_contracts.py` + `tests/test_llm_runtime_controller_contract.py` passed `28/28`; nearby runtime/helper suites passed `30/30`.
+- Optional coverage tool was unavailable in this environment (`--cov` not recognized by the installed pytest).
+- No merge to main yet.
+- LLM-005 through LLM-010 are finalized and moved to Done after verification.
+- Next approved DEV-2 slice is `DOM-001` through `DOM-005`.
+- DOM-001 through DOM-005 finalized and moved to Done on `dev2/llm-dom-test-mapping`; focused verification passed with `tests/test_dom_locator_contracts.py` at `8/8`; no implementation changes in this finalize step; no merge to main yet.
+- DOM-006 through DOM-010 started as the next Inprogress slice.
+- DOM-006 through DOM-010 tests-first slice started on `dev2/llm-dom-test-mapping`; advanced contract tests are being added before implementation, and missing seams are marked xfail with explicit reasons.
+- DOM-006 through DOM-010 implementation completed on `dev2/llm-dom-test-mapping`; advanced DOM contract tests now pass, no merge to main yet, no push.
+- DEV-2 LLM + DOM planned scope completed on branch; LLM-001 through LLM-010 Done and DOM-001 through DOM-010 Done.
+- Final verification passed; no merge to main; no push in this task; AGENTS.md left unstaged.
+- Shared/blocked rows: `DOM-010` with DEV-4 fixtures.
+- Next checkpoint: proceed to the next approved DEV-2 slice after board review.
+- MR-3C implementation is complete.
+- Test-first work for the LLM Runtime Controller foundation slice is complete.
 
 ---
 
