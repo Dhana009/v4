@@ -2967,6 +2967,15 @@ class AgentLoop:
             return None
         return ", ".join(mismatches)
 
+    def _completed_run_confirmation_rejection_reason(self, event_context: dict[str, str] | None) -> str | None:
+        event_context_data = event_context if isinstance(event_context, dict) else {}
+        run_id = str(event_context_data.get("run_id") or "").strip()
+        if not run_id:
+            return None
+        if self._current_phase() != "completed" and not getattr(self, "_run_completed_emitted", False):
+            return None
+        return "completed run is already closed"
+
     def _plan_steps_from_state(self, plan_state: dict[str, Any] | None) -> list[dict[str, Any]]:
         if not isinstance(plan_state, dict):
             return []
@@ -7714,6 +7723,29 @@ class AgentLoop:
             answer = str(event.get("message") or event.get("answer") or "").strip()
             event_context = self._confirmation_context(event)
             if event_type == "correction":
+                completed_run_reason = self._completed_run_confirmation_rejection_reason(event_context)
+                if completed_run_reason:
+                    completed_run_id = event_context.get("run_id") or self._current_run_session_id()
+                    await self._send(
+                        "runtime_rejected",
+                        **build_runtime_rejection_payload(
+                            "STALE_CONFIRMATION",
+                            "Correction does not match the active plan context.",
+                            detail=f"correction after completion: {completed_run_reason}",
+                            current_state={
+                                "run_id": completed_run_id,
+                                "phase": self._current_phase(),
+                            },
+                            run_id=completed_run_id,
+                            recoverable=False,
+                            source="agent",
+                            command_type="correction",
+                        ),
+                    )
+                    return {
+                        "confirmed": False,
+                        "correction": answer or "the user requested a correction",
+                    }
                 mismatch_reason = self._confirmation_context_mismatch_reason(active_confirmation_context, event_context)
                 if mismatch_reason:
                     await self._send(
@@ -7743,6 +7775,25 @@ class AgentLoop:
                     "target_step_id": str(event.get("target_step_id") or event.get("targetStepId") or "").strip() or None,
                 }
             if event_type == "confirmed":
+                completed_run_reason = self._completed_run_confirmation_rejection_reason(event_context)
+                if completed_run_reason:
+                    completed_run_id = event_context.get("run_id") or self._current_run_session_id()
+                    await self._send(
+                        "runtime_rejected",
+                        **build_runtime_rejection_payload(
+                            "STALE_CONFIRMATION",
+                            "Confirmation does not match the active plan context.",
+                            detail=f"confirmation after completion: {completed_run_reason}",
+                            current_state={
+                                "run_id": completed_run_id,
+                                "phase": self._current_phase(),
+                            },
+                            run_id=completed_run_id,
+                            recoverable=False,
+                            source="agent",
+                        ),
+                    )
+                    return {"confirmed": False, "answer": answer or "confirmed"}
                 mismatch_reason = self._confirmation_context_mismatch_reason(active_confirmation_context, event_context)
                 if mismatch_reason:
                     await self._send(
@@ -7770,6 +7821,25 @@ class AgentLoop:
                     result["plan_version"] = plan_version
                 return result
             if event_type == "option_selected":
+                completed_run_reason = self._completed_run_confirmation_rejection_reason(event_context)
+                if completed_run_reason:
+                    completed_run_id = event_context.get("run_id") or self._current_run_session_id()
+                    await self._send(
+                        "runtime_rejected",
+                        **build_runtime_rejection_payload(
+                            "STALE_CONFIRMATION",
+                            "Confirmation does not match the active plan context.",
+                            detail=f"option_selected after completion: {completed_run_reason}",
+                            current_state={
+                                "run_id": completed_run_id,
+                                "phase": self._current_phase(),
+                            },
+                            run_id=completed_run_id,
+                            recoverable=False,
+                            source="agent",
+                        ),
+                    )
+                    return {"confirmed": False, "answer": answer}
                 mismatch_reason = self._confirmation_context_mismatch_reason(active_confirmation_context, event_context)
                 if mismatch_reason:
                     await self._send(

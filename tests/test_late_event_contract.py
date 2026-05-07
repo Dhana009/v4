@@ -78,7 +78,6 @@ def test_run_completed_event_is_emitted_only_once_for_same_run() -> None:
     assert sent_events[0]["skipped_count"] == 1
 
 
-@pytest.mark.xfail(strict=True, reason="late confirmations are still accepted after the active plan context has been cleared")
 def test_completed_run_rejects_late_confirmation_and_does_not_reopen_plan() -> None:
     loop = _make_loop()
     loop.phase = "completed"
