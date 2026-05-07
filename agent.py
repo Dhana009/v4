@@ -184,6 +184,7 @@ class AgentLoop:
         self._recording_wait_guard_armed = False
         self.run_stop_requested = False
         self._run_completion_requested = False
+        self._pending_failure_followup = False
         self._active_plan_state = None
         self._active_plan_correction_state = None
         self._plan_correction_pending = False
