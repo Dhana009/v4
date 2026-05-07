@@ -537,8 +537,12 @@ Safe next action:
 Selected story: E2E-002 Backend event stream capture and assertion utilities
 Story status: Planned
 Why next: the socket blocker is parked, backend contracts are already merged, and the next evidence-readiness step is to strengthen typed event capture/assertion coverage without touching product runtime logic.
-Selected subtask: E2E-002A map current event capture helpers and artifact outputs to the contract rows
-Selected subtask status: In Progress
+Completed subtask: E2E-002B add focused unit regressions for event filters and missing-event failure modes
+Completed subtask status: Done
+Verification: python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
+Verification: python -m pytest tests/test_e2e_harness.py -q -> 17 passed
+Implementation note: deterministic harness-unit event helper layer implemented; no product/runtime/backend/frontend/fixture changes.
+Next planned subtask: E2E-002C add focused integration regressions for capture-before-action and failure artifacts (not started)
 Scope:
   tests/e2e/harness.py
   tests/test_e2e_harness.py
@@ -558,10 +562,6 @@ Forbidden files:
   AGENTS.md
   .DS_Store
   CI/config
-Test plan:
-  start with tests/test_e2e_harness.py focused regressions for event helpers and artifact metadata
-  then add the smallest targeted coverage for capture-before-action and failure-artifact assertions
-  defer all live E2E runs until the next implementation slice is ready
 Stop conditions:
   event capture semantics are unclear
   changing the helper would require backend contract changes

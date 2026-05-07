@@ -51,8 +51,8 @@ Fixed:
 
 | Task | Status | Notes |
 |---|---|---|
-| E2E-002A | In Progress | Map current event capture helpers and artifact outputs to the contract rows. |
-| E2E-002B | Planned | Add focused unit regressions for event filters and missing-event failure modes. |
+| E2E-002A | Done | Completed mapping of current event capture helpers and artifact outputs to the contract rows. |
+| E2E-002B | Done | Test-first, harness-unit only. Deterministic event helper layer implemented; tests/test_e2e_harness.py passes 17/17. |
 | E2E-002C | Planned | Add focused integration regressions for capture-before-action and failure artifacts. |
 
 ## Edge cases

@@ -214,6 +214,119 @@ def _resolve_artifact_file_name(name: str) -> str:
     return DEFAULT_E2E_ARTIFACT_PATHS.get(name, name)
 
 
+def _event_record_type(event: Any) -> str | None:
+    if isinstance(event, Mapping):
+        for key in ("type", "event"):
+            value = event.get(key)
+            if value is not None:
+                return str(value)
+        return None
+    for key in ("type", "event"):
+        value = getattr(event, key, None)
+        if value is not None:
+            return str(value)
+    return None
+
+
+def _normalize_event_evidence(event_evidence: Mapping[str, Any] | None) -> dict[str, Any]:
+    if event_evidence is None:
+        return {}
+    normalized: dict[str, Any] = {}
+    for key, value in event_evidence.items():
+        normalized_key = str(key)
+        if isinstance(value, Mapping):
+            normalized[normalized_key] = {str(inner_key): inner_value for inner_key, inner_value in value.items()}
+        elif isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+            normalized[normalized_key] = list(value)
+        else:
+            normalized[normalized_key] = value
+    return normalized
+
+
+def _append_event_evidence_summary(summary_text: str, event_evidence: Mapping[str, Any]) -> str:
+    evidence_json = json.dumps(_normalize_event_evidence(event_evidence), indent=2, sort_keys=True)
+    summary_prefix = summary_text.rstrip()
+    if summary_prefix:
+        summary_prefix += "\n\n"
+    return f"{summary_prefix}## Event evidence\n\n```json\n{evidence_json}\n```\n"
+
+
+def collect_events(source: Any, event_type: str | None = None) -> list[Any]:
+    events: list[Any]
+    if isinstance(source, Sequence) and not isinstance(source, (str, bytes, bytearray, Path)):
+        events = list(source)
+    elif isinstance(source, Mapping):
+        events = [dict(source)]
+    else:
+        source_path = Path(source)
+        if source_path.exists():
+            event_path = source_path if source_path.is_file() else source_path / "events.ndjson"
+        else:
+            event_path = RESULTS_ROOT / str(source) / "events.ndjson"
+        if not event_path.exists():
+            events = []
+        else:
+            events = []
+            for line in event_path.read_text(encoding="utf-8", errors="replace").splitlines():
+                if not line.strip():
+                    continue
+                payload = json.loads(line)
+                if isinstance(payload, Mapping):
+                    events.append(dict(payload))
+                else:
+                    events.append(payload)
+    if event_type is None:
+        return events
+    return [event for event in events if _event_record_type(event) == event_type]
+
+
+def wait_for_event(source: Any, event_type: str, event_filter: Mapping[str, Any] | None = None) -> Any:
+    events = collect_events(source)
+    for event in events:
+        if _event_record_type(event) != event_type:
+            continue
+        if event_filter is not None:
+            if isinstance(event, Mapping):
+                matches = all(event.get(key) == value for key, value in event_filter.items())
+            else:
+                matches = all(getattr(event, key, None) == value for key, value in event_filter.items())
+            if not matches:
+                continue
+        return event
+
+    available_types = [record_type for record_type in (_event_record_type(event) for event in events) if record_type is not None]
+    filter_text = f" matching {dict(event_filter)!r}" if event_filter else ""
+    raise AssertionError(
+        f"Expected event {event_type!r}{filter_text} was not found. Available events: {available_types!r}"
+    )
+
+
+def assert_sequence(source: Any, expected_types: Sequence[str]) -> None:
+    events = collect_events(source)
+    actual_types = [record_type for record_type in (_event_record_type(event) for event in events) if record_type is not None]
+    expected_type_list = [str(event_type) for event_type in expected_types]
+    if not expected_type_list:
+        return
+
+    cursor = 0
+    for expected_type in expected_type_list:
+        while cursor < len(actual_types) and actual_types[cursor] != expected_type:
+            cursor += 1
+        if cursor >= len(actual_types):
+            raise AssertionError(
+                f"Expected event sequence {expected_type_list!r} was not found in order. "
+                f"Missing {expected_type!r} after actual events {actual_types!r}"
+            )
+        cursor += 1
+
+
+def assert_no_event(source: Any, forbidden_type: str) -> None:
+    events = collect_events(source)
+    matching_events = [event for event in events if _event_record_type(event) == forbidden_type]
+    if matching_events:
+        raise AssertionError(f"Forbidden event {forbidden_type!r} was present: {matching_events!r}")
+
+
 def _hash_text_value(text: str) -> str:
     return f"sha256:{hashlib.sha256(text.encode('utf-8')).hexdigest()}"
 
@@ -256,6 +369,7 @@ def build_artifact_manifest(
     artifacts: Mapping[str, str | Path] | None = None,
     file_hashes: Mapping[str, str] | None = None,
     optional_absence_notes: Sequence[str] | None = None,
+    event_evidence: Mapping[str, Any] | None = None,
     run_id: str | None = None,
 ) -> dict[str, Any]:
     return {
@@ -268,6 +382,7 @@ def build_artifact_manifest(
         "artifacts": _normalize_artifact_paths(artifacts),
         "file_hashes": _normalize_file_hashes(file_hashes),
         "optional_absence_notes": _normalize_optional_absence_notes(optional_absence_notes),
+        **({"event_evidence": _normalize_event_evidence(event_evidence)} if event_evidence is not None else {}),
     }
 
 
@@ -280,6 +395,7 @@ def write_artifact_manifest(
     artifacts: Mapping[str, str | Path] | None = None,
     file_hashes: Mapping[str, str] | None = None,
     optional_absence_notes: Sequence[str] | None = None,
+    event_evidence: Mapping[str, Any] | None = None,
     run_id: str | None = None,
 ) -> dict[str, Any]:
     manifest = build_artifact_manifest(
@@ -290,6 +406,7 @@ def write_artifact_manifest(
         artifacts=artifacts,
         file_hashes=file_hashes,
         optional_absence_notes=optional_absence_notes,
+        event_evidence=event_evidence,
         run_id=run_id,
     )
     return write_json_artifact(artifact_dir / "manifest.json", manifest)
@@ -301,6 +418,7 @@ def build_test_result(
     test_name: str,
     status: str = "unknown",
     error_summary: str | None = None,
+    event_evidence: Mapping[str, Any] | None = None,
     run_id: str | None = None,
 ) -> dict[str, Any]:
     payload: dict[str, Any] = {
@@ -312,6 +430,8 @@ def build_test_result(
     }
     if error_summary:
         payload["error_summary"] = error_summary
+    if event_evidence is not None:
+        payload["event_evidence"] = _normalize_event_evidence(event_evidence)
     return payload
 
 
@@ -321,6 +441,7 @@ def write_test_result(
     test_name: str,
     status: str = "unknown",
     error_summary: str | None = None,
+    event_evidence: Mapping[str, Any] | None = None,
     run_id: str | None = None,
 ) -> dict[str, Any]:
     result = build_test_result(
@@ -328,6 +449,7 @@ def write_test_result(
         test_name=test_name,
         status=status,
         error_summary=error_summary,
+        event_evidence=event_evidence,
         run_id=run_id,
     )
     return write_json_artifact(artifact_dir / "test-result.json", result)
@@ -344,12 +466,23 @@ def finalize_test_result(
     artifact_texts: Mapping[str, str] | None = None,
     file_hashes: Mapping[str, str] | None = None,
     optional_absence_notes: Sequence[str] | None = None,
+    event_evidence: Mapping[str, Any] | None = None,
     run_id: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    _write_text_artifacts(artifact_dir, artifact_texts)
+    effective_artifact_texts: Mapping[str, str] | None = artifact_texts
+    if event_evidence is not None and artifact_texts:
+        effective_artifact_texts = dict(artifact_texts)
+        summary_key = next((key for key in ("summary.md", "summary") if key in effective_artifact_texts), None)
+        if summary_key is not None:
+            effective_artifact_texts[summary_key] = _append_event_evidence_summary(
+                effective_artifact_texts[summary_key],
+                event_evidence,
+            )
+
+    _write_text_artifacts(artifact_dir, effective_artifact_texts)
     resolved_file_hashes = _normalize_file_hashes(file_hashes)
-    if not resolved_file_hashes and artifact_texts:
-        resolved_file_hashes = _hash_artifact_texts(artifact_texts)
+    if not resolved_file_hashes and effective_artifact_texts:
+        resolved_file_hashes = _hash_artifact_texts(effective_artifact_texts)
     manifest = write_artifact_manifest(
         artifact_dir=artifact_dir,
         test_name=test_name,
@@ -358,6 +491,7 @@ def finalize_test_result(
         artifacts=artifacts,
         file_hashes=resolved_file_hashes,
         optional_absence_notes=optional_absence_notes,
+        event_evidence=event_evidence,
         run_id=run_id,
     )
     result = write_test_result(
@@ -365,6 +499,7 @@ def finalize_test_result(
         test_name=test_name,
         status=status,
         error_summary=error_summary,
+        event_evidence=event_evidence,
         run_id=run_id,
     )
     return manifest, result
