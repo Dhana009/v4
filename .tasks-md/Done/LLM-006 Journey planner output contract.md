@@ -1,60 +1,79 @@
-# LLM-005 Intent classification and clarification routing
+# LLM-006 Journey planner output contract
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-003 LLM Runtime Controller  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
 **Readiness:** Ready for repo inspection; not ready for implementation  
-**Dependencies:** LLM-001, LLM-002, LLM-004, EVENT-007  
-**Blocks:** LLM-006 journey planner, clarification UI  
+**Dependencies:** LLM-001, LLM-004, LLM-005, BE-004, EVENT-004  
+**Blocks:** active plan store, plan_ready UI, execution contract  
 **Version:** Batch 04 v1  
 
 ---
 
 ## Product contribution
 
-This story decides whether user input is ready for planning or needs clarification.
+This story defines what the journey planner may output as a plan proposal.
 
 ## Architecture decision
 
 Fixed:
 
-- intent classifier does not create plan directly
-- missing information routes to clarification
-- backend emits clarification_needed; LLM only proposes question/options
-- no guessing for ambiguous target/scope/data
+- journey planner proposes plan only
+- backend validates/stores active plan
+- plan includes ordered steps and child operations
+- expected_outcome is metadata only
+- no execution permission from planner output
 
-## Intent output schema
+## Journey plan schema
 
 | Field | Required | Meaning |
 |---|---|---|
-| intent_type | Yes | create_plan/correction/question/replay/unknown |
+| plan_intent | Yes | user-level goal |
+| steps | Yes | ordered planned steps |
+| assumptions | Optional | explicit assumptions |
+| clarifications_needed | Optional | missing info |
+| risks | Optional | permission/ambiguity |
 | confidence | Yes | high/medium/low |
-| missing_info | Yes | list |
-| clarification_question | Conditional | question text |
-| suggested_options | Optional | choices |
-| risk_flags | Optional | permission/destructive/ambiguous |
-| planner_ready | Yes | boolean |
+
+### Planned step
+
+| Field | Required |
+|---|---|
+| proposed_step_id | Optional/backend may assign |
+| intent | Yes |
+| expected_outcome_metadata | Optional |
+| children | Yes |
+| precondition/postcondition | Optional |
+
+### Planned operation
+
+| Field | Required |
+|---|---|
+| type/subtype | Yes |
+| target_semantic_name | Conditional |
+| locator_candidate_ref | Optional |
+| assertion_type/value | Conditional |
+| order_index | Yes |
 
 ## Test matrix
 
 | Test ID | Layer | Scenario | Expected |
 |---|---|---|---|
-| LLM005-U-001 | Unit | clear automation intent | planner_ready true |
-| LLM005-U-002 | Unit | ambiguous target | clarification |
-| LLM005-U-003 | Unit | missing test data | clarification |
-| LLM005-U-004 | Unit | low confidence | clarification |
-| LLM005-I-001 | Integration | classifier clarification | EVENT-007 shape compatible |
+| LLM006-C-001 | Contract | valid plan | accepted by schema |
+| LLM006-C-002 | Contract | plan has execution_result | rejected |
+| LLM006-C-003 | Contract | expected_outcome as assertion target | rejected |
+| LLM006-I-001 | Integration | valid plan to BE-004 | active plan candidate |
 
 ## Edge cases
 
-- user says “do it”
-- multiple possible targets
-- destructive request
-- correction disguised as new plan
+- plan with no children
+- duplicate operation order
+- assertion without expected value
+- high confidence but missing target
 
 ---
 
@@ -113,10 +132,10 @@ After reading this story, Codex should be able to explain:
 
 ## Codex execution summary
 
-First Codex task for LLM-005 should be read-only:
+First Codex task for LLM-006 should be read-only:
 
 ```text
-Read LLM-005, SOURCE-001, PLAN-002, PLAN-005, EPIC-003, and required skills.
+Read LLM-006, SOURCE-001, PLAN-002, PLAN-005, EPIC-003, and required skills.
 Do not edit code.
 Do not inspect unrelated product areas.
 Inspect current LLM runtime ownership and report a narrow implementation path.

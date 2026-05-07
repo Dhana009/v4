@@ -1,76 +1,63 @@
-# DOM-009 update_locator command flow
+# DOM-004 Locator validation and ambiguity classification
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-004 DOM and Locator Strategy  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
 **Readiness:** Ready for repo inspection; not ready for implementation  
-**Dependencies:** EVENT-002, EVENT-003, DOM-004, DOM-008, BE-003  
-**Blocks:** recovery, replay repair later, frontend locator update UI  
+**Dependencies:** DOM-002, DOM-003, BE-006, EVENT-005  
+**Blocks:** execution contract, recovery, update_locator flow  
 **Version:** Batch 05 v1  
 
 ---
 
 ## Product contribution
 
-This story defines a safe command flow to update or replace a locator candidate during recovery or future replay repair.
+This story validates locator candidates in the browser and classifies ambiguity before execution.
 
 ## Architecture decision
 
 Fixed:
 
-- update_locator is a command request, not direct mutation
-- backend validates run/step/operation identity
-- candidate must validate in browser before acceptance
-- old locator history/evidence preserved
-- P0 supports baseline update; robust replay repair is P1
+- backend/browser validation is final locator truth
+- validation returns unique/multiple/none/stale/hidden/disabled/wrong_page/unsupported
+- LLM confidence does not replace validation
+- ambiguity routes to user clarification or recovery
 
-## Command contract
+## Validation result schema
 
 | Field | Required | Meaning |
 |---|---|---|
-| type | Yes | update_locator |
-| command_id | Yes | idempotency |
-| run_id | Conditional | active/replay run |
-| step_id | Yes | parent |
-| operation_id | Yes | child |
-| locator_candidate | Conditional | proposed locator |
-| user_hint | Optional | human context |
-| reason | Yes | why updating |
-| source | Yes | frontend/user/system |
-
-## Flow
-
-```text
-update_locator command
-→ command validation
-→ locator validation
-→ accept/reject
-→ event/rejection emitted
-→ execution/replay may retry only after accept
-```
+| locator_ref | Yes | locator candidate reference |
+| status | Yes | unique/multiple/none/stale/hidden/disabled/wrong_page/unsupported |
+| match_count | Yes | number of matches |
+| visible_count | Optional | visible matches |
+| selected_element_ref | Conditional | unique valid match |
+| ambiguity_candidates | Optional | when multiple |
+| failure_reason | Optional | reason |
+| evidence_ref | Optional | screenshot/trace/dom ref |
 
 ## Test matrix
 
 | Test ID | Layer | Scenario | Expected |
 |---|---|---|---|
-| DOM009-C-001 | Contract | valid update_locator | accepted for validation |
-| DOM009-C-002 | Contract | missing operation_id | rejected |
-| DOM009-U-001 | Unit | candidate validates unique | accepted |
-| DOM009-U-002 | Unit | candidate multiple | rejected/ambiguity |
-| DOM009-U-003 | Unit | stale step | rejected |
-| DOM009-I-001 | Integration | recovery locator update | retry allowed after accept |
+| DOM004-U-001 | Unit | unique locator | status unique |
+| DOM004-U-002 | Unit | multiple matches | status multiple |
+| DOM004-U-003 | Unit | no match | status none |
+| DOM004-U-004 | Unit | hidden match | status hidden |
+| DOM004-U-005 | Unit | wrong page | status wrong_page |
+| DOM004-I-001 | Integration | action before validation | blocked |
 
 ## Edge cases
 
-- update during active execution
-- replay locator update
-- locator valid but wrong semantic target
-- user hint only, no selector
-- old locator history missing
+- detached element after validation
+- multiple visible exact matches
+- locator unique but disabled
+- validation across navigation
+- iframe unsupported
 
 ---
 
@@ -128,10 +115,10 @@ Stop if:
 
 ## Codex execution summary
 
-First Codex task for DOM-009 should be read-only:
+First Codex task for DOM-004 should be read-only:
 
 ```text
-Read DOM-009, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
+Read DOM-004, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
 Do not edit code.
 Inspect current DOM/locator ownership and report narrow implementation path.
 Do not implement until repo-inspection report is reviewed.

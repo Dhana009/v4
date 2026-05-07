@@ -1,73 +1,60 @@
-# LLM-008 Locator specialist boundary and escalation policy
+# LLM-005 Intent classification and clarification routing
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-003 LLM Runtime Controller  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
 **Readiness:** Ready for repo inspection; not ready for implementation  
-**Dependencies:** LLM-001, LLM-003, LLM-004, BE-006  
-**Blocks:** DOM/locator epic, execution validation  
+**Dependencies:** LLM-001, LLM-002, LLM-004, EVENT-007  
+**Blocks:** LLM-006 journey planner, clarification UI  
 **Version:** Batch 04 v1  
 
 ---
 
 ## Product contribution
 
-This story defines when and how a locator specialist may help without owning locator truth.
+This story decides whether user input is ready for planning or needs clarification.
 
 ## Architecture decision
 
 Fixed:
 
-- deterministic locator evidence first
-- locator specialist suggests candidates/explanations only
-- backend/browser validation decides final locator
-- ambiguous locator asks user or routes recovery
-- no action execution from locator specialist
+- intent classifier does not create plan directly
+- missing information routes to clarification
+- backend emits clarification_needed; LLM only proposes question/options
+- no guessing for ambiguous target/scope/data
 
-## Locator specialist output schema
+## Intent output schema
 
-| Field | Required |
-|---|---|
-| target_summary | Yes |
-| candidate_locators | Yes |
-| recommended_candidate_id | Optional |
-| ambiguity_reason | Optional |
-| needs_user_selection | Yes |
-| confidence | Yes |
-| validation_requirements | Yes |
-
-### Candidate locator
-
-| Field | Required |
-|---|---|
-| candidate_id | Yes |
-| strategy | role/label/text/testid/css/xpath/etc. |
-| selector_or_locator | Yes |
-| scope | Optional |
-| rationale | Yes |
-| risk | low/medium/high |
+| Field | Required | Meaning |
+|---|---|---|
+| intent_type | Yes | create_plan/correction/question/replay/unknown |
+| confidence | Yes | high/medium/low |
+| missing_info | Yes | list |
+| clarification_question | Conditional | question text |
+| suggested_options | Optional | choices |
+| risk_flags | Optional | permission/destructive/ambiguous |
+| planner_ready | Yes | boolean |
 
 ## Test matrix
 
 | Test ID | Layer | Scenario | Expected |
 |---|---|---|---|
-| LLM008-C-001 | Contract | valid candidates | accepted |
-| LLM008-C-002 | Contract | candidate executes action | rejected |
-| LLM008-U-001 | Unit | deterministic evidence sufficient | no LLM needed |
-| LLM008-U-002 | Unit | ambiguous candidates | needs_user_selection |
-| LLM008-I-001 | Integration | candidate to backend validation | backend decides |
+| LLM005-U-001 | Unit | clear automation intent | planner_ready true |
+| LLM005-U-002 | Unit | ambiguous target | clarification |
+| LLM005-U-003 | Unit | missing test data | clarification |
+| LLM005-U-004 | Unit | low confidence | clarification |
+| LLM005-I-001 | Integration | classifier clarification | EVENT-007 shape compatible |
 
 ## Edge cases
 
-- duplicate CTA text
-- nested span target
-- code block assertion
-- hidden element candidate
-- dynamic list/table row
+- user says “do it”
+- multiple possible targets
+- destructive request
+- correction disguised as new plan
 
 ---
 
@@ -126,10 +113,10 @@ After reading this story, Codex should be able to explain:
 
 ## Codex execution summary
 
-First Codex task for LLM-008 should be read-only:
+First Codex task for LLM-005 should be read-only:
 
 ```text
-Read LLM-008, SOURCE-001, PLAN-002, PLAN-005, EPIC-003, and required skills.
+Read LLM-005, SOURCE-001, PLAN-002, PLAN-005, EPIC-003, and required skills.
 Do not edit code.
 Do not inspect unrelated product areas.
 Inspect current LLM runtime ownership and report a narrow implementation path.

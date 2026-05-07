@@ -1,62 +1,67 @@
-# DOM-006 Assertion target classification
+# DOM-002 Element identity and candidate model
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-004 DOM and Locator Strategy  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
 **Readiness:** Ready for repo inspection; not ready for implementation  
-**Dependencies:** DOM-001, DOM-002, DOM-004, BE-006  
-**Blocks:** assertion execution, recording/codegen  
+**Dependencies:** DOM-001, EPIC-004  
+**Blocks:** DOM-003, DOM-004, DOM-005, DOM-006, DOM-008  
 **Version:** Batch 05 v1  
 
 ---
 
 ## Product contribution
 
-This story prevents assertion bugs by separating assertion target, assertion type, expected value, and expected_outcome metadata.
+This story defines what an element candidate is. It prevents the system from treating a raw DOM node or selected span as the whole target.
 
 ## Architecture decision
 
 Fixed:
 
-- expected_outcome is parent metadata only
-- assertion target must come from DOM/locator evidence
-- assertion expected value must come from user intent or validated plan child
-- visible/present assertions cannot silently become text assertions
-- text assertions require explicit expected text/value
+- element candidate includes semantic identity, accessibility evidence, text, ancestry, section scope, and locator candidates
+- candidate is not executable until validation
+- parent/ancestor candidates are explicit
 
-## Assertion classification contract
+## Candidate schema
 
 | Field | Required | Meaning |
 |---|---|---|
-| assertion_type | Yes | visible/hidden/enabled/disabled/has_text/exact_text/has_value/checked/etc. |
-| target_candidate_id | Yes | DOM target |
-| expected_value | Conditional | text/value where needed |
-| source_of_expected_value | Conditional | user intent/plan child |
-| expected_outcome_metadata_ref | Optional | parent metadata only |
-| compatibility_flags | Optional | e.g., visible+has_text invalid |
+| candidate_id | Yes | stable candidate id |
+| element_ref | Yes | backend/browser reference |
+| role | Optional | ARIA/native role |
+| accessible_name | Optional | name |
+| text | Optional | visible text |
+| label/placeholder/alt/title | Optional | semantic evidence |
+| data_testid | Optional | test id |
+| tag | Yes | DOM tag |
+| attributes_summary | Optional | useful attrs only |
+| visibility/enabled | Optional | state |
+| ancestor_chain | Yes | useful parent candidates |
+| section_ref | Optional | section/container |
+| candidate_type | Yes | action_target/assertion_target/container/text_block |
+| risk_flags | Optional | duplicate/hidden/weak/text-only |
 
 ## Test matrix
 
 | Test ID | Layer | Scenario | Expected |
 |---|---|---|---|
-| DOM006-U-001 | Unit | visible assertion | no expected text needed |
-| DOM006-U-002 | Unit | has_text assertion | expected value required |
-| DOM006-U-003 | Unit | expected_outcome text | not used as target/value |
-| DOM006-U-004 | Unit | exact code block text | text_block target |
-| DOM006-U-005 | Unit | visible + has_text conflict | rejected/normalized |
-| DOM006-I-001 | Integration | assertion plan child | valid action_assert payload |
+| DOM002-U-001 | Unit | button with label | candidate has role/name |
+| DOM002-U-002 | Unit | nested span in button | ancestor button candidate included |
+| DOM002-U-003 | Unit | card CTA duplicate | section_ref included |
+| DOM002-U-004 | Unit | code block text | text_block candidate |
+| DOM002-U-005 | Unit | hidden candidate | risk flag |
 
 ## Edge cases
 
-- code command exact text
-- section contains text
-- duplicate target text
-- dynamic generated analysis text
-- whitespace-sensitive text
+- non-interactive span clicked by picker
+- icon-only button
+- duplicate cards
+- table row action
+- label text separate from input
 
 ---
 
@@ -114,10 +119,10 @@ Stop if:
 
 ## Codex execution summary
 
-First Codex task for DOM-006 should be read-only:
+First Codex task for DOM-002 should be read-only:
 
 ```text
-Read DOM-006, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
+Read DOM-002, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
 Do not edit code.
 Inspect current DOM/locator ownership and report narrow implementation path.
 Do not implement until repo-inspection report is reviewed.

@@ -1,62 +1,67 @@
-# DOM-007 Dynamic UI state detection baseline
+# DOM-005 Section-container scoping and ancestor candidates
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-004 DOM and Locator Strategy  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
 **Readiness:** Ready for repo inspection; not ready for implementation  
-**Dependencies:** DOM-001, DOM-004, EVENT-007  
-**Blocks:** recovery, observed outcome, modal/dropdown fixtures  
+**Dependencies:** DOM-001, DOM-002, EPIC-004  
+**Blocks:** DOM-003, picker UI, weak DOM flows  
 **Version:** Batch 05 v1  
 
 ---
 
 ## Product contribution
 
-This story creates a baseline classification for dynamic UI states that affect locator/action reliability.
+This story fixes weak picker/locator behavior by exposing useful ancestor/container candidates instead of only the exact clicked node.
+
+## Source evidence table
+
+| Source | Extracted rule | Story impact |
+|---|---|---|
+| Handoff | picker may capture nested spans/token text instead of useful ancestor container/code/pre/section/card/dialog/form/table row | include ancestor candidates |
+| SOURCE-001 | scoped text and page/section context are deterministic evidence | use containers for locator scoping |
 
 ## Architecture decision
 
 Fixed:
 
-- P0 detects/classifies dynamic state enough for recovery/trace
-- full advanced handling can be future capability
-- dynamic state classification is evidence, not automatic success
-- unsupported/unknown state can route recovery/capability gap
+- selected element is not automatically final target
+- ancestor candidates include interactive parent, row/card/form/dialog/section/code block where applicable
+- user/frontend may choose target level, backend validates
+- weak DOM gets explicit risk flags
 
-## Dynamic state baseline
+## Ancestor candidate levels
 
-| State | P0 requirement |
+| Level | Example |
 |---|---|
-| modal/dialog open | detect and include dialog context |
-| dropdown/listbox open | detect if visible/options present |
-| toast/alert | detect visible message where possible |
-| loading/spinner | classify loading/unstable |
-| navigation/page change | URL/title change |
-| file picker/upload | capability gap unless supported |
-| popup/new tab/iframe | capability gap/baseline detection |
+| exact node | span/text/icon |
+| interactive ancestor | button/link/input |
+| component ancestor | card/list item/table row |
+| form/dialog ancestor | form/modal |
+| section ancestor | named page section |
+| page landmark | nav/main/footer |
 
 ## Test matrix
 
 | Test ID | Layer | Scenario | Expected |
 |---|---|---|---|
-| DOM007-U-001 | Unit | modal open | modal state detected |
-| DOM007-U-002 | Unit | dropdown open | options detected |
-| DOM007-U-003 | Unit | toast visible | message detected |
-| DOM007-U-004 | Unit | loading state | unstable warning |
-| DOM007-U-005 | Unit | iframe present | unsupported/capability flag |
-| DOM007-I-001 | Integration | action opens modal | observed dynamic state |
+| DOM005-U-001 | Unit | span inside button | button ancestor candidate |
+| DOM005-U-002 | Unit | text in code block | code/pre ancestor |
+| DOM005-U-003 | Unit | table row button | row ancestor |
+| DOM005-U-004 | Unit | duplicate CTA cards | card/section scope |
+| DOM005-I-001 | Integration | picker target levels | candidates returned |
 
 ## Edge cases
 
-- hidden modal in DOM
-- dropdown portal outside container
-- toast disappears quickly
-- SPA route change
-- browser permission prompt
+- deeply nested Elementor DOM
+- SVG icon button
+- table action button
+- modal section
+- repeated cards
 
 ---
 
@@ -114,10 +119,10 @@ Stop if:
 
 ## Codex execution summary
 
-First Codex task for DOM-007 should be read-only:
+First Codex task for DOM-005 should be read-only:
 
 ```text
-Read DOM-007, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
+Read DOM-005, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
 Do not edit code.
 Inspect current DOM/locator ownership and report narrow implementation path.
 Do not implement until repo-inspection report is reviewed.
