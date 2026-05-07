@@ -4,7 +4,6 @@ import asyncio
 import hashlib
 import json
 import os
-import socket
 import subprocess
 import sys
 import time
@@ -30,6 +29,9 @@ E2E_LIFECYCLE_MARKERS = [
     "[CODE_UPDATE]",
 ]
 E2E_ARTIFACT_SCHEMA_VERSION = "autoworkbench.e2e.artifacts.v1"
+DEFAULT_E2E_STATIC_SERVER_PORT = 8000
+DEFAULT_E2E_BACKEND_PORT = 8765
+DEFAULT_E2E_REMOTE_DEBUGGING_PORT = 9222
 DEFAULT_E2E_ARTIFACT_PATHS: dict[str, str] = {
     "manifest": "manifest.json",
     "test_result": "test-result.json",
@@ -56,10 +58,16 @@ DEFAULT_E2E_OPTIONAL_ABSENCE_NOTES: list[str] = [
 T = TypeVar("T")
 
 
-def find_free_port() -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.bind(("127.0.0.1", 0))
-        return int(sock.getsockname()[1])
+def resolve_e2e_port(port: int | None, *, env_name: str, default: int) -> int:
+    if port is not None:
+        return port
+    raw_port = os.getenv(env_name, "").strip()
+    if raw_port:
+        try:
+            return int(raw_port)
+        except ValueError as exc:
+            raise RuntimeError(f"{env_name} must be an integer, got {raw_port!r}") from exc
+    return default
 
 
 def ensure_directory(path: Path) -> None:
@@ -140,10 +148,19 @@ def wait_for_http_url(url: str, *, label: str, process: "ManagedProcess | None" 
 
     while time.monotonic() < deadline:
         if process is not None and process.poll() is not None:
+            stdout_text = tail_text(process.stdout_path)
+            stderr_text = tail_text(process.stderr_path)
+            if "PermissionError" in stderr_text and "Operation not permitted" in stderr_text:
+                raise RuntimeError(
+                    f"{label} could not start because local socket allocation is blocked in this environment.\n"
+                    f"Requested URL: {url}\n"
+                    f"stdout:\n{stdout_text}\n"
+                    f"stderr:\n{stderr_text}"
+                )
             raise RuntimeError(
                 f"{label} exited early with code {process.returncode}\n"
-                f"stdout:\n{tail_text(process.stdout_path)}\n"
-                f"stderr:\n{tail_text(process.stderr_path)}"
+                f"stdout:\n{stdout_text}\n"
+                f"stderr:\n{stderr_text}"
             )
 
         try:
@@ -446,7 +463,11 @@ def start_managed_process(
 
 
 def start_static_server(app_root: Path, artifact_dir: Path, port: int | None = None) -> ManagedProcess:
-    server_port = port or find_free_port()
+    server_port = resolve_e2e_port(
+        port,
+        env_name="AUTOWORKBENCH_E2E_STATIC_SERVER_PORT",
+        default=DEFAULT_E2E_STATIC_SERVER_PORT,
+    )
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
     process = start_managed_process(
@@ -469,8 +490,16 @@ def start_autoworkbench_backend(
     port: int | None = None,
     remote_debugging_port: int | None = None,
 ) -> ManagedProcess:
-    backend_port = port or find_free_port()
-    debugging_port = remote_debugging_port or find_free_port()
+    backend_port = resolve_e2e_port(
+        port,
+        env_name="AUTOWORKBENCH_E2E_BACKEND_PORT",
+        default=DEFAULT_E2E_BACKEND_PORT,
+    )
+    debugging_port = resolve_e2e_port(
+        remote_debugging_port,
+        env_name="AUTOWORKBENCH_E2E_REMOTE_DEBUGGING_PORT",
+        default=DEFAULT_E2E_REMOTE_DEBUGGING_PORT,
+    )
     env = os.environ.copy()
     env.update(_load_repo_env_values())
     env["PYTHONUNBUFFERED"] = "1"
@@ -818,7 +847,11 @@ async def start_e2e_session(*, test_name: str, app_root: Path) -> AsyncIterator[
     try:
         static_server = start_static_server(app_root, artifact_dir)
         start_url = f"{static_server.base_url}/index.html"
-        backend_remote_debugging_port = find_free_port()
+        backend_remote_debugging_port = resolve_e2e_port(
+            None,
+            env_name="AUTOWORKBENCH_E2E_REMOTE_DEBUGGING_PORT",
+            default=DEFAULT_E2E_REMOTE_DEBUGGING_PORT,
+        )
         backend = start_autoworkbench_backend(
             start_url=start_url,
             artifact_dir=artifact_dir,
