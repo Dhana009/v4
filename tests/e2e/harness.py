@@ -4,7 +4,7 @@ import asyncio
 import hashlib
 import json
 import os
-import socket
+import re
 import subprocess
 import sys
 import time
@@ -30,9 +30,16 @@ E2E_LIFECYCLE_MARKERS = [
     "[CODE_UPDATE]",
 ]
 E2E_ARTIFACT_SCHEMA_VERSION = "autoworkbench.e2e.artifacts.v1"
+DEFAULT_E2E_STATIC_SERVER_PORT = 8000
+DEFAULT_E2E_BACKEND_PORT = 8765
+DEFAULT_E2E_REMOTE_DEBUGGING_PORT = 9222
 DEFAULT_E2E_ARTIFACT_PATHS: dict[str, str] = {
     "manifest": "manifest.json",
     "test_result": "test-result.json",
+    "events": "events.ndjson",
+    "commands": "commands.json",
+    "rejections": "rejections.json",
+    "redaction_report": "redaction-report.json",
     "backend_log": "backend.log",
     "frontend_log": "frontend.log",
     "browser_console_log": "browser-console.log",
@@ -53,13 +60,42 @@ DEFAULT_E2E_OPTIONAL_ABSENCE_NOTES: list[str] = [
     "events.ndjson, commands.json, and rejections.json are deferred to a later backend event stream slice",
     "trace-summary and redaction-report are deferred to a later trace/export slice",
 ]
+REDACTION_REPORT_VERSION = "1.0"
+REDACTION_REPORT_PATTERNS = ["token", "otp", "email", "phone", "password"]
+REDACTION_REPORT_FILES_CHECKED = ["trace.ndjson", "commands.json"]
+REDACTION_REPORT_PLACEHOLDERS = {
+    "token": "[REDACTED_TOKEN]",
+    "otp": "[REDACTED_OTP]",
+    "email": "[REDACTED_EMAIL]",
+    "phone": "[REDACTED_PHONE]",
+    "password": "[REDACTED_PASSWORD]",
+}
+_REDACTION_EXACT_TEXT_RULES: list[tuple[str, str, str]] = [
+    ("token", "sk-test-redaction-token", "[REDACTED_TOKEN]"),
+    ("otp", "123456", "[REDACTED_OTP]"),
+    ("email", "user@example.test", "[REDACTED_EMAIL]"),
+    ("phone", "+1-202-555-0175", "[REDACTED_PHONE]"),
+    ("password", "correct horse battery staple", "[REDACTED_PASSWORD]"),
+]
+_REDACTION_REGEX_RULES: list[tuple[str, re.Pattern[str], str]] = [
+    ("token", re.compile(r"\bsk-[A-Za-z0-9-]+\b"), "[REDACTED_TOKEN]"),
+    ("otp", re.compile(r"\b\d{6}\b"), "[REDACTED_OTP]"),
+    ("email", re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"), "[REDACTED_EMAIL]"),
+    ("phone", re.compile(r"\+?\d[\d\s().-]{7,}\d"), "[REDACTED_PHONE]"),
+]
 T = TypeVar("T")
 
 
-def find_free_port() -> int:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        sock.bind(("127.0.0.1", 0))
-        return int(sock.getsockname()[1])
+def resolve_e2e_port(port: int | None, *, env_name: str, default: int) -> int:
+    if port is not None:
+        return port
+    raw_port = os.getenv(env_name, "").strip()
+    if raw_port:
+        try:
+            return int(raw_port)
+        except ValueError as exc:
+            raise RuntimeError(f"{env_name} must be an integer, got {raw_port!r}") from exc
+    return default
 
 
 def ensure_directory(path: Path) -> None:
@@ -140,10 +176,19 @@ def wait_for_http_url(url: str, *, label: str, process: "ManagedProcess | None" 
 
     while time.monotonic() < deadline:
         if process is not None and process.poll() is not None:
+            stdout_text = tail_text(process.stdout_path)
+            stderr_text = tail_text(process.stderr_path)
+            if "PermissionError" in stderr_text and "Operation not permitted" in stderr_text:
+                raise RuntimeError(
+                    f"{label} could not start because local socket allocation is blocked in this environment.\n"
+                    f"Requested URL: {url}\n"
+                    f"stdout:\n{stdout_text}\n"
+                    f"stderr:\n{stderr_text}"
+                )
             raise RuntimeError(
                 f"{label} exited early with code {process.returncode}\n"
-                f"stdout:\n{tail_text(process.stdout_path)}\n"
-                f"stderr:\n{tail_text(process.stderr_path)}"
+                f"stdout:\n{stdout_text}\n"
+                f"stderr:\n{stderr_text}"
             )
 
         try:
@@ -193,8 +238,337 @@ def _normalize_optional_absence_notes(optional_absence_notes: Sequence[str] | No
     return [str(note) for note in optional_absence_notes]
 
 
+def _dedupe_finding_tuples(findings: Sequence[tuple[str, str]]) -> list[tuple[str, str]]:
+    unique: list[tuple[str, str]] = []
+    seen: set[tuple[str, str]] = set()
+    for finding in findings:
+        if finding in seen:
+            continue
+        seen.add(finding)
+        unique.append(finding)
+    return unique
+
+
+def _format_finding_tuples(findings: Sequence[tuple[str, str]]) -> list[dict[str, str]]:
+    return [{"pattern": pattern, "location": location} for pattern, location in findings]
+
+
+def _redact_text_value(text: str, *, location: str) -> tuple[str, list[tuple[str, str]]]:
+    redacted = text
+    findings: list[tuple[str, str]] = []
+    for pattern_name, raw_value, replacement in _REDACTION_EXACT_TEXT_RULES:
+        if raw_value in redacted:
+            redacted = redacted.replace(raw_value, replacement)
+            findings.append((pattern_name, location))
+    for pattern_name, regex, replacement in _REDACTION_REGEX_RULES:
+        if regex.search(redacted):
+            redacted = regex.sub(replacement, redacted)
+            findings.append((pattern_name, location))
+    return redacted, _dedupe_finding_tuples(findings)
+
+
+def _redact_sensitive_value(value: Any, *, location: str) -> tuple[Any, list[tuple[str, str]]]:
+    if isinstance(value, Mapping):
+        redacted_mapping: dict[str, Any] = {}
+        findings: list[tuple[str, str]] = []
+        for key, inner_value in value.items():
+            normalized_key = str(key)
+            child_location = f"{location}.{normalized_key}" if location else normalized_key
+            if normalized_key in REDACTION_REPORT_PLACEHOLDERS:
+                redacted_mapping[normalized_key] = REDACTION_REPORT_PLACEHOLDERS[normalized_key]
+                findings.append((normalized_key, child_location))
+                continue
+            redacted_inner, child_findings = _redact_sensitive_value(inner_value, location=child_location)
+            redacted_mapping[normalized_key] = redacted_inner
+            findings.extend(child_findings)
+        return redacted_mapping, _dedupe_finding_tuples(findings)
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        redacted_list: list[Any] = []
+        findings: list[tuple[str, str]] = []
+        for index, item in enumerate(value):
+            child_location = f"{location}[{index}]"
+            redacted_item, child_findings = _redact_sensitive_value(item, location=child_location)
+            redacted_list.append(redacted_item)
+            findings.extend(child_findings)
+        return redacted_list, _dedupe_finding_tuples(findings)
+    if isinstance(value, str):
+        return _redact_text_value(value, location=location)
+    return value, []
+
+
+def _normalize_redaction_findings(findings: Sequence[tuple[str, str]] | Sequence[Mapping[str, Any]] | None) -> list[dict[str, Any]]:
+    if findings is None:
+        return []
+    normalized: list[tuple[str, str]] = []
+    for finding in findings:
+        if isinstance(finding, Mapping):
+            pattern = str(finding.get("pattern", "unknown"))
+            location = str(finding.get("location", "unknown"))
+            normalized.append((pattern, location))
+        else:
+            pattern, location = finding
+            normalized.append((str(pattern), str(location)))
+    return _format_finding_tuples(_dedupe_finding_tuples(normalized))
+
+
+def _build_redaction_report(
+    *,
+    findings: Sequence[tuple[str, str]] | None = None,
+    redaction_report: Mapping[str, Any] | None = None,
+) -> dict[str, Any]:
+    if redaction_report is not None:
+        payload = {
+            "redaction_passed": bool(redaction_report.get("redaction_passed", True)),
+            "redaction_version": str(redaction_report.get("redaction_version", REDACTION_REPORT_VERSION)),
+            "patterns_checked": [str(pattern) for pattern in redaction_report.get("patterns_checked", REDACTION_REPORT_PATTERNS)],
+            "files_checked": [str(file_name) for file_name in redaction_report.get("files_checked", REDACTION_REPORT_FILES_CHECKED)],
+            "findings": _normalize_redaction_findings(redaction_report.get("findings")),
+        }
+        return payload
+    return {
+        "redaction_passed": True,
+        "redaction_version": REDACTION_REPORT_VERSION,
+        "patterns_checked": list(REDACTION_REPORT_PATTERNS),
+        "files_checked": list(REDACTION_REPORT_FILES_CHECKED),
+        "findings": _normalize_redaction_findings(findings),
+    }
+
+
+def _rewrite_trace_export_optional_absence_notes(
+    optional_absence_notes: Sequence[str] | None,
+    *,
+    redaction_report_written: bool = False,
+) -> list[str]:
+    base_notes = _normalize_optional_absence_notes(optional_absence_notes)
+    default_trace_export_note = DEFAULT_E2E_OPTIONAL_ABSENCE_NOTES[1]
+    rewritten_notes: list[str] = []
+    for note in base_notes:
+        if note == default_trace_export_note:
+            if redaction_report_written:
+                rewritten_notes.append("trace-summary is deferred to a later trace/export slice")
+            else:
+                rewritten_notes.append(note)
+            continue
+        rewritten_notes.append(note)
+    return rewritten_notes
+
+
 def _resolve_artifact_file_name(name: str) -> str:
     return DEFAULT_E2E_ARTIFACT_PATHS.get(name, name)
+
+
+def _format_event_stream_absence_note(missing_artifacts: Sequence[str]) -> str:
+    missing = [str(artifact) for artifact in missing_artifacts]
+    if not missing:
+        return ""
+    if len(missing) == 1:
+        return f"{missing[0]} is deferred to a later backend event stream slice"
+    if len(missing) == 2:
+        return f"{missing[0]} and {missing[1]} are deferred to a later backend event stream slice"
+    if len(missing) == 3:
+        return f"{missing[0]}, {missing[1]}, and {missing[2]} are deferred to a later backend event stream slice"
+    return f"{', '.join(missing[:-1])}, and {missing[-1]} are deferred to a later backend event stream slice"
+
+
+def _rewrite_event_stream_optional_absence_notes(
+    optional_absence_notes: Sequence[str] | None,
+    *,
+    events_written: bool = False,
+    commands_written: bool = False,
+    rejections_written: bool = False,
+) -> list[str]:
+    base_notes = _normalize_optional_absence_notes(optional_absence_notes)
+    default_event_stream_note = DEFAULT_E2E_OPTIONAL_ABSENCE_NOTES[0]
+    missing_artifacts: list[str] = []
+    if not events_written:
+        missing_artifacts.append("events.ndjson")
+    if not commands_written:
+        missing_artifacts.append("commands.json")
+    if not rejections_written:
+        missing_artifacts.append("rejections.json")
+
+    rewritten_notes: list[str] = []
+    for note in base_notes:
+        if note == default_event_stream_note:
+            if missing_artifacts:
+                rewritten_notes.append(_format_event_stream_absence_note(missing_artifacts))
+            continue
+        rewritten_notes.append(note)
+    return rewritten_notes
+
+
+def _serialize_ndjson_records(records: Sequence[Any]) -> str:
+    lines: list[str] = []
+    for record in records:
+        if isinstance(record, Mapping):
+            payload: Any = dict(record)
+        else:
+            payload = record
+        lines.append(json.dumps(payload, sort_keys=True))
+    if not lines:
+        return ""
+    return "\n".join(lines) + "\n"
+
+
+def _write_ndjson_artifact(artifact_dir: Path, name: str, records: Sequence[Any] | None) -> tuple[str, str] | None:
+    if records is None:
+        return None
+    file_name = _resolve_artifact_file_name(name)
+    path = artifact_dir / file_name
+    ensure_directory(path.parent)
+    text = _serialize_ndjson_records(records)
+    path.write_text(text, encoding="utf-8")
+    return file_name, text
+
+
+def _serialize_json_array_records(records: Sequence[Any]) -> str:
+    payload: list[Any] = []
+    for record in records:
+        if isinstance(record, Mapping):
+            payload.append(dict(record))
+        else:
+            payload.append(record)
+    return json.dumps(payload, indent=2, sort_keys=True)
+
+
+def _write_json_array_artifact(artifact_dir: Path, name: str, records: Sequence[Any] | None) -> tuple[str, str] | None:
+    if records is None:
+        return None
+    file_name = _resolve_artifact_file_name(name)
+    path = artifact_dir / file_name
+    ensure_directory(path.parent)
+    text = _serialize_json_array_records(records)
+    path.write_text(text, encoding="utf-8")
+    return file_name, text
+
+
+def _event_record_type(event: Any) -> str | None:
+    if isinstance(event, Mapping):
+        for key in ("type", "event"):
+            value = event.get(key)
+            if value is not None:
+                return str(value)
+        return None
+    for key in ("type", "event"):
+        value = getattr(event, key, None)
+        if value is not None:
+            return str(value)
+    return None
+
+
+def _normalize_event_evidence(event_evidence: Mapping[str, Any] | None) -> dict[str, Any]:
+    if event_evidence is None:
+        return {}
+    normalized, _findings = _redact_sensitive_value(event_evidence, location="event_evidence")
+    if isinstance(normalized, Mapping):
+        return {str(key): value for key, value in normalized.items()}
+    return {}
+
+
+def _append_event_evidence_summary(summary_text: str, event_evidence: Mapping[str, Any]) -> str:
+    evidence_json = json.dumps(_normalize_event_evidence(event_evidence), indent=2, sort_keys=True)
+    summary_prefix = summary_text.rstrip()
+    if summary_prefix:
+        summary_prefix += "\n\n"
+    return f"{summary_prefix}## Event evidence\n\n```json\n{evidence_json}\n```\n"
+
+
+def _build_failure_event_evidence(
+    event_evidence: Mapping[str, Any] | None,
+    expected_event_type: str | None,
+    observed_event_types: Sequence[str] | None,
+) -> dict[str, Any] | None:
+    normalized_event_evidence = _normalize_event_evidence(event_evidence)
+    normalized_observed_event_types = [str(event_type) for event_type in observed_event_types] if observed_event_types is not None else []
+
+    if normalized_event_evidence:
+        return normalized_event_evidence
+
+    if expected_event_type is None and not normalized_observed_event_types:
+        return None
+
+    built_event_evidence: dict[str, Any] = {}
+    if expected_event_type is not None:
+        built_event_evidence["expected_event_type"] = str(expected_event_type)
+    if normalized_observed_event_types:
+        built_event_evidence["observed_event_types"] = normalized_observed_event_types
+    return built_event_evidence
+
+
+def collect_events(source: Any, event_type: str | None = None) -> list[Any]:
+    events: list[Any]
+    if isinstance(source, Sequence) and not isinstance(source, (str, bytes, bytearray, Path)):
+        events = list(source)
+    elif isinstance(source, Mapping):
+        events = [dict(source)]
+    else:
+        source_path = Path(source)
+        if source_path.exists():
+            event_path = source_path if source_path.is_file() else source_path / "events.ndjson"
+        else:
+            event_path = RESULTS_ROOT / str(source) / "events.ndjson"
+        if not event_path.exists():
+            events = []
+        else:
+            events = []
+            for line in event_path.read_text(encoding="utf-8", errors="replace").splitlines():
+                if not line.strip():
+                    continue
+                payload = json.loads(line)
+                if isinstance(payload, Mapping):
+                    events.append(dict(payload))
+                else:
+                    events.append(payload)
+    if event_type is None:
+        return events
+    return [event for event in events if _event_record_type(event) == event_type]
+
+
+def wait_for_event(source: Any, event_type: str, event_filter: Mapping[str, Any] | None = None) -> Any:
+    events = collect_events(source)
+    for event in events:
+        if _event_record_type(event) != event_type:
+            continue
+        if event_filter is not None:
+            if isinstance(event, Mapping):
+                matches = all(event.get(key) == value for key, value in event_filter.items())
+            else:
+                matches = all(getattr(event, key, None) == value for key, value in event_filter.items())
+            if not matches:
+                continue
+        return event
+
+    available_types = [record_type for record_type in (_event_record_type(event) for event in events) if record_type is not None]
+    filter_text = f" matching {dict(event_filter)!r}" if event_filter else ""
+    raise AssertionError(
+        f"Expected event {event_type!r}{filter_text} was not found. Available events: {available_types!r}"
+    )
+
+
+def assert_sequence(source: Any, expected_types: Sequence[str]) -> None:
+    events = collect_events(source)
+    actual_types = [record_type for record_type in (_event_record_type(event) for event in events) if record_type is not None]
+    expected_type_list = [str(event_type) for event_type in expected_types]
+    if not expected_type_list:
+        return
+
+    cursor = 0
+    for expected_type in expected_type_list:
+        while cursor < len(actual_types) and actual_types[cursor] != expected_type:
+            cursor += 1
+        if cursor >= len(actual_types):
+            raise AssertionError(
+                f"Expected event sequence {expected_type_list!r} was not found in order. "
+                f"Missing {expected_type!r} after actual events {actual_types!r}"
+            )
+        cursor += 1
+
+
+def assert_no_event(source: Any, forbidden_type: str) -> None:
+    events = collect_events(source)
+    matching_events = [event for event in events if _event_record_type(event) == forbidden_type]
+    if matching_events:
+        raise AssertionError(f"Forbidden event {forbidden_type!r} was present: {matching_events!r}")
 
 
 def _hash_text_value(text: str) -> str:
@@ -239,6 +613,7 @@ def build_artifact_manifest(
     artifacts: Mapping[str, str | Path] | None = None,
     file_hashes: Mapping[str, str] | None = None,
     optional_absence_notes: Sequence[str] | None = None,
+    event_evidence: Mapping[str, Any] | None = None,
     run_id: str | None = None,
 ) -> dict[str, Any]:
     return {
@@ -251,6 +626,7 @@ def build_artifact_manifest(
         "artifacts": _normalize_artifact_paths(artifacts),
         "file_hashes": _normalize_file_hashes(file_hashes),
         "optional_absence_notes": _normalize_optional_absence_notes(optional_absence_notes),
+        **({"event_evidence": _normalize_event_evidence(event_evidence)} if event_evidence is not None else {}),
     }
 
 
@@ -263,6 +639,7 @@ def write_artifact_manifest(
     artifacts: Mapping[str, str | Path] | None = None,
     file_hashes: Mapping[str, str] | None = None,
     optional_absence_notes: Sequence[str] | None = None,
+    event_evidence: Mapping[str, Any] | None = None,
     run_id: str | None = None,
 ) -> dict[str, Any]:
     manifest = build_artifact_manifest(
@@ -273,6 +650,7 @@ def write_artifact_manifest(
         artifacts=artifacts,
         file_hashes=file_hashes,
         optional_absence_notes=optional_absence_notes,
+        event_evidence=event_evidence,
         run_id=run_id,
     )
     return write_json_artifact(artifact_dir / "manifest.json", manifest)
@@ -284,8 +662,12 @@ def build_test_result(
     test_name: str,
     status: str = "unknown",
     error_summary: str | None = None,
+    event_evidence: Mapping[str, Any] | None = None,
     run_id: str | None = None,
 ) -> dict[str, Any]:
+    sanitized_error_summary = error_summary
+    if sanitized_error_summary is not None:
+        sanitized_error_summary, _error_findings = _redact_text_value(sanitized_error_summary, location="error_summary")
     payload: dict[str, Any] = {
         "schema_version": E2E_ARTIFACT_SCHEMA_VERSION,
         "test_name": test_name,
@@ -293,8 +675,10 @@ def build_test_result(
         "artifact_dir": str(artifact_dir),
         "status": status,
     }
-    if error_summary:
-        payload["error_summary"] = error_summary
+    if sanitized_error_summary:
+        payload["error_summary"] = sanitized_error_summary
+    if event_evidence is not None:
+        payload["event_evidence"] = _normalize_event_evidence(event_evidence)
     return payload
 
 
@@ -304,6 +688,7 @@ def write_test_result(
     test_name: str,
     status: str = "unknown",
     error_summary: str | None = None,
+    event_evidence: Mapping[str, Any] | None = None,
     run_id: str | None = None,
 ) -> dict[str, Any]:
     result = build_test_result(
@@ -311,6 +696,7 @@ def write_test_result(
         test_name=test_name,
         status=status,
         error_summary=error_summary,
+        event_evidence=event_evidence,
         run_id=run_id,
     )
     return write_json_artifact(artifact_dir / "test-result.json", result)
@@ -325,29 +711,157 @@ def finalize_test_result(
     created_at: str | None = None,
     artifacts: Mapping[str, str | Path] | None = None,
     artifact_texts: Mapping[str, str] | None = None,
+    event_records: Sequence[Any] | None = None,
+    command_records: Sequence[Any] | None = None,
+    rejection_records: Sequence[Any] | None = None,
     file_hashes: Mapping[str, str] | None = None,
     optional_absence_notes: Sequence[str] | None = None,
+    event_evidence: Mapping[str, Any] | None = None,
+    redaction_report: Mapping[str, Any] | None = None,
     run_id: str | None = None,
 ) -> tuple[dict[str, Any], dict[str, Any]]:
-    _write_text_artifacts(artifact_dir, artifact_texts)
+    effective_artifact_texts: Mapping[str, str] | None = artifact_texts
+    redaction_findings: list[tuple[str, str]] = []
+    if event_evidence is not None and artifact_texts:
+        effective_artifact_texts = dict(artifact_texts)
+        summary_key = next((key for key in ("summary.md", "summary") if key in effective_artifact_texts), None)
+        if summary_key is not None:
+            effective_artifact_texts[summary_key] = _append_event_evidence_summary(
+                effective_artifact_texts[summary_key],
+                event_evidence,
+            )
+    if effective_artifact_texts:
+        sanitized_artifact_texts: dict[str, str] = {}
+        for artifact_name, artifact_text in effective_artifact_texts.items():
+            file_name = _resolve_artifact_file_name(artifact_name)
+            sanitized_text, findings = _redact_text_value(artifact_text, location=file_name)
+            sanitized_artifact_texts[artifact_name] = sanitized_text
+            redaction_findings.extend(findings)
+        effective_artifact_texts = sanitized_artifact_texts
+
+    sanitized_error_summary = error_summary
+    if sanitized_error_summary is not None:
+        sanitized_error_summary, findings = _redact_text_value(sanitized_error_summary, location="error_summary")
+        redaction_findings.extend(findings)
+
+    sanitized_event_evidence = event_evidence
+    if sanitized_event_evidence is not None:
+        normalized_event_evidence, findings = _redact_sensitive_value(sanitized_event_evidence, location="event_evidence")
+        sanitized_event_evidence = normalized_event_evidence if isinstance(normalized_event_evidence, Mapping) else {}
+        redaction_findings.extend(findings)
+
+    effective_artifacts = artifacts
+    event_artifact: tuple[str, str] | None = None
+    if event_records is not None:
+        event_artifact = _write_ndjson_artifact(artifact_dir, "events", event_records)
+        if effective_artifacts is not None and "events" not in effective_artifacts:
+            effective_artifacts = dict(effective_artifacts)
+            effective_artifacts["events"] = _resolve_artifact_file_name("events")
+
+    command_artifact: tuple[str, str] | None = None
+    if command_records is not None:
+        command_artifact = _write_json_array_artifact(artifact_dir, "commands", command_records)
+        if effective_artifacts is not None and "commands" not in effective_artifacts:
+            effective_artifacts = dict(effective_artifacts)
+            effective_artifacts["commands"] = _resolve_artifact_file_name("commands")
+
+    rejection_artifact: tuple[str, str] | None = None
+    if rejection_records is not None:
+        rejection_artifact = _write_json_array_artifact(artifact_dir, "rejections", rejection_records)
+        if effective_artifacts is not None and "rejections" not in effective_artifacts:
+            effective_artifacts = dict(effective_artifacts)
+            effective_artifacts["rejections"] = _resolve_artifact_file_name("rejections")
+
+    _write_text_artifacts(artifact_dir, effective_artifact_texts)
+
+    redaction_report_written = False
+    redaction_report_artifact: tuple[str, str] | None = None
+    redaction_report_requested = redaction_report is not None or artifacts is None or (
+        effective_artifacts is not None and "redaction_report" in effective_artifacts
+    )
+    if redaction_report_requested:
+        redaction_report_file_name = _resolve_artifact_file_name("redaction_report")
+        if effective_artifacts is not None and "redaction_report" in effective_artifacts:
+            redaction_report_file_name = str(effective_artifacts["redaction_report"])
+        redaction_report_payload = _build_redaction_report(
+            findings=redaction_findings,
+            redaction_report=redaction_report,
+        )
+        redaction_report_path = artifact_dir / redaction_report_file_name
+        write_json_artifact(redaction_report_path, redaction_report_payload)
+        redaction_report_text = redaction_report_path.read_text(encoding="utf-8")
+        redaction_report_artifact = (redaction_report_file_name, redaction_report_text)
+        redaction_report_written = True
+        if effective_artifacts is not None and "redaction_report" not in effective_artifacts:
+            effective_artifacts = dict(effective_artifacts)
+            effective_artifacts["redaction_report"] = redaction_report_file_name
+
     resolved_file_hashes = _normalize_file_hashes(file_hashes)
-    if not resolved_file_hashes and artifact_texts:
-        resolved_file_hashes = _hash_artifact_texts(artifact_texts)
+    if not resolved_file_hashes and effective_artifact_texts:
+        resolved_file_hashes = _hash_artifact_texts(effective_artifact_texts)
+    if event_artifact is not None:
+        event_file_name, event_text = event_artifact
+        if event_file_name not in resolved_file_hashes:
+            resolved_file_hashes[event_file_name] = _hash_text_value(event_text)
+    if command_artifact is not None:
+        command_file_name, command_text = command_artifact
+        if command_file_name not in resolved_file_hashes:
+            resolved_file_hashes[command_file_name] = _hash_text_value(command_text)
+    if rejection_artifact is not None:
+        rejection_file_name, rejection_text = rejection_artifact
+        if rejection_file_name not in resolved_file_hashes:
+            resolved_file_hashes[rejection_file_name] = _hash_text_value(rejection_text)
+    if redaction_report_artifact is not None:
+        redaction_report_file_name, redaction_report_text = redaction_report_artifact
+        if redaction_report_file_name not in resolved_file_hashes:
+            resolved_file_hashes[redaction_report_file_name] = _hash_text_value(redaction_report_text)
+
+    effective_status = status
+    if not redaction_report_written:
+        missing_redaction_report = False
+        if sanitized_event_evidence is not None:
+            missing_values = sanitized_event_evidence.get("missing")
+            if isinstance(missing_values, Sequence) and not isinstance(missing_values, (str, bytes, bytearray)):
+                missing_redaction_report = any(
+                    str(value) in {"redaction-report.json", "redaction_report"} for value in missing_values
+                )
+        if not missing_redaction_report and sanitized_error_summary is not None:
+            missing_redaction_report = "redaction-report.json missing" in sanitized_error_summary
+        if missing_redaction_report:
+            effective_status = "failed"
+    elif redaction_report is not None:
+        if not bool(redaction_report.get("redaction_passed", True)):
+            effective_status = "failed"
+    effective_optional_absence_notes = optional_absence_notes
+    if event_records is not None or command_records is not None or rejection_records is not None:
+        effective_optional_absence_notes = _rewrite_event_stream_optional_absence_notes(
+            optional_absence_notes,
+            events_written=event_records is not None,
+            commands_written=command_records is not None,
+            rejections_written=rejection_records is not None,
+        )
+    if redaction_report_written:
+        effective_optional_absence_notes = _rewrite_trace_export_optional_absence_notes(
+            effective_optional_absence_notes,
+            redaction_report_written=True,
+        )
     manifest = write_artifact_manifest(
         artifact_dir=artifact_dir,
         test_name=test_name,
-        status=status,
+        status=effective_status,
         created_at=created_at,
-        artifacts=artifacts,
+        artifacts=effective_artifacts,
         file_hashes=resolved_file_hashes,
-        optional_absence_notes=optional_absence_notes,
+        optional_absence_notes=effective_optional_absence_notes,
+        event_evidence=sanitized_event_evidence,
         run_id=run_id,
     )
     result = write_test_result(
         artifact_dir=artifact_dir,
         test_name=test_name,
-        status=status,
-        error_summary=error_summary,
+        status=effective_status,
+        error_summary=sanitized_error_summary,
+        event_evidence=sanitized_event_evidence,
         run_id=run_id,
     )
     return manifest, result
@@ -446,7 +960,11 @@ def start_managed_process(
 
 
 def start_static_server(app_root: Path, artifact_dir: Path, port: int | None = None) -> ManagedProcess:
-    server_port = port or find_free_port()
+    server_port = resolve_e2e_port(
+        port,
+        env_name="AUTOWORKBENCH_E2E_STATIC_SERVER_PORT",
+        default=DEFAULT_E2E_STATIC_SERVER_PORT,
+    )
     env = os.environ.copy()
     env["PYTHONUNBUFFERED"] = "1"
     process = start_managed_process(
@@ -469,8 +987,16 @@ def start_autoworkbench_backend(
     port: int | None = None,
     remote_debugging_port: int | None = None,
 ) -> ManagedProcess:
-    backend_port = port or find_free_port()
-    debugging_port = remote_debugging_port or find_free_port()
+    backend_port = resolve_e2e_port(
+        port,
+        env_name="AUTOWORKBENCH_E2E_BACKEND_PORT",
+        default=DEFAULT_E2E_BACKEND_PORT,
+    )
+    debugging_port = resolve_e2e_port(
+        remote_debugging_port,
+        env_name="AUTOWORKBENCH_E2E_REMOTE_DEBUGGING_PORT",
+        default=DEFAULT_E2E_REMOTE_DEBUGGING_PORT,
+    )
     env = os.environ.copy()
     env.update(_load_repo_env_values())
     env["PYTHONUNBUFFERED"] = "1"
@@ -556,6 +1082,9 @@ class E2ESession:
     failure_artifacts_captured: bool = False
     result_status: str = "unknown"
     result_error_summary: str | None = None
+    failure_expected_event_type: str | None = None
+    failure_observed_event_types: list[str] = field(default_factory=list)
+    failure_event_evidence: dict[str, Any] | None = None
 
     def log_stage_ok(self, stage: str) -> None:
         self.current_stage = stage
@@ -601,13 +1130,26 @@ class E2ESession:
             "active_mode": active_mode or None,
         }
 
-    async def save_failure_artifacts(self, reason: str, stage: str | None = None) -> dict[str, Any]:
+    async def save_failure_artifacts(
+        self,
+        reason: str,
+        stage: str | None = None,
+        *,
+        expected_event_type: str | None = None,
+        observed_event_types: Sequence[str] | None = None,
+        event_evidence: Mapping[str, Any] | None = None,
+    ) -> dict[str, Any]:
         if self.failure_artifacts_captured:
             return {}
         self.failure_artifacts_captured = True
         self.result_status = "failed"
         self.result_error_summary = reason
         stage_name = stage or self.current_stage
+        normalized_observed_event_types = [str(event_type) for event_type in observed_event_types] if observed_event_types is not None else []
+        stored_event_evidence = _build_failure_event_evidence(event_evidence, expected_event_type, normalized_observed_event_types)
+        self.failure_expected_event_type = expected_event_type
+        self.failure_observed_event_types = normalized_observed_event_types
+        self.failure_event_evidence = stored_event_evidence
         ensure_directory(self.artifact_dir)
         backend_log_text = self._backend_log_text()
         backend_tail = tail_lines_text(backend_log_text, 30)
@@ -626,6 +1168,7 @@ class E2ESession:
                 "active_tab": None,
                 "active_mode": None,
             }
+        sanitized_reason, _reason_findings = _redact_text_value(reason, location="failure_reason")
         context = {
             "artifact_dir": str(self.artifact_dir),
             "screenshot_path": str(self.artifact_dir / "failure.png"),
@@ -633,7 +1176,10 @@ class E2ESession:
             "backend_tail_path": str(self.artifact_dir / "backend.tail.log"),
             "frontend_console_tail_path": str(self.artifact_dir / "frontend.console.tail.log"),
             "stage": stage_name,
-            "reason": reason,
+            "reason": sanitized_reason,
+            "expected_event_type": expected_event_type,
+            "observed_event_types": normalized_observed_event_types,
+            "event_evidence": stored_event_evidence,
             "page_state": page_state,
             "page_error": page_error,
             "llm_triggered": llm_triggered,
@@ -641,8 +1187,20 @@ class E2ESession:
             "backend_lifecycle_markers": lifecycle_markers,
             "stage_history": self.stage_history + [stage_name],
         }
+        failure_text_lines = [
+            f"stage={stage_name}",
+            f"reason={sanitized_reason}",
+            f"artifact_dir={self.artifact_dir}",
+        ]
+        if expected_event_type is not None:
+            failure_text_lines.append(f"expected_event_type={expected_event_type}")
+        if normalized_observed_event_types:
+            failure_text_lines.append(f"observed_event_types={normalized_observed_event_types!r}")
+        if stored_event_evidence is not None:
+            failure_text_lines.append("event_evidence=")
+            failure_text_lines.append(json.dumps(stored_event_evidence, indent=2, sort_keys=True))
         (self.artifact_dir / "failure.txt").write_text(
-            f"stage={stage_name}\nreason={reason}\nartifact_dir={self.artifact_dir}\n",
+            "\n".join(failure_text_lines) + "\n",
             encoding="utf-8",
         )
         (self.artifact_dir / "failure-context.json").write_text(
@@ -726,6 +1284,7 @@ class E2ESession:
             created_at=self.created_at,
             artifact_texts=artifact_texts,
             optional_absence_notes=DEFAULT_E2E_OPTIONAL_ABSENCE_NOTES,
+            event_evidence=self.failure_event_evidence,
             run_id=self.run_id,
         )
 
@@ -818,7 +1377,11 @@ async def start_e2e_session(*, test_name: str, app_root: Path) -> AsyncIterator[
     try:
         static_server = start_static_server(app_root, artifact_dir)
         start_url = f"{static_server.base_url}/index.html"
-        backend_remote_debugging_port = find_free_port()
+        backend_remote_debugging_port = resolve_e2e_port(
+            None,
+            env_name="AUTOWORKBENCH_E2E_REMOTE_DEBUGGING_PORT",
+            default=DEFAULT_E2E_REMOTE_DEBUGGING_PORT,
+        )
         backend = start_autoworkbench_backend(
             start_url=start_url,
             artifact_dir=artifact_dir,

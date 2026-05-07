@@ -549,16 +549,14 @@ Completion note: collect_events, wait_for_event, assert_sequence, assert_no_even
 Selected story: TRACE-010 Observability regression and redaction policy
 Story status: Planned
 Why next: TRACE-009 artifact export is complete, and TRACE-010 is the next non-socket DEV-4 evidence slice because redaction-report.json is the remaining acceptance gap for trace/export safety and has explicit TRACE-RED matrix coverage.
-Phase: task-state only; no implementation yet.
+Phase: TRACE-010B implementation and verification complete; TRACE-010C not started.
 Scope:
   .tasks-md/Planning/TRACE-010 Observability regression and redaction policy.md
   .tasks-md/Planning/DEVELOPER-EXECUTION-PLAN-001 Four Developer Branch Checkpoint and Merge Plan.md
-  tests/e2e/harness.py
   tests/test_e2e_harness.py
 Allowed files:
   .tasks-md/Planning/TRACE-010 Observability regression and redaction policy.md
   .tasks-md/Planning/DEVELOPER-EXECUTION-PLAN-001 Four Developer Branch Checkpoint and Merge Plan.md
-  tests/e2e/harness.py
   tests/test_e2e_harness.py
 Forbidden files:
   agent.py
@@ -569,13 +567,17 @@ Forbidden files:
   AGENTS.md
   .DS_Store
 Test plan:
-  TRACE-RED-001
-  TRACE-RED-002
-  TRACE-RED-003
-  TRACE-EXP-001
-  TRACE-EXP-002
+  TRACE-010B-001 redaction report artifact emission
+  TRACE-010B-002 redaction report schema contract
+  TRACE-010B-003 no-secret summary and metadata
+  TRACE-010B-004 optional absence note rewrite
+  TRACE-010B-005 missing redaction report gate
 First test-first step:
-  read-only mapping of current redaction/report support and no-secret artifact metadata
+  add failing tests for redaction-report.json baseline and no-secret artifact metadata only
+TRACE-010B result:
+  `tests/e2e/harness.py` now writes `redaction-report.json`, redacts the known fake token/OTP/email/phone/password values from summary/result/manifest metadata, rewrites the optional absence note when the report is present, and keeps the missing-report evidence gate failing.
+  Verification: `python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py`
+  Verification: `python -m pytest tests/test_e2e_harness.py -q` -> 35 passed
 Stop conditions:
   redaction policy remains unclear
   implementation would touch runtime or frontend truth
