@@ -536,7 +536,7 @@ Safe next action:
 ```text
 Selected story: TRACE-009 Artifact bundle and export format
 Story status: Planned
-Why next: E2E-002 event capture is complete, and the next evidence-readiness step is to baseline artifact emission for events.ndjson without touching product/runtime/frontend code.
+Why next: commands.json emission baseline is complete, and the next evidence-readiness step is to baseline artifact emission for rejections.json without touching product/runtime/frontend code.
 Completed subtask: TRACE-009A map current artifact writers and summary/manifest/result fields for event, command, and rejection evidence
 Completed subtask status: Done
 Verification: read-only mapping complete; no files changed
@@ -544,9 +544,13 @@ Completed subtask: TRACE-009B add red tests for events.ndjson emission baseline 
 Completed subtask status: Done
 Verification: python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
 Verification: python -m pytest tests/test_e2e_harness.py -q -> 22 passed
-Implementation note: events.ndjson emission baseline implemented; commands.json and rejections.json remain deferred.
-Next pending subtask: TRACE-009C add red tests for commands.json emission baseline
-Next pending subtask status: Planned
+Completed subtask: TRACE-009C add red tests for commands.json emission baseline only
+Completed subtask status: Done
+Verification: python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
+Verification: python -m pytest tests/test_e2e_harness.py -q -> 25 passed
+Implementation note: commands.json emission baseline implemented; rejections.json remains deferred.
+Next planned subtask: TRACE-009D add red tests for rejections.json emission baseline only
+Next planned subtask status: Planned
 Scope:
   tests/e2e/harness.py
   tests/test_e2e_harness.py
@@ -567,14 +571,13 @@ Forbidden files:
   .DS_Store
   CI/config
 Planned subtasks:
-  TRACE-009C add red tests for commands.json emission baseline
   TRACE-009D add red tests for rejections.json emission baseline
   TRACE-009E implement the smallest harness-side emission support needed by the red tests
   TRACE-009F verify focused tests and record evidence
 Test plan:
   python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
   python -m pytest tests/test_e2e_harness.py -q
-  focused red tests for commands.json emission next
+  focused red tests for commands.json emission only
 Stop conditions:
   artifact emission semantics are unclear without repo evidence
   changing the helper would require backend contract changes

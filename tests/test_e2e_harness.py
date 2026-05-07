@@ -571,6 +571,129 @@ def test_finalize_test_result_omits_deferred_events_note_when_events_ndjson_is_w
     assert "events.ndjson" in summary
 
 
+def test_finalize_test_result_writes_commands_json_and_lists_it_in_manifest(
+    tmp_path: Path,
+) -> None:
+    command_records = [
+        {"type": "run_started", "run_id": "run-123"},
+        {"type": "plan_ready", "run_id": "run-123", "plan_id": "plan-1"},
+    ]
+
+    manifest, result = harness.finalize_test_result(
+        artifact_dir=tmp_path,
+        test_name="commands_artifact_baseline",
+        status="unknown",
+        error_summary=None,
+        artifacts={
+            "manifest": "manifest.json",
+            "test_result": "test-result.json",
+            "summary": "summary.md",
+            "commands": "commands.json",
+        },
+        artifact_texts={
+            "summary.md": "# Summary\n\nCommands emission baseline.\n",
+        },
+        command_records=command_records,
+        event_evidence={
+            "commands": "commands.json",
+            "command_count": len(command_records),
+        },
+    )
+
+    commands_path = tmp_path / "commands.json"
+    assert commands_path.exists()
+    payload = json.loads(commands_path.read_text(encoding="utf-8"))
+    assert isinstance(payload, list)
+    assert [record["type"] for record in payload] == ["run_started", "plan_ready"]
+    assert manifest["artifacts"]["commands"] == "commands.json"
+    assert manifest["file_hashes"]["commands.json"].startswith("sha256:")
+    assert manifest["event_evidence"]["commands"] == "commands.json"
+    assert result["event_evidence"]["commands"] == "commands.json"
+
+
+def test_finalize_test_result_omits_deferred_commands_note_when_commands_json_is_written(
+    tmp_path: Path,
+) -> None:
+    command_records = [
+        {"type": "run_started", "run_id": "run-123"},
+    ]
+
+    manifest, result = harness.finalize_test_result(
+        artifact_dir=tmp_path,
+        test_name="commands_artifact_baseline",
+        status="unknown",
+        error_summary=None,
+        artifacts={
+            "manifest": "manifest.json",
+            "test_result": "test-result.json",
+            "summary": "summary.md",
+            "commands": "commands.json",
+        },
+        artifact_texts={
+            "summary.md": "# Summary\n\nCommands emission baseline.\n",
+        },
+        command_records=command_records,
+        event_evidence={
+            "commands": "commands.json",
+        },
+    )
+
+    summary = (tmp_path / "summary.md").read_text(encoding="utf-8")
+
+    assert all("commands.json" not in note for note in manifest["optional_absence_notes"])
+    assert result["event_evidence"]["commands"] == "commands.json"
+    assert "commands.json" in summary
+
+
+def test_finalize_test_result_keeps_events_behavior_when_commands_json_is_written(
+    tmp_path: Path,
+) -> None:
+    event_records = [
+        _event("run_started"),
+        _event("plan_ready"),
+    ]
+    command_records = [
+        {"type": "run_started", "run_id": "run-123"},
+        {"type": "plan_ready", "run_id": "run-123", "plan_id": "plan-1"},
+    ]
+
+    manifest, result = harness.finalize_test_result(
+        artifact_dir=tmp_path,
+        test_name="events_and_commands_artifact_baseline",
+        status="unknown",
+        error_summary=None,
+        artifacts={
+            "manifest": "manifest.json",
+            "test_result": "test-result.json",
+            "summary": "summary.md",
+            "events": "events.ndjson",
+            "commands": "commands.json",
+        },
+        artifact_texts={
+            "summary.md": "# Summary\n\nEvents and commands emission baseline.\n",
+        },
+        event_records=event_records,
+        command_records=command_records,
+        event_evidence={
+            "events": "events.ndjson",
+            "commands": "commands.json",
+        },
+    )
+
+    events_path = tmp_path / "events.ndjson"
+    commands_path = tmp_path / "commands.json"
+
+    assert [json.loads(line)["type"] for line in events_path.read_text(encoding="utf-8").splitlines()] == [
+        "run_started",
+        "plan_ready",
+    ]
+    assert isinstance(json.loads(commands_path.read_text(encoding="utf-8")), list)
+    assert manifest["artifacts"]["events"] == "events.ndjson"
+    assert manifest["artifacts"]["commands"] == "commands.json"
+    assert result["event_evidence"]["events"] == "events.ndjson"
+    assert result["event_evidence"]["commands"] == "commands.json"
+
+
 def test_failure_artifacts_record_expected_and_observed_event_metadata(tmp_path: Path) -> None:
     session = _make_failure_session(tmp_path)
     captured_before_action = harness.collect_events(
