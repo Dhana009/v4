@@ -1,13 +1,13 @@
 # FE-007 Trace and diagnostic panel
 
 **Type:** Story  
-**Status:** In Progress  
+**Status:** Testing  
 **Priority:** P0  
 **Epic:** EPIC-005 Shadow DOM Frontend  
 **Owner:** DEV-3 Shadow DOM Frontend + Typed Rendering  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Frontend inspection complete; frontend-only trace slice implemented and awaiting board transition  
+**Readiness:** Frontend-only trace slice accepted; backend/exporter evidence output remains a downstream dependency  
 **Dependencies:** FE-002, EVENT-003, EVENT-010, LLM-010  
 **Blocks:** debuggability, E2E evidence review  
 **Version:** Batch 06 v1  
@@ -89,23 +89,11 @@ Fixed:
 
 ---
 
-## Repo-inspection requirement
+## Acceptance notes
 
-Before implementation, Codex must inspect and report:
-
-- current frontend entry points and overlay injection path
-- current Shadow DOM host/components if any
-- current WebSocket/event consumer code
-- current command sending code
-- current plan/recorded/code/trace UI state ownership
-- current picker/element-info UI behavior
-- current tests and frontend test hooks
-- current legacy overlay dependencies
-- proposed narrow implementation path
-
-Use the repo-inspection template from `PLAN-002`.
-
-No implementation until the repo-inspection report is reviewed.
+- Frontend trace display slice is complete and source-tested.
+- Trace rows are display-only and Shadow DOM aware.
+- Exporter-fed artifact manifests, redaction reports, and full evidence bundle validation remain a backend/DEV-4 dependency for the full FE-007 story.
 
 ---
 
@@ -126,11 +114,10 @@ Stop if:
 
 ## Codex execution summary
 
-First Codex task for FE-007 should be read-only:
+Completed frontend slice:
 
-```text
-Read FE-007, SOURCE-001, PLAN-002, PLAN-005, EPIC-005, EPIC-002, EVENT-001, EVENT-002, and required skills.
-Do not edit code.
-Inspect current frontend/runtime UI ownership and report a narrow implementation path.
-Do not implement until repo-inspection report is reviewed.
-```
+- Tests added: `tests/test_frontend_trace_display.py`
+- Frontend implementation committed: trace entries, trace log, evidence bundle rendering, and diagnostic display only
+- Build verified: `cd frontend && npm run build`
+- Focused tests verified: `68 passed`
+- Backend/exporter/redaction work remains outstanding for full FE-007 completion
