@@ -37,6 +37,7 @@ DEFAULT_E2E_ARTIFACT_PATHS: dict[str, str] = {
     "test_result": "test-result.json",
     "events": "events.ndjson",
     "commands": "commands.json",
+    "rejections": "rejections.json",
     "backend_log": "backend.log",
     "frontend_log": "frontend.log",
     "browser_console_log": "browser-console.log",
@@ -575,6 +576,7 @@ def finalize_test_result(
     artifact_texts: Mapping[str, str] | None = None,
     event_records: Sequence[Any] | None = None,
     command_records: Sequence[Any] | None = None,
+    rejection_records: Sequence[Any] | None = None,
     file_hashes: Mapping[str, str] | None = None,
     optional_absence_notes: Sequence[str] | None = None,
     event_evidence: Mapping[str, Any] | None = None,
@@ -605,6 +607,13 @@ def finalize_test_result(
             effective_artifacts = dict(effective_artifacts)
             effective_artifacts["commands"] = _resolve_artifact_file_name("commands")
 
+    rejection_artifact: tuple[str, str] | None = None
+    if rejection_records is not None:
+        rejection_artifact = _write_json_array_artifact(artifact_dir, "rejections", rejection_records)
+        if effective_artifacts is not None and "rejections" not in effective_artifacts:
+            effective_artifacts = dict(effective_artifacts)
+            effective_artifacts["rejections"] = _resolve_artifact_file_name("rejections")
+
     _write_text_artifacts(artifact_dir, effective_artifact_texts)
     resolved_file_hashes = _normalize_file_hashes(file_hashes)
     if not resolved_file_hashes and effective_artifact_texts:
@@ -617,12 +626,17 @@ def finalize_test_result(
         command_file_name, command_text = command_artifact
         if command_file_name not in resolved_file_hashes:
             resolved_file_hashes[command_file_name] = _hash_text_value(command_text)
+    if rejection_artifact is not None:
+        rejection_file_name, rejection_text = rejection_artifact
+        if rejection_file_name not in resolved_file_hashes:
+            resolved_file_hashes[rejection_file_name] = _hash_text_value(rejection_text)
     effective_optional_absence_notes = optional_absence_notes
-    if event_records is not None or command_records is not None:
+    if event_records is not None or command_records is not None or rejection_records is not None:
         effective_optional_absence_notes = _rewrite_event_stream_optional_absence_notes(
             optional_absence_notes,
             events_written=event_records is not None,
             commands_written=command_records is not None,
+            rejections_written=rejection_records is not None,
         )
     manifest = write_artifact_manifest(
         artifact_dir=artifact_dir,
