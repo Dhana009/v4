@@ -1,16 +1,16 @@
 # FE-003 Command dispatcher and backend command envelope
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Inprogress  
 **Priority:** P0  
 **Epic:** EPIC-005 Shadow DOM Frontend  
 **Owner:** DEV-3 Shadow DOM Frontend + Typed Rendering  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Ready for repo inspection; not ready for implementation  
+**Readiness:** MR-4G test-only slice under review; typed command dispatcher shell under contract analysis  
 **Dependencies:** FE-001, EVENT-002, EVENT-003, BE-003  
 **Blocks:** FE-004, FE-005, FE-008, replay controls  
-**Version:** Batch 06 v1  
+**Version:** MR-4G v1  
 
 ---
 
@@ -49,6 +49,23 @@ Fixed:
 | FE003-U-003 | Unit | stop run | stop_run command |
 | FE003-U-004 | Unit | command rejected | rejection rendered |
 | FE003-I-001 | Integration | command through websocket | backend receives canonical shape |
+
+## MR-4G test-only subtasks
+
+- [ ] map FE-003 source rows
+- [ ] inventory existing backend command/event contract tests
+- [ ] define frontend command dispatcher expectations
+- [ ] define typed command-envelope context fields for confirm / correction / clarification / recovery
+- [ ] negative cases: stale / duplicate / missing command context
+- [ ] boundary cases: rejected command, unknown command, disconnected submission
+- [ ] test-only slice
+- [ ] narrow implementation slice only after tests exist
+- [ ] verification commands
+
+## MR-4G scope note
+
+- FE-003 is the command-dispatch side of the typed frontend envelope contract.
+- The supported typed commands should stay aligned with the backend normalizer and preserve legacy fallback paths for other actions until their backend support exists.
 
 ## Edge cases
 

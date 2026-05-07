@@ -51,6 +51,24 @@ Fixed:
 - dedicated event-store shell helper and typed command-envelope metadata remain planned
 - no frontend/runtime/backend changes
 
+## MR-4G event-store test-only slice
+
+- [ ] map FE-002 source rows
+- [ ] inventory existing backend command/event contract tests
+- [ ] define frontend event read-model expectations
+- [ ] define frontend no-inference expectations for completed / recorded / recovery state
+- [ ] negative cases: out-of-order backend events, unknown events, stale / duplicate terminal events
+- [ ] boundary cases: rejected commands do not mutate the event store
+- [ ] test-only slice
+- [ ] narrow implementation slice only after tests exist
+- [ ] verification commands
+
+## MR-4G scope note
+
+- FE-002 stays the read-model side of the typed event store shell.
+- FE-003 covers the command-dispatch side of the typed frontend envelope contract.
+- The next implementation step should remain small: event-store alias plus typed envelope helper, not a broad UI rewrite.
+
 ## Store state slices
 
 | Slice | Source event families |

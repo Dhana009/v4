@@ -8,6 +8,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_MAIN = REPO_ROOT / "frontend/src/main.jsx"
+FRONTEND_PANEL = REPO_ROOT / "frontend/aw-ide-panel.jsx"
 
 
 def _read(path: Path) -> str:
@@ -47,9 +48,10 @@ def test_frontend_command_surface_routes_user_actions_through_transport() -> Non
     assert "handleRunPendingSteps" in main
     assert "handleSaveSnapshot" in main
     assert "handleAttachElement" in main
-    assert "type: \"confirmed\"" in main
-    assert "type: \"correction\"" in main
-    assert "type: \"option_selected\"" in main
+    assert "buildFrontendCommandEnvelope" in main
+    assert "\"confirmed\"" in main
+    assert "\"correction\"" in main
+    assert "\"option_selected\"" in main
     assert "type: \"replay_all\"" in main
     assert "type: \"replay_one\"" in main
     assert "type: \"run_steps\"" in main
@@ -60,10 +62,12 @@ def test_frontend_event_store_should_be_split_into_a_dedicated_shell() -> None:
     main = _read(FRONTEND_MAIN)
 
     missing = []
-    if not any(marker in main for marker in ("useFrontendEventStore", "createFrontendEventStore", "typed event store")):
+    if not any(marker in main for marker in ("useFrontendEventStore", "createFrontendEventStore")):
         missing.append("dedicated frontend event-store shell")
     if "normalizeBackendMessage" not in main or "handleBackendMessage" not in main:
         missing.append("backend event ingestion boundary")
+    if "case \"runtime_rejected\"" not in main:
+        missing.append("typed runtime rejection handling")
 
     if missing:
         pytest.xfail("FE-002 shell contract not implemented yet: " + ", ".join(missing))
@@ -71,26 +75,50 @@ def test_frontend_event_store_should_be_split_into_a_dedicated_shell() -> None:
     assert any(marker in main for marker in ("useFrontendEventStore", "createFrontendEventStore"))
     assert "normalizeBackendMessage" in main
     assert "handleBackendMessage" in main
+    assert "case \"runtime_rejected\"" in main
 
 
 def test_frontend_command_dispatcher_should_emit_typed_command_envelopes() -> None:
     main = _read(FRONTEND_MAIN)
-    payload_blocks = _send_payload_blocks(main)
 
     missing = []
-    if not payload_blocks:
-        missing.append("sendPayload envelope builders")
-    if not any("command_id" in block for block in payload_blocks):
+    if "buildFrontendCommandEnvelope" not in main:
+        missing.append("typed command-envelope helper")
+    if "command_id" not in main:
         missing.append("command_id")
-    if not any("schema_version" in block for block in payload_blocks):
+    if "schema_version" not in main:
         missing.append("schema_version")
-    if not any(any(field in block for field in ("run_id", "plan_id", "step_id", "target_step_id")) for block in payload_blocks):
-        missing.append("run/plan correlation fields")
+    if not any(field in main for field in ("plan_id", "plan_version", "step_id", "operation_id")):
+        missing.append("typed command context fields")
+    if "case \"runtime_rejected\"" not in main:
+        missing.append("runtime rejection rendering")
 
     if missing:
         pytest.xfail("FE-003 command envelope contract not implemented yet: " + ", ".join(missing))
 
-    assert payload_blocks
-    assert any("command_id" in block for block in payload_blocks)
-    assert any("schema_version" in block for block in payload_blocks)
-    assert any(any(field in block for field in ("run_id", "plan_id", "step_id", "target_step_id")) for block in payload_blocks)
+    assert "buildFrontendCommandEnvelope" in main
+    assert "command_id" in main
+    assert "schema_version" in main
+    assert any(field in main for field in ("plan_id", "plan_version", "step_id", "operation_id"))
+    assert "case \"runtime_rejected\"" in main
+
+
+def test_frontend_rejection_rendering_should_preserve_backend_reason_and_state() -> None:
+    main = _read(FRONTEND_MAIN)
+    panel = _read(FRONTEND_PANEL)
+
+    missing = []
+    if "case \"runtime_rejected\"" not in main:
+        missing.append("typed runtime rejection handler")
+    if not any(marker in main for marker in ("rejection_code", "current_state")):
+        missing.append("backend rejection details")
+    if "lastError" not in panel:
+        missing.append("panel rejection surface")
+
+    if missing:
+        pytest.xfail("FE-002/FE-003 rejection rendering contract not implemented yet: " + ", ".join(missing))
+
+    assert "case \"runtime_rejected\"" in main
+    assert "rejection_code" in main
+    assert "current_state" in main
+    assert "lastError" in panel
