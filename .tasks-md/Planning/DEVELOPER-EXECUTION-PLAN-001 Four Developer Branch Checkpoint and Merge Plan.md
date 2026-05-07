@@ -1,11 +1,11 @@
 # DEVELOPER-EXECUTION-PLAN-001 Four Developer Branch Checkpoint and Merge Plan
 
 **Type:** Developer Execution Plan  
-**Status:** Draft for review  
+**Status:** Updated with current main audit  
 **Priority:** P0  
 **Applies To:** DEV-1 Backend, DEV-2 LLM/DOM, DEV-3 Frontend, DEV-4 E2E/Evidence  
 **Depends On:** FINAL-HANDOFF-v2, PATCH-012, TEST-DOCTRINE-001, PATCH-010, TEST-HANDOFF-001, PATCH-011  
-**Implementation Status:** Blocked until this plan is reviewed and accepted  
+**Implementation Status:** Main audited; DEV-3 pending frontend items and live browser E2E validation remain blockers  
 
 ---
 
@@ -27,6 +27,25 @@ what blocks progress
 ```
 
 This document does not authorize implementation by itself.
+
+## Current main status
+
+- Local main HEAD: `9823c08`
+- DEV-1 backend P0: done
+- DEV-2 LLM/DOM foundation: done
+- DEV-4 evidence/redaction: done
+- DEV-3: partially merged
+- FE-001 and FE-010 remain pending
+- FE-007 remains Testing
+- E2E-001 remains Blocked/Environment because localhost socket bind is denied
+
+## Current integration gap
+
+Final readiness still requires:
+
+- DEV-3 pending frontend items
+- real browser E2E validation when the environment allows localhost socket bind
+- any remaining live-browser evidence that is not yet available in this worktree
 
 ---
 

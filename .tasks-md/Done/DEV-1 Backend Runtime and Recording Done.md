@@ -4,9 +4,14 @@ Status: Done
 Owner: DEV-1
 Branch: `dev1/backend-isolation-contract-tests`
 Main baseline for merged items: `908f4d0`
+Current main audit snapshot: `9823c08`
 
 This file records completed DEV-1 backend work.
 Items are split by merge state so branch-only completions stay visible.
+
+Current main status:
+- DEV-1 backend runtime, event, recovery, snapshot, and recording/codegen truth work is merged on local main.
+- Historical branch-only rows below are retained for provenance and later batch-merge context.
 
 ## Merged to local main
 
