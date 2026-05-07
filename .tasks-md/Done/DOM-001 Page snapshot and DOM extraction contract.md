@@ -1,7 +1,7 @@
 # DOM-001 Page snapshot and DOM extraction contract
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-004 DOM and Locator Strategy  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  

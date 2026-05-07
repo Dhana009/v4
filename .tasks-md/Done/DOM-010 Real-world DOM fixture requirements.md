@@ -1,7 +1,7 @@
 # DOM-010 Real-world DOM fixture requirements
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Done
 **Priority:** P0  
 **Epic:** EPIC-004 DOM and Locator Strategy  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  

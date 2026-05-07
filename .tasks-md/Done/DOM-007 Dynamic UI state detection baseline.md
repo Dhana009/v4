@@ -1,67 +1,62 @@
-# DOM-002 Element identity and candidate model
+# DOM-007 Dynamic UI state detection baseline
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Done
 **Priority:** P0  
 **Epic:** EPIC-004 DOM and Locator Strategy  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
 **Readiness:** Ready for repo inspection; not ready for implementation  
-**Dependencies:** DOM-001, EPIC-004  
-**Blocks:** DOM-003, DOM-004, DOM-005, DOM-006, DOM-008  
+**Dependencies:** DOM-001, DOM-004, EVENT-007  
+**Blocks:** recovery, observed outcome, modal/dropdown fixtures  
 **Version:** Batch 05 v1  
 
 ---
 
 ## Product contribution
 
-This story defines what an element candidate is. It prevents the system from treating a raw DOM node or selected span as the whole target.
+This story creates a baseline classification for dynamic UI states that affect locator/action reliability.
 
 ## Architecture decision
 
 Fixed:
 
-- element candidate includes semantic identity, accessibility evidence, text, ancestry, section scope, and locator candidates
-- candidate is not executable until validation
-- parent/ancestor candidates are explicit
+- P0 detects/classifies dynamic state enough for recovery/trace
+- full advanced handling can be future capability
+- dynamic state classification is evidence, not automatic success
+- unsupported/unknown state can route recovery/capability gap
 
-## Candidate schema
+## Dynamic state baseline
 
-| Field | Required | Meaning |
-|---|---|---|
-| candidate_id | Yes | stable candidate id |
-| element_ref | Yes | backend/browser reference |
-| role | Optional | ARIA/native role |
-| accessible_name | Optional | name |
-| text | Optional | visible text |
-| label/placeholder/alt/title | Optional | semantic evidence |
-| data_testid | Optional | test id |
-| tag | Yes | DOM tag |
-| attributes_summary | Optional | useful attrs only |
-| visibility/enabled | Optional | state |
-| ancestor_chain | Yes | useful parent candidates |
-| section_ref | Optional | section/container |
-| candidate_type | Yes | action_target/assertion_target/container/text_block |
-| risk_flags | Optional | duplicate/hidden/weak/text-only |
+| State | P0 requirement |
+|---|---|
+| modal/dialog open | detect and include dialog context |
+| dropdown/listbox open | detect if visible/options present |
+| toast/alert | detect visible message where possible |
+| loading/spinner | classify loading/unstable |
+| navigation/page change | URL/title change |
+| file picker/upload | capability gap unless supported |
+| popup/new tab/iframe | capability gap/baseline detection |
 
 ## Test matrix
 
 | Test ID | Layer | Scenario | Expected |
 |---|---|---|---|
-| DOM002-U-001 | Unit | button with label | candidate has role/name |
-| DOM002-U-002 | Unit | nested span in button | ancestor button candidate included |
-| DOM002-U-003 | Unit | card CTA duplicate | section_ref included |
-| DOM002-U-004 | Unit | code block text | text_block candidate |
-| DOM002-U-005 | Unit | hidden candidate | risk flag |
+| DOM007-U-001 | Unit | modal open | modal state detected |
+| DOM007-U-002 | Unit | dropdown open | options detected |
+| DOM007-U-003 | Unit | toast visible | message detected |
+| DOM007-U-004 | Unit | loading state | unstable warning |
+| DOM007-U-005 | Unit | iframe present | unsupported/capability flag |
+| DOM007-I-001 | Integration | action opens modal | observed dynamic state |
 
 ## Edge cases
 
-- non-interactive span clicked by picker
-- icon-only button
-- duplicate cards
-- table row action
-- label text separate from input
+- hidden modal in DOM
+- dropdown portal outside container
+- toast disappears quickly
+- SPA route change
+- browser permission prompt
 
 ---
 
@@ -119,10 +114,10 @@ Stop if:
 
 ## Codex execution summary
 
-First Codex task for DOM-002 should be read-only:
+First Codex task for DOM-007 should be read-only:
 
 ```text
-Read DOM-002, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
+Read DOM-007, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
 Do not edit code.
 Inspect current DOM/locator ownership and report narrow implementation path.
 Do not implement until repo-inspection report is reviewed.

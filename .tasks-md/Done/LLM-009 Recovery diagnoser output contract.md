@@ -1,77 +1,70 @@
-# LLM-010 LLM telemetry, token budget, and cost guard
+# LLM-009 Recovery diagnoser output contract
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-003 LLM Runtime Controller  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
 **Readiness:** Ready for repo inspection; not ready for implementation  
-**Dependencies:** LLM-001, LLM-002, LLM-004  
-**Blocks:** trace/observability, cost control, regression evidence  
+**Dependencies:** LLM-001, LLM-004, BE-008, EVENT-007  
+**Blocks:** recovery UI and backend recovery decisions  
 **Version:** Batch 04 v1  
 
 ---
 
 ## Product contribution
 
-This story makes LLM usage observable and controlled without reducing correctness.
+This story defines how LLM helps diagnose failure without resolving recovery truth.
 
 ## Architecture decision
 
 Fixed:
 
-- every LLM call logs purpose/model/schema/tokens/latency/status
-- token optimization cannot remove safety-critical context
-- telemetry supports debugging and cost review
-- failures include validation/retry outcome
+- recovery diagnoser suggests cause/options
+- backend owns recovery state
+- LLM cannot mark resolved/skipped/completed
+- unsupported capability becomes gap
 
-## Telemetry schema
+## Recovery diagnosis schema
 
 | Field | Required |
 |---|---|
-| call_id | Yes |
-| purpose | Yes |
-| model | Yes |
-| schema_id/version | Conditional |
-| message_count | Yes |
-| estimated_input_tokens | Yes |
-| estimated_output_tokens | Optional |
-| tools_exposed_count | Yes |
-| skills_loaded | Yes |
-| latency_ms | Yes |
-| validation_status | Yes |
-| retry_count | Yes |
-| error_code | Optional |
+| failure_summary | Yes |
+| likely_cause | Yes |
+| suggested_options | Yes |
+| recommended_option | Optional |
+| needs_user_input | Yes |
+| unsupported_capability | Optional |
+| confidence | Yes |
 
-## Budget policy
+### Suggested option
 
-| Situation | Required behavior |
+| Field | Required |
 |---|---|
-| context too large | trim irrelevant context only |
-| required skill missing | stop |
-| required source missing | stop |
-| low-value trace context | summarize |
-| safety-critical context | keep |
+| option_id | Yes |
+| option_type | retry/update_locator/skip/stop/clarify/gap |
+| label | Yes |
+| risk | low/medium/high |
+| backend_validation_needed | Yes |
 
 ## Test matrix
 
 | Test ID | Layer | Scenario | Expected |
 |---|---|---|---|
-| LLM010-U-001 | Unit | call telemetry | required fields logged |
-| LLM010-U-002 | Unit | invalid schema retry | retry_count logged |
-| LLM010-U-003 | Unit | context budget exceeded | safe trim |
-| LLM010-U-004 | Unit | required skill removed | rejected/stop |
-| LLM010-I-001 | Integration | controller call emits telemetry | traceable output |
+| LLM009-C-001 | Contract | valid diagnosis | accepted |
+| LLM009-C-002 | Contract | output says resolved | rejected |
+| LLM009-C-003 | Contract | skip without backend validation | rejected |
+| LLM009-I-001 | Integration | diagnosis to BE-008 | recovery options only |
 
 ## Edge cases
 
-- streaming response
-- model route fallback
-- local model vs API model
-- token estimator mismatch
-- telemetry logging failure
+- stale page after failure
+- locator changed
+- permission issue
+- unsupported capability
+- repeated same failure
 
 ---
 
@@ -130,10 +123,10 @@ After reading this story, Codex should be able to explain:
 
 ## Codex execution summary
 
-First Codex task for LLM-010 should be read-only:
+First Codex task for LLM-009 should be read-only:
 
 ```text
-Read LLM-010, SOURCE-001, PLAN-002, PLAN-005, EPIC-003, and required skills.
+Read LLM-009, SOURCE-001, PLAN-002, PLAN-005, EPIC-003, and required skills.
 Do not edit code.
 Do not inspect unrelated product areas.
 Inspect current LLM runtime ownership and report a narrow implementation path.

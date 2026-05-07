@@ -1,67 +1,76 @@
-# DOM-005 Section-container scoping and ancestor candidates
+# DOM-009 update_locator command flow
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Done
 **Priority:** P0  
 **Epic:** EPIC-004 DOM and Locator Strategy  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
 **Readiness:** Ready for repo inspection; not ready for implementation  
-**Dependencies:** DOM-001, DOM-002, EPIC-004  
-**Blocks:** DOM-003, picker UI, weak DOM flows  
+**Dependencies:** EVENT-002, EVENT-003, DOM-004, DOM-008, BE-003  
+**Blocks:** recovery, replay repair later, frontend locator update UI  
 **Version:** Batch 05 v1  
 
 ---
 
 ## Product contribution
 
-This story fixes weak picker/locator behavior by exposing useful ancestor/container candidates instead of only the exact clicked node.
-
-## Source evidence table
-
-| Source | Extracted rule | Story impact |
-|---|---|---|
-| Handoff | picker may capture nested spans/token text instead of useful ancestor container/code/pre/section/card/dialog/form/table row | include ancestor candidates |
-| SOURCE-001 | scoped text and page/section context are deterministic evidence | use containers for locator scoping |
+This story defines a safe command flow to update or replace a locator candidate during recovery or future replay repair.
 
 ## Architecture decision
 
 Fixed:
 
-- selected element is not automatically final target
-- ancestor candidates include interactive parent, row/card/form/dialog/section/code block where applicable
-- user/frontend may choose target level, backend validates
-- weak DOM gets explicit risk flags
+- update_locator is a command request, not direct mutation
+- backend validates run/step/operation identity
+- candidate must validate in browser before acceptance
+- old locator history/evidence preserved
+- P0 supports baseline update; robust replay repair is P1
 
-## Ancestor candidate levels
+## Command contract
 
-| Level | Example |
-|---|---|
-| exact node | span/text/icon |
-| interactive ancestor | button/link/input |
-| component ancestor | card/list item/table row |
-| form/dialog ancestor | form/modal |
-| section ancestor | named page section |
-| page landmark | nav/main/footer |
+| Field | Required | Meaning |
+|---|---|---|
+| type | Yes | update_locator |
+| command_id | Yes | idempotency |
+| run_id | Conditional | active/replay run |
+| step_id | Yes | parent |
+| operation_id | Yes | child |
+| locator_candidate | Conditional | proposed locator |
+| user_hint | Optional | human context |
+| reason | Yes | why updating |
+| source | Yes | frontend/user/system |
+
+## Flow
+
+```text
+update_locator command
+→ command validation
+→ locator validation
+→ accept/reject
+→ event/rejection emitted
+→ execution/replay may retry only after accept
+```
 
 ## Test matrix
 
 | Test ID | Layer | Scenario | Expected |
 |---|---|---|---|
-| DOM005-U-001 | Unit | span inside button | button ancestor candidate |
-| DOM005-U-002 | Unit | text in code block | code/pre ancestor |
-| DOM005-U-003 | Unit | table row button | row ancestor |
-| DOM005-U-004 | Unit | duplicate CTA cards | card/section scope |
-| DOM005-I-001 | Integration | picker target levels | candidates returned |
+| DOM009-C-001 | Contract | valid update_locator | accepted for validation |
+| DOM009-C-002 | Contract | missing operation_id | rejected |
+| DOM009-U-001 | Unit | candidate validates unique | accepted |
+| DOM009-U-002 | Unit | candidate multiple | rejected/ambiguity |
+| DOM009-U-003 | Unit | stale step | rejected |
+| DOM009-I-001 | Integration | recovery locator update | retry allowed after accept |
 
 ## Edge cases
 
-- deeply nested Elementor DOM
-- SVG icon button
-- table action button
-- modal section
-- repeated cards
+- update during active execution
+- replay locator update
+- locator valid but wrong semantic target
+- user hint only, no selector
+- old locator history missing
 
 ---
 
@@ -119,10 +128,10 @@ Stop if:
 
 ## Codex execution summary
 
-First Codex task for DOM-005 should be read-only:
+First Codex task for DOM-009 should be read-only:
 
 ```text
-Read DOM-005, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
+Read DOM-009, SOURCE-001, PLAN-002, PLAN-005, EPIC-004, LLM-008, BE-006, EVENT-005, and required skills.
 Do not edit code.
 Inspect current DOM/locator ownership and report narrow implementation path.
 Do not implement until repo-inspection report is reviewed.
