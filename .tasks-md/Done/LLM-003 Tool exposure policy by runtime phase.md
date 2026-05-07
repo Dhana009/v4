@@ -1,67 +1,67 @@
-# LLM-002 Skill loading policy and minimal context pack
+# LLM-003 Tool exposure policy by runtime phase
 
 **Type:** Story  
-**Status:** Testing  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-003 LLM Runtime Controller  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Ready for testing; MR-3C implementation complete  
-**Dependencies:** LLM-001, SOURCE-001, skills policy  
-**Blocks:** LLM-005 to LLM-009, token/cost guard  
+**Readiness:** Done; MR-3C finalized  
+**Dependencies:** LLM-001, LLM-002, BE-001, BE-003, EVENT-002  
+**Blocks:** safe LLM tool use, execution contract  
 **Version:** Batch 04 v1  
 
 ---
 
 ## Product contribution
 
-This story prevents context bloat and skill drift by loading only mandatory core skills plus task-specific skills.
+This story ensures LLM sees only tools that are safe for its purpose and current runtime phase.
 
 ## Source evidence table
 
 | Source | Extracted rule | Story impact |
 |---|---|---|
-| Skills hardening | mandatory core + task-specific only; do not load all blindly | implement skill selection policy |
-| SOURCE-001 | PRD + Architecture Contract wins conflicts | core skills always loaded |
-| LLM policy | token optimization must not reduce correctness | context filtering must preserve safety |
+| SOURCE-001 | backend validates/controls runtime truth | LLM tool access cannot bypass backend |
+| Handoff | tool filtering alone is not enough; backend validation must enforce phases | define exposure policy plus backend validation |
+| EVENT-002 | commands are typed requests | tool-like outputs must route through command/validator |
 
 ## Architecture decision
 
 Fixed:
 
-- skill loading header is required for every LLM task
-- mandatory core skills always included
-- task-specific skills selected by purpose
-- if required evidence/skill missing, stop and report
-- do not load all skills blindly
+- planning phase tools differ from execution/recovery tools
+- LLM cannot call browser-changing tools before confirmation
+- tool exposure is deny-by-default
+- backend validates every tool/command regardless of exposure filter
 
-## Skill policy contract
+## Phase/tool policy baseline
 
-| Category | Examples | Rule |
+| Phase | Allowed LLM capabilities | Forbidden |
 |---|---|---|
-| mandatory core | skill_usage_policy, architecture_contract, prd_scope_validation | always |
-| backend/runtime | backend_step_runner, typed_event_contract | backend purposes |
-| locator/DOM | locator_strategy, frontend/shadow as relevant | locator/page purposes |
-| TDD/refactor | tdd_harness, refactor_safety | implementation tasks |
-| safety | permission_safety | risky tools/actions |
+| planning | analyze intent/context, propose plan | browser-changing actions |
+| clarification | ask/interpret user answer | execution |
+| plan_review | propose correction diff/explain | execution before confirm |
+| executing | propose next expected operation only if backend asks | arbitrary action |
+| recovery | diagnose/suggest recovery | mark resolved/completed |
+| completed | summarize | mutate state |
 
 ## Test matrix
 
 | Test ID | Layer | Scenario | Expected |
 |---|---|---|---|
-| LLM002-U-001 | Unit | purpose journey_planner | core + planner skills |
-| LLM002-U-002 | Unit | unknown task | core only or stop |
-| LLM002-U-003 | Unit | all skills requested blindly | rejected |
-| LLM002-U-004 | Unit | missing core skill | stop condition |
-| LLM002-I-001 | Integration | controller call includes skill header | present |
+| LLM003-U-001 | Unit | planning phase browser action | not exposed/blocked |
+| LLM003-U-002 | Unit | recovery phase completion tool | forbidden |
+| LLM003-U-003 | Unit | unknown phase | deny by default |
+| LLM003-I-001 | Integration | LLM emits action before confirm | backend blocks |
+| LLM003-I-002 | Integration | allowed locator suggestion | backend validates later |
 
 ## Edge cases
 
-- conflicting skill guidance
-- task requires skill not installed
-- user asks speed over safety
-- context budget exceeded
+- phase changes during LLM call
+- correction while execution active
+- tool exposed by legacy router
+- LLM calls tool not in declared purpose
 
 ---
 
@@ -120,10 +120,10 @@ After reading this story, Codex should be able to explain:
 
 ## Codex execution summary
 
-First Codex task for LLM-002 should be read-only:
+First Codex task for LLM-003 should be read-only:
 
 ```text
-Read LLM-002, SOURCE-001, PLAN-002, PLAN-005, EPIC-003, and required skills.
+Read LLM-003, SOURCE-001, PLAN-002, PLAN-005, EPIC-003, and required skills.
 Do not edit code.
 Do not inspect unrelated product areas.
 Inspect current LLM runtime ownership and report a narrow implementation path.

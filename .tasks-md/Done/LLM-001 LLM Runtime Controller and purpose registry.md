@@ -1,13 +1,13 @@
 # LLM-001 LLM Runtime Controller and purpose registry
 
 **Type:** Story  
-**Status:** Testing  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-003 LLM Runtime Controller  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Ready for testing; MR-3C implementation complete  
+**Readiness:** Done; MR-3C finalized  
 **Dependencies:** SOURCE-001, PLAN-002, PLAN-005, EPIC-003, EPIC-001, EPIC-002  
 **Blocks:** LLM-002 to LLM-010, all LLM-mediated flows  
 **Version:** Batch 04 v1  
