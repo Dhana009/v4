@@ -1,28 +1,72 @@
-# BE-004 Active plan store and plan_ready ownership
+# BE-008 Backend recovery state ownership
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-001 Backend Runtime Truth  
 **Owner:** DEV-1 Backend Runtime + Event Truth  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Ready for repo inspection; not ready for implementation  
+**Readiness:** Done; all child tasks complete  
+**Progress:** Done  
 **Dependencies:** SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001  
-**Blocks:** BE-005 confirmation gate, BE-006 execution contract, BE-007 correction diff  
+**Blocks:** BE-010 completion guard, BE-009 recording builder, E2E recovery flow  
 **Version:** Batch 02 v1  
 
 ---
 
 ## Product contribution
 
-Makes plan_ready a backend-owned active plan/version, not an LLM message or frontend preview. This lets backend know exactly which plan is corrected, confirmed, and executed.
+Turns failures into backend-owned recovery state. Completion is blocked until recovery is resolved, skipped with reason, or stopped.
 
 This story contributes to the final Complete LLM Mode workflow by strengthening the backend-owned runtime truth path:
 
 ```text
 user intent → plan/correction/confirmation → backend validation → execution/recording/replay/completion
 ```
+
+## Parent Status
+
+- Status: Done
+- Progress: Done
+- Reason: recovery-needed state, backend isolation coverage, follow-up reset fixes, cross-run recovery protection, and remaining lifecycle audit are complete.
+
+## Child Tasks
+
+| Child task | Status | Evidence |
+|---|---|---|
+| BE-008.1 Add recovery ownership/recovery_needed event contracts | Done | commit `f7e3847`; `runtime/event_contracts.py`, `tests/test_event_contract.py` |
+| BE-008.2 Add backend isolation test for recovery state leakage | Done | commit `1b8c084`; `tests/test_backend_isolation_contract.py` |
+| BE-008.3 Fix `_pending_failure_followup` reset across runs | Done | commit `1b8c084`; `tests/test_recovery_scope_guard.py` |
+| BE-008.4 Ensure recovery state cannot complete unrelated/new run | Done | `tests/test_backend_isolation_contract.py`, `tests/test_recovery_scope_guard.py` |
+| BE-008.5 Identify remaining recovery lifecycle gaps | Done | `runtime/event_contracts.py`, `agent.py`, `tests/test_backend_isolation_contract.py`, `tests/test_recovery_scope_guard.py`, `tests/test_event_contract.py`; focused suite `58 passed, 1 xfailed` |
+
+### Done Children
+
+- `BE-008.1` Add recovery ownership/recovery_needed event contracts
+- `BE-008.2` Add backend isolation test for recovery state leakage
+- `BE-008.3` Fix `_pending_failure_followup` reset across runs
+- `BE-008.4` Ensure recovery state cannot complete unrelated/new run
+- `BE-008.5` Identify remaining recovery lifecycle gaps
+
+### In Progress Children
+
+- None
+
+### Remaining Planning Children
+
+- None
+
+## Evidence
+
+- `runtime/event_contracts.py` and `agent.py` recovery-state paths were audited for remaining lifecycle gaps.
+- `tests/test_backend_isolation_contract.py`, `tests/test_recovery_scope_guard.py`, and `tests/test_event_contract.py` stay green in the focused backend sweep.
+- The focused backend contract suite passed `58` tests with `1` xfailed.
+- Branch status: branch-only on `dev1/backend-isolation-contract-tests`.
+
+## Next Action
+
+- None; BE-008 is complete.
 
 ---
 
@@ -39,7 +83,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 ## System role
 
-| Layer | Relationship to BE-004 |
+| Layer | Relationship to BE-008 |
 |---|---|
 | Backend | Primary owner and source of truth |
 | LLM | Proposes only; cannot own runtime truth |
@@ -53,15 +97,15 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 | Source | Extracted rule | Planning interpretation | Story impact |
 |---|---|---|---|
-| Product Workflows | User can correct plan; revised plan shown; only corrected plan executes. | Plan identity/version/history are required. | Implement ActivePlan store. |
-| SOURCE-001 | Backend owns plan mutation acceptance. | LLM plan text is proposal only. | Active plan mutation through backend only. |
-| Handoff | Pending step identity remains stable through plan_ready/correction/confirmation/execution/recording. | Plan must preserve stable step/operation IDs where valid. | Store ordered plan children. |
+| SOURCE-001 | Backend owns failure/recovery/completion truth. | Recovery must be stateful. | Implement RecoveryState. |
+| BE-001 | RunState.recovery and unresolved_failure block completion. | Recovery is first-class state. | Store failure/recovery refs. |
+| Handoff | Recovery preserves pending step and avoids infinite loop. | No silent retries. | Explicit recovery commands. |
 
 ---
 
 ## Architecture decision
 
-Active plan is a backend object with plan_id/version/status. plan_ready is emitted from that object. Correction creates a new validated version. Confirmation locks current version.
+Failure creates recovery state with run/step/operation identity, reason, options, and evidence. LLM may suggest recovery but cannot resolve runtime truth.
 
 ---
 
@@ -70,7 +114,7 @@ Active plan is a backend object with plan_id/version/status. plan_ready is emitt
 | Dependency type | Items | Meaning |
 |---|---|---|
 | Upstream | SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001 | Planning rules and runtime state foundation |
-| Direct blockers | BE-005 confirmation gate, BE-006 execution contract, BE-007 correction diff | Cannot proceed safely without this story or approved mocks |
+| Direct blockers | BE-010 completion guard, BE-009 recording builder, E2E recovery flow | Cannot proceed safely without this story or approved mocks |
 | Indirect consumers | EPIC-005 frontend, EPIC-006 E2E, EPIC-008 recording/codegen, EPIC-009 trace | Eventually depend on this contract |
 | Parallel safe with mocks | DEV-2 LLM policy planning, DEV-3 Shadow DOM shell, DEV-4 harness skeleton | May proceed only without inventing final backend truth |
 | Conflict zones | `agent.py`, WebSocket command/event paths, runtime state, frontend lifecycle store | Inspect before editing |
@@ -104,9 +148,7 @@ This story unlocks downstream implementation by producing a precise backend cont
 
 | Item | Required fields | Rules | Used by |
 |---|---|---|---|
-| ActivePlan | plan_id, run_id, version, status | draft/awaiting_confirmation/corrected/confirmed/rejected/cancelled | source for plan_ready |
-| ActivePlanStep | step_id, parent_intent, expected_outcome_metadata, children | ordered parent step | source for execution contract |
-| ActivePlanOperation | operation_id, step_id, type/subtype, target, locator_ref, order_index | ordered child operation | source for BE-006 |
+| RecoveryState | recovery_id, run_id, step_id, operation_id?, failure_code, error_summary, options, status, evidence_ref | required | recovery truth |
 
 ---
 
@@ -120,11 +162,12 @@ For P0, this story may use in-memory runtime structures unless existing repo arc
 
 | Test ID | Layer | Scenario | Input/Setup | Expected result | Source rule protected |
 |---|---|---|---|---|---|
-| BE004-U-001 | Unit | create active plan | plan proposal | plan_id/version set | backend plan truth |
-| BE004-U-002 | Unit | correction increments version | correction diff | version+history updated | stale safety |
-| BE004-U-003 | Unit | stale confirm rejected | old version confirm | runtime_rejected | version safety |
-| BE004-U-004 | Unit | discussion no mutation | chat message | active plan unchanged | no prose mutation |
-| BE004-I-001 | Integration | plan_ready→correction→plan_ready | corrected plan | old plan cannot execute | correction path |
+| BE008-U-001 | Unit | failure opens recovery | operation fails | recovery state | backend failure |
+| BE008-U-002 | Unit | completion blocked | recovery open | run_completed rejected | completion guard |
+| BE008-U-003 | Unit | valid retry | retry option | execution path | recovery command |
+| BE008-U-004 | Unit | skip without reason | skip | rejected | explicit terminal |
+| BE008-U-005 | Unit | LLM claims resolved | text only | not resolved | LLM proposes |
+| BE008-I-001 | Integration | failure→recovery_needed | failed action | event-ready state | event compatibility |
 
 ---
 

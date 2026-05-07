@@ -1,28 +1,72 @@
-# BE-009 Backend-owned recording builder
+# BE-005 Plan confirmation gate
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-001 Backend Runtime Truth  
 **Owner:** DEV-1 Backend Runtime + Event Truth  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Ready for repo inspection; not ready for implementation  
+**Readiness:** Done; all child tasks complete  
+**Progress:** Done  
 **Dependencies:** SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001  
-**Blocks:** code_update, recorded UI, BE-010 completion guard, BE-012 replay smoke  
+**Blocks:** BE-006 execution contract, LLM Mode execution, BE-009 recording  
 **Version:** Batch 02 v1  
 
 ---
 
 ## Product contribution
 
-Turns validated execution evidence into backend-owned recorded steps. This is the bridge from browser execution to deterministic Playwright codegen/replay.
+Turns plan review into a real safety gate. Browser-changing execution starts only after the backend validates explicit user confirmation for the current active plan/version.
 
 This story contributes to the final Complete LLM Mode workflow by strengthening the backend-owned runtime truth path:
 
 ```text
 user intent → plan/correction/confirmation → backend validation → execution/recording/replay/completion
 ```
+
+## Parent Status
+
+- Status: Done
+- Progress: Done
+- Reason: confirmation gating, stale confirmation rejection, legacy bare-confirm compatibility, and remaining audit are complete.
+
+## Child Tasks
+
+| Child task | Status | Evidence |
+|---|---|---|
+| BE-005.1 Add confirmation gate contract tests | Done | commit `f117599`; `tests/test_event_sequence_contract.py`, `tests/test_late_event_contract.py` |
+| BE-005.2 Require backend-owned confirmation before execution | Done | commit `176cad2`; `tests/test_event_sequence_contract.py` |
+| BE-005.3 Reject stale confirmation against active run/plan context | Done | commits `176cad2`, `6b03a82`; `tests/test_late_event_contract.py` |
+| BE-005.4 Preserve safe legacy bare confirmation compatibility | Done | `runtime/event_contracts.py` accepts confirmed commands with active run context; `tests/test_event_sequence_contract.py`, `tests/test_late_event_contract.py` |
+| BE-005.5 Audit remaining confirmation/versioning gaps | Done | `runtime/event_contracts.py`, `agent.py`, `tests/test_event_sequence_contract.py`, `tests/test_late_event_contract.py`; focused suite `58 passed, 1 xfailed` |
+
+### Done Children
+
+- `BE-005.1` Add confirmation gate contract tests
+- `BE-005.2` Require backend-owned confirmation before execution
+- `BE-005.3` Reject stale confirmation against active run/plan context
+- `BE-005.4` Preserve safe legacy bare confirmation compatibility
+- `BE-005.5` Audit remaining confirmation/versioning gaps
+
+### In Progress Children
+
+- None
+
+### Remaining Planning Children
+
+- None
+
+## Evidence
+
+- `runtime/event_contracts.py` and `agent.py` confirmation-handling paths were audited for remaining versioning gaps.
+- `tests/test_event_sequence_contract.py` and `tests/test_late_event_contract.py` stay green in the focused backend sweep.
+- The focused backend contract suite passed `58` tests with `1` xfailed.
+- Branch status: branch-only on `dev1/backend-isolation-contract-tests`.
+
+## Next Action
+
+- None; BE-005 is complete.
 
 ---
 
@@ -39,7 +83,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 ## System role
 
-| Layer | Relationship to BE-009 |
+| Layer | Relationship to BE-005 |
 |---|---|
 | Backend | Primary owner and source of truth |
 | LLM | Proposes only; cannot own runtime truth |
@@ -53,16 +97,15 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 | Source | Extracted rule | Planning interpretation | Story impact |
 |---|---|---|---|
-| SOURCE-001 | Backend owns recording truth and code_update trigger. | Recording cannot be model/frontend-owned. | Build recording builder. |
-| Handoff | Recording model is parent recorded step with child operations/checks. | Preserve parent/child structure. | Build parent/child payload. |
-| BE-006 | Execution contract validates children. | Record only validated child results. | Consume execution evidence. |
-| BE-008 | Recovery/failure blocks recording. | Unresolved failure cannot record parent. | Reconcile child outcomes. |
+| Product Workflows | User confirms revised plan; only confirmed plan executes. | Confirm must target current active version. | Validate confirm before execution. |
+| Handoff | plan_ready is proposal before confirmation and must not mutate execution state. | plan_ready cannot execute. | Gate all browser-changing actions. |
+| BE-004 | Active plan store owns plan_id/version. | Confirm validates active plan. | Reject stale confirm. |
 
 ---
 
 ## Architecture decision
 
-Recording is built only after backend execution/assertion success evidence. Parent step contains ordered recorded children. expected_outcome remains parent metadata only.
+`confirmed` is the only valid path from RunState.plan_review to RunState.executing. Duplicate, stale, missing-plan, clarification-open, recovery-open confirmations are rejected.
 
 ---
 
@@ -71,7 +114,7 @@ Recording is built only after backend execution/assertion success evidence. Pare
 | Dependency type | Items | Meaning |
 |---|---|---|
 | Upstream | SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001 | Planning rules and runtime state foundation |
-| Direct blockers | code_update, recorded UI, BE-010 completion guard, BE-012 replay smoke | Cannot proceed safely without this story or approved mocks |
+| Direct blockers | BE-006 execution contract, LLM Mode execution, BE-009 recording | Cannot proceed safely without this story or approved mocks |
 | Indirect consumers | EPIC-005 frontend, EPIC-006 E2E, EPIC-008 recording/codegen, EPIC-009 trace | Eventually depend on this contract |
 | Parallel safe with mocks | DEV-2 LLM policy planning, DEV-3 Shadow DOM shell, DEV-4 harness skeleton | May proceed only without inventing final backend truth |
 | Conflict zones | `agent.py`, WebSocket command/event paths, runtime state, frontend lifecycle store | Inspect before editing |
@@ -105,8 +148,8 @@ This story unlocks downstream implementation by producing a precise backend cont
 
 | Item | Required fields | Rules | Used by |
 |---|---|---|---|
-| RecordedStep | recorded_step_id, source_step_id, run_id, plan_id/version, parent_intent, expected_outcome_metadata, observed_outcome?, children, evidence_refs | required | recorded parent |
-| RecordedChild | operation_id, type/subtype, locator?, input/value?, result, evidence_ref | required | recorded child |
+| ConfirmCommand | run_id, plan_id, plan_version | required | request to execute active plan |
+| ConfirmationResult | accepted/rejected, current_state, rejection_code? | required | state transition or rejection |
 
 ---
 
@@ -120,11 +163,11 @@ For P0, this story may use in-memory runtime structures unless existing repo arc
 
 | Test ID | Layer | Scenario | Input/Setup | Expected result | Source rule protected |
 |---|---|---|---|---|---|
-| BE009-U-001 | Unit | record after all children success | child results success | recorded parent | evidence recording |
-| BE009-U-002 | Unit | required child failed | failed child | no record/recovery | child reconciliation |
-| BE009-U-003 | Unit | LLM emits step_recorded | model output | ignored | backend recording |
-| BE009-U-004 | Unit | expected_outcome leakage | metadata present | not assertion target | metadata rule |
-| BE009-I-001 | Integration | execution→recording | BE-006 success | step_recorded event-ready | lifecycle |
+| BE005-U-001 | Unit | plan_ready not execution | plan_ready | no browser action | confirmation gate |
+| BE005-U-002 | Unit | valid confirm | current active plan | executing state | explicit confirmation |
+| BE005-U-003 | Unit | stale confirm | old version | runtime_rejected | version safety |
+| BE005-U-004 | Unit | duplicate confirm | already executing | no duplicate execution | idempotency |
+| BE005-I-001 | Integration | LLM action before confirm | tool call | blocked | LLM proposes only |
 
 ---
 

@@ -142,6 +142,30 @@ Do not modify code.
 Do not create tests yet.
 ```
 
+### Board note
+
+BE-001 through BE-004 have now been decomposed into measurable subtasks and moved to Planning on the DEV-1 board. Leave BE-005 through BE-012 untouched for this batch.
+
+### Board note
+
+BE-005 through BE-008 have now been decomposed into measurable subtasks and moved to Planning on the DEV-1 board. Leave BE-009 through BE-012 untouched for this batch.
+
+### Board note
+
+BE-001 through BE-008 audit children were moved through In Progress and closed as Done on the DEV-1 board after focused backend contract verification. Leave BE-009 through BE-012 untouched for the next batch.
+
+### Board note
+
+BE-001 through BE-012 have now been moved to Done on the DEV-1 board. The planned DEV-1 backend P0 scope is complete.
+
+### Board note
+
+Next step is full backend verification and coverage review before any merge/push decision.
+
+### Board note
+
+Deferred items remain outside the done scope, including broad replay repair, full session restore UX, frontend/LLM/DOM/E2E/trace work, and advanced browser capabilities.
+
 ### Selected first-slice matrix areas
 
 ```text
@@ -571,94 +595,30 @@ CI/local tier plan proposed
 
 ---
 
-### MR-1A: Backend/event first-slice mapping
+### DEV-1 board index
 
 Owner: DEV-1  
-Type: mapping  
-Production code: no  
-Merge when:
+Branch: `dev1/backend-isolation-contract-tests`  
+Main baseline: `908f4d0`
 
-```text
-selected matrix rows mapped to repo tests/proposed files
-missing tests identified
-commands listed
-allowed/forbidden files documented
-```
+The detailed DEV-1 board now lives in folder-state files:
 
----
+| State | File | Current meaning |
+|---|---|---|
+| Done | [`Done/DEV-1 Backend Runtime and Recording Done.md`](../Done/DEV-1%20Backend%20Runtime%20and%20Recording%20Done.md) | completed work split into merged-to-main and branch-only done items |
+| In Progress | [`Inprogress/DEV-1 Recording Codegen Truth Implementation.md`](../Inprogress/DEV-1%20Recording%20Codegen%20Truth%20Implementation.md) | the only active DEV-1 implementation slice |
+| Planning / Pending | [`Planning/DEV-1 Planned Backend Contract Work.md`](./DEV-1%20Planned%20Backend%20Contract%20Work.md) | picked-but-not-started backend slices |
+| Testing | [`Testing/DEV-1 Backend Contract Testing Queue.md`](../Testing/DEV-1%20Backend%20Contract%20Testing%20Queue.md) | no active DEV-1 testing item right now |
+| Backlog / Deferred | [`Backlog/DEV-1 Deferred Backend and Cross-Lane Work.md`](../Backlog/DEV-1%20Deferred%20Backend%20and%20Cross-Lane%20Work.md) | out-of-scope and cross-lane deferred work |
 
-### MR-1B: Backend/event tests only
+Current board summary:
+- Done: backend/event foundation, MR-1B through MR-1E, recovery isolation, snapshot/archive loader, late-event/late-command/process-boundary contracts, recording/codegen contract tests.
+- In Progress: recording/codegen truth implementation.
+- Planning: replay smoke, restart/session-load, reconnect/session_state extension, broader save/load/replay evidence checks.
+- Backlog: replay repair, full session restore UX, cross-lane frontend/LLM-DOM/E2E/trace/capabilities work.
 
-Owner: DEV-1  
-Type: tests only  
-Production code: no  
-Status: completed in `f117599` and merged into local main at `eb1bd31`
-Verification: `9 passed, 16 xfailed`
-Merge when:
-
-```text
-selected P0 tests created/updated
-expected failures documented if implementation is missing
-existing tests still pass or failures are explained
-```
-
----
-
-### MR-1C: Backend/event narrow implementation
-
-Owner: DEV-1  
-Type: implementation  
-Status: completed in `f7e3847` and merged into local main at `eb1bd31`
-Verification: `41 passed, 2 xfailed`
-Deferred seams: none
-Merge when:
-
-```text
-MR-1B tests pass
-no broad refactor
-affected regression tests pass
-architecture invariants preserved
-```
-
----
-
-### MR-1D: Stale confirmation / run-context guard
-
-Owner: DEV-1  
-Type: implementation  
-Status: completed in `176cad2` and merged into local main at `eb1bd31`
-Verification: `42 passed, 1 xfailed`
-Deferred seams: none
-Merge when:
-
-```text
-active-plan confirmation context is validated
-stale confirmation cannot trigger execution
-typed runtime_rejected is emitted for mismatched context
-affected regression tests pass
-```
-
----
-
-### DEV-1 current status
-
-```text
-First backend/event foundation complete on DEV-1 branch.
-MR-1B completed in `f117599`.
-MR-1C completed in `f7e3847`.
-MR-1D completed in `176cad2`.
-MR-1E completed in `f7e1c61`.
-DEV-1 status bookkeeping updated in `a589436`.
-DEV-1 branch updated from latest local main at `df4e792`.
-Verification: `43 passed` for focused backend/event suite.
-Websocket/session focused suite: `11 passed`.
-Focused backend/event xfails: `0`.
-No push was done.
-Forbidden files were not touched.
-AGENTS.md was not staged or committed.
-`.DS_Store` was not staged or committed.
-Next candidate slices: none
-```
+Current verification note:
+- The focused backend contract suite and the recording/codegen contract slice have been verified previously; see the folder-state files for the exact item-level results.
 
 ---
 

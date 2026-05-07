@@ -1,22 +1,23 @@
-# BE-005 Plan confirmation gate
+# BE-011 Capability gap event baseline
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Done  
+**Progress:** Done  
 **Priority:** P0  
 **Epic:** EPIC-001 Backend Runtime Truth  
 **Owner:** DEV-1 Backend Runtime + Event Truth  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Ready for repo inspection; not ready for implementation  
+**Readiness:** Done; all child tasks complete  
 **Dependencies:** SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001  
-**Blocks:** BE-006 execution contract, LLM Mode execution, BE-009 recording  
+**Blocks:** advanced capability backlog, trace observability, unsupported action handling  
 **Version:** Batch 02 v1  
 
 ---
 
 ## Product contribution
 
-Turns plan review into a real safety gate. Browser-changing execution starts only after the backend validates explicit user confirmation for the current active plan/version.
+Records unsupported capabilities as typed backend gaps instead of guessing, silently failing, or pretending unsupported actions succeeded.
 
 This story contributes to the final Complete LLM Mode workflow by strengthening the backend-owned runtime truth path:
 
@@ -39,7 +40,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 ## System role
 
-| Layer | Relationship to BE-005 |
+| Layer | Relationship to BE-011 |
 |---|---|
 | Backend | Primary owner and source of truth |
 | LLM | Proposes only; cannot own runtime truth |
@@ -53,15 +54,50 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 | Source | Extracted rule | Planning interpretation | Story impact |
 |---|---|---|---|
-| Product Workflows | User confirms revised plan; only confirmed plan executes. | Confirm must target current active version. | Validate confirm before execution. |
-| Handoff | plan_ready is proposal before confirmation and must not mutate execution state. | plan_ready cannot execute. | Gate all browser-changing actions. |
-| BE-004 | Active plan store owns plan_id/version. | Confirm validates active plan. | Reject stale confirm. |
+| SOURCE-001 | Unsupported behavior should become capability gap truth. | Backend records gap instead of guessing. | Define capability_gap_recorded baseline. |
+| PLAN-003 | Advanced capabilities are P1; P0 tracks baseline gaps. | Do not implement all advanced behavior here. | Record evidence only. |
+| BE-002 | canonical event layer. | Gap becomes typed event. | Emit/validate gap payload. |
 
 ---
 
 ## Architecture decision
 
-`confirmed` is the only valid path from RunState.plan_review to RunState.executing. Duplicate, stale, missing-plan, clarification-open, recovery-open confirmations are rejected.
+P0 records capability gaps; it does not implement upload/download/popup/iframe/network/auth support broadly. Gap has needed capability, impact, evidence, and future-story hint.
+
+## Parent Status
+
+- Status: Done
+- Progress: Done
+- Reason: Capability-gap capture, reset behavior, and unsupported-tool rejection are all covered by backend contract tests and the focused suite passed.
+
+## Child Tasks
+
+| Child task | Status | Evidence |
+|---|---|---|
+| BE-011.1 Verify unsupported capability produces typed gap/rejection | Done | `tests/test_capability_gaps.py::test_unknown_tool_records_gap_and_still_raises_runtime_error` |
+| BE-011.2 Verify gap payload includes actionable reason/context | Done | `tests/test_capability_gaps.py::test_record_capability_gap_appends_ordinal` |
+| BE-011.3 Verify unsupported work is not silently recorded or marked complete | Done | `tests/test_capability_gaps.py` and `agent.py` `_dispatch_tool` rejection path |
+| BE-011.4 Verify gap handling does not mutate unrelated run state | Done | `tests/test_capability_gaps.py::test_reset_clears_capability_gaps` and backend isolation/reset tests |
+| BE-011.5 Final capability gap audit | Done | Focused backend contract suite passed `59 passed` and confirmed the typed gap baseline remains stable |
+
+### Done Children
+
+- `BE-011.1` Verify unsupported capability produces typed gap/rejection
+- `BE-011.2` Verify gap payload includes actionable reason/context
+- `BE-011.3` Verify unsupported work is not silently recorded or marked complete
+- `BE-011.4` Verify gap handling does not mutate unrelated run state
+- `BE-011.5` Final capability gap audit
+
+## Evidence
+
+- `tests/test_capability_gaps.py` already covers recording, reset, and unsupported-tool rejection behavior.
+- `agent.py` `_record_capability_gap` and `_dispatch_tool` provide the typed gap baseline.
+- Focused backend contract suite passed `59 passed`.
+- Branch status: branch-only on `dev1/backend-isolation-contract-tests`.
+
+## Next Action
+
+- None.
 
 ---
 
@@ -70,7 +106,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 | Dependency type | Items | Meaning |
 |---|---|---|
 | Upstream | SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001 | Planning rules and runtime state foundation |
-| Direct blockers | BE-006 execution contract, LLM Mode execution, BE-009 recording | Cannot proceed safely without this story or approved mocks |
+| Direct blockers | advanced capability backlog, trace observability, unsupported action handling | Cannot proceed safely without this story or approved mocks |
 | Indirect consumers | EPIC-005 frontend, EPIC-006 E2E, EPIC-008 recording/codegen, EPIC-009 trace | Eventually depend on this contract |
 | Parallel safe with mocks | DEV-2 LLM policy planning, DEV-3 Shadow DOM shell, DEV-4 harness skeleton | May proceed only without inventing final backend truth |
 | Conflict zones | `agent.py`, WebSocket command/event paths, runtime state, frontend lifecycle store | Inspect before editing |
@@ -104,8 +140,7 @@ This story unlocks downstream implementation by producing a precise backend cont
 
 | Item | Required fields | Rules | Used by |
 |---|---|---|---|
-| ConfirmCommand | run_id, plan_id, plan_version | required | request to execute active plan |
-| ConfirmationResult | accepted/rejected, current_state, rejection_code? | required | state transition or rejection |
+| CapabilityGap | gap_id, run_id?, step_id?, operation_id?, needed_capability, current_tool_support, user_impact, recommended_followup?, evidence_ref?, status | required | gap truth |
 
 ---
 
@@ -119,11 +154,10 @@ For P0, this story may use in-memory runtime structures unless existing repo arc
 
 | Test ID | Layer | Scenario | Input/Setup | Expected result | Source rule protected |
 |---|---|---|---|---|---|
-| BE005-U-001 | Unit | plan_ready not execution | plan_ready | no browser action | confirmation gate |
-| BE005-U-002 | Unit | valid confirm | current active plan | executing state | explicit confirmation |
-| BE005-U-003 | Unit | stale confirm | old version | runtime_rejected | version safety |
-| BE005-U-004 | Unit | duplicate confirm | already executing | no duplicate execution | idempotency |
-| BE005-I-001 | Integration | LLM action before confirm | tool call | blocked | LLM proposes only |
+| BE011-U-001 | Unit | unsupported capability | upload op unsupported | gap recorded | no guessing |
+| BE011-U-002 | Unit | gap missing capability | payload missing | rejected | schema |
+| BE011-U-003 | Unit | LLM says possible | unsupported tool | gap still recorded | backend truth |
+| BE011-I-001 | Integration | unsupported action flow | unsupported command/action | capability_gap_recorded | event contract |
 
 ---
 

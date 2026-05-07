@@ -116,6 +116,7 @@ def build_runtime_rejection_payload(
     detail: str | None = None,
     current_state: Mapping[str, Any] | None = None,
     command_id: str | None = None,
+    command_type: str | None = None,
     run_id: str | None = None,
     recoverable: bool | None = None,
     source: str | None = None,
@@ -145,6 +146,8 @@ def build_runtime_rejection_payload(
         rejection_payload["current_state"] = _json_safe_copy(current_state_data)
     if command_id:
         rejection_payload["command_id"] = _coerce_text(command_id)
+    if command_type:
+        rejection_payload["command_type"] = _coerce_text(command_type)
     if run_id:
         rejection_payload["run_id"] = _coerce_text(run_id)
     if source:
@@ -158,6 +161,24 @@ def build_runtime_rejection_payload(
         event_id=event_id,
         emitted_at=emitted_at,
         source=source,
+    )
+
+
+def _run_context_mismatch_reason(
+    current_state: Mapping[str, Any] | None,
+    command_context: Mapping[str, Any] | None,
+    *,
+    command_type: str,
+) -> str | None:
+    current_state_data = _coerce_mapping(current_state)
+    command_context_data = _coerce_mapping(command_context)
+    current_run_id = _coerce_text(current_state_data.get("run_id"))
+    command_run_id = _coerce_text(command_context_data.get("run_id"))
+    if not current_run_id or not command_run_id or current_run_id == command_run_id:
+        return None
+    return (
+        f"{command_type} run_id mismatch: "
+        f"received {command_run_id!r} while active run is {current_run_id!r}"
     )
 
 
@@ -392,6 +413,28 @@ def normalize_frontend_command(
                 source=source or None,
             ),
         )
+
+    if command_type in {"confirmed", "correction"}:
+        mismatch_reason = _run_context_mismatch_reason(
+            state_data,
+            normalized_context,
+            command_type=command_type,
+        )
+        if mismatch_reason:
+            return (
+                None,
+                build_runtime_rejection_payload(
+                    "STALE_COMMAND",
+                    f"{command_type} does not match the active run context.",
+                    detail=mismatch_reason,
+                    current_state=state_data,
+                    command_id=command_id or None,
+                    command_type=command_type,
+                    run_id=normalized_context["run_id"] or None,
+                    recoverable=False,
+                    source=source or None,
+                ),
+            )
 
     if is_canonical:
         if command_type == "confirmed":

@@ -1,28 +1,72 @@
-# BE-007 Structured correction diff validation and application
+# BE-006 Confirmed execution contract validator
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-001 Backend Runtime Truth  
 **Owner:** DEV-1 Backend Runtime + Event Truth  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Ready for repo inspection; not ready for implementation  
+**Readiness:** Done; all child tasks complete  
+**Progress:** Done  
 **Dependencies:** SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001  
-**Blocks:** Correction flow, LLM plan-diff story, BE-004 active plan versions  
+**Blocks:** BE-009 recording builder, execution E2E, code_update correctness  
 **Version:** Batch 02 v1  
 
 ---
 
 ## Product contribution
 
-Allows users to correct plans safely without LLM regenerating a whole plan and silently dropping/reordering operations.
+Makes the confirmed plan the execution contract. Prevents LLM/tool execution from running a different operation than what user confirmed.
 
 This story contributes to the final Complete LLM Mode workflow by strengthening the backend-owned runtime truth path:
 
 ```text
 user intent → plan/correction/confirmation → backend validation → execution/recording/replay/completion
 ```
+
+## Parent Status
+
+- Status: Done
+- Progress: Done
+- Reason: confirmed execution boundaries, pre-confirmation execution blocking, stale run rejection, recovery blocking, and strict cursor audit are complete.
+
+## Child Tasks
+
+| Child task | Status | Evidence |
+|---|---|---|
+| BE-006.1 Map confirmed execution contract boundaries | Done | commit `f7e3847`; `agent.py` confirmed execution check; `tests/test_event_sequence_contract.py` |
+| BE-006.2 Add tests that execution cannot start before confirmation | Done | `tests/test_event_sequence_contract.py`, `tests/test_completion_guard.py` |
+| BE-006.3 Add tests for stale run/plan rejection before execution | Done | `tests/test_backend_isolation_contract.py`, `tests/test_late_event_contract.py` |
+| BE-006.4 Ensure unresolved recovery blocks finality/execution continuation | Done | `tests/test_completion_guard.py`, `tests/test_recovery_scope_guard.py` |
+| BE-006.5 Identify remaining strict execution cursor gaps | Done | `agent.py` confirmed execution validator and cursor checks; `tests/test_event_sequence_contract.py`, `tests/test_completion_guard.py`, `tests/test_recovery_scope_guard.py`, `tests/test_backend_isolation_contract.py`; focused suite `58 passed, 1 xfailed` |
+
+### Done Children
+
+- `BE-006.1` Map confirmed execution contract boundaries
+- `BE-006.2` Add tests that execution cannot start before confirmation
+- `BE-006.3` Add tests for stale run/plan rejection before execution
+- `BE-006.4` Ensure unresolved recovery blocks finality/execution continuation
+- `BE-006.5` Identify remaining strict execution cursor gaps
+
+### In Progress Children
+
+- None
+
+### Remaining Planning Children
+
+- None
+
+## Evidence
+
+- `agent.py` confirmed execution validator and cursor checks were audited for remaining strict-cursor gaps.
+- `tests/test_event_sequence_contract.py`, `tests/test_completion_guard.py`, `tests/test_recovery_scope_guard.py`, and `tests/test_backend_isolation_contract.py` stay green in the focused backend sweep.
+- The focused backend contract suite passed `58` tests with `1` xfailed.
+- Branch status: branch-only on `dev1/backend-isolation-contract-tests`.
+
+## Next Action
+
+- None; BE-006 is complete.
 
 ---
 
@@ -39,7 +83,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 ## System role
 
-| Layer | Relationship to BE-007 |
+| Layer | Relationship to BE-006 |
 |---|---|
 | Backend | Primary owner and source of truth |
 | LLM | Proposes only; cannot own runtime truth |
@@ -53,15 +97,15 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 | Source | Extracted rule | Planning interpretation | Story impact |
 |---|---|---|---|
-| Handoff | Correction must use structured plan_correction_diff applied by backend; retry once then fail closed. | LLM cannot directly overwrite plan. | Validate correction diff schema. |
-| Product Workflows | Old plan replaced by revised plan; user confirms revised plan. | New active plan version needed. | Integrate with BE-004. |
-| SOURCE-001 | Human clarification beats guessing. | Ambiguous correction should not be guessed. | Reject/clarify unclear diff. |
+| SOURCE-001 | Backend owns execution contract. | LLM proposes; backend validates. | Validate each execution attempt. |
+| Handoff | Confirmed plan children become execution contract; strict cursor prevents cross-step contamination. | Need current step/operation cursor. | Validate identity and order. |
+| BE-005 | Confirmation locks active plan version. | Only confirmed plan can execute. | Build contract from confirmed version. |
 
 ---
 
 ## Architecture decision
 
-Correction is structured diff/intent-change. Backend validates add/update/remove/reorder operations, preserves identity when possible, and rejects stale or unsafe corrections.
+Every browser action/assertion must match the next expected confirmed operation by run_id, plan_id/version, step_id, operation_id, type/subtype, target/locator, and assertion data.
 
 ---
 
@@ -70,7 +114,7 @@ Correction is structured diff/intent-change. Backend validates add/update/remove
 | Dependency type | Items | Meaning |
 |---|---|---|
 | Upstream | SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001 | Planning rules and runtime state foundation |
-| Direct blockers | Correction flow, LLM plan-diff story, BE-004 active plan versions | Cannot proceed safely without this story or approved mocks |
+| Direct blockers | BE-009 recording builder, execution E2E, code_update correctness | Cannot proceed safely without this story or approved mocks |
 | Indirect consumers | EPIC-005 frontend, EPIC-006 E2E, EPIC-008 recording/codegen, EPIC-009 trace | Eventually depend on this contract |
 | Parallel safe with mocks | DEV-2 LLM policy planning, DEV-3 Shadow DOM shell, DEV-4 harness skeleton | May proceed only without inventing final backend truth |
 | Conflict zones | `agent.py`, WebSocket command/event paths, runtime state, frontend lifecycle store | Inspect before editing |
@@ -104,8 +148,8 @@ This story unlocks downstream implementation by producing a precise backend cont
 
 | Item | Required fields | Rules | Used by |
 |---|---|---|---|
-| CorrectionDiff | run_id, plan_id/version, correction_id, operations, reason | required | correction request |
-| DiffOperation | type, target id, patch/payload, reason, position? | required | validated mutation |
+| ConfirmedExecutionContract | run_id, plan_id/version, ordered_step_ids, current cursors, status | required | execution authority |
+| ContractOperation | operation_id, step_id, type/subtype, target, locator_ref, expected_value | required | validation target |
 
 ---
 
@@ -119,12 +163,12 @@ For P0, this story may use in-memory runtime structures unless existing repo arc
 
 | Test ID | Layer | Scenario | Input/Setup | Expected result | Source rule protected |
 |---|---|---|---|---|---|
-| BE007-C-001 | Contract | valid diff | update operation | accepted | structured correction |
-| BE007-C-002 | Contract | remove without reason | remove op | rejected | no silent drop |
-| BE007-U-001 | Unit | stale correction | old version | rejected | version safety |
-| BE007-U-002 | Unit | correction during execution | RunState.executing | rejected | execution safety |
-| BE007-U-003 | Unit | full plan replace | unstructured plan | rejected/retry | schema safety |
-| BE007-I-001 | Integration | correction to revised plan | plan_review correction | new version plan_ready | workflow |
+| BE006-U-001 | Unit | expected op allowed | matching op | allowed | contract validation |
+| BE006-U-002 | Unit | wrong operation_id | mismatch | rejected | child identity |
+| BE006-U-003 | Unit | wrong step_id | mismatch | rejected | step isolation |
+| BE006-U-004 | Unit | wrong assertion value | mismatch | rejected | assertion semantics |
+| BE006-U-005 | Unit | cursor advances only on success | LLM says success | no advance | backend evidence |
+| BE006-I-001 | Integration | multi-step isolation | op from step 2 during step 1 | rejected | no contamination |
 
 ---
 

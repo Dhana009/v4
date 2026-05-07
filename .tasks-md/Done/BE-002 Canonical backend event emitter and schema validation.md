@@ -1,28 +1,74 @@
-# BE-011 Capability gap event baseline
+# BE-002 Canonical backend event emitter and schema validation
 
 **Type:** Story  
-**Status:** Backlog  
+**Status:** Done  
 **Priority:** P0  
 **Epic:** EPIC-001 Backend Runtime Truth  
 **Owner:** DEV-1 Backend Runtime + Event Truth  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Ready for repo inspection; not ready for implementation  
+**Readiness:** Done; all child tasks complete  
+**Progress:** Done  
 **Dependencies:** SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001  
-**Blocks:** advanced capability backlog, trace observability, unsupported action handling  
+**Blocks:** DEV-3 frontend lifecycle rendering, DEV-4 event capture, BE-003 rejection flow, BE-010 run_completed event  
 **Version:** Batch 02 v1  
 
 ---
 
 ## Product contribution
 
-Records unsupported capabilities as typed backend gaps instead of guessing, silently failing, or pretending unsupported actions succeeded.
+Creates the canonical backend event layer so frontend, E2E, trace, recording/replay, and user-facing state render from typed backend truth instead of logs, LLM prose, or ad hoc WebSocket payloads.
 
 This story contributes to the final Complete LLM Mode workflow by strengthening the backend-owned runtime truth path:
 
 ```text
 user intent → plan/correction/confirmation → backend validation → execution/recording/replay/completion
 ```
+
+## Parent Status
+
+- Status: Done
+- Progress: Done
+- Reason: event helper/seam coverage, session-state handshake, and remaining schema-gap audit are complete.
+
+## Child Tasks
+
+| Child task | Status | Evidence |
+|---|---|---|
+| BE-002.1 Add backend event contract tests | Done | commit `f117599`; `tests/test_event_contract.py`, `tests/test_event_sequence_contract.py` |
+| BE-002.2 Add canonical backend event helper/seam | Done | commit `f7e3847`; `runtime/event_contracts.py`, `agent.py`, `server.py` |
+| BE-002.3 Add explicit run_completed event contract | Done | covered by `f7e3847` contract seam and the event-contract suite |
+| BE-002.4 Add explicit recovery_needed event contract | Done | covered by `f7e3847` contract seam and the event-contract suite |
+| BE-002.5 Add session_state websocket event contract | Done | commits `f7e1c61` and `680aa8f`; websocket/session-state handshake and status update |
+| BE-002.6 Identify remaining canonical event envelope/schema gaps | Done | `runtime/event_contracts.py`, `tests/test_event_contract.py`, `tests/test_event_sequence_contract.py`, `tests/test_process_boundary_contract.py`; focused suite `58 passed, 1 xfailed` |
+
+### Done Children
+
+- `BE-002.1` Add backend event contract tests
+- `BE-002.2` Add canonical backend event helper/seam
+- `BE-002.3` Add explicit run_completed event contract
+- `BE-002.4` Add explicit recovery_needed event contract
+- `BE-002.5` Add session_state websocket event contract
+- `BE-002.6` Identify remaining canonical event envelope/schema gaps
+
+### In Progress Children
+
+- None
+
+### Remaining Planning Children
+
+- None
+
+## Evidence
+
+- `runtime/event_contracts.py` canonical envelope helpers and the related contract tests cover the remaining schema-gap audit.
+- `tests/test_event_contract.py`, `tests/test_event_sequence_contract.py`, and `tests/test_process_boundary_contract.py` remain green in the focused backend sweep.
+- The focused backend contract suite passed `58` tests with `1` xfailed.
+- Branch status: branch-only for the DEV-1 batch; MR-1E also has local-main merge evidence at commit `908f4d0`.
+
+## Next Action
+
+- None; BE-002 is complete.
 
 ---
 
@@ -39,7 +85,7 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 ## System role
 
-| Layer | Relationship to BE-011 |
+| Layer | Relationship to BE-002 |
 |---|---|
 | Backend | Primary owner and source of truth |
 | LLM | Proposes only; cannot own runtime truth |
@@ -53,15 +99,15 @@ user intent → plan/correction/confirmation → backend validation → executio
 
 | Source | Extracted rule | Planning interpretation | Story impact |
 |---|---|---|---|
-| SOURCE-001 | Unsupported behavior should become capability gap truth. | Backend records gap instead of guessing. | Define capability_gap_recorded baseline. |
-| PLAN-003 | Advanced capabilities are P1; P0 tracks baseline gaps. | Do not implement all advanced behavior here. | Record evidence only. |
-| BE-002 | canonical event layer. | Gap becomes typed event. | Emit/validate gap payload. |
+| SOURCE-001 | Every important lifecycle change must become a typed backend event. | State changes cannot remain only in logs or frontend assumptions. | Define event factory/schema validation. |
+| Backend Event Contract | Canonical events include plan_ready, clarification_needed, recovery_needed, step_validating, step_executing, step_recorded, step_failed, step_skipped, code_update, replay_started, replay_result, run_completed, session_state, capability_gap_recorded. | Frontend and E2E need stable event names/payloads. | New backend work emits canonical names; adapters are temporary only. |
+| BE-001 | State transitions are backend-owned and event-compatible. | Events expose state truth, not create it. | Consume transition results and serialize them safely. |
 
 ---
 
 ## Architecture decision
 
-P0 records capability gaps; it does not implement upload/download/popup/iframe/network/auth support broadly. Gap has needed capability, impact, evidence, and future-story hint.
+Backend event factory validates event type and required identifiers before emission. Runtime truth events are produced from backend state transitions. LLM/frontend cannot emit runtime-truth events directly.
 
 ---
 
@@ -70,7 +116,7 @@ P0 records capability gaps; it does not implement upload/download/popup/iframe/n
 | Dependency type | Items | Meaning |
 |---|---|---|
 | Upstream | SOURCE-001, PLAN-002, PLAN-005, EPIC-001, BE-001 | Planning rules and runtime state foundation |
-| Direct blockers | advanced capability backlog, trace observability, unsupported action handling | Cannot proceed safely without this story or approved mocks |
+| Direct blockers | DEV-3 frontend lifecycle rendering, DEV-4 event capture, BE-003 rejection flow, BE-010 run_completed event | Cannot proceed safely without this story or approved mocks |
 | Indirect consumers | EPIC-005 frontend, EPIC-006 E2E, EPIC-008 recording/codegen, EPIC-009 trace | Eventually depend on this contract |
 | Parallel safe with mocks | DEV-2 LLM policy planning, DEV-3 Shadow DOM shell, DEV-4 harness skeleton | May proceed only without inventing final backend truth |
 | Conflict zones | `agent.py`, WebSocket command/event paths, runtime state, frontend lifecycle store | Inspect before editing |
@@ -104,7 +150,14 @@ This story unlocks downstream implementation by producing a precise backend cont
 
 | Item | Required fields | Rules | Used by |
 |---|---|---|---|
-| CapabilityGap | gap_id, run_id?, step_id?, operation_id?, needed_capability, current_tool_support, user_impact, recommended_followup?, evidence_ref?, status | required | gap truth |
+| run_started | run_id | status, started_at | RunState.planning |
+| plan_ready | run_id, plan_id, plan_version | steps, summary, status | PlanState.awaiting_confirmation |
+| clarification_needed | run_id, clarification_id | question, options, reason | RunState.clarification |
+| step_validating | run_id, step_id, operation_id? | target/locator context | OperationState.validating |
+| step_executing | run_id, step_id, operation_id | operation type/subtype | OperationState.executing |
+| step_failed/recovery_needed | run_id, step_id, operation_id? | error_summary, options | RunState.recovery |
+| step_recorded | run_id, step_id | recorded parent/children | RecordingState |
+| run_completed | run_id | summary/counts | RunState.completed |
 
 ---
 
@@ -118,10 +171,12 @@ For P0, this story may use in-memory runtime structures unless existing repo arc
 
 | Test ID | Layer | Scenario | Input/Setup | Expected result | Source rule protected |
 |---|---|---|---|---|---|
-| BE011-U-001 | Unit | unsupported capability | upload op unsupported | gap recorded | no guessing |
-| BE011-U-002 | Unit | gap missing capability | payload missing | rejected | schema |
-| BE011-U-003 | Unit | LLM says possible | unsupported tool | gap still recorded | backend truth |
-| BE011-I-001 | Integration | unsupported action flow | unsupported command/action | capability_gap_recorded | event contract |
+| BE002-C-001 | Contract | valid plan_ready | PlanState.awaiting_confirmation | event accepted | typed events |
+| BE002-C-002 | Contract | missing type | payload without type | rejected | schema validation |
+| BE002-C-003 | Contract | unknown event type | unsupported type | rejected | canonical names |
+| BE002-C-004 | Contract | step event missing step_id | step_executing without step_id | rejected | identity |
+| BE002-C-005 | Contract | runtime_rejected shape | rejection payload | accepted | structured rejection |
+| BE002-I-001 | Integration | invalid event blocked | bad event through bridge | not emitted | frontend safety |
 
 ---
 
