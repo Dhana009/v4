@@ -107,7 +107,6 @@ def test_completed_run_rejects_late_confirmation_and_does_not_reopen_plan() -> N
     assert result["confirmed"] is False
 
 
-@pytest.mark.xfail(strict=True, reason="stale correction commands still return a correction result instead of rejection")
 def test_stale_correction_command_for_old_run_cannot_mutate_current_run() -> None:
     loop = _make_loop()
     loop._active_plan_state = {
@@ -141,6 +140,7 @@ def test_stale_correction_command_for_old_run_cannot_mutate_current_run() -> Non
     rejection = sent_events[0]
     assert rejection["type"] == "runtime_rejected"
     assert rejection["rejection_code"] == "STALE_CONFIRMATION"
+    assert rejection["command_type"] == "correction"
     assert rejection["run_id"] == "run-old"
     assert rejection["payload"]["current_state"]["run_id"] == "run-current"
     assert result["confirmed"] is False
@@ -153,7 +153,6 @@ def test_stale_correction_command_for_old_run_cannot_mutate_current_run() -> Non
         ("correction", {"message": "Use the newer plan"}),
     ],
 )
-@pytest.mark.xfail(strict=True, reason="normalize_frontend_command does not yet reject stale run_id mismatches")
 def test_stale_command_with_run_id_mismatch_is_typed_rejected(
     command_type: str,
     payload: dict[str, object],
@@ -178,6 +177,7 @@ def test_stale_command_with_run_id_mismatch_is_typed_rejected(
     assert rejection is not None
     assert rejection["type"] == "runtime_rejected"
     assert rejection["rejection_code"] == "STALE_COMMAND"
+    assert rejection["command_type"] == command_type
     assert rejection["run_id"] == "run-old"
     assert rejection["command_id"] == f"cmd-{command_type}"
     assert rejection["current_state"]["run_id"] == "run-current"

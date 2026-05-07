@@ -7714,6 +7714,28 @@ class AgentLoop:
             answer = str(event.get("message") or event.get("answer") or "").strip()
             event_context = self._confirmation_context(event)
             if event_type == "correction":
+                mismatch_reason = self._confirmation_context_mismatch_reason(active_confirmation_context, event_context)
+                if mismatch_reason:
+                    await self._send(
+                        "runtime_rejected",
+                        **build_runtime_rejection_payload(
+                            "STALE_CONFIRMATION",
+                            "Correction does not match the active plan context.",
+                            detail=f"correction context mismatch: {mismatch_reason}",
+                            current_state=active_confirmation_context
+                            or self._confirmation_context(self._current_active_plan_state()),
+                            run_id=event_context.get("run_id") or active_confirmation_context.get("run_id") or None,
+                            recoverable=False,
+                            source="agent",
+                            command_type="correction",
+                        ),
+                    )
+                    return {
+                        "confirmed": False,
+                        "correction": answer or "the user requested a correction",
+                        "plan_id": str(event.get("plan_id") or event.get("planId") or "").strip() or None,
+                        "target_step_id": str(event.get("target_step_id") or event.get("targetStepId") or "").strip() or None,
+                    }
                 return {
                     "confirmed": False,
                     "correction": answer,
