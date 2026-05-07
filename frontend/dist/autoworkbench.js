@@ -26526,6 +26526,7 @@
     };
   }
   var pendingStepCounter = 0;
+  var pendingCommandSequence = 0;
   function createPendingStep(intent = "", elementInfo = null, recorded = false) {
     pendingStepCounter += 1;
     return {
@@ -26536,6 +26537,39 @@
       recorded,
       status: "draft"
     };
+  }
+  function normalizePendingCommandStatus(status) {
+    const value = firstNonEmptyText(status).toLowerCase();
+    if (["pending", "acknowledged", "rejected"].includes(value)) {
+      return value;
+    }
+    return "pending";
+  }
+  function normalizePendingCommand(command, index = 0) {
+    if (!command || typeof command !== "object") {
+      return null;
+    }
+    const commandId = firstNonEmptyText(command.command_id, command.commandId, command.id);
+    const commandType = firstNonEmptyText(command.command_type, command.commandType, command.type);
+    if (!commandId || !commandType) {
+      return null;
+    }
+    const createdSequence = Number(command.created_sequence ?? command.createdSequence);
+    return {
+      ...command,
+      command_id: commandId,
+      command_type: commandType,
+      created_at: firstNonEmptyText(command.created_at, command.createdAt) || (/* @__PURE__ */ new Date()).toISOString(),
+      created_sequence: Number.isFinite(createdSequence) ? createdSequence : index + 1,
+      status: normalizePendingCommandStatus(command.status),
+      source: firstNonEmptyText(command.source) || "frontend"
+    };
+  }
+  function normalizePendingCommands(commands) {
+    if (Array.isArray(commands) && commands.length > 0) {
+      return commands.map((command, index) => normalizePendingCommand(command, index)).filter(Boolean);
+    }
+    return [];
   }
   var EXPECTED_OUTCOME_TYPES2 = [
     "navigation",
@@ -27407,6 +27441,7 @@
     const [lastError, setLastError] = (0, import_react2.useState)("");
     const [lastEvent, setLastEvent] = (0, import_react2.useState)(null);
     const [lastSavedSnapshot, setLastSavedSnapshot] = (0, import_react2.useState)(null);
+    const [pendingCommands, setPendingCommands] = (0, import_react2.useState)(() => normalizePendingCommands(config.pendingCommands));
     const [pendingSteps, setPendingSteps] = (0, import_react2.useState)(() => normalizePendingSteps(config.pendingSteps));
     const [recordedSteps, setRecordedSteps] = (0, import_react2.useState)(() => normalizeRecordedSteps(config.recordedSteps));
     const [lastReplayByStepId, setLastReplayByStepId] = (0, import_react2.useState)({});
@@ -27424,8 +27459,12 @@
     const attemptRef = (0, import_react2.useRef)(0);
     const mountedRef = (0, import_react2.useRef)(true);
     const planRef = (0, import_react2.useRef)(null);
+    const pendingCommandsRef = (0, import_react2.useRef)([]);
     const activePickerStepIdRef = (0, import_react2.useRef)("");
     const pendingStepsRef = (0, import_react2.useRef)([]);
+    (0, import_react2.useLayoutEffect)(() => {
+      pendingCommandsRef.current = pendingCommands;
+    }, [pendingCommands]);
     (0, import_react2.useLayoutEffect)(() => {
       activePickerStepIdRef.current = activePickerStepId;
     }, [activePickerStepId]);
@@ -27442,6 +27481,79 @@
         return next;
       });
     }, []);
+    const updatePendingCommands = (0, import_react2.useCallback)((updater) => {
+      setPendingCommands((current) => {
+        const next = typeof updater === "function" ? updater(current) : updater;
+        pendingCommandsRef.current = next;
+        return next;
+      });
+    }, []);
+    const recordPendingCommand = (0, import_react2.useCallback)(
+      (commandEnvelope, metadata = {}) => {
+        const commandId = firstNonEmptyText(commandEnvelope?.command_id, commandEnvelope?.commandId);
+        const commandType = firstNonEmptyText(commandEnvelope?.type);
+        if (!commandId || !commandType) {
+          return;
+        }
+        const pendingCommand = {
+          command_id: commandId,
+          command_type: commandType,
+          created_at: (/* @__PURE__ */ new Date()).toISOString(),
+          created_sequence: pendingCommandSequence += 1,
+          status: "pending",
+          source: "frontend",
+          ...metadata
+        };
+        updatePendingCommands((current) => [...current, pendingCommand].slice(-20));
+      },
+      [updatePendingCommands]
+    );
+    const acknowledgePendingCommands = (0, import_react2.useCallback)(
+      (eventType, metadata = {}) => {
+        updatePendingCommands((current) => {
+          const index = current.findIndex((command) => command && command.status === "pending");
+          if (index === -1) {
+            return current;
+          }
+          const next = current.slice();
+          next[index] = {
+            ...next[index],
+            status: "acknowledged",
+            acknowledged_at: (/* @__PURE__ */ new Date()).toISOString(),
+            acknowledged_by: eventType,
+            ...metadata
+          };
+          return next;
+        });
+      },
+      [updatePendingCommands]
+    );
+    const rejectPendingCommand = (0, import_react2.useCallback)(
+      (commandId, metadata = {}) => {
+        const rejectionId = firstNonEmptyText(commandId);
+        if (!rejectionId) {
+          return false;
+        }
+        let matched = false;
+        updatePendingCommands((current) => {
+          const index = current.findIndex((command) => firstNonEmptyText(command?.command_id) === rejectionId);
+          if (index === -1) {
+            return current;
+          }
+          matched = true;
+          const next = current.slice();
+          next[index] = {
+            ...next[index],
+            status: "rejected",
+            rejected_at: (/* @__PURE__ */ new Date()).toISOString(),
+            ...metadata
+          };
+          return next;
+        });
+        return matched;
+      },
+      [updatePendingCommands]
+    );
     const updateLastReplayByStepId = (0, import_react2.useCallback)((stepId, replayStatus) => {
       const replayStepId = firstNonEmptyText(stepId);
       if (!replayStepId) {
@@ -27707,16 +27819,17 @@
       if (runId) {
         commandPayload.run_id = runId;
       }
-      const sent = sendPayload(
-        buildFrontendCommandEnvelope("confirmed", commandPayload),
-        "WebSocket not connected."
-      );
+      const commandEnvelope = buildFrontendCommandEnvelope("confirmed", commandPayload);
+      const sent = sendPayload(commandEnvelope, "WebSocket not connected.");
       if (sent) {
         appendConversation("user", "Confirmed.");
+        recordPendingCommand(commandEnvelope, {
+          ui_label: "Confirm Plan"
+        });
         setPlanCorrectionText("");
         appendTimeline("Confirmation sent.", "ok");
       }
-    }, [appendConversation, appendTimeline, sendPayload]);
+    }, [appendConversation, appendTimeline, recordPendingCommand, sendPayload]);
     const handleSendPlanCorrection = (0, import_react2.useCallback)(() => {
       const correction = planCorrectionText.trim();
       if (!correction) {
@@ -27733,21 +27846,22 @@
         currentPlan?.steps?.[0]?.step_id,
         currentPlan?.steps?.[0]?.stepId
       );
-      const sent = sendPayload(
-        buildFrontendCommandEnvelope("correction", {
-          message: correction,
-          ...planId ? { plan_id: planId } : {},
-          ...planVersion ? { plan_version: planVersion } : {},
-          ...targetStepId ? { step_id: targetStepId } : {}
-        }),
-        "WebSocket not connected."
-      );
+      const commandEnvelope = buildFrontendCommandEnvelope("correction", {
+        message: correction,
+        ...planId ? { plan_id: planId } : {},
+        ...planVersion ? { plan_version: planVersion } : {},
+        ...targetStepId ? { step_id: targetStepId } : {}
+      });
+      const sent = sendPayload(commandEnvelope, "WebSocket not connected.");
       if (sent) {
         appendConversation("user", correction);
+        recordPendingCommand(commandEnvelope, {
+          ui_label: "Plan correction"
+        });
         setPlanCorrectionText("");
         appendTimeline("Correction sent.", "ok");
       }
-    }, [appendConversation, appendTimeline, plan, planCorrectionText, sendPayload]);
+    }, [appendConversation, appendTimeline, plan, planCorrectionText, recordPendingCommand, sendPayload]);
     const handleSendClarificationAnswer = (0, import_react2.useCallback)(
       (answerOverride = "") => {
         const answer = firstNonEmptyText(answerOverride, clarificationAnswerText).trim();
@@ -27759,23 +27873,24 @@
         const rawPlan = currentPlan && typeof currentPlan.raw === "object" ? currentPlan.raw : {};
         const planId = firstNonEmptyText(rawPlan.plan_id, rawPlan.planId, rawPlan.id);
         const planVersion = firstNonEmptyText(rawPlan.plan_version, rawPlan.planVersion);
-        const sent = sendPayload(
-          buildFrontendCommandEnvelope("option_selected", {
-            value: answer,
-            answer,
-            message: answer,
-            ...planId ? { plan_id: planId } : {},
-            ...planVersion ? { plan_version: planVersion } : {}
-          }),
-          "WebSocket not connected."
-        );
+        const commandEnvelope = buildFrontendCommandEnvelope("option_selected", {
+          value: answer,
+          answer,
+          message: answer,
+          ...planId ? { plan_id: planId } : {},
+          ...planVersion ? { plan_version: planVersion } : {}
+        });
+        const sent = sendPayload(commandEnvelope, "WebSocket not connected.");
         if (sent) {
           appendConversation("user", answer);
+          recordPendingCommand(commandEnvelope, {
+            ui_label: "Clarification answer"
+          });
           appendTimeline("Clarification answer sent.", "ok");
           setClarificationAnswerText("");
         }
       },
-      [appendConversation, appendTimeline, clarificationAnswerText, sendPayload]
+      [appendConversation, appendTimeline, clarificationAnswerText, recordPendingCommand, sendPayload]
     );
     const handleSendRecoveryInstruction = (0, import_react2.useCallback)(() => {
       const instruction = recoveryText.trim();
@@ -27787,20 +27902,21 @@
       const rawPlan = currentPlan && typeof currentPlan.raw === "object" ? currentPlan.raw : {};
       const planId = firstNonEmptyText(rawPlan.plan_id, rawPlan.planId, rawPlan.id);
       const planVersion = firstNonEmptyText(rawPlan.plan_version, rawPlan.planVersion);
-      const sent = sendPayload(
-        buildFrontendCommandEnvelope("correction", {
-          message: instruction,
-          ...planId ? { plan_id: planId } : {},
-          ...planVersion ? { plan_version: planVersion } : {}
-        }),
-        "WebSocket not connected."
-      );
+      const commandEnvelope = buildFrontendCommandEnvelope("correction", {
+        message: instruction,
+        ...planId ? { plan_id: planId } : {},
+        ...planVersion ? { plan_version: planVersion } : {}
+      });
+      const sent = sendPayload(commandEnvelope, "WebSocket not connected.");
       if (sent) {
         appendConversation("user", instruction);
+        recordPendingCommand(commandEnvelope, {
+          ui_label: "Recovery instruction"
+        });
         appendTimeline("Recovery instruction sent.", "ok");
         setRecoveryText("");
       }
-    }, [appendConversation, appendTimeline, recoveryText, sendPayload]);
+    }, [appendConversation, appendTimeline, recordPendingCommand, recoveryText, sendPayload]);
     const handleBackendMessage = (0, import_react2.useCallback)(
       (message) => {
         const type = String(message?.type || "status").toLowerCase();
@@ -27820,12 +27936,19 @@
                 setInteractionMode(nextState);
               }
             }
+            acknowledgePendingCommands(type, {
+              backend_event: type,
+              backend_state: nextState || ""
+            });
             appendTimeline(text || "Status update", "ok");
             break;
           }
           case "llm_thinking":
             setRunState("planning");
             setInteractionMode("planning");
+            acknowledgePendingCommands(type, {
+              backend_event: type
+            });
             appendTimeline(text || "LLM thinking", "active");
             appendConversation("agent", text || "Thinking\u2026");
             break;
@@ -27839,6 +27962,10 @@
             setRecoveryText("");
             const nextPlan = normalizePlanPayload(payload);
             setPlan(nextPlan);
+            acknowledgePendingCommands(type, {
+              backend_event: type,
+              plan_id: firstNonEmptyText(nextPlan?.raw?.plan_id, nextPlan?.raw?.planId, nextPlan?.raw?.id)
+            });
             appendTimeline(nextPlan?.summary ? `Plan ready \xB7 ${nextPlan.summary}` : "Plan ready", "warn");
             if (nextPlan?.summary) {
               appendConversation("agent", nextPlan.summary);
@@ -27854,6 +27981,9 @@
             setClarificationAnswerText("");
             setPlanCorrectionText("");
             setRecoveryText("");
+            acknowledgePendingCommands(type, {
+              backend_event: type
+            });
             appendConversation("agent", clarification.question || "Clarification needed");
             appendTimeline("Clarification needed", "warn");
             break;
@@ -27867,10 +27997,19 @@
             setClarificationAnswerText("");
             setPlanCorrectionText("");
             setRecoveryText("");
+            acknowledgePendingCommands(type, {
+              backend_event: type
+            });
             appendConversation("system", text || "Error");
             appendTimeline(text || "Error", "err");
             break;
           case "runtime_rejected": {
+            const rejectionCommandId = firstNonEmptyText(
+              payload && typeof payload === "object" ? payload.command_id : "",
+              payload && typeof payload === "object" ? payload.commandId : "",
+              message && typeof message === "object" ? message.command_id : "",
+              message && typeof message === "object" ? message.commandId : ""
+            );
             const rejectionCode = firstNonEmptyText(
               payload && typeof payload === "object" ? payload.rejection_code : "",
               payload && typeof payload === "object" ? payload.rejectionCode : ""
@@ -27886,6 +28025,13 @@
               firstNonEmptyText(currentState.phase, currentState.state),
               firstNonEmptyText(currentState.run_id, currentState.plan_id)
             ].filter(Boolean).join(" \xB7 ") : "";
+            if (rejectionCommandId) {
+              rejectPendingCommand(rejectionCommandId, {
+                rejection_code: rejectionCode,
+                rejection_reason: rejectionReason,
+                current_state: currentState
+              });
+            }
             setLastError(rejectionReason);
             appendTimeline([rejectionCode, rejectionReason, currentStateSummary].filter(Boolean).join(" \xB7 "), "err");
             break;
@@ -27909,6 +28055,10 @@
               appendConversation("agent", text || "LLM result received");
               appendTimeline(text || "LLM result received", "ok");
             }
+            acknowledgePendingCommands(type, {
+              backend_event: type,
+              success: Boolean(resultSuccess)
+            });
             {
               const nextCode = extractCodePreview(payload);
               if (nextCode) {
@@ -27970,6 +28120,10 @@
             const planCompleted = Boolean(nextPlan && Array.isArray(nextPlan.steps) && nextPlan.steps.length > 0 && nextPlan.steps.every(isPlanStepCompleted));
             setRunState((current) => current === "completed" ? current : planCompleted ? "completed" : "executing");
             setInteractionMode(planCompleted ? "completed" : "executing");
+            acknowledgePendingCommands(type, {
+              backend_event: type,
+              recorded_step_id: firstNonEmptyText(nextRecordedStep.id, nextRecordedStep.step_id)
+            });
             appendTimeline(
               `Recorded: ${firstNonEmptyText(nextRecordedStep.action, "recorded")} \u2014 ${firstNonEmptyText(
                 nextRecordedStep.element_name,
@@ -27985,6 +28139,9 @@
             if (nextCode) {
               setCodePreview(nextCode);
             }
+            acknowledgePendingCommands(type, {
+              backend_event: type
+            });
             appendTimeline(text || "Code updated", "ok");
             break;
           }
@@ -28186,7 +28343,7 @@
             break;
         }
       },
-      [appendConversation, appendTimeline]
+      [acknowledgePendingCommands, appendConversation, appendTimeline, rejectPendingCommand]
     );
     (0, import_react2.useEffect)(() => {
       mountedRef.current = true;
@@ -28287,6 +28444,7 @@
       timeline,
       plan,
       pendingSteps,
+      pendingCommands,
       recordedSteps,
       lastReplayByStepId,
       planCorrectionText,
@@ -28328,6 +28486,7 @@
       setClarificationAnswerText,
       setRecoveryText,
       setPendingSteps,
+      setPendingCommands,
       setRecordedSteps,
       updatePendingStepIntent,
       addPendingStep,

@@ -396,6 +396,7 @@ function normalizePlanPayload(payload) {
 }
 
 let pendingStepCounter = 0;
+let pendingCommandSequence = 0;
 
 function createPendingStep(intent = "", elementInfo = null, recorded = false) {
   pendingStepCounter += 1;
@@ -407,6 +408,46 @@ function createPendingStep(intent = "", elementInfo = null, recorded = false) {
     recorded,
     status: "draft",
   };
+}
+
+function normalizePendingCommandStatus(status) {
+  const value = firstNonEmptyText(status).toLowerCase();
+  if (["pending", "acknowledged", "rejected"].includes(value)) {
+    return value;
+  }
+  return "pending";
+}
+
+function normalizePendingCommand(command, index = 0) {
+  if (!command || typeof command !== "object") {
+    return null;
+  }
+
+  const commandId = firstNonEmptyText(command.command_id, command.commandId, command.id);
+  const commandType = firstNonEmptyText(command.command_type, command.commandType, command.type);
+  if (!commandId || !commandType) {
+    return null;
+  }
+
+  const createdSequence = Number(command.created_sequence ?? command.createdSequence);
+
+  return {
+    ...command,
+    command_id: commandId,
+    command_type: commandType,
+    created_at: firstNonEmptyText(command.created_at, command.createdAt) || new Date().toISOString(),
+    created_sequence: Number.isFinite(createdSequence) ? createdSequence : index + 1,
+    status: normalizePendingCommandStatus(command.status),
+    source: firstNonEmptyText(command.source) || "frontend",
+  };
+}
+
+function normalizePendingCommands(commands) {
+  if (Array.isArray(commands) && commands.length > 0) {
+    return commands.map((command, index) => normalizePendingCommand(command, index)).filter(Boolean);
+  }
+
+  return [];
 }
 
 const EXPECTED_OUTCOME_TYPES = [
@@ -1457,6 +1498,7 @@ function useAutoWorkbenchTransport(config) {
   const [lastError, setLastError] = useState("");
   const [lastEvent, setLastEvent] = useState(null);
   const [lastSavedSnapshot, setLastSavedSnapshot] = useState(null);
+  const [pendingCommands, setPendingCommands] = useState(() => normalizePendingCommands(config.pendingCommands));
   const [pendingSteps, setPendingSteps] = useState(() => normalizePendingSteps(config.pendingSteps));
   const [recordedSteps, setRecordedSteps] = useState(() => normalizeRecordedSteps(config.recordedSteps));
   const [lastReplayByStepId, setLastReplayByStepId] = useState({});
@@ -1475,8 +1517,13 @@ function useAutoWorkbenchTransport(config) {
   const attemptRef = useRef(0);
   const mountedRef = useRef(true);
   const planRef = useRef(null);
+  const pendingCommandsRef = useRef([]);
   const activePickerStepIdRef = useRef("");
   const pendingStepsRef = useRef([]);
+
+  useLayoutEffect(() => {
+    pendingCommandsRef.current = pendingCommands;
+  }, [pendingCommands]);
 
   useLayoutEffect(() => {
     activePickerStepIdRef.current = activePickerStepId;
@@ -1497,6 +1544,89 @@ function useAutoWorkbenchTransport(config) {
       return next;
     });
   }, []);
+
+  const updatePendingCommands = useCallback((updater) => {
+    setPendingCommands((current) => {
+      const next = typeof updater === "function" ? updater(current) : updater;
+      pendingCommandsRef.current = next;
+      return next;
+    });
+  }, []);
+
+  const recordPendingCommand = useCallback(
+    (commandEnvelope, metadata = {}) => {
+      const commandId = firstNonEmptyText(commandEnvelope?.command_id, commandEnvelope?.commandId);
+      const commandType = firstNonEmptyText(commandEnvelope?.type);
+      if (!commandId || !commandType) {
+        return;
+      }
+
+      const pendingCommand = {
+        command_id: commandId,
+        command_type: commandType,
+        created_at: new Date().toISOString(),
+        created_sequence: pendingCommandSequence += 1,
+        status: "pending",
+        source: "frontend",
+        ...metadata,
+      };
+
+      updatePendingCommands((current) => [...current, pendingCommand].slice(-20));
+    },
+    [updatePendingCommands]
+  );
+
+  const acknowledgePendingCommands = useCallback(
+    (eventType, metadata = {}) => {
+      updatePendingCommands((current) => {
+        const index = current.findIndex((command) => command && command.status === "pending");
+        if (index === -1) {
+          return current;
+        }
+
+        const next = current.slice();
+        next[index] = {
+          ...next[index],
+          status: "acknowledged",
+          acknowledged_at: new Date().toISOString(),
+          acknowledged_by: eventType,
+          ...metadata,
+        };
+        return next;
+      });
+    },
+    [updatePendingCommands]
+  );
+
+  const rejectPendingCommand = useCallback(
+    (commandId, metadata = {}) => {
+      const rejectionId = firstNonEmptyText(commandId);
+      if (!rejectionId) {
+        return false;
+      }
+
+      let matched = false;
+      updatePendingCommands((current) => {
+        const index = current.findIndex((command) => firstNonEmptyText(command?.command_id) === rejectionId);
+        if (index === -1) {
+          return current;
+        }
+
+        matched = true;
+        const next = current.slice();
+        next[index] = {
+          ...next[index],
+          status: "rejected",
+          rejected_at: new Date().toISOString(),
+          ...metadata,
+        };
+        return next;
+      });
+
+      return matched;
+    },
+    [updatePendingCommands]
+  );
 
   const updateLastReplayByStepId = useCallback((stepId, replayStatus) => {
     const replayStepId = firstNonEmptyText(stepId);
@@ -1805,17 +1935,18 @@ function useAutoWorkbenchTransport(config) {
       commandPayload.run_id = runId;
     }
 
-    const sent = sendPayload(
-      buildFrontendCommandEnvelope("confirmed", commandPayload),
-      "WebSocket not connected."
-    );
+    const commandEnvelope = buildFrontendCommandEnvelope("confirmed", commandPayload);
+    const sent = sendPayload(commandEnvelope, "WebSocket not connected.");
 
     if (sent) {
       appendConversation("user", "Confirmed.");
+      recordPendingCommand(commandEnvelope, {
+        ui_label: "Confirm Plan",
+      });
       setPlanCorrectionText("");
       appendTimeline("Confirmation sent.", "ok");
     }
-  }, [appendConversation, appendTimeline, sendPayload]);
+  }, [appendConversation, appendTimeline, recordPendingCommand, sendPayload]);
 
   const handleSendPlanCorrection = useCallback(() => {
     const correction = planCorrectionText.trim();
@@ -1834,22 +1965,23 @@ function useAutoWorkbenchTransport(config) {
       currentPlan?.steps?.[0]?.stepId
     );
 
-    const sent = sendPayload(
-      buildFrontendCommandEnvelope("correction", {
-        message: correction,
-        ...(planId ? { plan_id: planId } : {}),
-        ...(planVersion ? { plan_version: planVersion } : {}),
-        ...(targetStepId ? { step_id: targetStepId } : {}),
-      }),
-      "WebSocket not connected."
-    );
+    const commandEnvelope = buildFrontendCommandEnvelope("correction", {
+      message: correction,
+      ...(planId ? { plan_id: planId } : {}),
+      ...(planVersion ? { plan_version: planVersion } : {}),
+      ...(targetStepId ? { step_id: targetStepId } : {}),
+    });
+    const sent = sendPayload(commandEnvelope, "WebSocket not connected.");
 
     if (sent) {
       appendConversation("user", correction);
+      recordPendingCommand(commandEnvelope, {
+        ui_label: "Plan correction",
+      });
       setPlanCorrectionText("");
       appendTimeline("Correction sent.", "ok");
     }
-  }, [appendConversation, appendTimeline, plan, planCorrectionText, sendPayload]);
+  }, [appendConversation, appendTimeline, plan, planCorrectionText, recordPendingCommand, sendPayload]);
 
   const handleSendClarificationAnswer = useCallback(
     (answerOverride = "") => {
@@ -1863,24 +1995,25 @@ function useAutoWorkbenchTransport(config) {
       const planId = firstNonEmptyText(rawPlan.plan_id, rawPlan.planId, rawPlan.id);
       const planVersion = firstNonEmptyText(rawPlan.plan_version, rawPlan.planVersion);
 
-      const sent = sendPayload(
-        buildFrontendCommandEnvelope("option_selected", {
-          value: answer,
-          answer,
-          message: answer,
-          ...(planId ? { plan_id: planId } : {}),
-          ...(planVersion ? { plan_version: planVersion } : {}),
-        }),
-        "WebSocket not connected."
-      );
+      const commandEnvelope = buildFrontendCommandEnvelope("option_selected", {
+        value: answer,
+        answer,
+        message: answer,
+        ...(planId ? { plan_id: planId } : {}),
+        ...(planVersion ? { plan_version: planVersion } : {}),
+      });
+      const sent = sendPayload(commandEnvelope, "WebSocket not connected.");
 
       if (sent) {
         appendConversation("user", answer);
+        recordPendingCommand(commandEnvelope, {
+          ui_label: "Clarification answer",
+        });
         appendTimeline("Clarification answer sent.", "ok");
         setClarificationAnswerText("");
       }
     },
-    [appendConversation, appendTimeline, clarificationAnswerText, sendPayload]
+    [appendConversation, appendTimeline, clarificationAnswerText, recordPendingCommand, sendPayload]
   );
 
   const handleSendRecoveryInstruction = useCallback(() => {
@@ -1894,21 +2027,22 @@ function useAutoWorkbenchTransport(config) {
     const planId = firstNonEmptyText(rawPlan.plan_id, rawPlan.planId, rawPlan.id);
     const planVersion = firstNonEmptyText(rawPlan.plan_version, rawPlan.planVersion);
 
-    const sent = sendPayload(
-      buildFrontendCommandEnvelope("correction", {
-        message: instruction,
-        ...(planId ? { plan_id: planId } : {}),
-        ...(planVersion ? { plan_version: planVersion } : {}),
-      }),
-      "WebSocket not connected."
-    );
+    const commandEnvelope = buildFrontendCommandEnvelope("correction", {
+      message: instruction,
+      ...(planId ? { plan_id: planId } : {}),
+      ...(planVersion ? { plan_version: planVersion } : {}),
+    });
+    const sent = sendPayload(commandEnvelope, "WebSocket not connected.");
 
     if (sent) {
       appendConversation("user", instruction);
+      recordPendingCommand(commandEnvelope, {
+        ui_label: "Recovery instruction",
+      });
       appendTimeline("Recovery instruction sent.", "ok");
       setRecoveryText("");
     }
-  }, [appendConversation, appendTimeline, recoveryText, sendPayload]);
+  }, [appendConversation, appendTimeline, recordPendingCommand, recoveryText, sendPayload]);
 
   const handleBackendMessage = useCallback(
     (message) => {
@@ -1934,12 +2068,19 @@ function useAutoWorkbenchTransport(config) {
               setInteractionMode(nextState);
             }
           }
+          acknowledgePendingCommands(type, {
+            backend_event: type,
+            backend_state: nextState || "",
+          });
           appendTimeline(text || "Status update", "ok");
           break;
         }
         case "llm_thinking":
           setRunState("planning");
           setInteractionMode("planning");
+          acknowledgePendingCommands(type, {
+            backend_event: type,
+          });
           appendTimeline(text || "LLM thinking", "active");
           appendConversation("agent", text || "Thinking…");
           break;
@@ -1953,6 +2094,10 @@ function useAutoWorkbenchTransport(config) {
           setRecoveryText("");
           const nextPlan = normalizePlanPayload(payload);
           setPlan(nextPlan);
+          acknowledgePendingCommands(type, {
+            backend_event: type,
+            plan_id: firstNonEmptyText(nextPlan?.raw?.plan_id, nextPlan?.raw?.planId, nextPlan?.raw?.id),
+          });
           appendTimeline(nextPlan?.summary ? `Plan ready · ${nextPlan.summary}` : "Plan ready", "warn");
           if (nextPlan?.summary) {
             appendConversation("agent", nextPlan.summary);
@@ -1968,6 +2113,9 @@ function useAutoWorkbenchTransport(config) {
           setClarificationAnswerText("");
           setPlanCorrectionText("");
           setRecoveryText("");
+          acknowledgePendingCommands(type, {
+            backend_event: type,
+          });
           appendConversation("agent", clarification.question || "Clarification needed");
           appendTimeline("Clarification needed", "warn");
           break;
@@ -1981,10 +2129,19 @@ function useAutoWorkbenchTransport(config) {
           setClarificationAnswerText("");
           setPlanCorrectionText("");
           setRecoveryText("");
+          acknowledgePendingCommands(type, {
+            backend_event: type,
+          });
           appendConversation("system", text || "Error");
           appendTimeline(text || "Error", "err");
           break;
         case "runtime_rejected": {
+          const rejectionCommandId = firstNonEmptyText(
+            payload && typeof payload === "object" ? payload.command_id : "",
+            payload && typeof payload === "object" ? payload.commandId : "",
+            message && typeof message === "object" ? message.command_id : "",
+            message && typeof message === "object" ? message.commandId : ""
+          );
           const rejectionCode = firstNonEmptyText(
             payload && typeof payload === "object" ? payload.rejection_code : "",
             payload && typeof payload === "object" ? payload.rejectionCode : ""
@@ -2006,6 +2163,13 @@ function useAutoWorkbenchTransport(config) {
                   .join(" · ")
               : "";
 
+          if (rejectionCommandId) {
+            rejectPendingCommand(rejectionCommandId, {
+              rejection_code: rejectionCode,
+              rejection_reason: rejectionReason,
+              current_state: currentState,
+            });
+          }
           setLastError(rejectionReason);
           appendTimeline([rejectionCode, rejectionReason, currentStateSummary].filter(Boolean).join(" · "), "err");
           break;
@@ -2029,6 +2193,10 @@ function useAutoWorkbenchTransport(config) {
             appendConversation("agent", text || "LLM result received");
             appendTimeline(text || "LLM result received", "ok");
           }
+          acknowledgePendingCommands(type, {
+            backend_event: type,
+            success: Boolean(resultSuccess),
+          });
           {
             const nextCode = extractCodePreview(payload);
             if (nextCode) {
@@ -2099,6 +2267,10 @@ function useAutoWorkbenchTransport(config) {
           const planCompleted = Boolean(nextPlan && Array.isArray(nextPlan.steps) && nextPlan.steps.length > 0 && nextPlan.steps.every(isPlanStepCompleted));
           setRunState((current) => (current === "completed" ? current : planCompleted ? "completed" : "executing"));
           setInteractionMode(planCompleted ? "completed" : "executing");
+          acknowledgePendingCommands(type, {
+            backend_event: type,
+            recorded_step_id: firstNonEmptyText(nextRecordedStep.id, nextRecordedStep.step_id),
+          });
           appendTimeline(
             `Recorded: ${firstNonEmptyText(nextRecordedStep.action, "recorded")} — ${firstNonEmptyText(
               nextRecordedStep.element_name,
@@ -2114,6 +2286,9 @@ function useAutoWorkbenchTransport(config) {
           if (nextCode) {
             setCodePreview(nextCode);
           }
+          acknowledgePendingCommands(type, {
+            backend_event: type,
+          });
           appendTimeline(text || "Code updated", "ok");
           break;
         }
@@ -2328,7 +2503,7 @@ function useAutoWorkbenchTransport(config) {
           break;
       }
     },
-    [appendConversation, appendTimeline]
+    [acknowledgePendingCommands, appendConversation, appendTimeline, rejectPendingCommand]
   );
 
   useEffect(() => {
@@ -2447,6 +2622,7 @@ function useAutoWorkbenchTransport(config) {
     timeline,
     plan,
     pendingSteps,
+    pendingCommands,
     recordedSteps,
     lastReplayByStepId,
     planCorrectionText,
@@ -2488,6 +2664,7 @@ function useAutoWorkbenchTransport(config) {
     setClarificationAnswerText,
     setRecoveryText,
     setPendingSteps,
+    setPendingCommands,
     setRecordedSteps,
     updatePendingStepIntent,
     addPendingStep,

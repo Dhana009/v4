@@ -91,6 +91,19 @@ Fixed:
 - remaining known gap: the frontend has no separate pending-command banner; it relies on backend events and the debug/error surface
 - no backend/runtime/LLM/DOM changes
 
+## MR-4I pending-command metadata hardening
+
+- pending-command metadata tests added alongside the command envelope coverage
+- typed command handlers now record pending command metadata without changing lifecycle truth
+- pending metadata includes `command_id`, `command_type`, `created_at`, `created_sequence`, and `status`
+- backend lifecycle events can acknowledge the pending metadata and `runtime_rejected` marks the matching command rejected
+- typed command envelope shapes remain unchanged
+- `python -m py_compile tests/test_frontend_event_command_contract.py` passed
+- `python -m pytest tests/test_frontend_event_command_contract.py tests/test_command_contract.py tests/test_process_boundary_contract.py tests/test_plan_correction.py tests/test_late_event_contract.py -q` returned `84 passed`
+- `cd frontend && npm run build` succeeded
+- remaining known gap: pending command metadata is tracked in runtime state but not surfaced as a dedicated panel card yet
+- no backend/runtime/LLM/DOM changes
+
 ## Edge cases
 
 - double click confirm

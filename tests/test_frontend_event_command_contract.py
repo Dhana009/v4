@@ -66,6 +66,24 @@ def test_frontend_command_surface_routes_user_actions_through_transport() -> Non
     assert "type: \"save_snapshot\"" in main
 
 
+def test_frontend_pending_command_metadata_is_explicitly_modeled() -> None:
+    main = _read(FRONTEND_MAIN)
+
+    assert "pendingCommands" in main
+    assert "setPendingCommands" in main
+    assert "normalizePendingCommandStatus" in main
+    assert "normalizePendingCommand" in main
+    assert "normalizePendingCommands" in main
+    assert "recordPendingCommand" in main
+    assert "command_id" in main
+    assert "command_type" in main
+    assert "created_at" in main
+    assert "created_sequence" in main
+    assert 'status: "pending"' in main
+    assert 'status: "acknowledged"' in main
+    assert 'status: "rejected"' in main
+
+
 def test_frontend_event_store_should_be_split_into_a_dedicated_shell() -> None:
     main = _read(FRONTEND_MAIN)
 
@@ -138,25 +156,25 @@ def test_frontend_rejection_rendering_should_preserve_backend_reason_and_state()
         (
             "confirm",
             "  const handleConfirmPlan = useCallback(() => {",
-            "  }, [appendConversation, appendTimeline, sendPayload]);",
+            "  }, [appendConversation, appendTimeline, recordPendingCommand, sendPayload]);",
             ("setRunState(", "setInteractionMode(", "setPlan("),
         ),
         (
             "correction",
             "  const handleSendPlanCorrection = useCallback(() => {",
-            "  }, [appendConversation, appendTimeline, plan, planCorrectionText, sendPayload]);",
+            "  }, [appendConversation, appendTimeline, plan, planCorrectionText, recordPendingCommand, sendPayload]);",
             ("setRunState(", "setInteractionMode(", "setPlan("),
         ),
         (
             "clarification",
             '  const handleSendClarificationAnswer = useCallback(\n    (answerOverride = "") => {',
-            '    [appendConversation, appendTimeline, clarificationAnswerText, sendPayload]\n  );',
+            '    [appendConversation, appendTimeline, clarificationAnswerText, recordPendingCommand, sendPayload]\n  );',
             ("setRunState(", "setInteractionMode(", "setClarificationQuestion(", "setClarificationOptions("),
         ),
         (
             "recovery",
             "  const handleSendRecoveryInstruction = useCallback(() => {",
-            "  }, [appendConversation, appendTimeline, recoveryText, sendPayload]);",
+            "  }, [appendConversation, appendTimeline, recordPendingCommand, recoveryText, sendPayload]);",
             ("setRunState(", "setInteractionMode("),
         ),
     ],
@@ -175,10 +193,51 @@ def test_frontend_command_handlers_do_not_locally_mutate_lifecycle_truth(
         assert marker not in snippet, f"{handler_name} should not optimistically mutate lifecycle truth"
 
 
+@pytest.mark.parametrize(
+    ("handler_name", "start_marker", "end_marker"),
+    [
+        (
+            "confirm",
+            "  const handleConfirmPlan = useCallback(() => {",
+            "  }, [appendConversation, appendTimeline, recordPendingCommand, sendPayload]);",
+        ),
+        (
+            "correction",
+            "  const handleSendPlanCorrection = useCallback(() => {",
+            "  }, [appendConversation, appendTimeline, plan, planCorrectionText, recordPendingCommand, sendPayload]);",
+        ),
+        (
+            "clarification",
+            '  const handleSendClarificationAnswer = useCallback(\n    (answerOverride = "") => {',
+            '    [appendConversation, appendTimeline, clarificationAnswerText, recordPendingCommand, sendPayload]\n  );',
+        ),
+        (
+            "recovery",
+            "  const handleSendRecoveryInstruction = useCallback(() => {",
+            "  }, [appendConversation, appendTimeline, recordPendingCommand, recoveryText, sendPayload]);",
+        ),
+    ],
+)
+def test_frontend_command_handlers_create_pending_metadata_without_lifecycle_truth(
+    handler_name: str,
+    start_marker: str,
+    end_marker: str,
+) -> None:
+    main = _read(FRONTEND_MAIN)
+    snippet = _snippet_between(main, start_marker, end_marker)
+
+    assert "sendPayload(commandEnvelope" in snippet, f"{handler_name} should still submit a typed command"
+    assert "recordPendingCommand(commandEnvelope" in snippet, f"{handler_name} should create pending metadata"
+    assert "setRunState(" not in snippet, f"{handler_name} should not set lifecycle truth"
+    assert "setInteractionMode(" not in snippet, f"{handler_name} should not set lifecycle truth"
+
+
 def test_frontend_runtime_rejected_reports_without_flipping_lifecycle_truth() -> None:
     main = _read(FRONTEND_MAIN)
     snippet = _snippet_between(main, '        case "runtime_rejected": {', '        case "llm_result": {')
 
+    assert "rejectionCommandId" in snippet
+    assert "rejectPendingCommand(rejectionCommandId" in snippet
     assert "setLastError(rejectionReason);" in snippet
     assert "appendTimeline([rejectionCode, rejectionReason, currentStateSummary].filter(Boolean).join(\" · \"), \"err\");" in snippet
     assert "setRunState(" not in snippet
@@ -189,6 +248,7 @@ def test_frontend_backend_events_remain_the_only_lifecycle_source() -> None:
     main = _read(FRONTEND_MAIN)
     snippet = _snippet_between(main, "  const handleBackendMessage = useCallback(\n    (message) => {", "  useEffect(() => {")
 
+    assert "acknowledgePendingCommands(type" in snippet
     assert 'case "status": {' in snippet
     assert 'case "llm_thinking":' in snippet
     assert 'case "plan_ready": {' in snippet
@@ -199,3 +259,15 @@ def test_frontend_backend_events_remain_the_only_lifecycle_source() -> None:
     assert "setInteractionMode(" in snippet
     assert "setPlan(" in snippet
     assert "setRecordedSteps(" in snippet
+
+
+def test_frontend_unknown_events_only_update_trace_and_not_lifecycle_truth() -> None:
+    main = _read(FRONTEND_MAIN)
+    index = main.find("        default:")
+    assert index != -1
+    snippet = main[index : index + 140]
+
+    assert 'appendTimeline(text || type, "ok");' in snippet
+    assert "setRunState(" not in snippet
+    assert "setInteractionMode(" not in snippet
+    assert "setPendingCommands(" not in snippet

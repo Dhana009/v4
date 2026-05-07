@@ -90,6 +90,18 @@ Fixed:
 - remaining known gap: the frontend reports rejected commands through `lastError` and timeline only; no separate pending-command banner is surfaced in the panel
 - no backend/runtime/LLM/DOM changes
 
+## MR-4I pending-command metadata hardening
+
+- pending-command metadata tests added in `tests/test_frontend_event_command_contract.py`
+- `frontend/src/main.jsx` now tracks non-lifecycle pending command metadata separately from `runState` / `interactionMode`
+- command send handlers record `command_id`, `command_type`, `created_at`, `created_sequence`, and `status`
+- backend lifecycle events may acknowledge pending metadata, and `runtime_rejected` marks matching pending commands as rejected without lifecycle mutation
+- `python -m py_compile tests/test_frontend_event_command_contract.py` passed
+- `python -m pytest tests/test_frontend_event_command_contract.py tests/test_command_contract.py tests/test_process_boundary_contract.py tests/test_plan_correction.py tests/test_late_event_contract.py -q` returned `84 passed`
+- `cd frontend && npm run build` succeeded
+- remaining known gap: pending command metadata is stored in the frontend runtime state but not yet surfaced as a dedicated visible panel card
+- no backend/runtime/LLM/DOM changes
+
 ## Store state slices
 
 | Slice | Source event families |
