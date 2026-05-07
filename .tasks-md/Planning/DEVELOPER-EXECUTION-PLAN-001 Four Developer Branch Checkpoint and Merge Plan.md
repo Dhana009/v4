@@ -542,7 +542,11 @@ Completed subtask status: Done
 Verification: python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
 Verification: python -m pytest tests/test_e2e_harness.py -q -> 17 passed
 Implementation note: deterministic harness-unit event helper layer implemented; no product/runtime/backend/frontend/fixture changes.
-Next planned subtask: E2E-002C add focused integration regressions for capture-before-action and failure artifacts (not started)
+Completed subtask: E2E-002C add focused integration regressions for capture-before-action and failure artifacts
+Completed subtask status: Done
+Verification: python -m py_compile tests/e2e/harness.py tests/test_e2e_harness.py
+Verification: python -m pytest tests/test_e2e_harness.py -q -> 20 passed
+Implementation note: test-first, harness-integration only; no browser/server startup and no product/runtime/backend/frontend/fixture changes.
 Scope:
   tests/e2e/harness.py
   tests/test_e2e_harness.py
