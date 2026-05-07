@@ -769,10 +769,13 @@ Status note:
 - DEV-2 planned scope remains the full `DOM-001..DOM-010` plus `LLM-001..LLM-010` backlog set; this board has no separate Planned lane, so backlog is the planned state.
 - First In Progress slice is `LLM-001` through `LLM-004`.
 - MR-3B tests-only started on `dev2/llm-dom-test-mapping`; active slice is `LLM-001` through `LLM-004`.
+- MR-3C narrow implementation completed on `dev2/llm-dom-test-mapping`; `runtime/llm_runtime_controller.py` now satisfies the 7 contract tests for the LLM Runtime Controller foundation.
+- LLM-001 through LLM-004 moved to Testing after focused verification.
+- Verification: `python -m py_compile runtime/llm_runtime_controller.py tests/test_llm_runtime_controller_contract.py`; `python -m pytest tests/test_llm_runtime_controller_contract.py -q` passed 7/7; `python -m pytest tests/test_context_manager.py tests/test_tool_registry.py tests/test_skill_loading.py -q` passed 30/30.
 - Shared/blocked rows: `DOM-010` with DEV-4 fixtures.
-- Next checkpoint: add the first contract test file for the active slice before any implementation.
-- No implementation done.
-- Test-first work is in progress.
+- Next checkpoint: move the completed LLM foundation slice from Testing to Done after board review.
+- MR-3C implementation is complete.
+- Test-first work for the LLM Runtime Controller foundation slice is complete.
 
 ---
 

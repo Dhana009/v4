@@ -1,13 +1,13 @@
 # LLM-004 Structured output schema validation and retry policy
 
 **Type:** Story  
-**Status:** In Progress  
+**Status:** Testing  
 **Priority:** P0  
 **Epic:** EPIC-003 LLM Runtime Controller  
 **Owner:** DEV-2 LLM Runtime Controller + DOM/Page Policy  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Ready for repo inspection; not ready for implementation  
+**Readiness:** Ready for testing; MR-3C implementation complete  
 **Dependencies:** LLM-001, EVENT-003, BE-003  
 **Blocks:** LLM-005 to LLM-009 structured outputs  
 **Version:** Batch 04 v1  
