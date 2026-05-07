@@ -1,13 +1,13 @@
 # FE-008 Picker and element candidate UI
 
 **Type:** Story  
-**Status:** In Progress  
+**Status:** Testing  
 **Priority:** P0  
 **Epic:** EPIC-005 Shadow DOM Frontend  
 **Owner:** DEV-3 Shadow DOM Frontend + Typed Rendering  
 **Assignee:** Unassigned  
 **Story Points:** TBD  
-**Readiness:** Frontend display/proposal slice implemented and ready for testing transition  
+**Readiness:** Frontend display/proposal slice accepted; backend/browser locator validation remains downstream  
 **Dependencies:** FE-002, FE-003, DOM-002, DOM-005, DOM-009  
 **Blocks:** locator/picker workflow, DOM E2E  
 **Version:** Batch 06 v1  
@@ -91,12 +91,13 @@ Fixed:
 
 ---
 
-## Repo-inspection summary
+## Acceptance notes
 
-- Current frontend entry points and Shadow DOM host are already in place.
-- Current picker/element-info UI behavior already exposes candidate lists and target selection inside the pending-step editor.
-- Current tests and frontend hooks were inspected before implementation.
-- Proposed narrow implementation path: add stable candidate hooks and candidate metadata/warning rendering only.
+- Frontend picker/candidate slice is complete and source-tested.
+- Candidate rows and warnings are display/proposal only.
+- Backend/browser validation still owns final locator truth and activation.
+- The stable candidate hook is inside the Shadow DOM pending-step editor.
+- No backend/runtime/LLM/DOM changes were made for this slice.
 
 ---
 
@@ -117,11 +118,10 @@ Stop if:
 
 ## Codex execution summary
 
-First Codex task for FE-008 should be read-only:
+Completed frontend slice:
 
-```text
-Read FE-008, SOURCE-001, PLAN-002, PLAN-005, EPIC-005, EPIC-002, EVENT-001, EVENT-002, and required skills.
-Do not edit code.
-Inspect current frontend/runtime UI ownership and report a narrow implementation path.
-Do not implement until repo-inspection report is reviewed.
-```
+- Tests added: `tests/test_frontend_picker_candidate_ui.py`
+- Frontend implementation committed: candidate surface hooks, candidate metadata chips, and candidate warnings
+- Build verified: `cd frontend && npm run build`
+- Focused tests verified: `25 passed`
+- Backend/browser locator validation remains the remaining dependency for activation and truth
