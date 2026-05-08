@@ -1,5 +1,9 @@
 # BE-001 Backend runtime state model and lifecycle reducer
 
+Status: Done  
+Sprint: Sprint 0  
+
+
 **Type:** Story  
 **Status:** Done  
 **Priority:** P0  
@@ -256,3 +260,8 @@ Do not implement until review approves the repo-inspection report.
 ## Note
 
 This v4 patch intentionally contains only the final refinement sections. It should be merged over the existing BE-001 v3 content or used to replace the sections with the same headings.
+
+
+## Sprint 0 note
+
+This item is part of the completed foundation baseline. If later audits reveal missing live-product wiring, track that as a new Sprint 2+ integration story rather than reopening this foundation story.

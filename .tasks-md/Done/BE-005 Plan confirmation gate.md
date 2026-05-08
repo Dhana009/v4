@@ -1,5 +1,9 @@
 # BE-005 Plan confirmation gate
 
+Status: Done  
+Sprint: Sprint 0  
+
+
 **Type:** Story  
 **Status:** Done  
 **Priority:** P0  
@@ -274,3 +278,8 @@ Stop if source evidence is missing or contradictory, current code conflicts and 
 ## Codex comprehension checklist
 
 After reading this story, Codex should explain product contribution, upstream/downstream dependencies, direct vs indirect blockers, parallel work, schema/contract, tests, repo-inspection output, forbidden scope, and stop conditions.
+
+
+## Sprint 0 note
+
+This item is part of the completed foundation baseline. If later audits reveal missing live-product wiring, track that as a new Sprint 2+ integration story rather than reopening this foundation story.

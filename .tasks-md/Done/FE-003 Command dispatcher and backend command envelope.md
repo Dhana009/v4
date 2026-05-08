@@ -1,5 +1,9 @@
 # FE-003 Command dispatcher and backend command envelope
 
+Status: Done  
+Sprint: Sprint 0  
+
+
 **Type:** Story  
 **Status:** Done  
 **Priority:** P0  
@@ -167,3 +171,8 @@ Do not edit code.
 Inspect current frontend/runtime UI ownership and report a narrow implementation path.
 Do not implement until repo-inspection report is reviewed.
 ```
+
+
+## Sprint 0 note
+
+This item is part of the completed foundation baseline. If later audits reveal missing live-product wiring, track that as a new Sprint 2+ integration story rather than reopening this foundation story.

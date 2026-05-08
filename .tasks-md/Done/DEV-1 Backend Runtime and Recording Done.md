@@ -1,5 +1,9 @@
 # DEV-1 Backend Runtime and Recording - Done
 
+Status: Done  
+Sprint: Sprint 0  
+
+
 Status: Done
 Owner: DEV-1
 Branch: `dev1/backend-isolation-contract-tests`
@@ -36,3 +40,8 @@ Current main status:
 | Process-boundary contract tests | `2011da2` | `tests/test_process_boundary_contract.py` | `45 passed, 2 xfailed` when added | branch-only, pending later batch merge |
 | Safe backend snapshot/archive loader seam | `ac1bcb5` | `runtime/spec_snapshot.py` | `47 passed` focused backend contract set | branch-only, pending later batch merge |
 | Recording/codegen truth contract tests | `8932478` | `tests/test_recording_codegen_truth_contract.py` | `50 passed, 1 xfailed` focused backend contract set | branch-only, pending later batch merge |
+
+
+## Sprint 0 note
+
+This item is part of the completed foundation baseline. If later audits reveal missing live-product wiring, track that as a new Sprint 2+ integration story rather than reopening this foundation story.

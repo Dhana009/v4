@@ -1,5 +1,9 @@
 # FE-008 Picker and element candidate UI
 
+Status: Done  
+Sprint: Sprint 0  
+
+
 **Type:** Story  
 **Status:** Done  
 **Priority:** P0  
@@ -125,3 +129,8 @@ Completed frontend slice:
 - Build verified: `cd frontend && npm run build`
 - Focused tests verified: `25 passed`
 - Backend/browser locator validation remains the remaining dependency for activation and truth
+
+
+## Sprint 0 note
+
+This item is part of the completed foundation baseline. If later audits reveal missing live-product wiring, track that as a new Sprint 2+ integration story rather than reopening this foundation story.

@@ -1,5 +1,9 @@
 # DEV-1 Recording Codegen Truth Implementation
 
+Status: Done  
+Sprint: Sprint 0  
+
+
 Status: Done
 Owner: DEV-1
 Branch: `dev1/backend-isolation-contract-tests`
@@ -27,3 +31,8 @@ Boundaries:
 - No broad replay repair
 - No full session restore
 - No trace/export work
+
+
+## Sprint 0 note
+
+This item is part of the completed foundation baseline. If later audits reveal missing live-product wiring, track that as a new Sprint 2+ integration story rather than reopening this foundation story.

@@ -1,5 +1,9 @@
 # FE-004 LLM Mode plan review UI
 
+Status: Done  
+Sprint: Sprint 0  
+
+
 **Type:** Story  
 **Status:** Done  
 **Priority:** P0  
@@ -94,3 +98,8 @@ Stop if:
 - Shadow DOM isolation conflicts with product page behavior
 
 ---
+
+
+## Sprint 0 note
+
+This item is part of the completed foundation baseline. If later audits reveal missing live-product wiring, track that as a new Sprint 2+ integration story rather than reopening this foundation story.

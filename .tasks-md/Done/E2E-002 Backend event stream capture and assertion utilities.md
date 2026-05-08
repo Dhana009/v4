@@ -1,5 +1,9 @@
 # E2E-002 Backend event stream capture and assertion utilities
 
+Status: Done  
+Sprint: Sprint 0  
+
+
 **Type:** Story  
 **Status:** Done  
 **Priority:** P0  
@@ -102,3 +106,8 @@ Do not edit code.
 Inspect current test/harness/fixture ownership and report a narrow implementation path.
 Do not implement until repo-inspection report is reviewed.
 ```
+
+
+## Sprint 0 note
+
+This item is part of the completed foundation baseline. If later audits reveal missing live-product wiring, track that as a new Sprint 2+ integration story rather than reopening this foundation story.

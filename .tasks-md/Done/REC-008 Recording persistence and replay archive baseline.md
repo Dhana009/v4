@@ -1,5 +1,9 @@
 # REC-008 Recording persistence and replay archive baseline
 
+Status: Done  
+Sprint: Sprint 0  
+
+
 **Type:** Story  
 **Status:** Done  
 **Priority:** P0  
@@ -177,3 +181,8 @@ Inspect current recording/codegen ownership for Recording persistence and replay
 Report gaps, current files, tests, risks, and a narrow implementation plan.
 Do not implement until repo-inspection report is reviewed.
 ```
+
+
+## Sprint 0 note
+
+This item is part of the completed foundation baseline. If later audits reveal missing live-product wiring, track that as a new Sprint 2+ integration story rather than reopening this foundation story.

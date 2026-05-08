@@ -1,5 +1,9 @@
 # DOM-004 Locator validation and ambiguity classification
 
+Status: Done  
+Sprint: Sprint 0  
+
+
 **Type:** Story  
 **Status:** Done  
 **Priority:** P0  
@@ -123,3 +127,8 @@ Do not edit code.
 Inspect current DOM/locator ownership and report narrow implementation path.
 Do not implement until repo-inspection report is reviewed.
 ```
+
+
+## Sprint 0 note
+
+This item is part of the completed foundation baseline. If later audits reveal missing live-product wiring, track that as a new Sprint 2+ integration story rather than reopening this foundation story.
