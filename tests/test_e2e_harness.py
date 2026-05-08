@@ -167,31 +167,66 @@ def test_harness_is_expected_to_gain_shadow_root_aware_autoworkbench_lookup() ->
 
 
 class _TrackedTabLocator:
-    def __init__(self, label: str, *, visible: bool = True) -> None:
+    def __init__(
+        self,
+        label: str,
+        *,
+        visible: bool = True,
+        text: str = "",
+        count_value: int = 1,
+        nested: dict[str, "_TrackedTabLocator"] | None = None,
+    ) -> None:
         self.label = label
         self.visible = visible
+        self.text = text
+        self.count_value = count_value
+        self.nested = nested or {}
         self.click_count = 0
         self.wait_for_count = 0
+        self.count_count = 0
+        self.locator_requests: list[str] = []
 
     @property
     def first(self) -> "_TrackedTabLocator":
         return self
+
+    async def count(self) -> int:
+        self.count_count += 1
+        return self.count_value
 
     async def wait_for(self, state: str, timeout: int | None = None) -> None:  # noqa: ARG002
         self.wait_for_count += 1
         if state == "visible" and not self.visible:
             raise TimeoutError(f"{self.label} is not visible")
 
+    def locator(self, selector: str) -> "_TrackedTabLocator":
+        self.locator_requests.append(selector)
+        return self.nested.get(selector, _TrackedTabLocator(f"{self.label}:{selector}", visible=self.visible, count_value=0))
+
+    async def is_visible(self) -> bool:
+        return self.visible
+
+    async def inner_text(self) -> str:
+        return self.text
+
     async def click(self, timeout: int | None = None) -> None:  # noqa: ARG002
         self.click_count += 1
 
 
 class _TrackedTabPage:
-    def __init__(self, *, test_ids: dict[str, _TrackedTabLocator], roles: dict[str, _TrackedTabLocator]) -> None:
+    def __init__(
+        self,
+        *,
+        test_ids: dict[str, _TrackedTabLocator],
+        roles: dict[str, _TrackedTabLocator],
+        locators: dict[str, _TrackedTabLocator] | None = None,
+    ) -> None:
         self.test_ids = test_ids
         self.roles = roles
+        self.locators = locators or {}
         self.test_id_requests: list[str] = []
         self.role_requests: list[str] = []
+        self.locator_requests: list[str] = []
 
     def get_by_test_id(self, test_id: str) -> _TrackedTabLocator:
         self.test_id_requests.append(test_id)
@@ -200,6 +235,10 @@ class _TrackedTabPage:
     def get_by_role(self, role: str, name: object) -> _TrackedTabLocator:  # noqa: ARG002
         self.role_requests.append(str(name))
         return self.roles[str(name)]
+
+    def locator(self, selector: str) -> _TrackedTabLocator:
+        self.locator_requests.append(selector)
+        return self.locators.get(selector, _TrackedTabLocator(selector, visible=False, count_value=0))
 
 
 def test_click_autoworkbench_tab_prefers_test_id_hooks_and_keeps_role_fallback() -> None:
@@ -257,6 +296,100 @@ def test_click_autoworkbench_tab_falls_back_to_role_names_when_test_id_missing()
     ]
     assert steps_role.click_count == 1
     assert workbench_role.click_count == 1
+
+
+def test_wait_for_autoworkbench_state_text_uses_shadow_root_when_present() -> None:
+    shadow_state = _TrackedTabLocator("shadow-state", visible=True, text="PLAN REVIEW")
+    shadow_root = _TrackedTabLocator("shadow-root", visible=True, count_value=1, nested={".ide-hd-state": shadow_state})
+    fallback_state = _TrackedTabLocator("fallback-state", visible=True, text="PLAN REVIEW")
+    page = _TrackedTabPage(
+        test_ids={},
+        roles={},
+        locators={
+            "#aw-root": shadow_root,
+            "#autoworkbench-root .ide-panel .ide-hd-state": fallback_state,
+        },
+    )
+
+    asyncio.run(harness.wait_for_autoworkbench_state_text(page, "plan review", timeout_ms=200))
+
+    assert page.locator_requests == ["#aw-root"]
+    assert shadow_root.locator_requests == [".ide-hd-state"]
+    assert shadow_state.wait_for_count == 1
+    assert fallback_state.wait_for_count == 0
+
+
+def test_wait_for_autoworkbench_state_text_falls_back_when_shadow_root_missing() -> None:
+    shadow_root = _TrackedTabLocator("shadow-root", visible=False, count_value=0)
+    fallback_state = _TrackedTabLocator("fallback-state", visible=True, text="PLAN REVIEW")
+    page = _TrackedTabPage(
+        test_ids={},
+        roles={},
+        locators={
+            "#aw-root": shadow_root,
+            "#autoworkbench-root .ide-panel .ide-hd-state": fallback_state,
+        },
+    )
+
+    asyncio.run(harness.wait_for_autoworkbench_state_text(page, "plan review", timeout_ms=200))
+
+    assert page.locator_requests == ["#aw-root", "#autoworkbench-root .ide-panel .ide-hd-state"]
+    assert shadow_root.locator_requests == []
+    assert fallback_state.wait_for_count == 1
+
+
+def test_capture_picker_arm_evidence_reports_overlay_shadow_and_selector_source() -> None:
+    shadow_root = _TrackedTabLocator("aw-root", visible=True, count_value=1)
+    steps_test_id = _TrackedTabLocator("steps-tab", visible=True, count_value=1)
+    steps_role = _TrackedTabLocator("steps-role", visible=True, count_value=1)
+    page = _TrackedTabPage(
+        test_ids={"steps-tab": steps_test_id},
+        roles={
+            "re.compile('^steps$', re.IGNORECASE)": steps_role,
+        },
+        locators={
+            "#aw-root": shadow_root,
+            "#autoworkbench-root .ide-panel": _TrackedTabLocator("legacy-panel", visible=True, count_value=0),
+        },
+    )
+
+    evidence = asyncio.run(harness.capture_picker_arm_evidence(page))
+
+    assert evidence["overlay_loaded"] is True
+    assert evidence["shadow_dom_root_found"] is True
+    assert evidence["steps_tab_test_id_found"] is True
+    assert evidence["steps_tab_role_found"] is True
+    assert evidence["steps_tab_found"] is True
+    assert evidence["steps_tab_selector_source"] == "test_id"
+    assert evidence["steps_tab_clicked"] is False
+    assert evidence["picker_state_changed"] is False
+
+
+def test_save_failure_artifacts_persists_picker_arm_evidence_and_stage_history(tmp_path: Path) -> None:
+    session = _make_failure_session(tmp_path)
+    session.log_stage_ok("overlay_loaded")
+    session.current_stage = "picker_armed"
+    session.record_picker_arm_evidence(
+        overlay_loaded=True,
+        shadow_dom_root_found=True,
+        steps_tab_found=True,
+        steps_tab_clicked=False,
+        picker_state_changed=False,
+    )
+
+    context = asyncio.run(session.save_failure_artifacts("Timed out waiting for picker arm", stage="picker_armed"))
+    persisted = json.loads((tmp_path / "failure-context.json").read_text(encoding="utf-8"))
+
+    assert context["stage_history"] == ["overlay_loaded", "picker_armed"]
+    assert persisted["stage_history"] == ["overlay_loaded", "picker_armed"]
+    assert context["picker_arm_evidence"] == {
+        "overlay_loaded": True,
+        "shadow_dom_root_found": True,
+        "steps_tab_found": True,
+        "steps_tab_clicked": False,
+        "picker_state_changed": False,
+    }
+    assert persisted["picker_arm_evidence"] == context["picker_arm_evidence"]
 
 
 class _ChangingTextLocator:

@@ -1181,6 +1181,7 @@ class E2ESession:
     failure_observed_event_types: list[str] = field(default_factory=list)
     failure_event_evidence: dict[str, Any] | None = None
     failure_redaction_report: dict[str, Any] | None = None
+    picker_arm_evidence: dict[str, Any] | None = None
 
     def log_stage_ok(self, stage: str) -> None:
         self.current_stage = stage
@@ -1202,14 +1203,18 @@ class E2ESession:
         marker_line = _detect_marker_line(lines, E2E_LLM_MARKERS)
         return marker_line is not None, marker_line
 
+    def record_picker_arm_evidence(self, evidence: Mapping[str, Any] | None = None, **fields: Any) -> None:
+        if evidence is None and not fields:
+            return
+        if self.picker_arm_evidence is None:
+            self.picker_arm_evidence = {}
+        if evidence is not None:
+            self.picker_arm_evidence.update(dict(evidence))
+        if fields:
+            self.picker_arm_evidence.update(fields)
+
     async def find_autoworkbench_panel(self) -> Any:
-        shadow_panel = self.page.locator("#aw-root").first
-        try:
-            if await shadow_panel.count() > 0:
-                return shadow_panel
-        except Exception:
-            pass
-        return self.page.locator("#autoworkbench-root .ide-panel").first
+        return await find_autoworkbench_panel(self.page)
 
     async def _page_state(self) -> dict[str, Any]:
         current_url = getattr(self.page, "url", "")
@@ -1284,6 +1289,7 @@ class E2ESession:
         failure_redaction_findings.extend(page_state_findings)
         failure_redaction_findings.extend(page_error_findings)
         self.failure_redaction_report = _build_redaction_report(findings=failure_redaction_findings)
+        picker_arm_evidence = self.picker_arm_evidence
         context = {
             "artifact_dir": str(self.artifact_dir),
             "screenshot_path": str(self.artifact_dir / "failure.png"),
@@ -1295,6 +1301,7 @@ class E2ESession:
             "expected_event_type": expected_event_type,
             "observed_event_types": normalized_observed_event_types,
             "event_evidence": stored_event_evidence,
+            "picker_arm_evidence": picker_arm_evidence,
             "page_state": sanitized_page_state,
             "page_error": sanitized_page_error,
             "llm_triggered": llm_triggered,
@@ -1314,6 +1321,9 @@ class E2ESession:
         if stored_event_evidence is not None:
             failure_text_lines.append("event_evidence=")
             failure_text_lines.append(json.dumps(stored_event_evidence, indent=2, sort_keys=True))
+        if picker_arm_evidence is not None:
+            failure_text_lines.append("picker_arm_evidence=")
+            failure_text_lines.append(json.dumps(picker_arm_evidence, indent=2, sort_keys=True))
         (self.artifact_dir / "failure.txt").write_text(
             "\n".join(failure_text_lines) + "\n",
             encoding="utf-8",
@@ -1622,6 +1632,76 @@ async def wait_for_locator_text(locator: Any, expected_text: str, timeout_ms: in
         if asyncio.get_running_loop().time() >= deadline:
             raise TimeoutError(f"Timed out waiting for text {expected_text!r}")
         await asyncio.sleep(0.1)
+
+
+async def find_autoworkbench_panel(page: Any) -> Any:
+    shadow_panel = page.locator("#aw-root").first
+    try:
+        if await shadow_panel.count() > 0:
+            return shadow_panel
+    except Exception:
+        pass
+    return page.locator("#autoworkbench-root .ide-panel").first
+
+
+async def find_autoworkbench_state_locator(page: Any) -> Any:
+    shadow_root = page.locator("#aw-root").first
+    try:
+        if await shadow_root.count() > 0:
+            return shadow_root.locator(".ide-hd-state").first
+    except Exception:
+        pass
+    return page.locator("#autoworkbench-root .ide-panel .ide-hd-state").first
+
+
+async def wait_for_autoworkbench_state_text(page: Any, expected_text: str, timeout_ms: int = 10000) -> None:
+    state_locator = await find_autoworkbench_state_locator(page)
+    await wait_for_locator_text(state_locator, expected_text, timeout_ms=timeout_ms)
+
+
+async def capture_picker_arm_evidence(page: Any) -> dict[str, Any]:
+    evidence: dict[str, Any] = {
+        "overlay_loaded": False,
+        "shadow_dom_root_found": False,
+        "steps_tab_test_id_found": False,
+        "steps_tab_role_found": False,
+        "steps_tab_found": False,
+        "steps_tab_selector_source": None,
+        "steps_tab_clicked": False,
+        "picker_state_changed": False,
+    }
+    try:
+        panel = await find_autoworkbench_panel(page)
+        evidence["overlay_loaded"] = bool(await panel.is_visible())
+    except Exception:
+        pass
+    try:
+        evidence["shadow_dom_root_found"] = bool(await page.locator("#aw-root").count())
+    except Exception:
+        pass
+
+    get_by_test_id = getattr(page, "get_by_test_id", None)
+    if callable(get_by_test_id):
+        try:
+            steps_tab = get_by_test_id(_AUTOWORKBENCH_TAB_TEST_IDS["steps"]).first
+            evidence["steps_tab_test_id_found"] = bool(await steps_tab.count())
+        except Exception:
+            pass
+
+    get_by_role = getattr(page, "get_by_role", None)
+    if callable(get_by_role):
+        try:
+            steps_tab = get_by_role("button", name=_AUTOWORKBENCH_TAB_ROLE_NAMES["steps"]).first
+            evidence["steps_tab_role_found"] = bool(await steps_tab.count())
+        except Exception:
+            pass
+
+    evidence["steps_tab_found"] = bool(evidence["steps_tab_test_id_found"] or evidence["steps_tab_role_found"])
+    if evidence["steps_tab_test_id_found"]:
+        evidence["steps_tab_selector_source"] = "test_id"
+    elif evidence["steps_tab_role_found"]:
+        evidence["steps_tab_selector_source"] = "role"
+    return evidence
 
 
 async def wait_for_autoworkbench_ready(page: Any, timeout_ms: int = 10000) -> None:

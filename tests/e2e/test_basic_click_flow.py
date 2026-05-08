@@ -5,11 +5,12 @@ from pathlib import Path
 
 import pytest
 
+from .harness import capture_picker_arm_evidence
 from .harness import click_autoworkbench_tab
 from .harness import start_e2e_session
 from .harness import wait_for_agents_page
 from .harness import wait_for_overlay_ready
-from .harness import wait_for_locator_text
+from .harness import wait_for_autoworkbench_state_text
 from .harness import wait_for_process_log_markers_async
 
 
@@ -30,9 +31,12 @@ async def _run_basic_click_flow() -> None:
         await session.run_stage("overlay_loaded", 10.0, lambda: wait_for_overlay_ready(page, timeout_ms=8000))
 
         async def arm_picker() -> None:
+            session.record_picker_arm_evidence(await capture_picker_arm_evidence(page))
             await click_autoworkbench_tab(page, "steps")
+            session.record_picker_arm_evidence(steps_tab_clicked=True)
             attach_button = page.get_by_role("button", name="Attach Element").first
             await attach_button.wait_for(state="visible", timeout=8000)
+            session.record_picker_arm_evidence(picker_state_changed=True)
             await attach_button.click()
             await page.get_by_role("button", name="Click page element…").first.wait_for(state="visible", timeout=8000)
 
@@ -109,4 +113,4 @@ async def _run_basic_click_flow() -> None:
 
 
 async def _wait_for_page_mode(page, expected_mode: str, timeout_ms: int) -> None:
-    await wait_for_locator_text(page.locator(".ide-hd-state").first, expected_mode, timeout_ms=timeout_ms)
+    await wait_for_autoworkbench_state_text(page, expected_mode, timeout_ms=timeout_ms)
