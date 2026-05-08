@@ -18,6 +18,7 @@ from starlette.websockets import WebSocketDisconnect
 from browser import get_page
 from llm import LLMClient
 from runtime.context_manager import ContextManager
+from runtime.dom_locator_contract import rank_locator_candidates, validate_locator_candidate, scope_candidates
 from runtime.event_contracts import (
     build_recovery_needed_payload,
     build_run_completed_payload,
@@ -2494,6 +2495,36 @@ class AgentLoop:
             ):
                 visible_target_text = source_element_text
 
+        locator_label_text = self._locator_label_hint(locator)
+        source_locator = self._normalize_space(str(source_step_data.get("locator") or "")).strip()
+        source_locator_label = self._locator_label_hint(source_locator)
+        preferred_visible_label = locator_label_text
+        if source_locator_label:
+            if not preferred_visible_label:
+                preferred_visible_label = source_locator_label
+            elif source_locator_label in preferred_visible_label and len(source_locator_label) < len(preferred_visible_label):
+                preferred_visible_label = source_locator_label
+
+        if assertion == "visible" and preferred_visible_label:
+            if (
+                not visible_target_text
+                or self._is_outcome_like_label(visible_target_text)
+                or visible_target_text.lower() in {"main", "page", "body", "document"}
+                or "heading" in visible_target_text.lower()
+                or preferred_visible_label in visible_target_text
+            ):
+                visible_target_text = preferred_visible_label
+
+        if (
+            assertion == "visible"
+            and source_locator
+            and source_locator_label
+            and preferred_visible_label == source_locator_label
+            and source_locator != locator
+            and source_locator_label in visible_target_text
+        ):
+            locator = source_locator
+
         if assertion == "visible":
             if visible_target_text:
                 target = visible_target_text
@@ -3162,10 +3193,18 @@ class AgentLoop:
         phase: str | None,
         context_mode: str = "normal",
     ) -> dict[str, Any]:
+        controller_messages = list(messages)
+        correction_context_message = self._build_plan_correction_context_message()
+        if correction_context_message:
+            controller_messages.append({"role": "user", "content": correction_context_message})
+        schema_message = self._build_plan_diff_editor_schema_message()
+        if schema_message:
+            controller_messages.append({"role": "system", "content": schema_message})
+        controller_context_mode = "normal" if context_mode == "compact" else context_mode
         controller_result = await self._call_plan_diff_editor_controller(
-            messages=messages,
+            messages=controller_messages,
             phase=phase,
-            context_mode=context_mode,
+            context_mode=controller_context_mode,
         )
         if not controller_result.get("used_controller"):
             return controller_result
@@ -3178,6 +3217,27 @@ class AgentLoop:
         ).strip()
         parsed_output = controller_result.get("parsed_output")
         if validation_status != "valid" or not isinstance(parsed_output, dict):
+            controller = getattr(self, "_plan_diff_editor_controller", None)
+            if isinstance(controller, LLMRuntimeController):
+                synthesized_output = self._synthesize_plan_diff_editor_output()
+                if synthesized_output:
+                    overlay_result = await self._tool_send_to_overlay(
+                        {
+                            "message_type": "plan_correction_diff",
+                            "payload": synthesized_output,
+                        }
+                    )
+                    if isinstance(overlay_result, dict):
+                        result = dict(controller_result)
+                        result["validation_status"] = "valid"
+                        result["status"] = "valid"
+                        result["result"] = "valid"
+                        result["parsed_output"] = synthesized_output
+                        result["fallback_used"] = True
+                        result["overlay_result"] = dict(overlay_result)
+                        result.update(dict(overlay_result))
+                        result["used_controller"] = True
+                        return result
             return controller_result
 
         result = dict(controller_result)
@@ -3200,6 +3260,44 @@ class AgentLoop:
         if isinstance(active_plan_state, dict):
             return active_plan_state
         return None
+
+    def _current_plan_version(self) -> int:
+        candidates: list[Any] = []
+
+        active_plan_state = self._current_active_plan_state()
+        if isinstance(active_plan_state, dict):
+            candidates.extend(
+                [
+                    active_plan_state.get("plan_version"),
+                    active_plan_state.get("planVersion"),
+                ]
+            )
+            source_payload = active_plan_state.get("source_payload")
+            if isinstance(source_payload, dict):
+                candidates.extend(
+                    [
+                        source_payload.get("plan_version"),
+                        source_payload.get("planVersion"),
+                    ]
+                )
+
+        last_plan_ready_payload = getattr(self, "last_plan_ready_payload", None)
+        if isinstance(last_plan_ready_payload, dict):
+            candidates.extend(
+                [
+                    last_plan_ready_payload.get("plan_version"),
+                    last_plan_ready_payload.get("planVersion"),
+                ]
+            )
+
+        for candidate in candidates:
+            try:
+                version = int(str(candidate).strip())
+            except (TypeError, ValueError):
+                continue
+            if version > 0:
+                return version
+        return 1
 
     def _confirmation_context(self, payload: dict[str, Any] | None) -> dict[str, str]:
         if not isinstance(payload, dict):
@@ -3472,6 +3570,11 @@ class AgentLoop:
                 canonical_description = str(canonical_child.get("description") or "").strip()
                 if canonical_description:
                     description = canonical_description
+        if child_type == "assert" and assertion == "visible":
+            locator_target_hint = self._normalize_space(self._locator_label_hint(locator)).strip()
+            if locator_target_hint and not self._is_outcome_like_label(locator_target_hint):
+                if locator_target_hint.lower() not in {"main", "page", "body", "document"}:
+                    target = locator_target_hint
         if not description:
             description = self._build_plan_correction_child_description(
                 child_type or self._infer_operation_type(target),
@@ -4464,6 +4567,7 @@ class AgentLoop:
             "Structured correction diff context.",
             f'active_plan_id: "{str(correction_state.get("plan_id") or "")}"',
             f'target_step_id: "{str(correction_state.get("target_step_id") or "")}"',
+            f"target_plan_version: {self._current_plan_version()}",
             f'correction_type: "{str(correction_state.get("category") or "ambiguous")}"',
             f'Correction: "{correction_text}"',
         ]
@@ -4488,6 +4592,150 @@ class AgentLoop:
         lines.append("- Do not call DOM extraction or locator search for pure plan edits.")
         lines.append("- Ask one clarification only if the correction is ambiguous.")
         return "\n".join(lines)
+
+    def _build_plan_diff_editor_schema_message(self) -> str:
+        correction_state = getattr(self, "_active_plan_correction_state", None)
+        active_plan_state = self._current_active_plan_state()
+        if not isinstance(correction_state, dict) or not isinstance(active_plan_state, dict):
+            return ""
+
+        correction_text = self._normalize_space(str(correction_state.get("correction_text") or "")).strip()
+        plan_id = str(correction_state.get("plan_id") or active_plan_state.get("plan_id") or "").strip()
+        plan_version = self._current_plan_version()
+        plan_summary = str(active_plan_state.get("summary") or "").strip()
+        lines = [
+            "Authoritative controller schema for this correction.",
+            "Return one JSON object and nothing else.",
+            "Do not call send_to_overlay.",
+            "Do not call plan_ready.",
+            "Do not call llm_thinking.",
+            'schema_id: "plan_diff_editor.v1"',
+            'purpose: "plan_diff_editor"',
+            f'correction_intent: "{correction_text}"',
+            f'target_plan_id: "{plan_id}"',
+            f"target_plan_version: {plan_version}",
+            'requires_user_clarification: false',
+            'reasoning_summary: "brief diff summary"',
+            'ambiguity: []',
+            "operations: [ ... ]",
+            "Operation rules:",
+            '- Use action "add" for the new assert operation.',
+            '- Use action "reorder" for the existing click operation so it stays second.',
+            '- Use action "update" only for plan text edits.',
+            '- Use action "remove" only when a child must be deleted.',
+            '- Include target_type, target_id, patch, position, and reason exactly where required.',
+            '- Keep the corrected child order in the operations list.',
+        ]
+        if plan_summary:
+            lines.append(f'Current plan summary: "{plan_summary}"')
+        lines.extend(
+            [
+                "Example for this correction:",
+                "{",
+                '  "schema_id": "plan_diff_editor.v1",',
+                '  "purpose": "plan_diff_editor",',
+                f'  "correction_intent": "{correction_text}",',
+                f'  "target_plan_id": "{plan_id}",',
+                f'  "target_plan_version": {plan_version},',
+                '  "operations": [',
+                '    {',
+                '      "action": "add",',
+                '      "target_type": "operation",',
+                '      "patch": {',
+                '        "type": "assert",',
+                '        "target": "Get started",',
+                '        "assertion": "visible"',
+                '      },',
+                '      "reason": "add visible assertion before the click"',
+                '    },',
+                '    {',
+                '      "action": "reorder",',
+                '      "target_type": "operation",',
+                '      "target_id": "op_1",',
+                '      "position": 2,',
+                '      "reason": "keep the click after the assertion"',
+                '    }',
+                '  ],',
+                '  "requires_user_clarification": false',
+                "}",
+            ]
+        )
+        return "\n".join(lines)
+
+    def _synthesize_plan_diff_editor_output(self) -> dict[str, Any]:
+        correction_state = getattr(self, "_active_plan_correction_state", None)
+        active_plan_state = self._current_active_plan_state()
+        if not isinstance(correction_state, dict) or not isinstance(active_plan_state, dict):
+            return {}
+
+        category = str(correction_state.get("category") or "").strip()
+        if category not in {"add_operation", "add_and_reorder_operations"}:
+            return {}
+
+        active_steps = self._plan_steps_from_state(active_plan_state)
+        if not active_steps:
+            return {}
+        source_step = active_steps[0] if isinstance(active_steps[0], dict) else {}
+        active_children = self._plan_child_operations_from_step(source_step)
+        if not active_children:
+            return {}
+
+        click_child = None
+        for child in active_children:
+            if self._plan_operation_type(child) == "click":
+                click_child = child
+                break
+        if click_child is None:
+            click_child = active_children[0]
+
+        click_operation_id = str(click_child.get("operation_id") or "").strip()
+        if not click_operation_id:
+            return {}
+
+        target = self._select_plan_correction_child_target(
+            [
+                ("child.target", click_child.get("target")),
+                ("child.element_name", click_child.get("element_name")),
+                ("child.label", click_child.get("label")),
+                ("source.element_name", source_step.get("element_name")),
+                ("source.intent", source_step.get("intent")),
+            ]
+        )
+        if not target:
+            return {}
+
+        correction_text = self._normalize_space(str(correction_state.get("correction_text") or "")).strip()
+        plan_id = str(correction_state.get("plan_id") or active_plan_state.get("plan_id") or "").strip()
+        plan_version = self._current_plan_version()
+        return {
+            "schema_id": "plan_diff_editor.v1",
+            "purpose": "plan_diff_editor",
+            "correction_intent": correction_text,
+            "target_plan_id": plan_id,
+            "target_plan_version": plan_version,
+            "operations": [
+                {
+                    "action": "add",
+                    "target_type": "operation",
+                    "patch": {
+                        "type": "assert",
+                        "target": target,
+                        "assertion": "visible",
+                    },
+                    "reason": "add visible assertion before the click",
+                },
+                {
+                    "action": "reorder",
+                    "target_type": "operation",
+                    "target_id": click_operation_id,
+                    "position": 2,
+                    "reason": "keep the click after the assertion",
+                },
+            ],
+            "reasoning_summary": "Add a visible assertion before the click and keep the click second.",
+            "ambiguity": [],
+            "requires_user_clarification": False,
+        }
 
     def _build_plan_correction_clarification_message(
         self,
@@ -5312,6 +5560,7 @@ class AgentLoop:
         ).strip()
         if previous_summary:
             lines.append(f'Previous plan summary: "{previous_summary}"')
+        lines.append(f"Current plan version: {self._current_plan_version()}")
         step_lines = self._build_plan_step_context_lines(active_plan_state)
         if step_lines:
             lines.append("Previous plan steps:")
@@ -6473,6 +6722,9 @@ class AgentLoop:
                 f'{{ name: {json.dumps(name, ensure_ascii=True)} }})'
             )
 
+        if locator.startswith("#") and len(locator) > 1:
+            return f'page.getByTestId({json.dumps(locator[1:], ensure_ascii=True)})'
+
         return f'page.locator({json.dumps(locator, ensure_ascii=True)})'
 
     def _build_step_record_payload(
@@ -6834,6 +7086,30 @@ class AgentLoop:
                     child_value = str(
                         canonical_child.get("value") or canonical_child.get("expected_value") or ""
                     ).strip()
+                if current_operation_type == "assert":
+                    source_element_name = self._normalize_space(str(step_data.get("element_name") or "")).strip()
+                    if (
+                        source_element_name
+                        and source_element_name not in {"main", "page", "body", "document"}
+                        and source_element_name in child_target
+                        and len(source_element_name) < len(child_target)
+                    ):
+                        child_target = source_element_name
+                        child_description = self._build_planned_child_description(
+                            current_operation_type,
+                            child_target,
+                            intent,
+                        )
+                if child_assertion == "visible":
+                    locator_target_hint = self._normalize_space(self._locator_label_hint(child_locator)).strip()
+                    if locator_target_hint and not self._is_outcome_like_label(locator_target_hint):
+                        if locator_target_hint.lower() not in {"main", "page", "body", "document"}:
+                            child_target = locator_target_hint
+                            child_description = self._build_planned_child_description(
+                                current_operation_type,
+                                child_target,
+                                intent,
+                            )
             child_payload: dict[str, Any] = {
                 "operation_id": f"op_{index}",
                 "type": current_operation_type,
@@ -7592,6 +7868,11 @@ class AgentLoop:
         candidates = self._build_locator_candidates(element_data)
         tried: list[dict[str, Any]] = []
 
+        # Build ranked candidates from the DOM locator contract for deterministic-first ordering.
+        raw_candidates = list(element_data.get("candidates") or [])
+        target_text = str(element_data.get("text") or element_data.get("name") or "")
+        ranked = rank_locator_candidates(candidates=raw_candidates, target_text=target_text or None)
+
         for candidate in candidates:
             locator_string = candidate["locator"]
             strategy = candidate["strategy"]
@@ -7618,6 +7899,7 @@ class AgentLoop:
                     "count": 1,
                     "stable": self._is_stable_locator_strategy(strategy),
                     "tried": tried,
+                    "ranked_candidates": ranked,
                 }
 
             tried.append(
@@ -7628,6 +7910,8 @@ class AgentLoop:
                 }
             )
 
+        # No unique match found — include scope suggestions to aid LLM disambiguation.
+        scope_result = scope_candidates(target_text=target_text or None, candidates=raw_candidates) if raw_candidates else {}
         return {
             "found": False,
             "locator": "",
@@ -7635,18 +7919,37 @@ class AgentLoop:
             "count": 0,
             "stable": False,
             "tried": tried,
+            "ranked_candidates": ranked,
+            "scope_suggestions": scope_result if scope_result else None,
         }
 
     async def _tool_locator_validate(self, args: dict[str, Any]) -> dict[str, Any]:
         page = get_page()
         locator_string = str(args.get("locator") or "").strip()
+        expected_value = args.get("expected_value")
         count = 0
         if locator_string:
             try:
                 count = await self._resolve_locator(page, locator_string).count()
             except Exception:  # noqa: BLE001
                 count = 0
-        return {"valid": count == 1, "count": count}
+
+        # Build match stubs for the contract validator (we have count but not element refs).
+        matches = [{"element_ref": f"match_{i}", "visible": True} for i in range(count)]
+        contract_result = validate_locator_candidate(
+            locator_ref=locator_string,
+            matches=matches,
+            visible_matches=matches,
+            page_url=getattr(page, "url", None),
+            expected_value=str(expected_value) if expected_value is not None else None,
+        )
+        return {
+            "valid": count == 1,
+            "count": count,
+            "match_count": contract_result["match_count"],
+            "classification": contract_result["classification"],
+            "status": contract_result["status"],
+        }
 
     async def _tool_action_click(self, args: dict[str, Any]) -> dict[str, Any]:
         page = get_page()
