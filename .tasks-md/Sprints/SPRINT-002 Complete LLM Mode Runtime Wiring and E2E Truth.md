@@ -1,10 +1,12 @@
 # SPRINT-002 Complete LLM Mode Runtime Wiring and E2E Truth
 
-Status: Planning  
+Status: Done  
 Sprint: Sprint 2  
 Type: Sprint Plan  
 Owner: Project  
 Priority: P0  
+Main commit before: b5d475d  
+Main commit after: 5a43872  
 
 ## Sprint goal
 
@@ -56,4 +58,63 @@ full trace export pipeline
 permission/autonomy mode
 full replay repair/versioning
 broad UI redesign
+```
+
+## Sprint 2 execution report
+
+### Task-board changes
+
+```text
+BUG-E2E-001  Bugs/In Progress -> Bugs/Done
+INT-LLM-001  Planning         -> Done
+INT-DOM-001  Planning         -> Done
+INT-MVP-001  Planning         -> Done
+```
+
+### Commits created
+
+```text
+83e4cbf  docs: sync sprint 2 completed task status
+fafec66  feat: wire deterministic locator handlers into agent path
+5a43872  test: add mvp lifecycle e2e skeleton
+```
+
+### Tests added
+
+```text
+tests/test_agent_locator_handler_contract.py  5 tests covering ranked_candidates, classification/status/match_count, scope_suggestions on multiple match, and unique-match no-ambiguity
+tests/e2e/test_mvp_001_lifecycle_smoke.py     6-checkpoint lifecycle smoke: overlay -> plan_ready -> confirmed -> execution_started -> step_recorded -> code_update
+```
+
+### Results
+
+```text
+Unit/contract tests   137  PASS
+Frontend build        —    PASS (1.2mb)
+E2E tests             5    PASS
+```
+
+### E2E truth
+
+```text
+basic_click                    PASS
+exact_text_assertion           PASS
+visible_assertion              PASS
+correction_assert_then_click   PASS
+MVP-001 lifecycle              PASS
+```
+
+### What changed
+
+```text
+agent.py: added `from runtime.dom_locator_contract import rank_locator_candidates, validate_locator_candidate, scope_candidates`; enriched _tool_locator_find with ranked_candidates + scope_suggestions; enriched _tool_locator_validate with classification, status, match_count.
+```
+
+### What remains
+
+```text
+Nothing in Sprint 2. All 4 items are Done.
+Bugs opened: none.
+Blockers: none.
+Ready for next sprint planning: yes.
 ```
