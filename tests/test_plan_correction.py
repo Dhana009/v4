@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from copy import deepcopy
 from types import SimpleNamespace
 
 import pytest
@@ -2339,3 +2340,151 @@ def test_plan_correction_invalid_diff_after_schema_retry_fails_closed() -> None:
     assert second_result["reason"] == "invalid_corrected_plan"
     assert loop._active_plan_correction_state["retry_count"] == 1
     assert not loop._active_plan_correction_state.get("correction_failed")
+
+
+def test_plan_diff_editor_controller_call_uses_zero_tools_and_skips_model_router() -> None:
+    loop = _make_loop()
+    active_plan = _make_active_plan_state(
+        "Click the Get started button",
+        [_make_operation("op_1", "click", "Get started")],
+        summary="I will click Get started",
+    )
+    loop._active_plan_state = active_plan
+    loop._active_plan_correction_state = loop._build_plan_correction_state(
+        "assert first then click",
+        source_plan_state=active_plan,
+    )
+
+    controller_calls: list[dict[str, object]] = []
+
+    async def fake_controller_call(**kwargs: object) -> dict[str, object]:
+        controller_calls.append(dict(kwargs))
+        return {
+            "validation_status": "invalid",
+            "retry_count": 1,
+            "parsed_output": None,
+            "errors": ["invalid_json"],
+        }
+
+    async def fake_router_call(**kwargs: object) -> dict[str, object]:
+        raise AssertionError("model_router should not be called for plan_diff_editor correction")
+
+    loop._plan_diff_editor_controller = SimpleNamespace(call=fake_controller_call)
+    loop.model_router = SimpleNamespace(call=fake_router_call)
+
+    result = asyncio.run(
+        loop._run_plan_diff_editor_correction(
+            messages=loop.llm.messages,
+            phase="planning",
+            context_mode="normal",
+        )
+    )
+
+    assert controller_calls
+    assert controller_calls[0]["purpose"] == "plan_diff_editor"
+    assert controller_calls[0]["tools"] == []
+    assert controller_calls[0]["client"] is loop.llm.client
+    assert result["validation_status"] == "invalid"
+    assert result["parsed_output"] is None
+
+
+def test_plan_diff_editor_invalid_output_does_not_mutate_active_plan() -> None:
+    loop = _make_loop()
+    active_plan = _make_active_plan_state(
+        "Click the Get started button",
+        [_make_operation("op_1", "click", "Get started")],
+        summary="I will click Get started",
+    )
+    loop._active_plan_state = deepcopy(active_plan)
+    loop._active_plan_correction_state = loop._build_plan_correction_state(
+        "assert first then click",
+        source_plan_state=active_plan,
+    )
+
+    before_active_plan = deepcopy(loop._active_plan_state)
+
+    async def fake_controller_call(**kwargs: object) -> dict[str, object]:
+        return {
+            "validation_status": "invalid",
+            "retry_count": 1,
+            "parsed_output": None,
+            "errors": ["invalid_json"],
+        }
+
+    loop._plan_diff_editor_controller = SimpleNamespace(call=fake_controller_call)
+
+    result = asyncio.run(
+        loop._run_plan_diff_editor_correction(
+            messages=loop.llm.messages,
+            phase="planning",
+            context_mode="normal",
+        )
+    )
+
+    assert result["validation_status"] == "invalid"
+    assert loop._active_plan_state == before_active_plan
+    assert loop._active_plan_correction_state is not None
+    assert loop._active_plan_correction_state["retry_count"] == 0
+    assert loop._active_plan_correction_state["correction_failed"] is False
+
+
+def test_plan_diff_editor_run_uses_controller_and_fails_closed_without_model_router() -> None:
+    loop = _make_loop()
+    active_plan = _make_active_plan_state(
+        "Click the Get started button",
+        [_make_operation("op_1", "click", "Get started")],
+        summary="I will click Get started",
+    )
+    loop._active_plan_state = deepcopy(active_plan)
+    loop.current_steps = [_make_current_step()]
+
+    sent_messages: list[tuple[str, dict[str, object]]] = []
+    controller_calls: list[dict[str, object]] = []
+
+    async def fake_send(message_type: str, **kwargs: object) -> None:
+        sent_messages.append((message_type, kwargs))
+
+    async def fake_controller_call(**kwargs: object) -> dict[str, object]:
+        controller_calls.append(dict(kwargs))
+        return {
+            "validation_status": "invalid",
+            "retry_count": 1,
+            "parsed_output": None,
+            "errors": ["invalid_json"],
+        }
+
+    async def fake_router_call(**kwargs: object) -> dict[str, object]:
+        raise AssertionError("model_router should not be called for plan_diff_editor correction")
+
+    def fake_reset_lifecycle_state(steps=None):
+        loop.phase = "planning"
+        loop.plan_confirmed = False
+        loop.current_steps = list(steps or [])
+        loop.phase_tracker.current_phase = "planning"
+        loop._pending_failure_followup = False
+        loop._awaiting_step_record = False
+        loop._recording_wait_guard_armed = False
+        loop._llm_call_counter = 0
+
+    loop._reset_lifecycle_state = fake_reset_lifecycle_state
+    loop._prepare_recording_steps = lambda steps: None
+    loop._validate_recording_steps = lambda steps: None
+    loop._load_skills_for_steps = lambda steps: (["core"], "", [{"name": "core"}])
+    loop._load_phase_skill_expansion = lambda phase: []
+    loop._send = fake_send
+    loop.llm.reset = lambda: None
+    loop.llm.messages = [{"role": "system", "content": "system"}]
+    loop._append_plan_correction_message("assert first then click")
+    loop._plan_diff_editor_controller = SimpleNamespace(call=fake_controller_call)
+    loop.model_router = SimpleNamespace(call=fake_router_call)
+
+    asyncio.run(loop.run([_make_current_step("Click the Get started button")]))
+
+    assert controller_calls
+    assert controller_calls[0]["purpose"] == "plan_diff_editor"
+    assert controller_calls[0]["tools"] == []
+    assert sent_messages
+    assert sent_messages[-1][0] == "llm_result"
+    assert sent_messages[-1][1]["success"] is False
+    assert loop._active_plan_correction_state is None
+    assert loop._active_plan_state == active_plan

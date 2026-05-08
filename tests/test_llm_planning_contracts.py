@@ -475,7 +475,7 @@ def _plan_diff_editor_errors(output: dict[str, Any]) -> list[str]:
         ("intent_classifier", "cheap", set()),
         ("clarification_generator", "cheap", {"ask_user", "send_to_overlay"}),
         ("journey_planner", "main", set(PLANNING_SAFE_TOOL_NAMES)),
-        ("plan_diff_editor", "main", {"ask_user", "send_to_overlay"}),
+        ("plan_diff_editor", "main", set()),
     ],
 )
 def test_llm_005_006_007_purpose_registry_exposes_planning_slice_contracts(
@@ -513,8 +513,12 @@ def test_llm_005_006_007_purpose_registry_exposes_planning_slice_contracts(
     assert policy["output_schema"]["format"] == "structured_json"
     assert set(policy["telemetry_fields"]) == EXPECTED_TELEMETRY_FIELDS
     assert set(allowed_tools_by_phase["planning"]) == expected_planning_tools
-    assert set(allowed_tools_by_phase["plan_review"]) == {"send_to_overlay", "ask_user"}
-    assert set(allowed_tools_by_phase["awaiting_confirmation"]) == {"send_to_overlay", "ask_user"}
+    if purpose == "plan_diff_editor":
+        assert set(allowed_tools_by_phase["plan_review"]) == set()
+        assert set(allowed_tools_by_phase["awaiting_confirmation"]) == set()
+    else:
+        assert set(allowed_tools_by_phase["plan_review"]) == {"send_to_overlay", "ask_user"}
+        assert set(allowed_tools_by_phase["awaiting_confirmation"]) == {"send_to_overlay", "ask_user"}
     assert set(allowed_tools_by_phase["executing"]) == set()
     assert set(allowed_tools_by_phase["recovery"]) <= {"browser_get_state", "ask_user"}
     assert set(allowed_tools_by_phase["completed"]) == set()
@@ -651,7 +655,7 @@ def test_llm_007_plan_diff_editor_returns_mutation_only_diff() -> None:
     assert result["retry_count"] == 0
     assert result["model"] == "main"
     assert result["skill_count"] == 2
-    assert result["tool_count"] == 2
+    assert result["tool_count"] == 0
     assert result["parsed_output"] == output
     assert result["parsed_output"]["operations"][1]["action"] == "reorder"
     assert result["parsed_output"]["operations"][2]["reason"] == "remove redundant duplicate"
@@ -659,7 +663,7 @@ def test_llm_007_plan_diff_editor_returns_mutation_only_diff() -> None:
     assert len(recorder.calls) == 1
     assert len(telemetry_sink.records) == 1
     assert telemetry_sink.records[0]["validation_status"] == "valid"
-    assert telemetry_sink.records[0]["tool_count"] == 2
+    assert telemetry_sink.records[0]["tool_count"] == 0
     assert telemetry_sink.records[0]["skill_count"] == 2
 
 
@@ -777,7 +781,7 @@ def test_llm_007_plan_diff_editor_returns_mutation_only_diff() -> None:
                 ),
                 field_check=_plan_diff_editor_errors,
             ),
-            2,
+            0,
         ),
     ],
 )

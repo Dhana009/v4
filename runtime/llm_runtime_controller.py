@@ -145,10 +145,11 @@ def _tool_policy(
     completed_tools: Sequence[str] | None = None,
     deny_reason: str = "deny_by_default",
 ) -> dict[str, Any]:
+    plan_review_phase_tools = PLAN_REVIEW_TOOL_NAMES if plan_review_tools is None else plan_review_tools
     allowed_tools_by_phase = {
         "planning": _normalize_names(planning_tools),
-        "plan_review": _normalize_names(plan_review_tools or PLAN_REVIEW_TOOL_NAMES),
-        "awaiting_confirmation": _normalize_names(plan_review_tools or PLAN_REVIEW_TOOL_NAMES),
+        "plan_review": _normalize_names(plan_review_phase_tools),
+        "awaiting_confirmation": _normalize_names(plan_review_phase_tools),
         "executing": _normalize_names(executing_tools or ()),
         "recovery": _normalize_names(recovery_tools or RECOVERY_TOOL_NAMES),
         "completed": _normalize_names(completed_tools or ()),
@@ -195,6 +196,7 @@ def _purpose_policy(
     model_class: str,
     skill_names: Sequence[str],
     planning_tools: Sequence[str],
+    plan_review_tools: Sequence[str] | None = None,
     token_budget: int,
     context_level: str = "compact",
     context_mode: str = "compact",
@@ -217,6 +219,7 @@ def _purpose_policy(
         "tool_policy": _tool_policy(
             purpose=purpose,
             planning_tools=planning_tools,
+            plan_review_tools=plan_review_tools,
         ),
         "output_schema": _output_schema(purpose),
         "backend_validator": "schema_validator",
@@ -281,7 +284,8 @@ def _build_purpose_policy_map() -> dict[str, dict[str, Any]]:
             purpose="plan_diff_editor",
             model_class="main",
             skill_names=planner_skill,
-            planning_tools=PLAN_REVIEW_TOOL_NAMES,
+            planning_tools=(),
+            plan_review_tools=(),
             token_budget=2200,
         ),
         "locator_specialist": _purpose_policy(
@@ -677,10 +681,7 @@ class LLMRuntimeController:
 
         allowed_names = set(self._tool_names_for_phase(policy, phase))
         if not allowed_names:
-            normalized_phase = str(phase or "").strip().lower() or "planning"
-            if normalized_phase in {"planning", "awaiting_confirmation"}:
-                return []
-            return filtered_tools
+            return []
 
         final_tools: list[Any] = []
         for index, tool in enumerate(filtered_tools):

@@ -7,6 +7,7 @@ import json
 import os
 import re
 from pathlib import Path
+from types import SimpleNamespace
 from typing import Any
 from uuid import uuid4
 
@@ -22,6 +23,7 @@ from runtime.event_contracts import (
     build_run_completed_payload,
     build_runtime_rejection_payload,
 )
+from runtime.llm_runtime_controller import LLMRuntimeController, PURPOSE_REGISTRY
 from runtime.model_router import ModelRouter
 from runtime.recovery_manager import classify_failure
 from runtime.phase_tracker import PhaseTracker
@@ -96,6 +98,21 @@ class AgentLoop:
         self.context_manager = ContextManager()
         self.model_router = ModelRouter()
         self.skill_manager = SkillManager()
+        self._plan_diff_editor_telemetry: list[dict[str, Any]] = []
+        self._plan_diff_editor_telemetry_sink = SimpleNamespace(
+            record=self._record_plan_diff_editor_telemetry,
+            emit=self._record_plan_diff_editor_telemetry,
+            log=self._record_plan_diff_editor_telemetry,
+            record_call=self._record_plan_diff_editor_telemetry,
+        )
+        self._plan_diff_editor_controller = LLMRuntimeController(
+            purpose_registry=PURPOSE_REGISTRY,
+            schema_validator=self._validate_plan_diff_editor_output,
+            context_manager=self.context_manager,
+            skill_manager=self.skill_manager,
+            telemetry_sink=self._plan_diff_editor_telemetry_sink,
+            model_client=self.llm.client,
+        )
         self.phase_tracker = PhaseTracker()
         self.tools = self._build_tool_definitions()
         tool_diagnostics = ToolRegistry().analyze(self.tools)
@@ -198,6 +215,9 @@ class AgentLoop:
         self._run_session_id = self._new_run_session_id()
         self._run_completed_emitted = False
         self._clear_plan_review_context()
+        telemetry_sink = getattr(self, "_plan_diff_editor_telemetry", None)
+        if isinstance(telemetry_sink, list):
+            telemetry_sink.clear()
         self._llm_call_counter = 0
 
     async def _send(self, msg_type: str, **kwargs: Any) -> None:
@@ -1368,6 +1388,85 @@ class AgentLoop:
                     self._pending_failure_followup = False
                     self._clear_active_plan_correction_state()
                     return
+                if isinstance(correction_mode, dict):
+                    correction_result = await self._run_plan_diff_editor_correction(
+                        messages=self.llm.messages,
+                        phase=current_phase,
+                        context_mode="compact",
+                    )
+                    if correction_result.get("used_controller"):
+                        validation_status = str(
+                            correction_result.get("validation_status")
+                            or correction_result.get("status")
+                            or correction_result.get("result")
+                            or ""
+                        ).strip()
+                        parsed_output = correction_result.get("parsed_output")
+                        if validation_status != "valid" or not isinstance(parsed_output, dict):
+                            failure_message = str(correction_result.get("message") or "").strip()
+                            if not failure_message:
+                                failure_message = (
+                                    "Correction failed safely. The model did not return a structured correction diff. "
+                                    "You can edit the pending step or run it again."
+                                )
+                            if "You can edit the pending step" not in failure_message:
+                                failure_message = f"{failure_message} You can edit the pending step or run it again."
+                            correction_mode["correction_failed"] = True
+                            correction_mode["clarification_closed"] = True
+                            correction_mode["needs_clarification"] = False
+                            correction_mode["last_validation_reason"] = "invalid structured correction diff"
+                            correction_mode["last_validation_feedback"] = failure_message
+                            print(
+                                "[AGENT] correction failed safely: "
+                                f"{self._summarize(failure_message, limit=140)}"
+                            )
+                            await self._send("llm_result", success=False, message=failure_message)
+                            self._pending_failure_followup = False
+                            self._clear_active_plan_correction_state()
+                            return
+
+                        correction_reason = str(correction_result.get("reason") or "").strip()
+                        if correction_reason in {"correction_failed", "correction_diff_required"}:
+                            failure_message = str(correction_result.get("message") or "").strip()
+                            if "You can edit the pending step" not in failure_message:
+                                failure_message = f"{failure_message} You can edit the pending step or run it again."
+                            print(
+                                "[AGENT] structured correction closed safely: "
+                                f"{self._summarize(failure_message or 'Correction failed safely.', limit=140)}"
+                            )
+                            await self._send(
+                                "llm_result",
+                                success=False,
+                                message=failure_message or "Correction failed safely.",
+                            )
+                            self._pending_failure_followup = False
+                            self._clear_active_plan_correction_state()
+                            return
+
+                        if correction_reason == "invalid_corrected_plan":
+                            validation_feedback = str(correction_result.get("message") or "").strip()
+                            if validation_feedback:
+                                self.llm.messages.append({"role": "user", "content": validation_feedback})
+                            print(
+                                "[AGENT] corrected plan rejected: "
+                                f"{self._summarize(validation_feedback or 'invalid corrected plan', limit=140)}"
+                            )
+                            continue
+
+                        if correction_result.get("confirmed") is False:
+                            correction = str(correction_result.get("correction") or "").strip() or "the user requested a correction"
+                            note = self._append_plan_correction_message(
+                                correction,
+                                plan_id=str(correction_result.get("plan_id") or "").strip() or None,
+                                target_step_id=str(correction_result.get("target_step_id") or "").strip() or None,
+                            )
+                            print(f"[AGENT] plan corrected: {self._summarize(note, limit=140)}")
+                            continue
+
+                        if correction_result.get("confirmed") is True:
+                            continue
+
+                        continue
                 filtered_tools = filter_tools_for_phase(
                     self.tools,
                     current_phase,
@@ -2941,6 +3040,161 @@ class AgentLoop:
         self._active_plan_state = None
         self._clear_active_plan_correction_state()
 
+    def _record_plan_diff_editor_telemetry(self, **payload: Any) -> None:
+        self._plan_diff_editor_telemetry.append(dict(payload))
+
+    def _validate_plan_diff_editor_output(self, **payload: Any) -> dict[str, Any]:
+        raw_output = payload.get("raw_output") or payload.get("output") or payload.get("response")
+        if isinstance(raw_output, str):
+            try:
+                parsed_output = json.loads(raw_output)
+            except json.JSONDecodeError:
+                return {
+                    "ok": False,
+                    "validation_status": "invalid",
+                    "errors": ["invalid_json"],
+                    "parsed_output": None,
+                }
+        elif isinstance(raw_output, dict):
+            parsed_output = dict(raw_output)
+        elif hasattr(raw_output, "__dict__"):
+            parsed_output = dict(vars(raw_output))
+        else:
+            return {
+                "ok": False,
+                "validation_status": "invalid",
+                "errors": ["unsupported_output"],
+                "parsed_output": None,
+            }
+
+        if not isinstance(parsed_output, dict):
+            return {
+                "ok": False,
+                "validation_status": "invalid",
+                "errors": ["invalid_output"],
+                "parsed_output": None,
+            }
+
+        errors: list[str] = []
+        required_text_fields = (
+            "schema_id",
+            "purpose",
+            "correction_intent",
+            "target_plan_id",
+        )
+        for field_name in required_text_fields:
+            if str(parsed_output.get(field_name) or "").strip() == "":
+                errors.append(field_name)
+
+        target_plan_version = parsed_output.get("target_plan_version")
+        if not isinstance(target_plan_version, int):
+            errors.append("target_plan_version")
+
+        if str(parsed_output.get("schema_id") or "").strip() != "plan_diff_editor.v1":
+            errors.append("schema_id")
+        if str(parsed_output.get("purpose") or "").strip() != "plan_diff_editor":
+            errors.append("purpose")
+        if not isinstance(parsed_output.get("operations"), list) or not parsed_output.get("operations"):
+            errors.append("operations")
+        if not isinstance(parsed_output.get("requires_user_clarification"), bool) or parsed_output.get("requires_user_clarification") is not False:
+            errors.append("requires_user_clarification")
+
+        if errors:
+            return {
+                "ok": False,
+                "validation_status": "invalid",
+                "errors": errors,
+                "parsed_output": None,
+            }
+
+        return {
+            "ok": True,
+            "validation_status": "valid",
+            "errors": [],
+            "parsed_output": parsed_output,
+        }
+
+    async def _call_plan_diff_editor_controller(
+        self,
+        *,
+        messages: list[dict[str, Any]],
+        phase: str | None,
+        context_mode: str = "normal",
+    ) -> dict[str, Any]:
+        controller = getattr(self, "_plan_diff_editor_controller", None)
+        call = getattr(controller, "call", None) if controller is not None else None
+        if not callable(call):
+            return {"used_controller": False}
+
+        try:
+            result = await call(
+                purpose="plan_diff_editor",
+                messages=messages,
+                phase=phase,
+                context_mode=context_mode,
+                client=self.llm.client,
+                tools=[],
+                tool_choice=None,
+            )
+        except Exception as exc:  # noqa: BLE001
+            return {
+                "used_controller": True,
+                "validation_status": "retry_failed",
+                "parsed_output": None,
+                "errors": [type(exc).__name__],
+                "message": str(exc),
+            }
+        if not isinstance(result, dict):
+            return {
+                "used_controller": True,
+                "validation_status": "retry_failed",
+                "parsed_output": None,
+                "errors": ["invalid_controller_result"],
+            }
+        result = dict(result)
+        result["used_controller"] = True
+        return result
+
+    async def _run_plan_diff_editor_correction(
+        self,
+        *,
+        messages: list[dict[str, Any]],
+        phase: str | None,
+        context_mode: str = "normal",
+    ) -> dict[str, Any]:
+        controller_result = await self._call_plan_diff_editor_controller(
+            messages=messages,
+            phase=phase,
+            context_mode=context_mode,
+        )
+        if not controller_result.get("used_controller"):
+            return controller_result
+
+        validation_status = str(
+            controller_result.get("validation_status")
+            or controller_result.get("status")
+            or controller_result.get("result")
+            or ""
+        ).strip()
+        parsed_output = controller_result.get("parsed_output")
+        if validation_status != "valid" or not isinstance(parsed_output, dict):
+            return controller_result
+
+        result = dict(controller_result)
+        overlay_result = await self._tool_send_to_overlay(
+            {
+                "message_type": "plan_correction_diff",
+                "payload": parsed_output,
+            }
+        )
+        if isinstance(overlay_result, dict):
+            result.update(dict(overlay_result))
+            result["overlay_result"] = dict(overlay_result)
+        else:
+            result["overlay_result"] = overlay_result
+        result["used_controller"] = True
+        return result
+
     def _current_active_plan_state(self) -> dict[str, Any] | None:
         active_plan_state = getattr(self, "_active_plan_state", None)
         if isinstance(active_plan_state, dict):
@@ -4410,9 +4664,128 @@ class AgentLoop:
             return {}
 
         proposed_diff = deepcopy(diff_payload) if isinstance(diff_payload, dict) else {}
+        active_plan_id = str(active_plan_state.get("plan_id") or "").strip()
+        proposed_target_plan_id = str(
+            proposed_diff.get("target_plan_id")
+            or proposed_diff.get("targetPlanId")
+            or correction_state.get("plan_id")
+            or ""
+        ).strip()
+        if proposed_target_plan_id and active_plan_id and proposed_target_plan_id != active_plan_id:
+            return {}
+
+        def _patch_value(patch: dict[str, Any], *names: str) -> Any:
+            for name in names:
+                value = patch.get(name)
+                if value not in (None, "", [], {}, ()):
+                    return value
+            return None
+
+        def _normalize_step_patch(patch: dict[str, Any]) -> dict[str, Any]:
+            if any(name in patch for name in ("children", "operations")):
+                return {}
+
+            updates: dict[str, Any] = {}
+            intent_value = _patch_value(patch, "intent", "title", "text", "label")
+            if intent_value is not None:
+                intent_text = self._normalize_space(str(intent_value)).strip()
+                if intent_text:
+                    updates["intent"] = intent_text
+
+            expected_outcome_value = _patch_value(patch, "expected_outcome", "expectedOutcome")
+            if expected_outcome_value is not None:
+                updates["expected_outcome"] = deepcopy(expected_outcome_value)
+            return updates
+
         mutations = proposed_diff.get("mutations")
         if not isinstance(mutations, list):
-            return {}
+            operations = proposed_diff.get("operations")
+            if not isinstance(operations, list):
+                return {}
+
+            mutations = []
+            for operation in operations:
+                if not isinstance(operation, dict):
+                    return {}
+                mutation_op = self._normalize_space(
+                    str(operation.get("op") or operation.get("action") or "")
+                ).strip().lower()
+                target_type = self._normalize_space(
+                    str(operation.get("target_type") or operation.get("targetType") or "")
+                ).strip().lower()
+                target_id = self._normalize_space(
+                    str(operation.get("target_id") or operation.get("targetId") or "")
+                ).strip()
+
+                if mutation_op in {"keep", "remove", "reorder"}:
+                    if target_type and target_type not in {"operation", "child"}:
+                        return {}
+                    if not target_id:
+                        return {}
+                    mutation: dict[str, Any] = {"op": mutation_op, "operation_id": target_id}
+                    for key in (
+                        "position",
+                        "relative_to_operation_id",
+                        "relativeToOperationId",
+                        "before_operation_id",
+                        "beforeOperationId",
+                        "after_operation_id",
+                        "afterOperationId",
+                    ):
+                        value = _patch_value(operation, key)
+                        if value is not None:
+                            mutation[key] = value
+                    mutations.append(mutation)
+                    continue
+
+                if mutation_op == "add":
+                    if target_type and target_type not in {"operation", "child"}:
+                        return {}
+                    operation_spec = _patch_value(operation, "operation", "patch", "child", "child_operation")
+                    if not isinstance(operation_spec, dict):
+                        return {}
+                    mutation = {"op": "add", "operation": deepcopy(operation_spec)}
+                    for key in (
+                        "position",
+                        "relative_to_operation_id",
+                        "relativeToOperationId",
+                        "before_operation_id",
+                        "beforeOperationId",
+                        "after_operation_id",
+                        "afterOperationId",
+                    ):
+                        value = _patch_value(operation, key)
+                        if value is not None:
+                            mutation[key] = value
+                    mutations.append(mutation)
+                    continue
+
+                if mutation_op == "update":
+                    patch = _patch_value(operation, "patch")
+                    if not isinstance(patch, dict):
+                        return {}
+                    if target_type == "step":
+                        step_updates = _normalize_step_patch(patch)
+                        if not step_updates:
+                            return {}
+                        mutations.append({"op": "step_update", "step_updates": step_updates})
+                        continue
+                    if target_type == "operation":
+                        expected_outcome = _patch_value(patch, "expected_outcome", "expectedOutcome")
+                        if expected_outcome is None:
+                            return {}
+                        mutations.append(
+                            {
+                                "op": "change_expected_outcome",
+                                "expected_outcome": deepcopy(expected_outcome),
+                            }
+                        )
+                        continue
+                    return {}
+
+                return {}
+
+        step_updates: dict[str, Any] = {}
 
         target_step_id = str(
             proposed_diff.get("target_step_id")
@@ -4467,6 +4840,12 @@ class AgentLoop:
                 mutation_op = self._normalize_space(
                     str(mutation.get("op") or mutation.get("type") or "")
                 ).strip().lower()
+                if mutation_op == "step_update":
+                    step_update_values = mutation.get("step_updates")
+                    if not isinstance(step_update_values, dict):
+                        return {}
+                    step_updates.update(dict(step_update_values))
+                    continue
                 if mutation_op in {"keep", "reorder", "remove"}:
                     operation_id = self._normalize_space(
                         str(mutation.get("operation_id") or mutation.get("operationId") or "")
@@ -4510,6 +4889,22 @@ class AgentLoop:
                 if mutation_op in {"split_step", "merge_steps", "replace_target", "ambiguous"}:
                     return {}
                 return {}
+
+            if step_updates:
+                intent_value = step_updates.get("intent")
+                if intent_value is not None:
+                    step_copy["intent"] = self._normalize_space(str(intent_value)).strip()
+                expected_outcome_value = step_updates.get("expected_outcome")
+                if expected_outcome_value is not None:
+                    normalized_expected_outcome = self._normalize_expected_outcome(
+                        expected_outcome_value,
+                        self._is_click_like_intent(
+                            str(step_copy.get("intent") or step_copy.get("title") or step_copy.get("text") or "").strip(),
+                        ),
+                    )
+                    if normalized_expected_outcome is None:
+                        return {}
+                    step_copy["expected_outcome"] = normalized_expected_outcome
 
             if changed_expected_outcome is not None:
                 normalized_expected_outcome = self._normalize_expected_outcome(
