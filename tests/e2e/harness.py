@@ -20,6 +20,10 @@ from urllib.parse import parse_qsl, quote, urlsplit, urlunsplit
 
 from dotenv import dotenv_values
 
+import sys as _sys
+_sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from runtime.token_report import parse_telemetry_lines, build_token_report, write_token_report, print_token_summary
+
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 RESULTS_ROOT = REPO_ROOT / "test-results" / "autoworkbench-e2e"
@@ -1484,6 +1488,15 @@ class E2ESession:
             "browser-console.log": "\n".join(self.console_entries),
             "summary.md": self._build_summary_markdown(),
         }
+        # Sprint 3 INT-E2E-002: write token-report.json from backend stdout telemetry
+        try:
+            backend_stdout = self.backend.stdout_path.read_text(encoding="utf-8", errors="replace")
+            _telemetry_records = parse_telemetry_lines(backend_stdout)
+            _token_report = build_token_report(_telemetry_records, test_name=self.test_name)
+            write_token_report(self.artifact_dir, _token_report)
+            print_token_summary(_token_report)
+        except Exception as _exc:
+            print(f"[TOKEN_REPORT] warning: could not write token report: {_exc}")
         finalize_test_result(
             artifact_dir=self.artifact_dir,
             test_name=self.test_name,
