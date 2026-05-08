@@ -37,6 +37,172 @@ PHASE_INSTRUCTION_CONTENT = {
 # Sprint 3 INT-CTX-001: cap individual tool/DOM result messages at this token limit.
 DOM_TOOL_RESULT_TOKEN_CAP = 800
 
+PURPOSE_COMPACT_WINDOW_POLICIES = {
+    "step_plan_normalizer": "planning_recent_tool_chain",
+    "plan_diff_editor": "correction_only",
+    "locator_specialist": "locator_recent_tool_chain",
+    "recovery_diagnoser": "recovery_recent_evidence",
+}
+
+
+def _message_role(message: Any) -> str:
+    if not isinstance(message, dict):
+        return "other"
+    role = str(message.get("role") or "").strip().lower()
+    if role in {"system", "user", "assistant", "tool"}:
+        return role
+    return "other"
+
+
+def _message_tool_call_ids(message: Any) -> set[str]:
+    if not isinstance(message, dict):
+        return set()
+    tool_calls = message.get("tool_calls")
+    if not isinstance(tool_calls, list):
+        return set()
+    result: set[str] = set()
+    for tool_call in tool_calls:
+        if not isinstance(tool_call, dict):
+            continue
+        tool_call_id = str(tool_call.get("id") or "").strip()
+        if tool_call_id:
+            result.add(tool_call_id)
+    return result
+
+
+def _message_tool_call_id(message: Any) -> str:
+    if not isinstance(message, dict):
+        return ""
+    return str(message.get("tool_call_id") or "").strip()
+
+
+def _message_text(message: Any) -> str:
+    if not isinstance(message, dict):
+        return str(message or "")
+    content = message.get("content")
+    if isinstance(content, str):
+        return content
+    if content is None:
+        return ""
+    return str(content)
+
+
+def _first_user_message_index(messages: list[dict]) -> int | None:
+    for index, message in enumerate(messages):
+        if _message_role(message) == "user":
+            return index
+    return None
+
+
+def _last_indices_for_roles(
+    messages: list[dict],
+    *,
+    roles: set[str],
+    limit: int,
+    include_tool_calling_assistants: bool = True,
+) -> list[int]:
+    indices: list[int] = []
+    for index in range(len(messages) - 1, -1, -1):
+        message = messages[index]
+        role = _message_role(message)
+        if role not in roles:
+            continue
+        if (
+            role == "assistant"
+            and not include_tool_calling_assistants
+            and _message_tool_call_ids(message)
+        ):
+            continue
+        indices.append(index)
+        if len(indices) >= limit:
+            break
+    return list(reversed(indices))
+
+
+def _last_tool_chain_indices(messages: list[dict], *, chain_limit: int) -> list[int]:
+    indices: set[int] = set()
+    found_chains = 0
+    seen_tool_call_ids: set[str] = set()
+    for index in range(len(messages) - 1, -1, -1):
+        message = messages[index]
+        if _message_role(message) != "tool":
+            continue
+        tool_call_id = _message_tool_call_id(message)
+        if not tool_call_id or tool_call_id in seen_tool_call_ids:
+            continue
+        seen_tool_call_ids.add(tool_call_id)
+        indices.add(index)
+        for candidate_index in range(index - 1, -1, -1):
+            candidate = messages[candidate_index]
+            if _message_role(candidate) != "assistant":
+                continue
+            if tool_call_id in _message_tool_call_ids(candidate):
+                indices.add(candidate_index)
+                break
+        found_chains += 1
+        if found_chains >= chain_limit:
+            break
+    return sorted(indices)
+
+
+def _message_is_failure_recovery_related(message: Any) -> bool:
+    text = _message_text(message).lower()
+    return any(marker in text for marker in ("failed", "failure", "recovery", "error", "retry", "blocked"))
+
+
+def _apply_purpose_compact_window(
+    messages: list[dict],
+    *,
+    purpose: str,
+    metadata: dict[str, Any] | None = None,
+) -> tuple[list[dict], dict[str, Any]]:
+    normalized_purpose = str(purpose or "").strip()
+    strategy = PURPOSE_COMPACT_WINDOW_POLICIES.get(normalized_purpose)
+    if not strategy:
+        return list(messages), {
+            "applied": False,
+            "strategy": "none",
+            "dropped_count": 0,
+        }
+
+    selected_indices: set[int] = set()
+    for index, message in enumerate(messages):
+        if _message_role(message) == "system":
+            selected_indices.add(index)
+
+    first_user_index = _first_user_message_index(messages)
+    if first_user_index is not None:
+        selected_indices.add(first_user_index)
+
+    if strategy == "planning_recent_tool_chain":
+        selected_indices.update(_last_indices_for_roles(messages, roles={"user", "assistant"}, limit=2))
+        selected_indices.update(_last_tool_chain_indices(messages, chain_limit=1))
+    elif strategy == "correction_only":
+        selected_indices.update(
+            _last_indices_for_roles(
+                messages,
+                roles={"user", "assistant"},
+                limit=3,
+                include_tool_calling_assistants=False,
+            )
+        )
+    elif strategy == "locator_recent_tool_chain":
+        selected_indices.update(_last_indices_for_roles(messages, roles={"user", "assistant"}, limit=2))
+        selected_indices.update(_last_tool_chain_indices(messages, chain_limit=1))
+    elif strategy == "recovery_recent_evidence":
+        selected_indices.update(_last_indices_for_roles(messages, roles={"user", "assistant", "tool"}, limit=4))
+        for index, message in enumerate(messages):
+            if _message_is_failure_recovery_related(message):
+                selected_indices.add(index)
+
+    compacted_messages = [messages[index] for index in sorted(selected_indices)]
+    dropped_count = max(0, len(messages) - len(compacted_messages))
+    return compacted_messages, {
+        "applied": dropped_count > 0,
+        "strategy": strategy,
+        "dropped_count": dropped_count,
+    }
+
 
 def _cap_tool_result_messages(messages: list[dict]) -> tuple[list[dict], bool]:
     """Cap any tool-role message content exceeding DOM_TOOL_RESULT_TOKEN_CAP tokens.
@@ -104,6 +270,11 @@ class ContextManager:
             dict(message) if isinstance(message, dict) else message
             for message in (messages or [])
         ]
+        copied_messages, purpose_window_details = _apply_purpose_compact_window(
+            copied_messages,
+            purpose=str(purpose or "").strip(),
+            metadata=metadata,
+        )
         # INT-CTX-001: cap tool/DOM result messages before history analysis
         copied_messages, tool_result_capped = _cap_tool_result_messages(copied_messages)
         history_manager = HistoryManager()
@@ -167,6 +338,9 @@ class ContextManager:
 
         bundle_metadata["budget_status"] = budget_status
         bundle_metadata["tool_result_capped"] = tool_result_capped
+        bundle_metadata["purpose_window_applied"] = bool(purpose_window_details.get("applied"))
+        bundle_metadata["purpose_window_strategy"] = str(purpose_window_details.get("strategy") or "none")
+        bundle_metadata["purpose_window_dropped_count"] = int(purpose_window_details.get("dropped_count") or 0)
         bundle_metadata["managed_history_enabled"] = True
         bundle_metadata["compaction_applied"] = managed_history.compaction_applied
         bundle_metadata["original_message_count"] = managed_history.original_message_count

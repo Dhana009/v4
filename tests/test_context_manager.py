@@ -317,3 +317,158 @@ def test_context_does_not_ask_for_plan_ready_in_correction_mode():
     assert len(correction_messages) >= 1
     correction_text = str(correction_messages[0]["content"])
     assert "message_type='plan_correction_diff'" in correction_text
+
+
+def test_step_plan_normalizer_excludes_old_tool_outputs():
+    manager = ContextManager()
+    messages = [
+        {"role": "system", "content": "system prompt"},
+        {"role": "user", "content": "click the selected button"},
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "call-old",
+                    "type": "function",
+                    "function": {"name": "dom_extract", "arguments": '{"scope":"page"}'},
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call-old", "content": '{"elements":"old dom packet"}'},
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "call-new",
+                    "type": "function",
+                    "function": {"name": "browser_get_state", "arguments": "{}"},
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call-new", "content": '{"url":"http://fixture/current"}'},
+        {"role": "assistant", "content": "I have the latest page summary."},
+    ]
+
+    bundle = manager.prepare_messages(
+        messages,
+        purpose="step_plan_normalizer",
+        context_mode="normal",
+        metadata={"phase": "planning", "skill_count": 1, "tool_count": 2},
+    )
+
+    tool_call_ids = [msg.get("tool_call_id") for msg in bundle.messages if msg.get("role") == "tool"]
+    assert "call-old" not in tool_call_ids
+    assert "call-new" in tool_call_ids
+    assert bundle.metadata["purpose_window_applied"] is True
+    assert bundle.metadata["purpose_window_strategy"] == "planning_recent_tool_chain"
+
+
+def test_plan_diff_editor_excludes_dom_history_and_tools():
+    manager = ContextManager()
+    messages = [
+        {"role": "system", "content": "system prompt"},
+        {"role": "user", "content": "click the selected button"},
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "call-dom",
+                    "type": "function",
+                    "function": {"name": "dom_extract", "arguments": '{"scope":"page"}'},
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call-dom", "content": '{"elements":"dom snapshot"}'},
+        {"role": "assistant", "content": "Here is the plan."},
+        {"role": "user", "content": "Correction: add an assertion first."},
+    ]
+
+    bundle = manager.prepare_messages(
+        messages,
+        purpose="plan_diff_editor",
+        context_mode="normal",
+        metadata={
+            "phase": "planning",
+            "skill_count": 1,
+            "tool_count": 0,
+            "correction_context": "Structured correction diff context.",
+        },
+    )
+
+    assert not any(msg.get("role") == "tool" for msg in bundle.messages)
+    assert not any(msg.get("tool_calls") for msg in bundle.messages if msg.get("role") == "assistant")
+    assert any("Correction: add an assertion first." in str(msg.get("content") or "") for msg in bundle.messages)
+    assert bundle.metadata["purpose_window_strategy"] == "correction_only"
+
+
+def test_locator_specialist_keeps_only_recent_locator_chain():
+    manager = ContextManager()
+    messages = [
+        {"role": "system", "content": "system prompt"},
+        {"role": "user", "content": "find the locator"},
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "call-older",
+                    "type": "function",
+                    "function": {"name": "locator_find", "arguments": '{"target":"old"}'},
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call-older", "content": '{"locator":"old-locator"}'},
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "call-recent",
+                    "type": "function",
+                    "function": {"name": "locator_validate", "arguments": '{"locator":"new-locator"}'},
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call-recent", "content": '{"valid":true,"locator":"new-locator"}'},
+        {"role": "assistant", "content": "Latest locator candidate is new-locator."},
+    ]
+
+    bundle = manager.prepare_messages(
+        messages,
+        purpose="locator_specialist",
+        context_mode="normal",
+        metadata={"phase": "planning", "skill_count": 1, "tool_count": 2},
+    )
+
+    serialized = "\n".join(str(msg.get("content") or "") for msg in bundle.messages if isinstance(msg, dict))
+    assert "new-locator" in serialized
+    assert "old-locator" not in serialized
+    assert bundle.metadata["purpose_window_strategy"] == "locator_recent_tool_chain"
+
+
+def test_recovery_diagnoser_keeps_failure_context_and_recent_evidence():
+    manager = ContextManager()
+    messages = [
+        {"role": "system", "content": "system prompt"},
+        {"role": "user", "content": "click the submit button"},
+        {"role": "assistant", "content": "The click failed with timeout."},
+        {"role": "tool", "tool_call_id": "call-failure", "content": '{"success":false,"error":"timeout while clicking"}'},
+        {"role": "assistant", "content": "Recovery: retry after checking visibility."},
+        {"role": "user", "content": "please continue recovery"},
+        {"role": "assistant", "content": "Latest evidence collected."},
+    ]
+
+    bundle = manager.prepare_messages(
+        messages,
+        purpose="recovery_diagnoser",
+        context_mode="normal",
+        metadata={"phase": "recovery", "skill_count": 1, "tool_count": 1},
+    )
+
+    serialized = "\n".join(str(msg.get("content") or "") for msg in bundle.messages if isinstance(msg, dict))
+    assert "timeout while clicking" in serialized
+    assert "continue recovery" in serialized
+    assert bundle.metadata["purpose_window_strategy"] == "recovery_recent_evidence"
