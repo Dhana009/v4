@@ -599,6 +599,22 @@ def _make_failure_session(
     )
 
 
+def _make_static_server_process(tmp_path: Path, port: int, stop_calls: list[int] | None = None) -> SimpleNamespace:
+    def stop(timeout_s: float = 10.0) -> None:  # noqa: ARG001
+        if stop_calls is not None:
+            stop_calls.append(port)
+
+    return SimpleNamespace(
+        port=port,
+        base_url=f"http://127.0.0.1:{port}",
+        stdout_path=tmp_path / f"static-server-{port}.stdout.log",
+        stderr_path=tmp_path / f"static-server-{port}.stderr.log",
+        stop=stop,
+        poll=lambda: None,
+        returncode=None,
+    )
+
+
 def test_resolve_e2e_port_prefers_explicit_value_then_env(monkeypatch) -> None:
     monkeypatch.setenv("AUTOWORKBENCH_E2E_BACKEND_PORT", "53101")
 
@@ -629,6 +645,95 @@ def test_resolve_e2e_port_rejects_invalid_env_value(monkeypatch) -> None:
             env_name="AUTOWORKBENCH_E2E_BACKEND_PORT",
             default=8765,
         )
+
+
+def test_start_static_server_respects_configured_port_env(monkeypatch, tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    monkeypatch.setenv("AUTOWORKBENCH_E2E_PORT", "53123")
+
+    def fake_reserve_tcp_port(host: str, port: int) -> int:
+        captured.setdefault("reserve_calls", []).append((host, port))
+        return port
+
+    def fake_start_managed_process(**kwargs):
+        captured["port"] = kwargs["port"]
+        captured["command"] = kwargs["command"]
+        return _make_static_server_process(tmp_path, kwargs["port"])
+
+    def fake_wait_for_http_url(url: str, *, label: str, process=None, timeout_s: float = 0.0) -> None:
+        captured["wait_url"] = url
+        captured["wait_label"] = label
+        captured["wait_port"] = getattr(process, "port", None)
+        captured["wait_timeout_s"] = timeout_s
+
+    monkeypatch.setattr(harness, "_reserve_tcp_port", fake_reserve_tcp_port)
+    monkeypatch.setattr(harness, "start_managed_process", fake_start_managed_process)
+    monkeypatch.setattr(harness, "wait_for_http_url", fake_wait_for_http_url)
+
+    process = harness.start_static_server(tmp_path, tmp_path)
+
+    assert process.port == 53123
+    assert process.base_url == "http://127.0.0.1:53123"
+    assert captured["reserve_calls"] == [("127.0.0.1", 53123)]
+    assert captured["port"] == 53123
+    assert captured["wait_url"] == "http://127.0.0.1:53123/index.html"
+    assert captured["wait_label"] == "static server"
+    assert captured["wait_port"] == 53123
+
+
+def test_start_static_server_falls_back_to_dynamic_port_when_default_is_blocked(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    captured: dict[str, object] = {}
+    stop_calls: list[int] = []
+
+    def fake_reserve_tcp_port(host: str, port: int) -> int:
+        captured.setdefault("reserve_calls", []).append((host, port))
+        if port == 0:
+            return 54321
+        return port
+
+    def fake_start_managed_process(**kwargs):
+        captured.setdefault("start_ports", []).append(kwargs["port"])
+        return _make_static_server_process(tmp_path, kwargs["port"], stop_calls=stop_calls)
+
+    def fake_wait_for_http_url(url: str, *, label: str, process=None, timeout_s: float = 0.0) -> None:
+        captured.setdefault("wait_calls", []).append((url, label, getattr(process, "port", None), timeout_s))
+        if getattr(process, "port", None) == harness.DEFAULT_E2E_STATIC_SERVER_PORT:
+            raise harness.E2EStartupBlockedError("default bind blocked")
+
+    monkeypatch.setattr(harness, "_reserve_tcp_port", fake_reserve_tcp_port)
+    monkeypatch.setattr(harness, "start_managed_process", fake_start_managed_process)
+    monkeypatch.setattr(harness, "wait_for_http_url", fake_wait_for_http_url)
+
+    process = harness.start_static_server(tmp_path, tmp_path)
+
+    assert captured["reserve_calls"] == [("127.0.0.1", harness.DEFAULT_E2E_STATIC_SERVER_PORT), ("127.0.0.1", 0)]
+    assert captured["start_ports"] == [harness.DEFAULT_E2E_STATIC_SERVER_PORT, 54321]
+    assert stop_calls == [harness.DEFAULT_E2E_STATIC_SERVER_PORT]
+    assert process.port == 54321
+    assert process.base_url == "http://127.0.0.1:54321"
+    assert captured["wait_calls"] == [
+        ("http://127.0.0.1:8000/index.html", "static server", 8000, 10.0),
+        ("http://127.0.0.1:54321/index.html", "static server", 54321, 10.0),
+    ]
+
+
+def test_start_static_server_raises_typed_blocker_when_all_local_binds_fail(monkeypatch, tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_reserve_tcp_port(host: str, port: int) -> int:
+        captured.setdefault("reserve_calls", []).append((host, port))
+        raise OSError("bind blocked")
+
+    monkeypatch.setattr(harness, "_reserve_tcp_port", fake_reserve_tcp_port)
+
+    with pytest.raises(harness.E2EStartupBlockedError, match=r"127\.0\.0\.1:8000 or a dynamic local port"):
+        harness.start_static_server(tmp_path, tmp_path)
+
+    assert captured["reserve_calls"] == [("127.0.0.1", harness.DEFAULT_E2E_STATIC_SERVER_PORT), ("127.0.0.1", 0)]
 
 
 def test_start_autoworkbench_backend_uses_selected_port_for_env_and_readiness(monkeypatch, tmp_path: Path) -> None:
@@ -705,7 +810,7 @@ def test_wait_for_http_url_classifies_permission_error(tmp_path: Path) -> None:
         returncode=1,
     )
 
-    with pytest.raises(RuntimeError, match="local socket allocation is blocked"):
+    with pytest.raises(harness.E2EStartupBlockedError, match="local socket allocation is blocked"):
         harness.wait_for_http_url(
             "http://127.0.0.1:8765/docs",
             label="AutoWorkbench backend",
@@ -1306,6 +1411,34 @@ def test_finalize_test_result_redacts_sensitive_strings_from_summary_and_artifac
         assert secret not in summary
         assert secret not in manifest_blob
         assert secret not in result_blob
+
+
+def test_finalize_test_result_records_redaction_parse_diagnostics_for_already_redacted_placeholders(
+    tmp_path: Path,
+) -> None:
+    already_redacted_url = "https://[REDACTED_PHONE]/trace?phone=[REDACTED_PHONE]"
+
+    manifest, result = harness.finalize_test_result(
+        artifact_dir=tmp_path,
+        test_name="redaction_placeholder_parse_diagnostic",
+        status="failed",
+        error_summary=f"cleanup saw {already_redacted_url}",
+        artifacts=REDACTION_REPORT_ARTIFACTS,
+        artifact_texts={
+            "summary.md": f"# Summary\n\ncleanup saw {already_redacted_url}\n",
+        },
+    )
+
+    report_path = tmp_path / "redaction-report.json"
+    report = json.loads(report_path.read_text(encoding="utf-8"))
+
+    assert manifest["status"] == "failed"
+    assert result["status"] == "failed"
+    assert any(
+        finding["pattern"] == "redaction_parse_error" and finding["location"] in {"error_summary", "summary.md"}
+        for finding in report["findings"]
+    )
+    assert "[REDACTED_PHONE]" in (tmp_path / "summary.md").read_text(encoding="utf-8")
 
 
 def test_finalize_test_result_omits_deferred_redaction_report_note_when_redaction_report_json_is_written(

@@ -5,6 +5,7 @@ import hashlib
 import json
 import os
 import re
+import socket
 import subprocess
 import sys
 import time
@@ -121,7 +122,18 @@ _REDACTION_REGEX_RULES: list[tuple[str, re.Pattern[str], str]] = [
     ("phone", re.compile(r"\+?\d[\d\s().-]{7,}\d"), "[REDACTED_PHONE]"),
 ]
 _REDACTION_URL_PATTERN = re.compile(r"https?://[^\s<>\"]+")
+_LOCAL_SOCKET_BIND_FAILURE_MARKERS = (
+    "PermissionError",
+    "Operation not permitted",
+    "Address already in use",
+    "Errno 48",
+    "Errno 98",
+)
 T = TypeVar("T")
+
+
+class E2EStartupBlockedError(RuntimeError):
+    """Raised when the local E2E harness cannot bind a loopback socket."""
 
 
 def resolve_e2e_port(port: int | None, *, env_name: str, default: int) -> int:
@@ -216,10 +228,11 @@ def wait_for_http_url(url: str, *, label: str, process: "ManagedProcess | None" 
         if process is not None and process.poll() is not None:
             stdout_text = tail_text(process.stdout_path)
             stderr_text = tail_text(process.stderr_path)
-            if "PermissionError" in stderr_text and "Operation not permitted" in stderr_text:
-                raise RuntimeError(
-                    f"{label} could not start because local socket allocation is blocked in this environment.\n"
+            if any(marker in stderr_text for marker in _LOCAL_SOCKET_BIND_FAILURE_MARKERS):
+                raise E2EStartupBlockedError(
+                    f"DEV-4 environment blocker: {label} could not start because local socket allocation is blocked.\n"
                     f"Requested URL: {url}\n"
+                    f"Attempted bind target: {getattr(process, 'base_url', url)}\n"
                     f"stdout:\n{stdout_text}\n"
                     f"stderr:\n{stderr_text}"
                 )
@@ -276,6 +289,43 @@ def _normalize_optional_absence_notes(optional_absence_notes: Sequence[str] | No
     return [str(note) for note in optional_absence_notes]
 
 
+def _reserve_tcp_port(host: str, port: int) -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind((host, port))
+        return int(sock.getsockname()[1])
+
+
+def _reserve_dynamic_tcp_port(host: str = "127.0.0.1") -> int:
+    try:
+        return _reserve_tcp_port(host, 0)
+    except OSError as exc:  # noqa: BLE001
+        raise E2EStartupBlockedError(
+            f"DEV-4 environment blocker: could not reserve a dynamic local port on {host}:0."
+        ) from exc
+
+
+def _resolve_static_server_override_port(port: int | None) -> int | None:
+    if port is not None:
+        return port
+    for env_name in ("AUTOWORKBENCH_E2E_STATIC_SERVER_PORT", "AUTOWORKBENCH_E2E_PORT"):
+        raw_port = os.getenv(env_name, "").strip()
+        if raw_port:
+            return resolve_e2e_port(None, env_name=env_name, default=DEFAULT_E2E_STATIC_SERVER_PORT)
+    return None
+
+
+def _prepare_static_server_port(port: int) -> int:
+    if port == 0:
+        return _reserve_dynamic_tcp_port()
+    try:
+        _reserve_tcp_port("127.0.0.1", port)
+    except OSError as exc:  # noqa: BLE001
+        raise E2EStartupBlockedError(
+            f"DEV-4 environment blocker: static server could not bind 127.0.0.1:{port}."
+        ) from exc
+    return port
+
+
 def _dedupe_finding_tuples(findings: Sequence[tuple[str, str]]) -> list[tuple[str, str]]:
     unique: list[tuple[str, str]] = []
     seen: set[tuple[str, str]] = set()
@@ -307,7 +357,11 @@ def _redact_url_substrings(text: str, *, location: str) -> tuple[str, list[tuple
 
     for match in reversed(matches):
         url_text = match.group(0)
-        parsed = urlsplit(url_text)
+        try:
+            parsed = urlsplit(url_text)
+        except ValueError:
+            findings.append(("redaction_parse_error", location))
+            continue
         if not parsed.scheme or not parsed.netloc:
             continue
         query_pairs = parse_qsl(parsed.query, keep_blank_values=True)
@@ -1054,26 +1108,54 @@ def start_managed_process(
     )
 
 
-def start_static_server(app_root: Path, artifact_dir: Path, port: int | None = None) -> ManagedProcess:
-    server_port = resolve_e2e_port(
-        port,
-        env_name="AUTOWORKBENCH_E2E_STATIC_SERVER_PORT",
-        default=DEFAULT_E2E_STATIC_SERVER_PORT,
-    )
-    env = os.environ.copy()
-    env["PYTHONUNBUFFERED"] = "1"
+def _start_static_server_candidate(app_root: Path, artifact_dir: Path, port: int, env: dict[str, str]) -> ManagedProcess:
     process = start_managed_process(
         name="static-server",
-        command=[sys.executable, "-m", "http.server", str(server_port), "--bind", "127.0.0.1"],
+        command=[sys.executable, "-m", "http.server", str(port), "--bind", "127.0.0.1"],
         cwd=app_root,
         artifact_dir=artifact_dir,
         stdout_name="static-server.stdout.log",
         stderr_name="static-server.stderr.log",
         env=env,
-        port=server_port,
+        port=port,
     )
-    wait_for_http_url(f"{process.base_url}/index.html", label="static server", process=process, timeout_s=10.0)
+    try:
+        wait_for_http_url(f"{process.base_url}/index.html", label="static server", process=process, timeout_s=10.0)
+    except Exception:
+        process.stop()
+        raise
     return process
+
+
+def start_static_server(app_root: Path, artifact_dir: Path, port: int | None = None) -> ManagedProcess:
+    env = os.environ.copy()
+    env["PYTHONUNBUFFERED"] = "1"
+    override_port = _resolve_static_server_override_port(port)
+    if override_port is not None:
+        return _start_static_server_candidate(app_root, artifact_dir, _prepare_static_server_port(override_port), env)
+
+    try:
+        return _start_static_server_candidate(
+            app_root,
+            artifact_dir,
+            _prepare_static_server_port(DEFAULT_E2E_STATIC_SERVER_PORT),
+            env,
+        )
+    except E2EStartupBlockedError:
+        try:
+            dynamic_port = _reserve_dynamic_tcp_port()
+        except E2EStartupBlockedError as exc:
+            raise E2EStartupBlockedError(
+                "DEV-4 environment blocker: static server could not bind 127.0.0.1:8000 or a dynamic local port. "
+                f"Attempted host=127.0.0.1 ports=[{DEFAULT_E2E_STATIC_SERVER_PORT}, 0]."
+            ) from exc
+        try:
+            return _start_static_server_candidate(app_root, artifact_dir, dynamic_port, env)
+        except E2EStartupBlockedError as exc:
+            raise E2EStartupBlockedError(
+                "DEV-4 environment blocker: static server could not bind 127.0.0.1:8000 or a dynamic local port. "
+                f"Attempted host=127.0.0.1 ports=[{DEFAULT_E2E_STATIC_SERVER_PORT}, {dynamic_port}]."
+            ) from exc
 
 
 def start_autoworkbench_backend(
