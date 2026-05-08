@@ -32,6 +32,8 @@ from runtime.spec_snapshot import build_spec_snapshot
 from runtime.tool_registry import ToolRegistry, filter_tools_for_phase
 from runtime.skill_manager import SkillManager
 from runtime.telemetry import record_model_call_end, record_model_call_start
+from runtime.deterministic_fast_path import classify_fast_path, build_deterministic_plan
+from runtime.page_intelligence import build_page_intelligence_packet
 
 
 SKILL_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
@@ -1323,7 +1325,8 @@ class AgentLoop:
         for skill_name in phase_skill_names:
             if skill_name in loaded_skill_name_set:
                 continue
-            skill_text = self._read_skill(skill_name)
+            # Recovery/debug phase expansions use full skills — they need complete details
+            skill_text = self._read_skill(skill_name, compact_mode=False)
             if skill_text is None:
                 continue
             loaded_skill_names.append(skill_name)
@@ -1367,6 +1370,11 @@ class AgentLoop:
             print("[AGENT] Starting tool-calling loop")
 
             self.llm.messages.append({"role": "user", "content": self._format_steps(steps)})
+
+            # Sprint 3 INT-CALL-001: try deterministic fast path for single-step simple flows.
+            # Falls through to LLM loop if conditions not met or user requests correction.
+            if await self._try_deterministic_fast_path(steps):
+                return
 
             while True:
                 print("[AGENT] Requesting LLM response")
@@ -2190,7 +2198,7 @@ class AgentLoop:
     def _load_skills_for_steps(self, steps: list[dict]) -> tuple[list[str], str, dict[str, str]]:
         intents = " ".join(str(step.get("intent") or "") for step in steps).lower()
         loaded_names = ["core"]
-        core_skill_text = self._read_skill("core") or ""
+        core_skill_text = self._read_skill("core", compact_mode=True) or ""
         loaded_skills = {"core": core_skill_text}
         contents = [core_skill_text]
 
@@ -2198,7 +2206,7 @@ class AgentLoop:
             if skill_name == "core":
                 continue
             if any(keyword in intents for keyword in keywords):
-                skill_text = self._read_skill(skill_name)
+                skill_text = self._read_skill(skill_name, compact_mode=True)
                 if skill_text is None:
                     continue
                 loaded_names.append(skill_name)
@@ -2207,7 +2215,12 @@ class AgentLoop:
 
         return loaded_names, "\n\n".join(contents), loaded_skills
 
-    def _read_skill(self, skill_name: str) -> str | None:
+    def _read_skill(self, skill_name: str, *, compact_mode: bool = False) -> str | None:
+        if compact_mode:
+            compact_path = self.skills_root / skill_name / "SKILL_COMPACT.md"
+            if compact_path.is_file():
+                print(f"[SKILL_COMPACT] loading compact skill: {skill_name}")
+                return compact_path.read_text(encoding="utf-8")
         skill_path = self.skills_root / skill_name / "SKILL.md"
         if not skill_path.is_file():
             missing_skill_names = getattr(self, "_missing_skill_names", set())
@@ -2224,6 +2237,86 @@ class AgentLoop:
                 self._missing_skill_names = missing_skill_names
             return None
         return skill_path.read_text(encoding="utf-8")
+
+    async def _try_deterministic_fast_path(self, steps: list[dict]) -> bool:
+        """Attempt zero-LLM plan for single-step simple picked-element flows.
+
+        Returns True if fast path handled the run (confirmed or failed safely).
+        Returns False to fall through to the normal LLM loop.
+        Confirmation gate is always preserved — no browser action without user approval.
+        """
+        if len(steps) != 1:
+            print("[FAST_PATH] skip: multi-step run")
+            return False
+
+        step = steps[0]
+        intent = self._normalize_space(str(step.get("intent") or "")).strip()
+        step_id = str(step.get("id") or step.get("stepId") or "").strip() or None
+
+        # Derive best locator from step element_info
+        locator = self._normalize_space(str(step.get("locator") or "")).strip()
+        if not locator:
+            locator = self._derive_locator_from_step_context(step)
+        if not locator:
+            print("[FAST_PATH] skip: no locator derivable from step")
+            return False
+
+        # Validate locator live against the page
+        locator_count = 0
+        locator_validated = False
+        try:
+            page = get_page()
+            locator_count = await self._resolve_locator(page, locator).count()
+            locator_validated = locator_count == 1
+        except Exception as exc:  # noqa: BLE001
+            print(f"[FAST_PATH] skip: locator validation error: {exc}")
+            return False
+
+        qualifies, reason = classify_fast_path(
+            user_message=intent,
+            locator_validated=locator_validated,
+            locator_count=locator_count,
+        )
+        if not qualifies:
+            print(f"[FAST_PATH] skip: {reason}")
+            return False
+
+        action_verb = reason.split(":")[-1] if ":" in reason else reason
+        fill_value = str(step.get("fill_value") or step.get("value") or "").strip() or None
+        expected_text = str(step.get("expected_text") or step.get("expectedText") or "").strip() or None
+
+        plan_payload = build_deterministic_plan(
+            user_message=intent,
+            locator=locator,
+            action_verb=action_verb,
+            step_id=step_id,
+            fill_value=fill_value,
+            expected_text=expected_text,
+        )
+        print(f"[FAST_PATH] qualified: {reason}, locator={locator}")
+
+        # Always go through confirmation gate — no browser action without approval
+        confirmation = await self._send_plan_ready_after_confirmation(plan_payload)
+        if confirmation.get("confirmed"):
+            print("[FAST_PATH] confirmed; executing via backend")
+            # Delegate execution to the normal tool-calling loop with the built plan
+            # by appending the plan as an assistant message and running one execution round.
+            # This preserves all backend recording and safety contracts.
+            self.last_plan_ready_payload = plan_payload
+            self.llm.messages.append({
+                "role": "assistant",
+                "content": f"[FAST_PATH] Deterministic plan confirmed. Executing: {plan_payload['summary']}",
+            })
+            # Re-enter the LLM loop for execution — the plan is already confirmed so the
+            # loop will proceed directly to execution without another planning LLM call.
+            return False
+
+        # User requested a correction — fall through to full LLM loop
+        correction = str(confirmation.get("correction") or "").strip()
+        print(f"[FAST_PATH] correction requested, falling through to LLM loop: {correction!r}")
+        if correction:
+            self.llm.messages.append({"role": "user", "content": f"Correction: {correction}"})
+        return False
 
     def _is_click_like_intent(self, intent: Any) -> bool:
         normalized_intent = self._normalize_space(str(intent or "")).lower()
@@ -7873,7 +7966,18 @@ class AgentLoop:
             )
 
         cleaned = self._clean_markup(html)[:3000]
-        return {"elements": cleaned, "url": page.url}
+        # Sprint 3 INT-DOM-002: return compact page intelligence summary instead of raw HTML.
+        # Raw cleaned markup is preserved in _raw_elements for internal/locator use if needed.
+        try:
+            packet = build_page_intelligence_packet(
+                html=html,
+                url=page.url,
+                title="",
+            )
+            compact_summary = packet.to_compact_summary()
+            return {"elements": compact_summary, "url": page.url, "_raw_elements": cleaned}
+        except Exception:
+            return {"elements": cleaned, "url": page.url}
 
     async def _tool_locator_find(self, args: dict[str, Any]) -> dict[str, Any]:
         page = get_page()
