@@ -1,10 +1,12 @@
 # INT-MVP-001 Add Complete LLM Mode lifecycle E2E skeleton
 
-Status: Planning  
+Status: Done  
 Sprint: Sprint 2  
 Type: Story  
 Owner: E2E / Evidence  
 Priority: P0  
+Started: 2026-05-08 17:05 IST  
+Completed: 2026-05-08 17:10 IST  
 
 ## Source docs
 
@@ -67,6 +69,28 @@ no event capture helper exists and broad harness work would be required
 current E2E truth is still unknown
 ```
 
-## Evidence
+## Implementation summary
 
-TBD after implementation.
+Created `tests/e2e/test_mvp_001_lifecycle_smoke.py` with 6 lifecycle checkpoints:
+
+1. `overlay_loaded` — page loads, shadow DOM overlay ready
+2. `plan_ready_seen` — LLM returns a plan (`[AGENT] plan_ready sent`)
+3. `confirmed` — user confirms plan, `[CONFIRMED_PLAN]` logged
+4. `execution_started` — page navigates, `[EXECUTION_CONTRACT]` logged
+5. `step_recorded` — `.ide-recorded-step` visible, `[CONFIRMED_CURSOR]` logged, step count = 1
+6. `code_update_seen` — `[CODE_UPDATE]` logged, generated Playwright line asserted
+
+No product code modified. Uses existing harness helpers only.
+
+## Verification
+
+```text
+python -m py_compile tests/e2e/test_mvp_001_lifecycle_smoke.py  → OK
+python -m pytest tests/test_e2e_harness.py -q  → 58 passed
+python -m pytest tests/e2e/test_mvp_001_lifecycle_smoke.py -q -s  → 1 passed in 18.48s
+python -m pytest tests/e2e/ -q -s  → 5 passed in 114.42s (no regression)
+```
+
+## Commit
+
+TBD — committed with "test: add mvp lifecycle e2e skeleton"
