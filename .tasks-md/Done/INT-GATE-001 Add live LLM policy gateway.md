@@ -1,10 +1,11 @@
 # INT-GATE-001 Add live LLM policy gateway
 
-Status: Planning
+Status: Done
 Sprint: Sprint 3
 Type: Story
 Owner: LLM Runtime / Backend
 Priority: P0
+Started: 2026-05-08 20:00 IST
 
 ## Problem
 
@@ -69,7 +70,14 @@ No E2E for this ticket.
 
 ## Evidence
 
-To be filled during implementation.
+- `python -m py_compile agent.py runtime/llm_policy_gateway.py tests/test_llm_policy_gateway.py` -> passed
+- `python -m pytest tests/test_llm_policy_gateway.py -q` -> 5 passed
+
+## Implementation summary
+
+- added `runtime/llm_policy_gateway.py` with a typed live policy-gateway decision object
+- gateway can recommend deterministic no-model planning, purpose-specific planning, correction, execution, and recovery decisions
+- `agent.py` now instantiates the gateway and consults it before the main LLM call without changing routing behavior yet
 
 ## Notes
 

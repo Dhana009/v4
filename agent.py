@@ -24,6 +24,7 @@ from runtime.event_contracts import (
     build_run_completed_payload,
     build_runtime_rejection_payload,
 )
+from runtime.llm_policy_gateway import LLMPolicyGateway
 from runtime.llm_runtime_controller import LLMRuntimeController, PURPOSE_REGISTRY
 from runtime.model_router import ModelRouter
 from runtime.recovery_manager import classify_failure
@@ -116,6 +117,8 @@ class AgentLoop:
             telemetry_sink=self._plan_diff_editor_telemetry_sink,
             model_client=self.llm.client,
         )
+        self.llm_policy_gateway = LLMPolicyGateway(PURPOSE_REGISTRY)
+        self._last_policy_decision: dict[str, Any] | None = None
         self.phase_tracker = PhaseTracker()
         self.tools = self._build_tool_definitions()
         tool_diagnostics = ToolRegistry().analyze(self.tools)
@@ -1471,6 +1474,36 @@ class AgentLoop:
                             continue
 
                         continue
+                policy_decision = self.llm_policy_gateway.decide(
+                    phase=current_phase,
+                    steps=self.current_steps,
+                    correction_mode=correction_mode if isinstance(correction_mode, dict) else None,
+                    awaiting_step_record=awaiting_step_record,
+                    plan_confirmed=self.plan_confirmed,
+                )
+                self._last_policy_decision = {
+                    "model_needed": policy_decision.model_needed,
+                    "purpose": policy_decision.purpose,
+                    "phase": policy_decision.phase,
+                    "allowed_tools": list(policy_decision.allowed_tools),
+                    "context_level": policy_decision.context_level,
+                    "schema_id": policy_decision.schema_id,
+                    "budget": policy_decision.budget,
+                    "deterministic_candidate_allowed": policy_decision.deterministic_candidate_allowed,
+                    "fallback": policy_decision.fallback,
+                    "requires_confirmation": policy_decision.requires_confirmation,
+                }
+                print(
+                    "[POLICY_GATEWAY] "
+                    f"phase={policy_decision.phase} "
+                    f"purpose={policy_decision.purpose} "
+                    f"model_needed={str(policy_decision.model_needed).lower()} "
+                    f"allowed_tools={len(policy_decision.allowed_tools)} "
+                    f"context_level={policy_decision.context_level} "
+                    f"schema_id={policy_decision.schema_id or 'none'} "
+                    f"budget={policy_decision.budget} "
+                    f"fallback={policy_decision.fallback}"
+                )
                 filtered_tools = filter_tools_for_phase(
                     self.tools,
                     current_phase,
@@ -1491,6 +1524,11 @@ class AgentLoop:
                         "phase": current_phase,
                         "execution_context": execution_context,
                         "correction_context": correction_context,
+                        "policy_gateway_purpose": policy_decision.purpose,
+                        "policy_gateway_budget": policy_decision.budget,
+                        "policy_gateway_context_level": policy_decision.context_level,
+                        "policy_gateway_model_needed": policy_decision.model_needed,
+                        "policy_gateway_deterministic_candidate_allowed": policy_decision.deterministic_candidate_allowed,
                     },
                 )
                 self._llm_call_counter += 1
