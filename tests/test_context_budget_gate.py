@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from runtime.context_manager import ContextManager, DOM_TOOL_RESULT_TOKEN_CAP, _cap_tool_result_messages
 from runtime.telemetry import estimate_text_tokens
 
@@ -58,6 +60,34 @@ def test_multiple_large_tool_results_all_capped():
     assert "[TRUNCATED:" in capped[1]["content"]
 
 
+def test_dom_tool_result_summarizes_and_removes_raw_elements():
+    dom_payload = {
+        "elements": "page: Example\nheadings: Welcome\nctas: Submit",
+        "url": "http://fixture/page",
+        "_raw_elements": "<html><body><button>Submit</button></body></html>",
+    }
+    messages = [_tool_msg(json.dumps(dom_payload, ensure_ascii=True))]
+
+    capped, was_capped = _cap_tool_result_messages(messages)
+
+    summarized = json.loads(capped[0]["content"])
+    assert was_capped is True
+    assert summarized["elements"] == "page: Example\nheadings: Welcome\nctas: Submit"
+    assert "_raw_elements" not in summarized
+
+
+def test_raw_html_tool_result_replaced_with_page_intelligence_summary():
+    raw_dom = "<html><body><main><h1>Welcome</h1><button data-testid='submit'>Submit</button></main></body></html>"
+    messages = [_tool_msg(raw_dom)]
+
+    capped, was_capped = _cap_tool_result_messages(messages)
+
+    assert was_capped is True
+    assert "page:" in capped[0]["content"]
+    assert "ctas:" in capped[0]["content"]
+    assert "<html>" not in capped[0]["content"]
+
+
 def test_budget_status_ok_when_no_capping_or_compaction():
     cm = ContextManager()
     messages = [_sys_msg(), _user_msg("click the button")]
@@ -101,4 +131,21 @@ def test_full_raw_dom_excluded_by_capping():
     # Find tool messages in final bundle — they should be capped
     for msg in bundle.messages:
         if isinstance(msg, dict) and msg.get("role") == "tool":
-            assert len(msg["content"]) < len(raw_dom), "Raw DOM should have been truncated"
+            assert "<html>" not in msg["content"]
+            assert "page:" in msg["content"]
+
+
+def test_original_tool_message_keeps_backend_side_raw_evidence():
+    cm = ContextManager()
+    raw_payload = {
+        "elements": "page: Example",
+        "_raw_elements": "<html><body><button>Submit</button></body></html>",
+    }
+    original_tool_message = _tool_msg(json.dumps(raw_payload, ensure_ascii=True))
+    messages = [_sys_msg(), _user_msg(), original_tool_message]
+
+    bundle = cm.prepare_messages(messages, purpose="main_orchestrator")
+
+    summarized_tool = next(msg for msg in bundle.messages if isinstance(msg, dict) and msg.get("role") == "tool")
+    assert "_raw_elements" not in summarized_tool["content"]
+    assert "_raw_elements" in original_tool_message["content"]

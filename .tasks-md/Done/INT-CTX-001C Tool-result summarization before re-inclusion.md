@@ -1,10 +1,11 @@
 # INT-CTX-001C Tool-result summarization before re-inclusion
 
-Status: Planning
+Status: Done
 Sprint: Sprint 3
 Type: Story
 Owner: Context Manager / DOM Intelligence
 Priority: P1
+Started: 2026-05-08 20:58 IST
 
 ## Problem
 
@@ -52,8 +53,16 @@ No full E2E until final acceptance.
 
 ## Evidence
 
-To be filled during implementation.
+- `python -m py_compile runtime/context_manager.py tests/test_context_manager.py tests/test_context_budget_gate.py`
+- `python -m pytest tests/test_context_manager.py tests/test_context_budget_gate.py -q`
+  - Result: `24 passed`
 
 ## Notes
 
 This keeps repeated tool outputs from bloating follow-up calls.
+
+Implementation summary:
+- Replaced blunt tool-result truncation with pre-cap summarization
+- Removed backend-only raw DOM fields like `_raw_elements` from prompt copies
+- Collapsed raw HTML tool payloads into compact page-intelligence summaries
+- Kept original source messages untouched so backend-side raw evidence remains available

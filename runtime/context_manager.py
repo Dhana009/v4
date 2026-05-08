@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import Any
 
@@ -7,6 +8,7 @@ from runtime.history_manager import (
     PROTECTED_HISTORY_TOKEN_THRESHOLD,
     HistoryManager,
 )
+from runtime.page_intelligence import build_page_intelligence_packet
 from runtime.telemetry import estimate_messages_tokens, estimate_text_tokens
 
 PHASE_INSTRUCTION_CONTENT = {
@@ -204,6 +206,74 @@ def _apply_purpose_compact_window(
     }
 
 
+def _looks_like_html(text: str) -> bool:
+    normalized = str(text or "").strip().lower()
+    return normalized.startswith("<") and any(tag in normalized for tag in ("<html", "<div", "<body", "<main", "<form", "<button"))
+
+
+def _summarize_html_blob(text: str, *, url: str = "", title: str = "") -> str:
+    packet = build_page_intelligence_packet(html=text, url=url, title=title)
+    return packet.to_compact_summary()
+
+
+def _summarize_structured_tool_payload(payload: Any) -> tuple[Any, bool]:
+    changed = False
+    if isinstance(payload, dict):
+        summary = dict(payload)
+        if "_raw_elements" in summary:
+            summary.pop("_raw_elements", None)
+            changed = True
+        for key, value in list(summary.items()):
+            if isinstance(value, str) and _looks_like_html(value):
+                summary[key] = _summarize_html_blob(
+                    value,
+                    url=str(summary.get("url") or ""),
+                    title=str(summary.get("title") or ""),
+                )
+                changed = True
+            elif isinstance(value, list) and len(value) > 5:
+                summary[key] = value[:5]
+                changed = True
+            elif isinstance(value, dict) and len(value) > 8:
+                trimmed: dict[str, Any] = {}
+                for index, (nested_key, nested_value) in enumerate(value.items()):
+                    if index >= 8:
+                        break
+                    trimmed[nested_key] = nested_value
+                summary[key] = trimmed
+                changed = True
+        elements_value = summary.get("elements")
+        if isinstance(elements_value, str) and _looks_like_html(elements_value):
+            summary["elements"] = _summarize_html_blob(
+                elements_value,
+                url=str(summary.get("url") or ""),
+                title=str(summary.get("title") or ""),
+            )
+            changed = True
+        return summary, changed
+    if isinstance(payload, list) and len(payload) > 5:
+        return payload[:5], True
+    return payload, changed
+
+
+def _summarize_tool_result_text(text: str) -> tuple[str, bool]:
+    normalized = str(text or "")
+    changed = False
+    try:
+        parsed = json.loads(normalized)
+    except json.JSONDecodeError:
+        parsed = None
+    if parsed is not None:
+        summarized_payload, payload_changed = _summarize_structured_tool_payload(parsed)
+        if payload_changed:
+            normalized = json.dumps(summarized_payload, ensure_ascii=True)
+            changed = True
+    elif _looks_like_html(normalized):
+        normalized = _summarize_html_blob(normalized)
+        changed = True
+    return normalized, changed
+
+
 def _cap_tool_result_messages(messages: list[dict]) -> tuple[list[dict], bool]:
     """Cap any tool-role message content exceeding DOM_TOOL_RESULT_TOKEN_CAP tokens.
     Returns (capped_messages, was_capped)."""
@@ -218,9 +288,13 @@ def _cap_tool_result_messages(messages: list[dict]) -> tuple[list[dict], bool]:
             result.append(message)
             continue
         text = content if isinstance(content, str) else str(content)
+        text, summarized = _summarize_tool_result_text(text)
         token_count = estimate_text_tokens(text)
         if token_count <= DOM_TOOL_RESULT_TOKEN_CAP:
-            result.append(message)
+            new_msg = dict(message)
+            new_msg["content"] = text
+            result.append(new_msg)
+            capped = capped or summarized
             continue
         char_limit = DOM_TOOL_RESULT_TOKEN_CAP * 4
         truncated = text[:char_limit]
