@@ -5,7 +5,7 @@
 **Priority:** P0  
 **Applies To:** DEV-1 Backend, DEV-2 LLM/DOM, DEV-3 Frontend, DEV-4 E2E/Evidence  
 **Depends On:** FINAL-HANDOFF-v2, PATCH-012, TEST-DOCTRINE-001, PATCH-010, TEST-HANDOFF-001, PATCH-011  
-**Implementation Status:** Main audited; DEV-3 pending frontend items and live browser E2E validation remain blockers  
+**Implementation Status:** Main audited 2026-05-07; DEV-2 and merged DEV-1 contract slices verified; DEV-4 harness tests green; FE-007 and FE-010 remain in Testing; live product E2E still environment-dependent  
 
 ---
 
@@ -30,22 +30,85 @@ This document does not authorize implementation by itself.
 
 ## Current main status
 
-- Local main HEAD: `9823c08`
-- DEV-1 backend P0: done
-- DEV-2 LLM/DOM foundation: done
-- DEV-4 evidence/redaction: done
-- DEV-3: partially merged
-- FE-001 and FE-010 remain pending
-- FE-007 remains Testing
-- E2E-001 remains Blocked/Environment because localhost socket bind is denied
+- Local main HEAD: `8c3bc1f` (matches `origin/main` at audit time)
+- Dirty baseline backup preserved at `/tmp/autoworkbench-main-dirty-before-audit` (do not reapply for main truth; use only for recovery)
+- **Lane counts (`.tasks-md`):** Backlog 37, Inprogress 0, Testing 13, Done 65, Planning 36, Blocked 1 (`E2E-001`)
+- **Merged into `main` (representative integration branches):** `dev2/llm-dom-test-mapping`, `dev3/frontend-test-harness-mapping`, `integration/dev4-e2e-evidence-baseline`, `integration/dev4-evidence-final`, `integration/dev4-final-redaction-evidence`, `baseline/implementation-code`; also `dev1/backend-event-contract-test-mapping` merged
+- **Not merged into `main`:** `dev1/backend-isolation-contract-tests`, `dev4/test-infra-artifact-readiness`, `backup/main-before-reset-2026-05-07`
+
+### Verified Done on main (this audit)
+
+| Stream | Evidence |
+|--------|-----------|
+| **DEV-2 (LLM-001–010, DOM-001–010)** | Cards in `.tasks-md/Done`; runtime modules present; pytest `tests/test_llm_runtime_controller_contract.py`, `tests/test_llm_planning_contracts.py`, `tests/test_llm_specialist_contracts.py`, `tests/test_dom_locator_contracts.py`, `tests/test_dom_locator_advanced_contracts.py` → **45 passed**; `python -m py_compile` on listed runtime + test files succeeded |
+| **DEV-1 (EVENT contract slice)** | `tests/test_event_contract.py`, `tests/test_command_contract.py`, `tests/test_event_sequence_contract.py` → **25 passed** |
+| **DEV-3 (merged FE)** | `FE-001`–`FE-006`, `FE-008`, `FE-009` in Done; `tests/test_frontend_shadow_dom_contract.py`, `tests/test_frontend_recorded_code_rendering.py`, `tests/test_frontend_trace_display.py`, `tests/test_browser_injection.py` → **18 passed** |
+| **DEV-4 (E2E harness)** | `tests/test_e2e_harness.py` → **41 passed**; `tests/e2e/harness.py` present; `E2E-002` Done; `TRACE-009`/`TRACE-010` Done |
+
+### Testing / Inprogress / Backlog highlights
+
+- **Testing:** `FE-007` (trace/diagnostic panel refinement), `FE-010` (legacy overlay migration); strategy/matrix docs under `TEST-*` (see `.tasks-md/Testing/`)
+- **Inprogress:** none
+- **Backlog:** `E2E-003`–`E2E-010`, `GOV-*`, `MVP-*`, `TRACE-001`–`TRACE-008`, `DEV-1 Deferred…`, etc.
+- **Blocked:** `E2E-001` product startup / orchestration harness (environment constraints per card)
+
+### Next integration / testing actions
+
+1. Keep `FE-007` and `FE-010` in Testing until acceptance criteria on those cards are met (full UI + contract coverage as defined there).
+2. Unblock or park `E2E-001` per environment policy; run live browser / socket-dependent flows when allowed.
+3. Rebase active work from `dev1/backend-isolation-contract-tests` and `dev4/test-infra-artifact-readiness` before merge; re-run the verification commands below after any main drift.
+
+### Verification commands (clean main, 2026-05-07)
+
+```bash
+python -m py_compile \
+  runtime/llm_runtime_controller.py \
+  runtime/llm_controller.py \
+  runtime/dom_snapshot.py \
+  runtime/dom_locator_contract.py \
+  runtime/dom_locator.py \
+  runtime/locator_contract.py \
+  tests/test_llm_runtime_controller_contract.py \
+  tests/test_llm_planning_contracts.py \
+  tests/test_llm_specialist_contracts.py \
+  tests/test_dom_locator_contracts.py \
+  tests/test_dom_locator_advanced_contracts.py
+
+python -m pytest \
+  tests/test_llm_runtime_controller_contract.py \
+  tests/test_llm_planning_contracts.py \
+  tests/test_llm_specialist_contracts.py \
+  tests/test_dom_locator_contracts.py \
+  tests/test_dom_locator_advanced_contracts.py \
+  -q
+# 45 passed
+
+python -m pytest \
+  tests/test_event_contract.py \
+  tests/test_command_contract.py \
+  tests/test_event_sequence_contract.py \
+  -q
+# 25 passed
+
+python -m pytest \
+  tests/test_frontend_shadow_dom_contract.py \
+  tests/test_frontend_recorded_code_rendering.py \
+  tests/test_frontend_trace_display.py \
+  tests/test_browser_injection.py \
+  -q
+# 18 passed
+
+python -m pytest tests/test_e2e_harness.py -q
+# 41 passed
+```
 
 ## Current integration gap
 
 Final readiness still requires:
 
-- DEV-3 pending frontend items
-- real browser E2E validation when the environment allows localhost socket bind
-- any remaining live-browser evidence that is not yet available in this worktree
+- closing **FE-007** and **FE-010** from Testing to Done against their card criteria
+- real browser / product E2E when the environment allows (including `E2E-001` unblock)
+- any remaining live-browser evidence not covered by the contract harnesses above
 
 ---
 
