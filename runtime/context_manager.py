@@ -7,7 +7,7 @@ from runtime.history_manager import (
     PROTECTED_HISTORY_TOKEN_THRESHOLD,
     HistoryManager,
 )
-from runtime.telemetry import estimate_messages_tokens
+from runtime.telemetry import estimate_messages_tokens, estimate_text_tokens
 
 PHASE_INSTRUCTION_CONTENT = {
     "planning": (
@@ -33,6 +33,37 @@ PHASE_INSTRUCTION_CONTENT = {
         "perform only recovery actions allowed by runtime."
     ),
 }
+
+# Sprint 3 INT-CTX-001: cap individual tool/DOM result messages at this token limit.
+DOM_TOOL_RESULT_TOKEN_CAP = 800
+
+
+def _cap_tool_result_messages(messages: list[dict]) -> tuple[list[dict], bool]:
+    """Cap any tool-role message content exceeding DOM_TOOL_RESULT_TOKEN_CAP tokens.
+    Returns (capped_messages, was_capped)."""
+    capped = False
+    result: list[dict] = []
+    for message in messages:
+        if not isinstance(message, dict) or str(message.get("role") or "") != "tool":
+            result.append(message)
+            continue
+        content = message.get("content")
+        if content is None:
+            result.append(message)
+            continue
+        text = content if isinstance(content, str) else str(content)
+        token_count = estimate_text_tokens(text)
+        if token_count <= DOM_TOOL_RESULT_TOKEN_CAP:
+            result.append(message)
+            continue
+        char_limit = DOM_TOOL_RESULT_TOKEN_CAP * 4
+        truncated = text[:char_limit]
+        new_msg = dict(message)
+        new_msg["content"] = truncated + f"\n[TRUNCATED: {token_count} tokens capped to {DOM_TOOL_RESULT_TOKEN_CAP}]"
+        result.append(new_msg)
+        capped = True
+    return result, capped
+
 
 RECOVERY_SCOPE_INSTRUCTION = (
     "Completed/recorded steps are locked. Do not replan completed steps. Do not send "
@@ -73,6 +104,8 @@ class ContextManager:
             dict(message) if isinstance(message, dict) else message
             for message in (messages or [])
         ]
+        # INT-CTX-001: cap tool/DOM result messages before history analysis
+        copied_messages, tool_result_capped = _cap_tool_result_messages(copied_messages)
         history_manager = HistoryManager()
         history_diagnostics = history_manager.analyze(copied_messages)
         managed_history = history_manager.build_managed_history(
@@ -122,6 +155,18 @@ class ContextManager:
                     )
         final_message_count = len(final_messages)
         estimated_message_tokens = estimate_messages_tokens(final_messages)
+        # INT-CTX-001: derive budget_status
+        if managed_history.compaction_applied and tool_result_capped:
+            budget_status = "compacted"
+        elif managed_history.compaction_applied:
+            budget_status = "compacted"
+        elif tool_result_capped:
+            budget_status = "capped"
+        else:
+            budget_status = "ok"
+
+        bundle_metadata["budget_status"] = budget_status
+        bundle_metadata["tool_result_capped"] = tool_result_capped
         bundle_metadata["managed_history_enabled"] = True
         bundle_metadata["compaction_applied"] = managed_history.compaction_applied
         bundle_metadata["original_message_count"] = managed_history.original_message_count
@@ -147,7 +192,9 @@ class ContextManager:
             "[CONTEXT_MANAGER] "
             f"purpose={bundle_metadata['purpose']} "
             f"mode={bundle_metadata['context_mode']} "
+            f"budget_status={budget_status} "
             f"compacted={'true' if managed_history.compaction_applied else 'false'} "
+            f"tool_result_capped={'true' if tool_result_capped else 'false'} "
             f"original_messages={managed_history.original_message_count} "
             f"final_messages={final_message_count} "
             f"original_tokens={managed_history.original_estimated_tokens} "

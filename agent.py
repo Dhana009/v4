@@ -1493,6 +1493,18 @@ class AgentLoop:
                 self._llm_call_counter += 1
                 call_id = f"llm_{self._llm_call_counter:03d}"
                 model = "gpt-4o-mini"
+                _skill_tokens: int | None = None
+                _skill_manager = getattr(self, "skill_manager", None)
+                _analyze = getattr(_skill_manager, "analyze", None)
+                if callable(_analyze):
+                    try:
+                        _sd = _analyze(
+                            list(getattr(self, "_loaded_skill_entries", [])),
+                            loaded_skill_names=list(getattr(self, "_loaded_skill_names", [])),
+                        )
+                        _skill_tokens = _sd.estimated_total_skill_tokens
+                    except Exception:
+                        pass
                 telemetry = record_model_call_start(
                     call_id=call_id,
                     purpose="main_orchestrator",
@@ -1500,6 +1512,7 @@ class AgentLoop:
                     messages=context_bundle.messages,
                     tools=filtered_tools,
                     skill_count=len(self._loaded_skill_names),
+                    skill_tokens=_skill_tokens,
                 )
                 try:
                     response = await self.model_router.call(
