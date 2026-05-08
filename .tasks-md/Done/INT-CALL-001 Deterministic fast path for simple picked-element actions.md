@@ -1,6 +1,6 @@
 # INT-CALL-001 Deterministic fast path for simple picked-element actions
 
-Status: Planning
+Status: Done
 Sprint: Sprint 3
 Type: Story
 Owner: Backend / LLM Runtime / DOM
@@ -104,8 +104,10 @@ If any condition fails, use the normal LLM/planning path or ask clarification.
 
 ## Evidence
 
-To be filled during implementation.
+Phase 0 fast-path classifier foundation complete.
+Live E2E diagnosis shows the remaining gap is backend-compatible parent/children execution-contract emission and pre-planner wiring.
 
 ## Notes
 
-This ticket addresses call count reduction, not only prompt size.
+This is the deterministic classifier foundation.
+Live-path execution-contract wiring continues in INT-CALL-001B and INT-CALL-001C.

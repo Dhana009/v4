@@ -1,6 +1,6 @@
 # INT-CTX-001 Context budget gate and history compaction
 
-Status: Planning
+Status: Done
 Sprint: Sprint 3
 Type: Story
 Owner: LLM Runtime / Context Manager
@@ -86,8 +86,10 @@ Rules:
 
 ## Evidence
 
-To be filled during implementation.
+Phase 0 context budgeting foundation complete.
+Live E2E diagnosis shows the remaining work is purpose-specific context selection and tool-result summarization in the live path.
 
 ## Notes
 
-This ticket controls input-token growth from history and tool results.
+This is the context-budget foundation.
+Live-purpose context windows and summarization continue in INT-CTX-001B and INT-CTX-001C.

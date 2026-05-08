@@ -1,6 +1,6 @@
 # INT-OBS-001 LLM call and token telemetry report
 
-Status: Planning
+Status: Done
 Sprint: Sprint 3
 Type: Story
 Owner: Backend / LLM Runtime
@@ -116,8 +116,10 @@ A raw `[LLM_TELEMETRY]` line in `backend.stdout.log` is not sufficient by itself
 
 ## Evidence
 
-To be filled during implementation.
+Phase 0 measurement foundation complete.
+Live E2E telemetry now records per-call token categories for system, skill, tool schema, history, and DOM/tool-result usage.
 
 ## Notes
 
-This should be implemented first in Sprint 3 because all later optimizations must be measured.
+This is the measurement foundation for Sprint 3.
+Live-path optimization continues in the active Sprint 3 stories.
