@@ -12,9 +12,12 @@ from runtime.telemetry import estimate_text_tokens
 
 _HEADING_TAGS = re.compile(r"<h([1-6])[^>]*>(.*?)</h\1>", re.IGNORECASE | re.DOTALL)
 _CTA_PATTERN = re.compile(
-    r'<(button|a)[^>]*>(.*?)</\1>',
+    r'<(button|a)([^>]*)>(.*?)</\1>',
     re.IGNORECASE | re.DOTALL,
 )
+_TESTID_RE = re.compile(r'data-testid=["\']([^"\'>\s]+)["\']', re.IGNORECASE)
+_DATA_CY_RE = re.compile(r'data-cy=["\']([^"\'>\s]+)["\']', re.IGNORECASE)
+_ARIA_LABEL_RE = re.compile(r'aria-label=["\']([^"\'>\s]+)["\']', re.IGNORECASE)
 _INPUT_TYPE_RE = re.compile(r'type=["\']?(\w+)["\']?', re.IGNORECASE)
 _INPUT_NAME_RE = re.compile(r'name=["\']?([^"\'>\s]+)["\']?', re.IGNORECASE)
 _INPUT_TAG_RE = re.compile(r'<input([^>]*)>', re.IGNORECASE)
@@ -109,7 +112,24 @@ def build_page_intelligence_packet(
         )
 
     headings = [_truncate(_strip(m.group(2))) for m in _HEADING_TAGS.finditer(html)]
-    ctas = [_truncate(_strip(m.group(2))) for m in _CTA_PATTERN.finditer(html) if _strip(m.group(2))]
+    ctas: list[str] = []
+    for m in _CTA_PATTERN.finditer(html):
+        attrs_str = m.group(2)
+        text = _strip(m.group(3))
+        if not text:
+            continue
+        label = _truncate(text)
+        # Append stable locator hints so the LLM can pass them to locator_find
+        testid_m = _TESTID_RE.search(attrs_str)
+        cy_m = _DATA_CY_RE.search(attrs_str)
+        aria_m = _ARIA_LABEL_RE.search(attrs_str)
+        if testid_m:
+            label += f" [data-testid={testid_m.group(1)}]"
+        elif cy_m:
+            label += f" [data-cy={cy_m.group(1)}]"
+        elif aria_m:
+            label += f" [aria-label={aria_m.group(1)}]"
+        ctas.append(label)
     forms_count = len(_FORM_PATTERN.findall(html))
     inputs: list[dict[str, str]] = []
     for m in _INPUT_TAG_RE.finditer(html):

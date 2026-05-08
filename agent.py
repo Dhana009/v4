@@ -1371,11 +1371,6 @@ class AgentLoop:
 
             self.llm.messages.append({"role": "user", "content": self._format_steps(steps)})
 
-            # Sprint 3 INT-CALL-001: try deterministic fast path for single-step simple flows.
-            # Falls through to LLM loop if conditions not met or user requests correction.
-            if await self._try_deterministic_fast_path(steps):
-                return
-
             while True:
                 print("[AGENT] Requesting LLM response")
                 current_phase = self._current_phase()
@@ -2298,20 +2293,24 @@ class AgentLoop:
         # Always go through confirmation gate — no browser action without approval
         confirmation = await self._send_plan_ready_after_confirmation(plan_payload)
         if confirmation.get("confirmed"):
-            print("[FAST_PATH] confirmed; executing via backend")
-            # Delegate execution to the normal tool-calling loop with the built plan
-            # by appending the plan as an assistant message and running one execution round.
-            # This preserves all backend recording and safety contracts.
+            print("[FAST_PATH] confirmed; delegating to LLM for execution")
+            # Plan already confirmed (plan_confirmed=True set by _send_plan_ready_after_confirmation).
+            # Inject a user message that tells the LLM the plan is approved and exactly what to run.
+            # The LLM will make 1 call to execute and record — no planning loop needed.
             self.last_plan_ready_payload = plan_payload
-            self.llm.messages.append({
-                "role": "assistant",
-                "content": f"[FAST_PATH] Deterministic plan confirmed. Executing: {plan_payload['summary']}",
-            })
-            # Re-enter the LLM loop for execution — the plan is already confirmed so the
-            # loop will proceed directly to execution without another planning LLM call.
+            exec_instruction = (
+                f"Plan confirmed by user. Execute now: {plan_payload['summary']}. "
+                f"Use locator: {locator}. Action: {action_verb}."
+            )
+            if fill_value:
+                exec_instruction += f" Fill value: {fill_value}."
+            if expected_text:
+                exec_instruction += f" Expected text: {expected_text}."
+            exec_instruction += " Execute the action, then record the step."
+            self.llm.messages.append({"role": "user", "content": exec_instruction})
             return False
 
-        # User requested a correction — fall through to full LLM loop
+        # User requested a correction — fall through to full LLM loop with correction context
         correction = str(confirmation.get("correction") or "").strip()
         print(f"[FAST_PATH] correction requested, falling through to LLM loop: {correction!r}")
         if correction:

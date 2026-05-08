@@ -20,8 +20,32 @@ action_click, action_fill, action_assert, screenshot_take, browser_get_state
 ## Execution Flow
 1. Score confidence (0-100)
 2. If <70: ask ONE clarifying question
-3. Send plan_ready via send_to_overlay → wait for confirmation
+3. Send plan_ready via send_to_overlay — wait for confirmation
 4. Execute → validate → record → report
+
+## plan_ready Payload (REQUIRED FORMAT)
+Always use this exact structure:
+```
+send_to_overlay(message_type="plan_ready", payload={
+  "summary": "I will: [action] on [element]",
+  "steps": [{
+    "number": 1,
+    "action": "click|fill|assert",
+    "element_name": "[element description]",
+    "locator": "[locator string]",
+    "code": "await page.[action](locator);",
+    "children": [{
+      "operation_id": "op_1",
+      "type": "click|fill|assert",
+      "description": "[element description]",
+      "target": "[element description]",
+      "locator": "[locator string]"
+    }]
+  }],
+  "instruction": "Confirm to proceed"
+})
+```
+The `children` array is required — always include it with at least one operation entry.
 
 ## Hard Rules
 - Every locator must match EXACTLY 1 element
