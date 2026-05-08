@@ -1,5 +1,9 @@
 from __future__ import annotations
 
+import asyncio
+from types import SimpleNamespace
+
+import agent as agent_module
 from agent import AgentLoop
 from runtime.deterministic_fast_path import (
     classify_fast_path,
@@ -7,6 +11,7 @@ from runtime.deterministic_fast_path import (
     _is_compound_intent,
     _extract_action_verb,
 )
+from runtime.phase_tracker import PhaseTracker
 
 
 # --- classify_fast_path ---
@@ -230,6 +235,211 @@ def test_confirmation_gate_not_bypassed():
     )
     assert "confirmed" not in plan
     assert plan.get("model_called") is False
+
+
+def test_try_deterministic_fast_path_executes_confirmed_plan_without_llm_instruction(monkeypatch):
+    class _FakeResolvedLocator:
+        async def count(self) -> int:
+            return 1
+
+    loop = AgentLoop.__new__(AgentLoop)
+    loop.llm = SimpleNamespace(messages=[])
+    loop._resolve_locator = lambda page, locator: _FakeResolvedLocator()
+    loop._normalize_space = AgentLoop._normalize_space.__get__(loop, AgentLoop)
+    loop._derive_locator_from_step_context = lambda step: ""
+    executed: list[bool] = []
+
+    async def fake_send_plan_ready_after_confirmation(payload):
+        return {"confirmed": True}
+
+    async def fake_execute():
+        executed.append(True)
+
+    monkeypatch.setattr(agent_module, "get_page", lambda: object())
+    loop._send_plan_ready_after_confirmation = fake_send_plan_ready_after_confirmation
+    loop._execute_deterministic_fast_path_confirmed_plan = fake_execute
+
+    handled = asyncio.run(
+        loop._try_deterministic_fast_path(
+            [
+                {
+                    "id": "step-1",
+                    "intent": "Click the submit button",
+                    "locator": 'get_by_role("button", name="Submit")',
+                }
+            ]
+        )
+    )
+
+    assert handled is True
+    assert executed == [True]
+    assert loop.llm.messages == []
+
+
+def test_try_deterministic_fast_path_correction_falls_back_with_message(monkeypatch):
+    class _FakeResolvedLocator:
+        async def count(self) -> int:
+            return 1
+
+    loop = AgentLoop.__new__(AgentLoop)
+    loop.llm = SimpleNamespace(messages=[])
+    loop._resolve_locator = lambda page, locator: _FakeResolvedLocator()
+    loop._normalize_space = AgentLoop._normalize_space.__get__(loop, AgentLoop)
+    loop._derive_locator_from_step_context = lambda step: ""
+
+    async def fake_send_plan_ready_after_confirmation(payload):
+        return {"confirmed": False, "correction": "Use the primary CTA instead"}
+
+    monkeypatch.setattr(agent_module, "get_page", lambda: object())
+    loop._send_plan_ready_after_confirmation = fake_send_plan_ready_after_confirmation
+
+    handled = asyncio.run(
+        loop._try_deterministic_fast_path(
+            [
+                {
+                    "id": "step-1",
+                    "intent": "Click the submit button",
+                    "locator": 'get_by_role("button", name="Submit")',
+                }
+            ]
+        )
+    )
+
+    assert handled is False
+    assert loop.llm.messages == [
+        {"role": "user", "content": "Correction: Use the primary CTA instead"}
+    ]
+
+
+def test_run_uses_fast_path_before_model_loop(monkeypatch):
+    loop = AgentLoop.__new__(AgentLoop)
+    loop.phase_tracker = PhaseTracker()
+    loop.llm = SimpleNamespace(messages=[], reset=lambda: None)
+    loop._reset_lifecycle_state = lambda steps=None: None
+    loop._prepare_recording_steps = lambda steps: setattr(loop, "current_steps", list(steps))
+    loop._validate_recording_steps = lambda steps: None
+    loop._load_skills_for_steps = lambda steps: (["core"], "", [{"name": "core"}])
+    loop._skill_entries_from_loaded_skills = lambda loaded_skill_names, loaded_skills: [{"name": "core"}]
+    loop._sync_skill_prompt_from_entries = lambda: None
+    loop._log_skill_load = lambda names, phase: None
+    loop._log_skill_diagnostics = lambda: None
+    loop._format_steps = lambda steps: "steps"
+    loop._pending_failure_followup = False
+    loop.current_steps = []
+    loop.model_router = SimpleNamespace(
+        call=lambda **kwargs: (_ for _ in ()).throw(AssertionError("model loop should not run"))
+    )
+    fast_path_calls: list[list[dict]] = []
+
+    async def fake_fast_path(steps):
+        fast_path_calls.append(list(steps))
+        return True
+
+    loop._try_deterministic_fast_path = fake_fast_path
+
+    asyncio.run(loop.run([{"id": "step-1", "intent": "Click the submit button"}]))
+
+    assert fast_path_calls == [[{"id": "step-1", "intent": "Click the submit button"}]]
+
+
+def test_execute_deterministic_fast_path_confirmed_plan_emits_recording_and_code_update():
+    loop = AgentLoop.__new__(AgentLoop)
+    loop.phase_tracker = PhaseTracker()
+    loop.phase = "executing"
+    loop.plan_confirmed = True
+    loop.pending_recovery = False
+    loop._pending_failure_followup = False
+    loop._awaiting_step_record = False
+    loop._recording_wait_guard_armed = False
+    loop._run_completion_requested = False
+    loop._run_completed_emitted = False
+    loop._run_session_id = "run-fast-path"
+    loop.completed_step_ids = set()
+    loop.skipped_step_ids = set()
+    loop._recorded_step_ids = set()
+    loop.current_step_index = 0
+    loop.active_step_id = None
+    loop.active_failed_step_id = None
+    loop.last_successful_action = None
+    loop._last_action_context = None
+    loop.successful_action_by_step_id = {}
+    loop.successful_actions_by_step_id = {}
+    loop.replay_action_history_by_step_id = {}
+    loop.replay_recorded_step_payloads_by_step_id = {}
+    loop.recorded_step_payloads = []
+    loop.code_update_payloads = []
+    loop._emit_run_completed_event = lambda payload, recorded_payload: asyncio.sleep(0)
+    sent_messages: list[tuple[str, dict[str, object]]] = []
+
+    step_context = {
+        "step_id": "step-1",
+        "step_number": 1,
+        "intent": "Click the submit button",
+        "element_info": {
+            "text": "Submit",
+            "attributes": {"aria-label": "Submit"},
+        },
+        "element_name": "Submit",
+        "locator": 'get_by_role("button", name="Submit")',
+        "status": "pending",
+        "recorded": False,
+        "last_error": None,
+        "expected_outcome": {"type": "navigation"},
+    }
+    loop.current_steps = [dict(step_context)]
+    loop._recording_steps = [step_context]
+    loop._recording_step_index = 0
+    loop.step_state_by_id = {"step-1": step_context}
+    loop.step_context_by_id = loop.step_state_by_id
+
+    payload = build_deterministic_plan(
+        user_message="Click the submit button",
+        locator='get_by_role("button", name="Submit")',
+        action_verb="click",
+        step_id="step-1",
+    )
+    loop._build_confirmed_execution_plan(payload, source_plan_state=payload)
+
+    async def fake_send(message_type: str, **kwargs):
+        sent_messages.append((message_type, kwargs))
+
+    async def fake_dispatch(tool_name: str, args: dict[str, object]):
+        assert tool_name == "action_click"
+        assert args["locator"] == 'get_by_role("button", name="Submit")'
+        return {
+            "success": True,
+            "error": None,
+            "locator": 'get_by_role("button", name="Submit")',
+        }
+
+    browser_states = iter(
+        [
+            {"url": "http://fixture/start", "title": "Start"},
+            {"url": "http://fixture/next", "title": "Next"},
+        ]
+    )
+
+    async def fake_capture_browser_state():
+        return next(browser_states)
+
+    loop._send = fake_send
+    loop._dispatch_tool = fake_dispatch
+    loop._capture_browser_state = fake_capture_browser_state
+
+    asyncio.run(loop._execute_deterministic_fast_path_confirmed_plan())
+
+    message_types = [message_type for message_type, _ in sent_messages]
+    assert "llm_result" not in message_types
+    assert message_types[:2] == ["step_recorded", "code_update"]
+
+    recorded_payload = sent_messages[0][1]
+    code_update_payload = sent_messages[1][1]
+    assert recorded_payload["step_id"] == "step-1"
+    assert recorded_payload["children"][0]["status"] == "success"
+    assert recorded_payload["children"][0]["description"] == "Submit"
+    assert recorded_payload["children"][0]["target"] == "Submit"
+    assert recorded_payload["children"][0]["locator"] == 'get_by_role("button", name="Submit")'
+    assert code_update_payload["lines"] == ['await page.getByRole("button", { name: "Submit" }).click();']
 
 
 # --- helpers ---

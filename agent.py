@@ -1374,6 +1374,10 @@ class AgentLoop:
 
             self.llm.messages.append({"role": "user", "content": self._format_steps(steps)})
 
+            fast_path_handled = await self._try_deterministic_fast_path(self.current_steps)
+            if fast_path_handled:
+                return
+
             while True:
                 print("[AGENT] Requesting LLM response")
                 current_phase = self._current_phase()
@@ -2337,22 +2341,10 @@ class AgentLoop:
         # Always go through confirmation gate — no browser action without approval
         confirmation = await self._send_plan_ready_after_confirmation(plan_payload)
         if confirmation.get("confirmed"):
-            print("[FAST_PATH] confirmed; delegating to LLM for execution")
-            # Plan already confirmed (plan_confirmed=True set by _send_plan_ready_after_confirmation).
-            # Inject a user message that tells the LLM the plan is approved and exactly what to run.
-            # The LLM will make 1 call to execute and record — no planning loop needed.
+            print("[FAST_PATH] confirmed; executing through confirmed execution contract")
             self.last_plan_ready_payload = plan_payload
-            exec_instruction = (
-                f"Plan confirmed by user. Execute now: {plan_payload['summary']}. "
-                f"Use locator: {locator}. Action: {action_verb}."
-            )
-            if fill_value:
-                exec_instruction += f" Fill value: {fill_value}."
-            if expected_text:
-                exec_instruction += f" Expected text: {expected_text}."
-            exec_instruction += " Execute the action, then record the step."
-            self.llm.messages.append({"role": "user", "content": exec_instruction})
-            return False
+            await self._execute_deterministic_fast_path_confirmed_plan()
+            return True
 
         # User requested a correction — fall through to full LLM loop with correction context
         correction = str(confirmation.get("correction") or "").strip()
@@ -2360,6 +2352,173 @@ class AgentLoop:
         if correction:
             self.llm.messages.append({"role": "user", "content": f"Correction: {correction}"})
         return False
+
+    def _build_confirmed_execution_tool_call(
+        self,
+        child: dict[str, Any],
+        *,
+        step_context: dict[str, Any] | None = None,
+    ) -> tuple[str, dict[str, Any]]:
+        child_type = self._normalize_space(str(child.get("type") or "")).strip().lower()
+        locator = self._normalize_space(str(child.get("locator") or "")).strip()
+        if not locator and isinstance(step_context, dict):
+            locator = self._derive_locator_from_step_context(step_context)
+
+        if child_type == "click":
+            return "action_click", {"locator": locator}
+        if child_type == "fill":
+            return "action_fill", {
+                "locator": locator,
+                "value": child.get("value") or child.get("expected_value") or "",
+            }
+        if child_type == "assert":
+            assertion = self._infer_confirmed_execution_child_assertion(child, source_step=step_context)
+            expected_value = child.get("expected_value")
+            if expected_value is None:
+                expected_value = child.get("value")
+            args: dict[str, Any] = {
+                "locator": locator,
+                "assertion": assertion,
+            }
+            if expected_value not in (None, ""):
+                args["expected_value"] = expected_value
+            return "action_assert", args
+        raise RuntimeError(f"Unsupported deterministic confirmed child type: {child_type or 'unknown'}")
+
+    async def _execute_deterministic_fast_path_confirmed_plan(self) -> None:
+        confirmed_cursor = self._current_confirmed_execution_cursor()
+        if not isinstance(confirmed_cursor, dict):
+            print("[FAST_PATH] execution failed: confirmed execution cursor missing")
+            await self._send(
+                "llm_result",
+                success=False,
+                message="Deterministic execution failed safely because the confirmed execution contract was unavailable.",
+            )
+            self._pending_failure_followup = False
+            return
+
+        step_context = confirmed_cursor.get("step_context")
+        contract = confirmed_cursor.get("contract")
+        expected_child = confirmed_cursor.get("next_child")
+        if not isinstance(contract, dict) or not isinstance(expected_child, dict):
+            print("[FAST_PATH] execution failed: no confirmed child available")
+            await self._send(
+                "llm_result",
+                success=False,
+                message="Deterministic execution failed safely because no confirmed child operation was available.",
+            )
+            self._pending_failure_followup = False
+            return
+
+        tool_name, args = self._build_confirmed_execution_tool_call(
+            expected_child,
+            step_context=step_context if isinstance(step_context, dict) else None,
+        )
+        print(
+            "[FAST_PATH] executing confirmed child "
+            f"{self._describe_confirmed_execution_child(expected_child)} via {tool_name}"
+        )
+
+        confirmed_execution_check = self._validate_confirmed_execution_tool_call(tool_name, args)
+        if isinstance(confirmed_execution_check, dict) and not confirmed_execution_check.get("allowed", False):
+            blocked_result = dict(confirmed_execution_check)
+            blocked_result.pop("allowed", None)
+            if isinstance(expected_child, dict):
+                self._record_confirmed_execution_child_result(
+                    step_context,
+                    expected_child,
+                    tool_name=tool_name,
+                    args=args,
+                    result=blocked_result,
+                    status="blocked",
+                )
+            self.phase_tracker.set_phase(
+                "failed",
+                reason="deterministic_execution_contract_blocked",
+                step_id=str(contract.get("step_id") or "").strip() or None,
+            )
+            self.phase = "failed"
+            await self._send(
+                "llm_result",
+                success=False,
+                message=str(blocked_result.get("message") or "Deterministic execution was blocked."),
+            )
+            self._pending_failure_followup = False
+            return
+
+        browser_state_before = await self._capture_browser_state()
+        result = await self._dispatch_tool(tool_name, args)
+        print(f"[FAST_PATH] tool result: {self._summarize(result, limit=120)}")
+
+        if result.get("success") is not True or result.get("skipped"):
+            self._record_confirmed_execution_child_result(
+                step_context,
+                expected_child,
+                tool_name=tool_name,
+                args=args,
+                result=result,
+                status="failed" if result.get("success") is False else "blocked",
+                browser_state_before=browser_state_before,
+            )
+            if isinstance(step_context, dict):
+                self._mark_step_failed(step_context, result.get("error") or result.get("message") or "deterministic execution failed")
+            self.phase_tracker.set_phase(
+                "failed",
+                reason="deterministic_execution_failed",
+                step_id=str(contract.get("step_id") or "").strip() or None,
+            )
+            self.phase = "failed"
+            await self._send(
+                "llm_result",
+                success=False,
+                message=str(result.get("error") or result.get("message") or "Deterministic execution failed safely."),
+            )
+            self._pending_failure_followup = False
+            return
+
+        browser_state_after = await self._capture_browser_state()
+        self._record_confirmed_execution_child_result(
+            step_context,
+            expected_child,
+            tool_name=tool_name,
+            args=args,
+            result=result,
+            status="success",
+            browser_state_before=browser_state_before,
+            browser_state_after=browser_state_after,
+        )
+        self._mark_step_executing(step_context)
+        self._capture_action_context(
+            tool_name,
+            args,
+            result,
+            browser_state_before=browser_state_before,
+            browser_state_after=browser_state_after,
+        )
+        recorded_payload = await self._auto_record_successful_step()
+        if recorded_payload is None:
+            print("[FAST_PATH] execution failed: auto-record did not produce a recorded payload")
+            self.phase_tracker.set_phase(
+                "failed",
+                reason="deterministic_recording_missing",
+                step_id=str(contract.get("step_id") or "").strip() or None,
+            )
+            self.phase = "failed"
+            await self._send(
+                "llm_result",
+                success=False,
+                message="Deterministic execution succeeded but recording failed safely.",
+            )
+            self._pending_failure_followup = False
+            return
+
+        if self._run_completion_requested:
+            print("[FAST_PATH] execution completed without planning LLM call")
+            self._pending_failure_followup = False
+            self._reset_lifecycle_state()
+            return
+
+        print("[FAST_PATH] execution completed; run remains open for remaining work")
 
     def _is_click_like_intent(self, intent: Any) -> bool:
         normalized_intent = self._normalize_space(str(intent or "")).lower()
@@ -7379,6 +7538,22 @@ class AgentLoop:
 
         return target_text or intent_text
 
+    def _is_technical_recorded_label_text(self, value: Any) -> bool:
+        text = self._normalize_space(str(value or "")).strip()
+        if not text:
+            return False
+        lowered = text.lower()
+        technical_markers = (
+            "get_by_",
+            "page.locator(",
+            "locator(",
+            "[data-testid",
+            "css=",
+            "xpath=",
+            "role=",
+        )
+        return lowered.startswith("#") or any(marker in lowered for marker in technical_markers)
+
     def _build_recorded_children(
         self,
         action_records: list[dict[str, Any]],
@@ -7418,6 +7593,15 @@ class AgentLoop:
                 ).strip()
                 if not child_action:
                     child_action = str(confirmed_child.get("type") or "").strip()
+                human_target = str(
+                    confirmed_step_data.get("element_name")
+                    or element_name
+                    or ""
+                ).strip()
+                if not human_target:
+                    locator_target_hint = self._locator_label_hint(child_locator)
+                    if locator_target_hint and not self._is_technical_recorded_label_text(locator_target_hint):
+                        human_target = locator_target_hint
                 child_value_text = str(
                     child_result.get("value")
                     or child_result.get("expected_value")
@@ -7440,14 +7624,21 @@ class AgentLoop:
                     or confirmed_child.get("description")
                     or ""
                 ).strip()
+                if self._is_technical_recorded_label_text(description):
+                    description = ""
                 if not description:
                     description = self._build_recorded_child_description(
                         child_action,
                         child_action,
                         str(
-                            child_result.get("target")
+                            (human_target if not self._is_technical_recorded_label_text(human_target) else "")
+                            or child_result.get("target")
+                            or (
+                                self._locator_label_hint(child_locator)
+                                if not self._is_technical_recorded_label_text(self._locator_label_hint(child_locator))
+                                else ""
+                            )
                             or confirmed_child.get("target")
-                            or self._locator_label_hint(child_locator)
                             or element_name
                             or intent
                             or ""
@@ -7456,12 +7647,24 @@ class AgentLoop:
                         intent,
                     )
                 if not description:
-                    description = str(confirmed_child.get("target") or element_name or intent or child_action or "").strip()
+                    description = str(
+                        (human_target if not self._is_technical_recorded_label_text(human_target) else "")
+                        or confirmed_child.get("target")
+                        or element_name
+                        or intent
+                        or child_action
+                        or ""
+                    ).strip()
                 target = str(
-                    child_result.get("target")
+                    (human_target if not self._is_technical_recorded_label_text(human_target) else "")
+                    or child_result.get("target")
                     or confirmed_child.get("target")
                     or element_name
-                    or self._locator_label_hint(child_locator)
+                    or (
+                        self._locator_label_hint(child_locator)
+                        if not self._is_technical_recorded_label_text(self._locator_label_hint(child_locator))
+                        else ""
+                    )
                     or intent
                     or child_action
                     or ""

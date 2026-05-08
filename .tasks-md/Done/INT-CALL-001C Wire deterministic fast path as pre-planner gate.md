@@ -1,10 +1,11 @@
 # INT-CALL-001C Wire deterministic fast path as pre-planner gate
 
-Status: Planning
+Status: Done
 Sprint: Sprint 3
 Type: Story
 Owner: Backend / LLM Runtime
 Priority: P0
+Started: 2026-05-08 20:14 IST
 
 ## Problem
 
@@ -65,8 +66,20 @@ Do not run all 5 E2E until final acceptance.
 
 ## Evidence
 
-To be filled during implementation.
+- `python -m py_compile agent.py tests/test_deterministic_fast_path.py tests/test_completion_guard.py tests/test_recording_codegen_truth_contract.py`
+- `python -m pytest tests/test_deterministic_fast_path.py tests/test_completion_guard.py tests/test_recording_codegen_truth_contract.py -q`
+  - Result: `40 passed`
+- `python -m pytest tests/e2e/test_basic_click_flow.py -q -s`
+  - Result: `1 passed`
+  - `basic_click_flow` token report: `calls=0 input_tokens=0 output_tokens=0`
+  - Artifact log includes `[FAST_PATH] qualified`, `[FAST_PATH] confirmed; executing through confirmed execution contract`, and `[FAST_PATH] execution completed without planning LLM call`
 
 ## Notes
 
 This is the call-count reduction lever, not only a prompt-size change.
+
+Implementation summary:
+- Wired `_try_deterministic_fast_path()` before the main LLM loop in `run()`
+- Replaced post-confirmation LLM execution fallback with backend-native deterministic child execution
+- Reused confirmed execution contract validation, action capture, auto-recording, and code-update emission
+- Kept correction/rejection fallback on the normal LLM path

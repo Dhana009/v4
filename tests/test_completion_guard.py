@@ -103,6 +103,25 @@ def _build_loop_for_completion_test(monkeypatch):
         )
     )
     loop._format_steps = lambda steps: "steps"
+    loop.llm_policy_gateway = SimpleNamespace(
+        decide=lambda **kwargs: SimpleNamespace(
+            model_needed=True,
+            purpose="main_orchestrator",
+            phase="planning",
+            allowed_tools=[],
+            context_level="normal",
+            schema_id=None,
+            budget="default",
+            deterministic_candidate_allowed=False,
+            fallback="main_orchestrator",
+            requires_confirmation=True,
+        )
+    )
+
+    async def fake_fast_path(steps):
+        return False
+
+    loop._try_deterministic_fast_path = fake_fast_path
 
     def fake_reset_lifecycle_state(steps=None):
         if steps is None:
