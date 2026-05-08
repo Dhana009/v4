@@ -9,8 +9,10 @@ from .harness import capture_picker_arm_evidence
 from .harness import click_autoworkbench_tab
 from .harness import start_e2e_session
 from .harness import wait_for_overlay_ready
+from .harness import wait_for_autoworkbench_execution_progress
+from .harness import wait_for_autoworkbench_plan_ready
+from .harness import wait_for_locator_count
 from .harness import wait_for_process_log_markers_async
-from .harness import wait_for_autoworkbench_state_text
 
 
 def test_correction_assert_then_click_flow() -> None:
@@ -70,9 +72,7 @@ async def _run_correction_assert_then_click_flow() -> None:
         await session.run_stage("run_clicked", 10.0, run_pending_step)
 
         async def wait_for_initial_plan_ready() -> None:
-            confirm_plan_button = page.get_by_role("button", name="Confirm Plan").first
-            await confirm_plan_button.wait_for(state="visible", timeout=20000)
-            await _wait_for_page_mode(page, "plan review", timeout_ms=20000)
+            await wait_for_autoworkbench_plan_ready(page, timeout_ms=20000)
             plan_review_card = _plan_review_card(page)
             initial_children = plan_review_card.locator(".ide-plan-child-desc")
             assert await initial_children.count() == 1
@@ -86,17 +86,15 @@ async def _run_correction_assert_then_click_flow() -> None:
             await correction_input.fill("assert first then click")
             send_button = page.get_by_role("button", name="Send Correction").first
             await send_button.click()
-            await _wait_for_page_mode(page, "planning", timeout_ms=8000)
+            await wait_for_autoworkbench_plan_ready(page, timeout_ms=8000)
 
         await session.run_stage("correction_sent", 10.0, send_correction)
 
         async def wait_for_corrected_plan_ready() -> None:
-            confirm_plan_button = page.get_by_role("button", name="Confirm Plan").first
-            await confirm_plan_button.wait_for(state="visible", timeout=20000)
-            await _wait_for_page_mode(page, "plan review", timeout_ms=20000)
+            await wait_for_autoworkbench_plan_ready(page, timeout_ms=20000)
             plan_review_card = _plan_review_card(page)
             corrected_children = plan_review_card.locator(".ide-plan-child-desc")
-            assert await corrected_children.count() == 2
+            await wait_for_locator_count(corrected_children, 2, timeout_ms=20000)
             assert await page.locator(".ide-clarification-question").count() == 0
 
         await session.run_stage("corrected_plan_ready_seen", 25.0, wait_for_corrected_plan_ready)
@@ -109,8 +107,7 @@ async def _run_correction_assert_then_click_flow() -> None:
         await session.run_stage("corrected_plan_confirmed", 10.0, confirm_corrected_plan)
 
         async def wait_for_corrected_recording() -> None:
-            await page.locator(".ide-hd-state").first.wait_for(state="visible", timeout=10000)
-            await _wait_for_page_mode(page, "executing", timeout_ms=10000)
+            await wait_for_autoworkbench_execution_progress(page, timeout_ms=10000)
             await wait_for_process_log_markers_async(session.backend, ["[EXECUTION_CONTRACT]"], timeout_s=10.0)
 
             recorded_step = page.locator(".ide-recorded-step").first
@@ -141,11 +138,5 @@ async def _run_correction_assert_then_click_flow() -> None:
             assert page.url.endswith("/agents.html")
 
         await session.run_stage("corrected_code_update_seen", 25.0, wait_for_corrected_code_update)
-
-
 def _plan_review_card(page):
     return page.locator(".ide-card").filter(has_text="// plan review").first
-
-
-async def _wait_for_page_mode(page, expected_mode: str, timeout_ms: int) -> None:
-    await wait_for_autoworkbench_state_text(page, expected_mode, timeout_ms=timeout_ms)

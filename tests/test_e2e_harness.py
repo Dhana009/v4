@@ -338,6 +338,106 @@ def test_wait_for_autoworkbench_state_text_falls_back_when_shadow_root_missing()
     assert fallback_state.wait_for_count == 1
 
 
+def test_wait_for_autoworkbench_state_text_accepts_state_families_when_state_moves_fast() -> None:
+    shadow_state = _ChangingTextLocator(["PLANNING…", "COMPLETED"])
+    shadow_root = _TrackedTabLocator("shadow-root", visible=True, count_value=1, nested={".ide-hd-state": shadow_state})
+    page = _TrackedTabPage(
+        test_ids={},
+        roles={},
+        locators={
+            "#aw-root": shadow_root,
+        },
+    )
+
+    asyncio.run(harness.wait_for_autoworkbench_state_text(page, ("executing", "completed"), timeout_ms=200))
+
+    assert page.locator_requests == ["#aw-root"]
+    assert shadow_root.locator_requests == [".ide-hd-state"]
+    assert shadow_state.wait_for_count == 1
+    assert shadow_state.inner_text_calls >= 2
+
+
+def test_wait_for_autoworkbench_plan_ready_uses_confirm_plan_visibility_and_shadow_state() -> None:
+    confirm_plan = _TrackedTabLocator("Confirm Plan", visible=True)
+    shadow_state = _TrackedTabLocator("shadow-state", visible=True, text="AWAITING CONFIRMATION")
+    shadow_root = _TrackedTabLocator("shadow-root", visible=True, count_value=1, nested={".ide-hd-state": shadow_state})
+    fallback_state = _TrackedTabLocator("fallback-state", visible=True, text="PLAN REVIEW")
+    page = _TrackedTabPage(
+        test_ids={},
+        roles={"Confirm Plan": confirm_plan},
+        locators={
+            "#aw-root": shadow_root,
+            "#autoworkbench-root .ide-panel .ide-hd-state": fallback_state,
+        },
+    )
+
+    asyncio.run(harness.wait_for_autoworkbench_plan_ready(page, timeout_ms=200))
+
+    assert page.role_requests == ["Confirm Plan"]
+    assert confirm_plan.wait_for_count == 1
+    assert page.locator_requests == ["#aw-root"]
+    assert shadow_root.locator_requests == [".ide-hd-state"]
+    assert shadow_state.wait_for_count == 1
+    assert fallback_state.wait_for_count == 0
+
+
+def test_wait_for_autoworkbench_execution_progress_accepts_recorded_state() -> None:
+    shadow_state = _TrackedTabLocator("shadow-state", visible=True, text="RECORDED")
+    shadow_root = _TrackedTabLocator("shadow-root", visible=True, count_value=1, nested={".ide-hd-state": shadow_state})
+    page = _TrackedTabPage(
+        test_ids={},
+        roles={},
+        locators={
+            "#aw-root": shadow_root,
+        },
+    )
+
+    asyncio.run(harness.wait_for_autoworkbench_execution_progress(page, timeout_ms=200))
+
+    assert page.locator_requests == ["#aw-root"]
+    assert shadow_root.locator_requests == [".ide-hd-state"]
+    assert shadow_state.wait_for_count == 1
+
+
+def test_failure_artifacts_record_state_timeout_reason_backend_markers_and_artifact_path(tmp_path: Path) -> None:
+    shadow_state = _TrackedTabLocator("shadow-state", visible=True, text="RECOVERY NEEDED")
+    shadow_root = _TrackedTabLocator("shadow-root", visible=True, count_value=1, nested={".ide-hd-state": shadow_state})
+    active_tab = _TrackedTabLocator("active-tab", visible=True, text="Workbench")
+    page = _TrackedTabPage(
+        test_ids={},
+        roles={},
+        locators={
+            "#aw-root": shadow_root,
+            ".ide-tab.active": active_tab,
+            "#autoworkbench-root .ide-panel .ide-hd-state": _TrackedTabLocator("fallback-state", visible=True, text="LEGACY"),
+        },
+    )
+    backend_stdout_text = (
+        "[PHASE] awaiting_confirmation -> executing\n"
+        "[CONFIRMED_PLAN] plan accepted\n"
+        "[EXECUTION_CONTRACT] execution contract accepted\n"
+    )
+    session = _make_failure_session(tmp_path, page=page, backend_stdout_text=backend_stdout_text)
+
+    with pytest.raises(TimeoutError) as excinfo:
+        asyncio.run(harness.wait_for_autoworkbench_state_text(page, ("executing", "completed"), timeout_ms=200))
+
+    context = asyncio.run(session.save_failure_artifacts(str(excinfo.value), stage="execution_started"))
+    failure_text = (tmp_path / "failure.txt").read_text(encoding="utf-8")
+    failure_context = json.loads((tmp_path / "failure-context.json").read_text(encoding="utf-8"))
+
+    assert context["artifact_dir"] == str(tmp_path)
+    assert "Timed out waiting for text in ['executing', 'completed']" in context["reason"]
+    assert "last observed text='RECOVERY NEEDED'" in context["reason"]
+    assert context["page_state"]["active_mode"] == "RECOVERY NEEDED"
+    assert failure_context["page_state"]["active_mode"] == "RECOVERY NEEDED"
+    assert context["backend_lifecycle_markers"]["[PHASE]"] == "[PHASE] awaiting_confirmation -> executing"
+    assert context["backend_lifecycle_markers"]["[CONFIRMED_PLAN]"] == "[CONFIRMED_PLAN] plan accepted"
+    assert context["backend_lifecycle_markers"]["[EXECUTION_CONTRACT]"] == "[EXECUTION_CONTRACT] execution contract accepted"
+    assert "artifact_dir=" in failure_text
+    assert "last observed text='RECOVERY NEEDED'" in failure_text
+
+
 def test_capture_picker_arm_evidence_reports_overlay_shadow_and_selector_source() -> None:
     shadow_root = _TrackedTabLocator("aw-root", visible=True, count_value=1)
     steps_test_id = _TrackedTabLocator("steps-tab", visible=True, count_value=1)
@@ -414,6 +514,21 @@ class _ChangingTextLocator:
         return self.texts[index]
 
 
+class _ChangingCountLocator:
+    def __init__(self, counts: list[int]) -> None:
+        self.counts = counts
+        self.count_calls = 0
+
+    @property
+    def first(self) -> "_ChangingCountLocator":
+        return self
+
+    async def count(self) -> int:
+        index = min(self.count_calls, len(self.counts) - 1)
+        self.count_calls += 1
+        return self.counts[index]
+
+
 def test_wait_for_locator_text_polls_locator_text_until_expected_value_appears() -> None:
     locator = _ChangingTextLocator(["PLANNING…", "PLAN REVIEW"])
 
@@ -421,6 +536,14 @@ def test_wait_for_locator_text_polls_locator_text_until_expected_value_appears()
 
     assert locator.wait_for_count == 1
     assert locator.inner_text_calls >= 2
+
+
+def test_wait_for_locator_count_polls_until_expected_count_appears() -> None:
+    locator = _ChangingCountLocator([1, 2])
+
+    asyncio.run(harness.wait_for_locator_count(locator, 2, timeout_ms=200))
+
+    assert locator.count_calls >= 2
 
 
 class _LeakyFailurePage(_FakePage):
@@ -442,10 +565,15 @@ class _FakePlaywright:
         return None
 
 
-def _make_failure_session(tmp_path: Path, page: object | None = None) -> harness.E2ESession:
+def _make_failure_session(
+    tmp_path: Path,
+    page: object | None = None,
+    *,
+    backend_stdout_text: str = "[PLAN_READY] backend ready\n",
+) -> harness.E2ESession:
     stdout_path = tmp_path / "backend.stdout.log"
     stderr_path = tmp_path / "backend.stderr.log"
-    stdout_path.write_text("[PLAN_READY] backend ready\n", encoding="utf-8")
+    stdout_path.write_text(backend_stdout_text, encoding="utf-8")
     stderr_path.write_text("", encoding="utf-8")
     backend = SimpleNamespace(
         name="autoworkbench-backend",

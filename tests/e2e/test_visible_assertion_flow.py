@@ -9,8 +9,9 @@ from .harness import capture_picker_arm_evidence
 from .harness import click_autoworkbench_tab
 from .harness import start_e2e_session
 from .harness import wait_for_overlay_ready
+from .harness import wait_for_autoworkbench_execution_progress
+from .harness import wait_for_autoworkbench_plan_ready
 from .harness import wait_for_process_log_markers_async
-from .harness import wait_for_autoworkbench_state_text
 
 
 def test_visible_assertion_flow() -> None:
@@ -68,9 +69,7 @@ async def _run_visible_assertion_flow() -> None:
         await session.run_stage("visible_assertion_run_clicked", 10.0, click_run)
 
         async def wait_for_plan_ready() -> None:
-            confirm_plan_button = page.get_by_role("button", name="Confirm Plan").first
-            await confirm_plan_button.wait_for(state="visible", timeout=20000)
-            await _wait_for_page_mode(page, "plan review", timeout_ms=20000)
+            await wait_for_autoworkbench_plan_ready(page, timeout_ms=20000)
 
         await session.run_stage("visible_assertion_plan_ready_seen", 25.0, wait_for_plan_ready)
 
@@ -82,8 +81,7 @@ async def _run_visible_assertion_flow() -> None:
         await session.run_stage("visible_assertion_confirm_clicked", 10.0, confirm_plan)
 
         async def wait_for_execution_started() -> None:
-            await page.locator(".ide-hd-state").first.wait_for(state="visible", timeout=10000)
-            await _wait_for_page_mode(page, "executing", timeout_ms=10000)
+            await wait_for_autoworkbench_execution_progress(page, timeout_ms=10000)
             await wait_for_process_log_markers_async(session.backend, ["[EXECUTION_CONTRACT]"], timeout_s=10.0)
 
         await session.run_stage("visible_assertion_execution_started", 15.0, wait_for_execution_started)
@@ -115,7 +113,3 @@ async def _run_visible_assertion_flow() -> None:
             assert page.url == docs_url
 
         await session.run_stage("visible_assertion_code_update_seen", 25.0, wait_for_code_update)
-
-
-async def _wait_for_page_mode(page, expected_mode: str, timeout_ms: int) -> None:
-    await wait_for_autoworkbench_state_text(page, expected_mode, timeout_ms=timeout_ms)

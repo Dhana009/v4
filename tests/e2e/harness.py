@@ -1230,7 +1230,8 @@ class E2ESession:
         except Exception:
             active_tab = ""
         try:
-            active_mode = (await self.page.locator(".ide-hd-state").first.inner_text()).strip()
+            state_locator = await find_autoworkbench_state_locator(self.page)
+            active_mode = (await state_locator.first.inner_text()).strip()
         except Exception:
             active_mode = ""
         return {
@@ -1586,6 +1587,15 @@ _AUTOWORKBENCH_TAB_ALIASES = {
     "llm": "workbench",
     "trace": "debug",
 }
+_AUTOWORKBENCH_PLAN_READY_STATE_LABELS = ("plan review", "awaiting confirmation")
+_AUTOWORKBENCH_EXECUTION_PROGRESS_STATE_LABELS = (
+    "executing",
+    "recorded",
+    "recording",
+    "completed",
+    "clarification needed",
+    "recovery needed",
+)
 
 
 def _normalize_autoworkbench_tab_name(tab_name: str) -> str:
@@ -1621,16 +1631,53 @@ async def click_autoworkbench_tab(page: Any, tab_name: str, timeout_ms: int = 10
     raise TimeoutError(f"Timed out waiting to click AutoWorkbench tab {tab_name!r}") from last_error
 
 
-async def wait_for_locator_text(locator: Any, expected_text: str, timeout_ms: int = 10000) -> None:
+def _normalize_expected_texts(expected_texts: str | Sequence[str]) -> list[str]:
+    if isinstance(expected_texts, str):
+        values = [expected_texts]
+    else:
+        values = [str(text) for text in expected_texts]
+    normalized = [value.strip().lower() for value in values if str(value).strip()]
+    if not normalized:
+        raise ValueError("expected_texts must contain at least one non-empty value")
+    return normalized
+
+
+async def wait_for_locator_text(locator: Any, expected_texts: str | Sequence[str], timeout_ms: int = 10000) -> None:
     await locator.wait_for(state="visible", timeout=timeout_ms)
-    expected = expected_text.lower()
+    expected_values = _normalize_expected_texts(expected_texts)
     deadline = asyncio.get_running_loop().time() + timeout_ms / 1000
+    last_observed_text = ""
     while True:
-        current = (await locator.inner_text()).strip().lower()
-        if expected in current:
+        current = (await locator.inner_text()).strip()
+        last_observed_text = current
+        current_normalized = current.lower()
+        if any(expected in current_normalized for expected in expected_values):
             return
         if asyncio.get_running_loop().time() >= deadline:
-            raise TimeoutError(f"Timed out waiting for text {expected_text!r}")
+            raise TimeoutError(
+                f"Timed out waiting for text in {expected_values!r}; "
+                f"last observed text={last_observed_text!r}"
+            )
+        await asyncio.sleep(0.1)
+
+
+async def wait_for_locator_count(locator: Any, expected_count: int, timeout_ms: int = 10000) -> None:
+    deadline = asyncio.get_running_loop().time() + timeout_ms / 1000
+    last_observed_count: int | str = -1
+    while True:
+        try:
+            current_count = await locator.count()
+        except Exception as exc:  # noqa: BLE001
+            last_observed_count = f"<error: {exc}>"
+        else:
+            last_observed_count = current_count
+            if current_count == expected_count:
+                return
+        if asyncio.get_running_loop().time() >= deadline:
+            raise TimeoutError(
+                f"Timed out waiting for locator count {expected_count}; "
+                f"last observed count={last_observed_count!r}"
+            )
         await asyncio.sleep(0.1)
 
 
@@ -1654,9 +1701,19 @@ async def find_autoworkbench_state_locator(page: Any) -> Any:
     return page.locator("#autoworkbench-root .ide-panel .ide-hd-state").first
 
 
-async def wait_for_autoworkbench_state_text(page: Any, expected_text: str, timeout_ms: int = 10000) -> None:
+async def wait_for_autoworkbench_state_text(page: Any, expected_text: str | Sequence[str], timeout_ms: int = 10000) -> None:
     state_locator = await find_autoworkbench_state_locator(page)
     await wait_for_locator_text(state_locator, expected_text, timeout_ms=timeout_ms)
+
+
+async def wait_for_autoworkbench_plan_ready(page: Any, timeout_ms: int = 10000) -> None:
+    confirm_plan_button = page.get_by_role("button", name="Confirm Plan").first
+    await confirm_plan_button.wait_for(state="visible", timeout=timeout_ms)
+    await wait_for_autoworkbench_state_text(page, _AUTOWORKBENCH_PLAN_READY_STATE_LABELS, timeout_ms=timeout_ms)
+
+
+async def wait_for_autoworkbench_execution_progress(page: Any, timeout_ms: int = 10000) -> None:
+    await wait_for_autoworkbench_state_text(page, _AUTOWORKBENCH_EXECUTION_PROGRESS_STATE_LABELS, timeout_ms=timeout_ms)
 
 
 async def capture_picker_arm_evidence(page: Any) -> dict[str, Any]:
