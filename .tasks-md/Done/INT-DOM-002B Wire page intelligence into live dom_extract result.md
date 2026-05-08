@@ -1,10 +1,11 @@
 # INT-DOM-002B Wire page intelligence into live dom_extract result
 
-Status: Planning
+Status: Done
 Sprint: Sprint 3
 Type: Story
 Owner: DOM Intelligence
 Priority: P1
+Started: 2026-05-08 21:08 IST
 
 ## Problem
 
@@ -50,8 +51,16 @@ E2E only at final acceptance unless a focused smoke is necessary.
 
 ## Evidence
 
-To be filled during implementation.
+- `python -m py_compile agent.py tests/test_page_intelligence.py tests/test_agent_dom_extract_contract.py`
+- `python -m pytest tests/test_page_intelligence.py tests/test_agent_dom_extract_contract.py tests/test_context_manager.py tests/test_context_budget_gate.py -q`
+  - Result: `40 passed`
 
 ## Notes
 
 This is the live DOM compaction path for planning and locator work.
+
+Implementation summary:
+- `agent._tool_dom_extract()` now returns compact summary text plus structured `page_intelligence`
+- Live `dom_extract` keeps headings, CTAs, forms, inputs, semantic quality, ambiguity, and risk flags in compact form
+- Raw cleaned markup remains backend-side under `_raw_elements`
+- Added direct handler contract tests for page scope and scoped extraction

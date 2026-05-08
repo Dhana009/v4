@@ -8197,6 +8197,7 @@ class AgentLoop:
         page = get_page()
         scope = str(args.get("scope") or "page").strip() or "page"
         html = ""
+        page_title = ""
 
         if scope == "page":
             html = await page.content()
@@ -8211,6 +8212,11 @@ class AgentLoop:
                 {"scope": scope},
             )
 
+        try:
+            page_title = str(await page.title() or "")
+        except Exception:  # noqa: BLE001
+            page_title = ""
+
         cleaned = self._clean_markup(html)[:3000]
         # Sprint 3 INT-DOM-002: return compact page intelligence summary instead of raw HTML.
         # Raw cleaned markup is preserved in _raw_elements for internal/locator use if needed.
@@ -8218,10 +8224,24 @@ class AgentLoop:
             packet = build_page_intelligence_packet(
                 html=html,
                 url=page.url,
-                title="",
+                title=page_title,
             )
             compact_summary = packet.to_compact_summary()
-            return {"elements": compact_summary, "url": page.url, "_raw_elements": cleaned}
+            return {
+                "elements": compact_summary,
+                "url": page.url,
+                "page_intelligence": {
+                    "headings": list(packet.headings[:5]),
+                    "ctas": list(packet.ctas[:8]),
+                    "forms_count": int(packet.forms_count),
+                    "inputs": list(packet.inputs[:5]),
+                    "semantic_quality": packet.semantic_quality,
+                    "ambiguities": list(packet.ambiguities[:3]),
+                    "risk_flags": list(packet.risk_flags[:3]),
+                    "sections": list(packet.sections[:5]),
+                },
+                "_raw_elements": cleaned,
+            }
         except Exception:
             return {"elements": cleaned, "url": page.url}
 
