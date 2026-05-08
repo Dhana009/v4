@@ -1,10 +1,11 @@
 # INT-CALL-001B Build backend-compatible deterministic plan contract
 
-Status: Planning
+Status: Done
 Sprint: Sprint 3
 Type: Story
 Owner: Backend / LLM Runtime
 Priority: P0
+Started: 2026-05-08 20:11 IST
 
 ## Problem
 
@@ -66,7 +67,14 @@ No E2E.
 
 ## Evidence
 
-To be filled during implementation.
+- `python -m py_compile runtime/deterministic_fast_path.py tests/test_deterministic_fast_path.py` -> passed
+- `python -m pytest tests/test_deterministic_fast_path.py -q` -> 24 passed
+
+## Implementation summary
+
+- `build_deterministic_plan()` now emits a backend-compatible `plan_ready` payload with a parent step and normalized `children`
+- deterministic children now carry `operation_id`, `type`, `description`, `target`, `locator`, `status`, and `assertion` or `value` or `expected_value` where relevant
+- focused tests now prove click, fill, visible assertion, exact-text assertion, and compatibility with `AgentLoop._build_confirmed_execution_plan()`
 
 ## Notes
 

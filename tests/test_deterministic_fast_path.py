@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from agent import AgentLoop
 from runtime.deterministic_fast_path import (
     classify_fast_path,
     build_deterministic_plan,
@@ -137,9 +138,14 @@ def test_plan_includes_locator_and_action():
     )
     assert len(plan["steps"]) == 1
     step = plan["steps"][0]
-    assert step["locator"] == "button[data-testid='submit']"
-    assert step["action"] == "click"
-    assert step["source"] == "deterministic_fast_path"
+    child = step["children"][0]
+    assert step["step_id"] == "1"
+    assert step["kind"] == "step"
+    assert step["type"] == "step"
+    assert child["locator"] == "button[data-testid='submit']"
+    assert child["type"] == "click"
+    assert child["operation_id"] == "op_1"
+    assert child["status"] == "planned"
 
 
 def test_plan_source_is_deterministic():
@@ -158,8 +164,10 @@ def test_plan_fill_includes_value():
         action_verb="fill",
         fill_value="test@example.com",
     )
-    step = plan["steps"][0]
-    assert step["value"] == "test@example.com"
+    child = plan["steps"][0]["children"][0]
+    assert child["type"] == "fill"
+    assert child["value"] == "test@example.com"
+    assert plan["steps"][0]["expected_outcome"]["type"] == "content_change"
 
 
 def test_plan_assert_text_includes_expected():
@@ -169,8 +177,46 @@ def test_plan_assert_text_includes_expected():
         action_verb="assert_text",
         expected_text="Welcome",
     )
-    step = plan["steps"][0]
-    assert step["expected_text"] == "Welcome"
+    child = plan["steps"][0]["children"][0]
+    assert child["type"] == "assert"
+    assert child["assertion"] == "has_text"
+    assert child["expected_value"] == "Welcome"
+    assert child["value"] == "Welcome"
+
+
+def test_plan_assert_visible_has_assertion_child():
+    plan = build_deterministic_plan(
+        user_message="assert visible heading",
+        locator="h1",
+        action_verb="assert_visible",
+    )
+    child = plan["steps"][0]["children"][0]
+    assert child["type"] == "assert"
+    assert child["assertion"] == "visible"
+
+
+def test_plan_is_compatible_with_confirmed_execution_contract():
+    payload = build_deterministic_plan(
+        user_message="assert text of heading",
+        locator="h1",
+        action_verb="assert_text",
+        step_id="step-1",
+        expected_text="Welcome",
+    )
+    loop = AgentLoop.__new__(AgentLoop)
+    loop.confirmed_plan_by_step_id = {}
+    loop.confirmed_plan_step_ids = []
+    loop.confirmed_child_results_by_step_id = {}
+    loop.confirmed_execution_mismatch_count_by_step_id = {}
+
+    confirmed_plan = loop._build_confirmed_execution_plan(payload, source_plan_state=payload)
+
+    assert confirmed_plan["target_step_id"] == "step-1"
+    assert confirmed_plan["steps"][0]["step_id"] == "step-1"
+    assert confirmed_plan["steps"][0]["children"][0]["operation_id"] == "op_1"
+    assert confirmed_plan["steps"][0]["children"][0]["type"] == "assert"
+    assert confirmed_plan["steps"][0]["children"][0]["assertion"] == "has_text"
+    assert confirmed_plan["steps"][0]["children"][0]["expected_value"] == "Welcome"
 
 
 def test_confirmation_gate_not_bypassed():

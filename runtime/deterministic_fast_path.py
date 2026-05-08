@@ -81,26 +81,99 @@ def build_deterministic_plan(
     fill_value: str | None = None,
     expected_text: str | None = None,
 ) -> dict[str, Any]:
-    """Build a minimal plan_ready payload without an LLM call."""
+    """Build a backend-compatible plan_ready payload without an LLM call."""
     normalized_verb = action_verb.replace(" ", "_").lower()
+    resolved_step_id = str(step_id or "1").strip() or "1"
+    target = locator
+
+    child_type = "assert" if normalized_verb in {"assert_visible", "assert_text"} else normalized_verb
+    child: dict[str, Any] = {
+        "operation_id": "op_1",
+        "type": child_type,
+        "description": _build_child_description(
+            normalized_verb,
+            target=target,
+            fill_value=fill_value,
+            expected_text=expected_text,
+        ),
+        "target": target,
+        "locator": locator,
+        "status": "planned",
+    }
+    if normalized_verb == "fill" and fill_value is not None:
+        child["value"] = fill_value
+    if normalized_verb == "assert_visible":
+        child["assertion"] = "visible"
+    if normalized_verb == "assert_text":
+        child["assertion"] = "has_text"
+        if expected_text is not None:
+            child["value"] = expected_text
+            child["expected_value"] = expected_text
 
     step: dict[str, Any] = {
-        "locator": locator,
-        "action": normalized_verb,
-        "source": "deterministic_fast_path",
+        "step_id": resolved_step_id,
+        "step_number": 1,
+        "intent": str(user_message or "").strip(),
+        "expected_outcome": _build_expected_outcome(normalized_verb, target=target),
+        "status": "planned",
+        "kind": "step",
+        "type": "step",
+        "text": str(user_message or "").strip(),
+        "label": str(user_message or "").strip(),
+        "title": str(user_message or "").strip(),
+        "children": [child],
     }
-    if fill_value is not None:
-        step["value"] = fill_value
-    if expected_text is not None:
-        step["expected_text"] = expected_text
-    if step_id:
-        step["id"] = step_id
 
-    summary = f"{normalized_verb} on {locator}"
+    summary = child["description"]
     return {
+        "plan_id": f"deterministic-{resolved_step_id}",
+        "original_user_intent": str(user_message or "").strip(),
         "summary": summary,
         "steps": [step],
+        "step_ids": [resolved_step_id],
+        "target_step_id": resolved_step_id,
         "source": "deterministic_fast_path",
         "llm_calls": 0,
         "model_called": False,
     }
+
+
+def _build_expected_outcome(action_verb: str, *, target: str) -> dict[str, Any]:
+    if action_verb == "click":
+        return {
+            "type": "not_sure",
+            "description": f"click result for {target} will be confirmed during execution",
+            "source": "user",
+            "required": True,
+        }
+    if action_verb == "fill":
+        return {
+            "type": "content_change",
+            "description": f"{target} receives the provided value",
+            "source": "user",
+            "required": False,
+        }
+    return {
+        "type": "no_visible_change",
+        "description": f"{target} is validated in place",
+        "source": "user",
+        "required": False,
+    }
+
+
+def _build_child_description(
+    action_verb: str,
+    *,
+    target: str,
+    fill_value: str | None,
+    expected_text: str | None,
+) -> str:
+    if action_verb == "click":
+        return f"Click {target}"
+    if action_verb == "fill":
+        return f"Fill {target}"
+    if action_verb == "assert_visible":
+        return f"{target} is visible"
+    if action_verb == "assert_text" and expected_text:
+        return f'{target} has text "{expected_text}"'
+    return f"{action_verb} on {target}"
