@@ -1,10 +1,11 @@
 # INT-TOOL-002 Purpose-scoped tool schema exposure
 
-Status: Planning
+Status: Done
 Sprint: Sprint 3
 Type: Story
 Owner: LLM Runtime / Tool Policy
 Priority: P0
+Started: 2026-05-08 20:08 IST
 
 ## Problem
 
@@ -60,7 +61,14 @@ Full E2E only at final acceptance.
 
 ## Evidence
 
-To be filled during implementation.
+- `python -m py_compile agent.py runtime/tool_registry.py tests/test_tool_registry.py` -> passed
+- `python -m pytest tests/test_tool_registry.py -q` -> 15 passed
+
+## Implementation summary
+
+- `runtime/tool_registry.py` now supports purpose-scoped tool allowlists in addition to phase filtering
+- explicit empty allowlists now correctly produce zero-tool exposure for zero-tool purposes
+- `agent.py` now applies the gateway-selected purpose allowlist for non-`main_orchestrator` model-backed calls while preserving fallback behavior for broad/default paths
 
 ## Notes
 

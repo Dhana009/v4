@@ -168,3 +168,43 @@ def test_no_correction_mode_returns_normal_planning_tools() -> None:
         "ask_user",
         "browser_get_state",
     ]
+
+
+def test_allowed_tool_names_restrict_planning_tools_to_purpose_subset() -> None:
+    tools = _build_tools()
+
+    filtered_tools = filter_tools_for_phase(
+        tools,
+        "planning",
+        allowed_tool_names={"send_to_overlay", "ask_user"},
+    )
+
+    assert _tool_names(filtered_tools) == [
+        "send_to_overlay",
+        "ask_user",
+    ]
+
+
+def test_allowed_tool_names_can_block_all_planning_tools_for_zero_tool_purpose() -> None:
+    tools = _build_tools()
+
+    filtered_tools = filter_tools_for_phase(
+        tools,
+        "planning",
+        allowed_tool_names=set(),
+    )
+
+    assert _tool_names(filtered_tools) == []
+
+
+def test_allowed_tool_names_restrict_recording_wait_subset() -> None:
+    tools = _build_tools()
+
+    filtered_tools = filter_tools_for_phase(
+        tools,
+        "recording",
+        awaiting_step_record=True,
+        allowed_tool_names={"ask_user"},
+    )
+
+    assert _tool_names(filtered_tools) == ["ask_user"]

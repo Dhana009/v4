@@ -1505,11 +1505,15 @@ class AgentLoop:
                     f"fallback={policy_decision.fallback}"
                 )
                 effective_purpose = policy_decision.purpose if policy_decision.model_needed else policy_decision.fallback
+                purpose_allowed_tool_names = None
+                if policy_decision.model_needed and policy_decision.purpose != "main_orchestrator":
+                    purpose_allowed_tool_names = set(policy_decision.allowed_tools)
                 filtered_tools = filter_tools_for_phase(
                     self.tools,
                     current_phase,
                     awaiting_step_record=awaiting_step_record,
                     correction_mode=correction_mode if isinstance(correction_mode, dict) else None,
+                    allowed_tool_names=purpose_allowed_tool_names,
                 )
                 execution_context = self._build_confirmed_execution_context_message()
                 correction_context = ""

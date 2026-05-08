@@ -75,13 +75,27 @@ def filter_tools_for_phase(
     phase: str,
     awaiting_step_record: bool = False,
     correction_mode: dict[str, Any] | None = None,
+    allowed_tool_names: set[str] | tuple[str, ...] | list[str] | None = None,
 ) -> list[Any]:
     normalized_tools = _normalize_tools(tools)
     normalized_phase = str(phase or "").strip().lower()
     original_count = len(normalized_tools)
+    has_allowed_tool_names = allowed_tool_names is not None
+    normalized_allowed_tool_names = {
+        str(name).strip()
+        for name in (allowed_tool_names or ())
+        if str(name).strip()
+    }
 
     if normalized_phase == "recording" and awaiting_step_record:
-        return filter_tools_for_recording_wait(normalized_tools)
+        filtered_tools = filter_tools_for_recording_wait(normalized_tools)
+        if has_allowed_tool_names:
+            filtered_tools = [
+                tool
+                for index, tool in enumerate(filtered_tools)
+                if _tool_name(tool, index) in normalized_allowed_tool_names
+            ]
+        return filtered_tools
 
     correction_category = ""
     correction_needs_clarification = False
@@ -123,6 +137,13 @@ def filter_tools_for_phase(
                 "[TOOL_FILTER] "
                 f"warning=unknown_phase phase={normalized_phase or 'unknown'}"
             )
+
+    if has_allowed_tool_names:
+        filtered_tools = [
+            tool
+            for index, tool in enumerate(filtered_tools)
+            if _tool_name(tool, index) in normalized_allowed_tool_names
+        ]
 
     filtered_count = len(filtered_tools)
     print(
