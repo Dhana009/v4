@@ -1504,6 +1504,7 @@ class AgentLoop:
                     f"budget={policy_decision.budget} "
                     f"fallback={policy_decision.fallback}"
                 )
+                effective_purpose = policy_decision.purpose if policy_decision.model_needed else policy_decision.fallback
                 filtered_tools = filter_tools_for_phase(
                     self.tools,
                     current_phase,
@@ -1516,7 +1517,7 @@ class AgentLoop:
                     correction_context = self._build_plan_correction_context_message()
                 context_bundle = self.context_manager.prepare_messages(
                     self.llm.messages,
-                    purpose="main_orchestrator",
+                    purpose=effective_purpose,
                     context_mode="normal",
                     metadata={
                         "skill_count": len(self._loaded_skill_names),
@@ -1529,6 +1530,7 @@ class AgentLoop:
                         "policy_gateway_context_level": policy_decision.context_level,
                         "policy_gateway_model_needed": policy_decision.model_needed,
                         "policy_gateway_deterministic_candidate_allowed": policy_decision.deterministic_candidate_allowed,
+                        "policy_gateway_effective_purpose": effective_purpose,
                     },
                 )
                 self._llm_call_counter += 1
@@ -1548,7 +1550,7 @@ class AgentLoop:
                         pass
                 telemetry = record_model_call_start(
                     call_id=call_id,
-                    purpose="main_orchestrator",
+                    purpose=effective_purpose,
                     model=model,
                     messages=context_bundle.messages,
                     tools=filtered_tools,
@@ -1557,7 +1559,7 @@ class AgentLoop:
                 )
                 try:
                     response = await self.model_router.call(
-                        purpose="main_orchestrator",
+                        purpose=effective_purpose,
                         client=self.llm.client,
                         model=model,
                         messages=context_bundle.messages,

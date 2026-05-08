@@ -1,10 +1,11 @@
 # INT-GATE-002 Route planning calls through explicit purposes
 
-Status: Planning
+Status: Done
 Sprint: Sprint 3
 Type: Story
 Owner: LLM Runtime
 Priority: P0
+Started: 2026-05-08 20:05 IST
 
 ## Problem
 
@@ -56,7 +57,14 @@ Full 5 E2E only at final acceptance.
 
 ## Evidence
 
-To be filled during implementation.
+- `python -m py_compile agent.py runtime/model_router.py tests/test_llm_policy_gateway.py tests/test_model_router.py` -> passed
+- `python -m pytest tests/test_llm_policy_gateway.py tests/test_model_router.py -q` -> 8 passed
+
+## Implementation summary
+
+- `agent.py` now uses the gateway-selected effective purpose for context preparation, telemetry, and model routing
+- `runtime/model_router.py` now accepts explicit non-empty runtime purposes instead of hardcoding `main_orchestrator` only
+- fallback to `main_orchestrator` remains in place for unsupported or no-model cases until later stories wire deterministic execution and purpose-scoped tool exposure
 
 ## Notes
 

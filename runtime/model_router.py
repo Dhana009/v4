@@ -43,15 +43,15 @@ class ModelRouter:
             kwargs=dict(kwargs),
         )
 
-        if request.purpose != "main_orchestrator":
+        if not request.purpose:
             raise ValueError(
                 f"Unsupported model routing purpose: {request.purpose!r}. "
-                "Supported purposes: main_orchestrator"
+                "Purpose must be a non-empty string"
             )
 
         print(
             f"[MODEL_ROUTER] purpose={request.purpose} "
-            f"agent=main_orchestrator "
+            f"agent={request.purpose} "
             f"model={request.model}"
         )
 

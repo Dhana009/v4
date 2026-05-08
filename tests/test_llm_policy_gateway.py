@@ -66,9 +66,21 @@ def test_gateway_preserves_confirmation_requirement_in_execution_mode() -> None:
     assert decision.fallback == "fail_closed"
 
 
+def test_gateway_keeps_main_orchestrator_fallback_for_unknown_phase() -> None:
+    gateway = LLMPolicyGateway(PURPOSE_REGISTRY)
+
+    decision = gateway.decide(phase="mystery")
+
+    assert decision.purpose == "main_orchestrator"
+    assert decision.model_needed is True
+    assert decision.fallback == "main_orchestrator"
+
+
 def test_agent_loop_consults_policy_gateway_before_main_llm_call() -> None:
     source = Path("agent.py").read_text(encoding="utf-8")
 
     assert "LLMPolicyGateway" in source
     assert "self.llm_policy_gateway = LLMPolicyGateway(" in source
     assert "policy_decision = self.llm_policy_gateway.decide(" in source
+    assert "effective_purpose = policy_decision.purpose if policy_decision.model_needed else policy_decision.fallback" in source
+    assert "purpose=effective_purpose" in source
