@@ -3591,16 +3591,11 @@ class AgentLoop:
         expected_locator: str,
         actual_locator: str,
     ) -> bool:
-        expected = self._normalize_space(str(expected_locator or "")).strip()
-        actual = self._normalize_space(str(actual_locator or "")).strip()
+        expected = self._canonical_confirmed_execution_locator(expected_locator)
+        actual = self._canonical_confirmed_execution_locator(actual_locator)
         if not expected:
             return True
         if expected == actual:
-            return True
-
-        expected_hint = self._normalize_space(self._locator_label_hint(expected)).strip().lower()
-        actual_hint = self._normalize_space(self._locator_label_hint(actual)).strip().lower()
-        if expected_hint and expected_hint == actual_hint:
             return True
 
         return False
@@ -5653,6 +5648,8 @@ class AgentLoop:
             action_context["assertion"] = str(args.get("assertion") or "").strip()
         if "expected_value" in args:
             action_context["expected_value"] = args.get("expected_value")
+        elif action == "assert" and action_context.get("assertion") in {"has_text", "has_value"} and "value" in args:
+            action_context["expected_value"] = args.get("value")
         if "url" in args:
             action_context["url"] = str(args.get("url") or "").strip()
         if "wait_until" in args:
@@ -5684,6 +5681,8 @@ class AgentLoop:
             captured["assertion"] = str(args.get("assertion") or "").strip()
         if "expected_value" in args:
             captured["expected_value"] = args.get("expected_value")
+        elif action == "assert" and captured.get("assertion") in {"has_text", "has_value"} and "value" in args:
+            captured["expected_value"] = args.get("value")
         if "wait_until" in args:
             captured["wait_until"] = str(args.get("wait_until") or "").strip()
         if "filename" in args:
@@ -5893,29 +5892,82 @@ class AgentLoop:
         if not locator:
             return ""
 
-        match = re.fullmatch(r'get_by_test_id\("((?:\\.|[^"])*)"\)', locator)
-        if match:
-            return self._tool_string_unescape(match.group(1))
-
-        match = re.fullmatch(r'get_by_label\("((?:\\.|[^"])*)"\)', locator)
-        if match:
-            return self._tool_string_unescape(match.group(1))
-
-        match = re.fullmatch(r'get_by_placeholder\("((?:\\.|[^"])*)"\)', locator)
-        if match:
-            return self._tool_string_unescape(match.group(1))
-
-        match = re.fullmatch(r'get_by_text\("((?:\\.|[^"])*)", exact=(True|False)\)', locator)
-        if match:
-            return self._tool_string_unescape(match.group(1))
-
-        match = re.fullmatch(r'get_by_role\("((?:\\.|[^"])*)", name="((?:\\.|[^"])*)"\)', locator)
-        if match:
-            return self._tool_string_unescape(match.group(2))
+        if match := self._match_tool_locator_call(locator, "get_by_test_id"):
+            return match
+        if match := self._match_tool_locator_call(locator, "get_by_label"):
+            return match
+        if match := self._match_tool_locator_call(locator, "get_by_placeholder"):
+            return match
+        if match := self._match_tool_locator_text(locator):
+            return match[0]
+        if match := self._match_tool_locator_role(locator):
+            return match[1]
 
         if locator.startswith("#"):
             return locator[1:]
         return ""
+
+    def _canonical_confirmed_execution_locator(self, locator: str) -> str:
+        locator = str(locator or "").strip()
+        if not locator:
+            return ""
+
+        if match := self._match_tool_locator_call(locator, "get_by_test_id"):
+            return f'get_by_test_id({json.dumps(match, ensure_ascii=True)})'
+
+        if match := self._match_tool_locator_call(locator, "get_by_label"):
+            return f'get_by_label({json.dumps(match, ensure_ascii=True)})'
+
+        if match := self._match_tool_locator_call(locator, "get_by_placeholder"):
+            return f'get_by_placeholder({json.dumps(match, ensure_ascii=True)})'
+
+        if match := self._match_tool_locator_text(locator):
+            text, exact = match
+            return f'get_by_text({json.dumps(text, ensure_ascii=True)}, exact={str(exact).lower()})'
+
+        if match := self._match_tool_locator_role(locator):
+            role, name = match
+            return f'get_by_role({json.dumps(role, ensure_ascii=True)}, name={json.dumps(name, ensure_ascii=True)})'
+
+        if locator.startswith("#"):
+            return f"#{locator[1:]}"
+        return self._normalize_space(locator).strip()
+
+    def _match_tool_locator_call(self, locator: str, function_name: str) -> str:
+        locator = str(locator or "").strip()
+        if not locator:
+            return ""
+
+        for quote in ('"', "'"):
+            pattern = rf"{re.escape(function_name)}\({quote}((?:\\.|[^{quote}])*){quote}\)"
+            if match := re.fullmatch(pattern, locator):
+                return self._tool_string_unescape(match.group(1))
+        return ""
+
+    def _match_tool_locator_text(self, locator: str) -> tuple[str, bool] | None:
+        locator = str(locator or "").strip()
+        if not locator:
+            return None
+
+        for quote in ('"', "'"):
+            pattern = rf"get_by_text\({quote}((?:\\.|[^{quote}])*){quote}, exact=(True|False)\)"
+            if match := re.fullmatch(pattern, locator):
+                return self._tool_string_unescape(match.group(1)), match.group(2) == "True"
+        return None
+
+    def _match_tool_locator_role(self, locator: str) -> tuple[str, str] | None:
+        locator = str(locator or "").strip()
+        if not locator:
+            return None
+
+        for quote in ('"', "'"):
+            pattern = rf"get_by_role\({quote}((?:\\.|[^{quote}])*){quote}, name={quote}((?:\\.|[^{quote}])*){quote}\)"
+            if match := re.fullmatch(pattern, locator):
+                return (
+                    self._tool_string_unescape(match.group(1)),
+                    self._tool_string_unescape(match.group(2)),
+                )
+        return None
 
     def _build_generated_line(
         self,
@@ -5967,14 +6019,20 @@ class AgentLoop:
             if assertion == "checked":
                 return f"await expect({locator_expr}).toBeChecked();"
             if assertion == "has_value":
+                expected_value = str(action_context.get("expected_value") or action_context.get("value") or "").strip()
+                if not expected_value:
+                    return ""
                 return (
                     f"await expect({locator_expr}).toHaveValue("
-                    f"{json.dumps(str(action_context.get('expected_value') or ''), ensure_ascii=True)});"
+                    f"{json.dumps(expected_value, ensure_ascii=True)});"
                 )
             if assertion == "has_text":
+                expected_value = str(action_context.get("expected_value") or action_context.get("value") or "").strip()
+                if not expected_value:
+                    return ""
                 return (
                     f"await expect({locator_expr}).toContainText("
-                    f"{json.dumps(str(action_context.get('expected_value') or ''), ensure_ascii=True)});"
+                    f"{json.dumps(expected_value, ensure_ascii=True)});"
                 )
             return f"await expect({locator_expr}).toBeVisible();"
         if not locator_expr:
@@ -5986,27 +6044,21 @@ class AgentLoop:
         if not locator:
             return ""
 
-        if match := re.fullmatch(r'get_by_test_id\("((?:\\.|[^"])*)"\)', locator):
-            return f'page.getByTestId({json.dumps(self._tool_string_unescape(match.group(1)), ensure_ascii=True)})'
+        if match := self._match_tool_locator_call(locator, "get_by_test_id"):
+            return f'page.getByTestId({json.dumps(match, ensure_ascii=True)})'
 
-        if match := re.fullmatch(r'get_by_label\("((?:\\.|[^"])*)"\)', locator):
-            return f'page.getByLabel({json.dumps(self._tool_string_unescape(match.group(1)), ensure_ascii=True)})'
+        if match := self._match_tool_locator_call(locator, "get_by_label"):
+            return f'page.getByLabel({json.dumps(match, ensure_ascii=True)})'
 
-        if match := re.fullmatch(r'get_by_placeholder\("((?:\\.|[^"])*)"\)', locator):
-            return f'page.getByPlaceholder({json.dumps(self._tool_string_unescape(match.group(1)), ensure_ascii=True)})'
+        if match := self._match_tool_locator_call(locator, "get_by_placeholder"):
+            return f'page.getByPlaceholder({json.dumps(match, ensure_ascii=True)})'
 
-        if match := re.fullmatch(
-            r'get_by_text\("((?:\\.|[^"])*)", exact=(True|False)\)', locator
-        ):
-            text = self._tool_string_unescape(match.group(1))
-            exact = match.group(2) == "True"
+        if match := self._match_tool_locator_text(locator):
+            text, exact = match
             return f'page.getByText({json.dumps(text, ensure_ascii=True)}, {{ exact: {str(exact).lower()} }})'
 
-        if match := re.fullmatch(
-            r'get_by_role\("((?:\\.|[^"])*)", name="((?:\\.|[^"])*)"\)', locator
-        ):
-            role = self._tool_string_unescape(match.group(1))
-            name = self._tool_string_unescape(match.group(2))
+        if match := self._match_tool_locator_role(locator):
+            role, name = match
             return (
                 f'page.getByRole({json.dumps(role, ensure_ascii=True)}, '
                 f'{{ name: {json.dumps(name, ensure_ascii=True)} }})'
@@ -6532,6 +6584,15 @@ class AgentLoop:
                 ).strip()
                 if not child_action:
                     child_action = str(confirmed_child.get("type") or "").strip()
+                child_value_text = str(
+                    child_result.get("value")
+                    or child_result.get("expected_value")
+                    or confirmed_child.get("value")
+                    or confirmed_child.get("expected_value")
+                    or action_context.get("value")
+                    or action_context.get("expected_value")
+                    or ""
+                ).strip()
                 child_generated_line = str(
                     child_result.get("generated_line")
                     or self._build_generated_line(child_action, child_locator, action_context)
@@ -6583,7 +6644,11 @@ class AgentLoop:
                 }
                 if confirmed_child.get("assertion"):
                     child_payload["assertion"] = confirmed_child.get("assertion")
-                if confirmed_child.get("value") not in (None, "", [], {}):
+                if child_value_text:
+                    child_payload["value"] = child_value_text
+                    if child_action == "assert":
+                        child_payload["expected_value"] = child_value_text
+                elif confirmed_child.get("value") not in (None, "", [], {}):
                     child_payload["value"] = confirmed_child.get("value")
                 if confirmed_child.get("expected_value") not in (None, "", [], {}):
                     child_payload["expected_value"] = confirmed_child.get("expected_value")
@@ -7209,6 +7274,8 @@ class AgentLoop:
         locator_text = str(args.get("locator") or "").strip()
         assertion = str(args.get("assertion") or "").strip()
         expected_value = args.get("expected_value")
+        if expected_value is None:
+            expected_value = args.get("value")
         timeout = int(args.get("timeout") or 5000)
 
         if assertion in {"has_text", "has_value"} and expected_value is None:
@@ -8104,30 +8171,20 @@ class AgentLoop:
         if not locator_string:
             raise ValueError("locator is required")
 
-        if match := re.fullmatch(r'get_by_test_id\("((?:\\.|[^"])*)"\)', locator_string):
-            return page.get_by_test_id(self._tool_string_unescape(match.group(1)))
+        if match := self._match_tool_locator_call(locator_string, "get_by_test_id"):
+            return page.get_by_test_id(match)
 
-        if match := re.fullmatch(r'get_by_label\("((?:\\.|[^"])*)"\)', locator_string):
-            return page.get_by_label(self._tool_string_unescape(match.group(1)))
+        if match := self._match_tool_locator_call(locator_string, "get_by_label"):
+            return page.get_by_label(match)
 
-        if match := re.fullmatch(r'get_by_placeholder\("((?:\\.|[^"])*)"\)', locator_string):
-            return page.get_by_placeholder(self._tool_string_unescape(match.group(1)))
+        if match := self._match_tool_locator_call(locator_string, "get_by_placeholder"):
+            return page.get_by_placeholder(match)
 
-        if match := re.fullmatch(
-            r'get_by_text\("((?:\\.|[^"])*)", exact=(True|False)\)', locator_string
-        ):
-            return page.get_by_text(
-                self._tool_string_unescape(match.group(1)),
-                exact=match.group(2) == "True",
-            )
+        if match := self._match_tool_locator_text(locator_string):
+            return page.get_by_text(match[0], exact=match[1])
 
-        if match := re.fullmatch(
-            r'get_by_role\("((?:\\.|[^"])*)", name="((?:\\.|[^"])*)"\)', locator_string
-        ):
-            return page.get_by_role(
-                self._tool_string_unescape(match.group(1)),
-                name=self._tool_string_unescape(match.group(2)),
-            )
+        if match := self._match_tool_locator_role(locator_string):
+            return page.get_by_role(match[0], name=match[1])
 
         return page.locator(locator_string)
 

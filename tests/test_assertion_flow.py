@@ -232,3 +232,51 @@ def test_visible_assertion_path_still_succeeds(monkeypatch) -> None:
 
     assert result == {"success": True, "error": None}
     assert called == {"locator": locator, "timeout": 321}
+
+
+def test_visible_assertion_path_accepts_single_quoted_locator_syntax(monkeypatch) -> None:
+    called = {}
+
+    class FakeLocator:
+        @property
+        def first(self) -> FakeLocator:
+            return self
+
+    class FakePage:
+        def get_by_label(self, label: str) -> FakeLocator:
+            called["label"] = label
+            return FakeLocator()
+
+    class FakeExpectation:
+        def __init__(self, actual_locator: object) -> None:
+            called["locator"] = actual_locator
+
+        async def to_be_visible(self, timeout: int | None = None) -> None:
+            called["timeout"] = timeout
+
+    loop = AgentLoop.__new__(AgentLoop)
+    loop.capability_gaps = []
+    loop.phase_tracker = SimpleNamespace(get_phase=lambda: "planning")
+    loop.phase = "planning"
+    loop.active_step_id = "step-1"
+    loop.confirmed_plan_by_step_id = {}
+    loop.confirmed_plan_step_ids = []
+    loop.confirmed_child_results_by_step_id = {}
+    loop.confirmed_execution_mismatch_count_by_step_id = {}
+
+    monkeypatch.setattr(agent_module, "get_page", lambda: FakePage())
+    monkeypatch.setattr(agent_module, "expect", lambda actual_locator: FakeExpectation(actual_locator))
+
+    result = asyncio.run(
+        loop._tool_action_assert(
+            {
+                "locator": "get_by_label('Greeting')",
+                "assertion": "visible",
+                "timeout": 123,
+            }
+        )
+    )
+
+    assert result == {"success": True, "error": None}
+    assert called["label"] == "Greeting"
+    assert called["timeout"] == 123

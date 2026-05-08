@@ -743,6 +743,213 @@ def test_confirmed_execution_contract_accepts_exact_text_alias_with_has_text_act
     assert allowed_result["expected_child"]["assertion"] == "exact_text"
 
 
+def test_confirmed_execution_contract_accepts_single_quoted_locator_equivalent() -> None:
+    loop = _make_loop()
+    element_name = "Playwright Test Agents"
+    expected_locator = f'get_by_role("heading", name="{element_name}")'
+    actual_locator = f"get_by_role('heading', name='{element_name}')"
+    step_context = _make_step_context()
+    step_context["intent"] = f"Assert {element_name} is visible"
+    step_context["element_name"] = element_name
+    step_context["element_info"] = {
+        "text": element_name,
+        "attributes": {"aria-label": element_name},
+    }
+    loop._recording_steps = [step_context]
+    loop.step_state_by_id = {"step-1": step_context}
+    loop.step_context_by_id = loop.step_state_by_id
+    loop.plan_confirmed = True
+    loop.confirmed_plan_by_step_id = {
+        "step-1": {
+            "step_id": "step-1",
+            "step_number": 1,
+            "parent_intent": step_context["intent"],
+            "expected_outcome": step_context["expected_outcome"],
+            "children": [
+                {
+                    "operation_id": "op_1",
+                    "type": "assert",
+                    "target": element_name,
+                    "locator": expected_locator,
+                    "assertion": "visible",
+                    "status": "planned",
+                }
+            ],
+            "plan_id": "plan-1",
+            "summary": f"Assert {element_name} is visible",
+            "original_user_intent": step_context["intent"],
+        }
+    }
+    loop.confirmed_plan_step_ids = ["step-1"]
+    loop.confirmed_child_results_by_step_id = {"step-1": {}}
+    loop.confirmed_execution_mismatch_count_by_step_id = {"step-1": 0}
+
+    allowed_result = loop._validate_confirmed_execution_tool_call(
+        "action_assert",
+        {
+            "locator": actual_locator,
+            "assertion": "visible",
+        },
+    )
+
+    assert allowed_result["allowed"] is True
+    assert allowed_result["expected_child"]["locator"] == expected_locator
+
+
+def test_confirmed_execution_contract_accepts_double_quoted_locator_equivalent_in_reverse() -> None:
+    loop = _make_loop()
+    element_name = "Playwright Test Agents"
+    expected_locator = f"get_by_role('heading', name='{element_name}')"
+    actual_locator = f'get_by_role("heading", name="{element_name}")'
+    step_context = _make_step_context()
+    step_context["intent"] = f"Assert {element_name} is visible"
+    step_context["element_name"] = element_name
+    step_context["element_info"] = {
+        "text": element_name,
+        "attributes": {"aria-label": element_name},
+    }
+    loop._recording_steps = [step_context]
+    loop.step_state_by_id = {"step-1": step_context}
+    loop.step_context_by_id = loop.step_state_by_id
+    loop.plan_confirmed = True
+    loop.confirmed_plan_by_step_id = {
+        "step-1": {
+            "step_id": "step-1",
+            "step_number": 1,
+            "parent_intent": step_context["intent"],
+            "expected_outcome": step_context["expected_outcome"],
+            "children": [
+                {
+                    "operation_id": "op_1",
+                    "type": "assert",
+                    "target": element_name,
+                    "locator": expected_locator,
+                    "assertion": "visible",
+                    "status": "planned",
+                }
+            ],
+            "plan_id": "plan-1",
+            "summary": f"Assert {element_name} is visible",
+            "original_user_intent": step_context["intent"],
+        }
+    }
+    loop.confirmed_plan_step_ids = ["step-1"]
+    loop.confirmed_child_results_by_step_id = {"step-1": {}}
+    loop.confirmed_execution_mismatch_count_by_step_id = {"step-1": 0}
+
+    allowed_result = loop._validate_confirmed_execution_tool_call(
+        "action_assert",
+        {
+            "locator": actual_locator,
+            "assertion": "visible",
+        },
+    )
+
+    assert allowed_result["allowed"] is True
+    assert allowed_result["expected_child"]["locator"] == expected_locator
+
+
+def test_confirmed_execution_contract_rejects_different_locator_text() -> None:
+    loop = _make_loop()
+    step_context = _make_step_context()
+    step_context["intent"] = "Assert Submit is visible"
+    step_context["element_name"] = "Submit"
+    step_context["element_info"] = {
+        "text": "Submit",
+        "attributes": {"aria-label": "Submit"},
+    }
+    loop._recording_steps = [step_context]
+    loop.step_state_by_id = {"step-1": step_context}
+    loop.step_context_by_id = loop.step_state_by_id
+    loop.plan_confirmed = True
+    loop.confirmed_plan_by_step_id = {
+        "step-1": {
+            "step_id": "step-1",
+            "step_number": 1,
+            "parent_intent": step_context["intent"],
+            "expected_outcome": step_context["expected_outcome"],
+            "children": [
+                {
+                    "operation_id": "op_1",
+                    "type": "assert",
+                    "target": "Submit",
+                    "locator": 'get_by_label("Submit")',
+                    "assertion": "visible",
+                    "status": "planned",
+                }
+            ],
+            "plan_id": "plan-1",
+            "summary": "Assert Submit is visible",
+            "original_user_intent": step_context["intent"],
+        }
+    }
+    loop.confirmed_plan_step_ids = ["step-1"]
+    loop.confirmed_child_results_by_step_id = {"step-1": {}}
+    loop.confirmed_execution_mismatch_count_by_step_id = {"step-1": 0}
+
+    blocked_result = loop._validate_confirmed_execution_tool_call(
+        "action_assert",
+        {
+            "locator": 'get_by_label("Cancel")',
+            "assertion": "visible",
+        },
+    )
+
+    assert blocked_result["blocked"] is True
+    assert blocked_result["reason"] == "execution_contract_mismatch"
+    assert blocked_result["expected_child"]["locator"] == 'get_by_label("Submit")'
+
+
+def test_confirmed_execution_contract_rejects_different_locator_strategy_with_same_text() -> None:
+    loop = _make_loop()
+    step_context = _make_step_context()
+    step_context["intent"] = "Assert Submit is visible"
+    step_context["element_name"] = "Submit"
+    step_context["element_info"] = {
+        "text": "Submit",
+        "attributes": {"aria-label": "Submit"},
+    }
+    loop._recording_steps = [step_context]
+    loop.step_state_by_id = {"step-1": step_context}
+    loop.step_context_by_id = loop.step_state_by_id
+    loop.plan_confirmed = True
+    loop.confirmed_plan_by_step_id = {
+        "step-1": {
+            "step_id": "step-1",
+            "step_number": 1,
+            "parent_intent": step_context["intent"],
+            "expected_outcome": step_context["expected_outcome"],
+            "children": [
+                {
+                    "operation_id": "op_1",
+                    "type": "assert",
+                    "target": "Submit",
+                    "locator": 'get_by_label("Submit")',
+                    "assertion": "visible",
+                    "status": "planned",
+                }
+            ],
+            "plan_id": "plan-1",
+            "summary": "Assert Submit is visible",
+            "original_user_intent": step_context["intent"],
+        }
+    }
+    loop.confirmed_plan_step_ids = ["step-1"]
+    loop.confirmed_child_results_by_step_id = {"step-1": {}}
+    loop.confirmed_execution_mismatch_count_by_step_id = {"step-1": 0}
+
+    blocked_result = loop._validate_confirmed_execution_tool_call(
+        "action_assert",
+        {
+            "locator": 'get_by_role("button", name="Submit")',
+            "assertion": "visible",
+        },
+    )
+
+    assert blocked_result["blocked"] is True
+    assert blocked_result["reason"] == "execution_contract_mismatch"
+
+
 def test_canonicalize_assertion_operation_prefers_exact_text_for_generic_main_locator() -> None:
     loop = _make_loop()
     step_context = _make_step_context()

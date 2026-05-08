@@ -303,6 +303,346 @@ def test_recorded_child_operation_order_matches_confirmed_execution_evidence() -
     assert code_update_payload["full_spec_preview"] == "\n".join(code_update_payload["lines"])
 
 
+def test_recorded_assert_child_preserves_value_alias_in_code_update_lines() -> None:
+    loop = _make_loop()
+    exact_text = "Fast and reliable docs"
+    exact_locator = f'get_by_text("{exact_text}", exact=True)'
+    step_context = _make_step_context()
+    step_context["intent"] = f"Assert exact text equal to {exact_text}"
+    step_context["element_name"] = exact_text
+    step_context["element_info"] = {
+        "text": exact_text,
+        "attributes": {"aria-label": exact_text},
+    }
+
+    assert_result = {
+        "operation_id": "op_1",
+        "step_id": "step-1",
+        "step_number": 1,
+        "type": "assert",
+        "target": exact_text,
+        "locator": exact_locator,
+        "assertion": "has_text",
+        "status": "success",
+        "tool": "action_assert",
+        "action": "assert",
+        "action_context": {
+            "locator": exact_locator,
+            "assertion": "has_text",
+            "value": exact_text,
+        },
+        "tool_args": {
+            "locator": exact_locator,
+            "assertion": "has_text",
+            "value": exact_text,
+        },
+        "result": {"success": True, "skipped": False},
+    }
+
+    loop._recording_steps = [step_context]
+    loop.step_state_by_id = {"step-1": step_context}
+    loop.step_context_by_id = loop.step_state_by_id
+    loop.active_step_id = "step-1"
+    loop.plan_confirmed = True
+    loop._active_plan_state = {
+        "plan_id": "plan-1",
+        "summary": f"Assert exact text equal to {exact_text}",
+        "original_user_intent": step_context["intent"],
+        "steps": [deepcopy(step_context)],
+    }
+    loop.confirmed_plan_by_step_id = {
+        "step-1": {
+            "step_id": "step-1",
+            "step_number": 1,
+            "parent_intent": step_context["intent"],
+            "expected_outcome": step_context["expected_outcome"],
+            "children": [
+                {
+                    "operation_id": "op_1",
+                    "type": "assert",
+                    "target": exact_text,
+                    "locator": exact_locator,
+                    "assertion": "has_text",
+                    "value": exact_text,
+                    "status": "planned",
+                }
+            ],
+            "plan_id": "plan-1",
+            "summary": f"Assert exact text equal to {exact_text}",
+            "original_user_intent": step_context["intent"],
+        }
+    }
+    loop.confirmed_plan_step_ids = ["step-1"]
+    loop.confirmed_child_results_by_step_id = {"step-1": {"op_1": assert_result}}
+    loop.confirmed_execution_mismatch_count_by_step_id = {"step-1": 0}
+    loop.last_successful_action = assert_result
+    loop.successful_action_by_step_id = {"step-1": assert_result}
+    loop.successful_actions_by_step_id = {"step-1": [assert_result]}
+
+    payload = loop._build_step_record_payload(
+        {
+            "step_id": "step-1",
+            "step_number": 1,
+        },
+        step_context,
+    )
+    code_update_payload = loop._build_code_update_payload(payload, "step-1")
+
+    expected_line = (
+        f'await expect(page.getByText("{exact_text}", {{ exact: true }})).'
+        f'toContainText("{exact_text}");'
+    )
+
+    assert payload["children"][0]["assertion"] == "has_text"
+    assert payload["children"][0]["value"] == exact_text
+    assert payload["children"][0]["expected_value"] == exact_text
+    assert payload["children"][0]["code_lines"] == [expected_line]
+    assert code_update_payload["lines"] == [expected_line]
+    assert code_update_payload["full_spec_preview"] == expected_line
+
+
+def test_recorded_assert_child_preserves_expected_value_only_in_code_update_lines() -> None:
+    loop = _make_loop()
+    exact_text = "Fast and reliable docs"
+    exact_locator = f'get_by_text("{exact_text}", exact=True)'
+    step_context = _make_step_context()
+    step_context["intent"] = f"Assert exact text equal to {exact_text}"
+    step_context["element_name"] = exact_text
+    step_context["element_info"] = {
+        "text": exact_text,
+        "attributes": {"aria-label": exact_text},
+    }
+
+    assert_result = {
+        "operation_id": "op_1",
+        "step_id": "step-1",
+        "step_number": 1,
+        "type": "assert",
+        "target": exact_text,
+        "locator": exact_locator,
+        "assertion": "has_text",
+        "status": "success",
+        "tool": "action_assert",
+        "action": "assert",
+        "action_context": {
+            "locator": exact_locator,
+            "assertion": "has_text",
+            "expected_value": exact_text,
+        },
+        "tool_args": {
+            "locator": exact_locator,
+            "assertion": "has_text",
+            "expected_value": exact_text,
+        },
+        "result": {"success": True, "skipped": False},
+    }
+
+    loop._recording_steps = [step_context]
+    loop.step_state_by_id = {"step-1": step_context}
+    loop.step_context_by_id = loop.step_state_by_id
+    loop.active_step_id = "step-1"
+    loop.plan_confirmed = True
+    loop._active_plan_state = {
+        "plan_id": "plan-1",
+        "summary": f"Assert exact text equal to {exact_text}",
+        "original_user_intent": step_context["intent"],
+        "steps": [deepcopy(step_context)],
+    }
+    loop.confirmed_plan_by_step_id = {
+        "step-1": {
+            "step_id": "step-1",
+            "step_number": 1,
+            "parent_intent": step_context["intent"],
+            "expected_outcome": step_context["expected_outcome"],
+            "children": [
+                {
+                    "operation_id": "op_1",
+                    "type": "assert",
+                    "target": exact_text,
+                    "locator": exact_locator,
+                    "assertion": "has_text",
+                    "expected_value": exact_text,
+                    "status": "planned",
+                }
+            ],
+            "plan_id": "plan-1",
+            "summary": f"Assert exact text equal to {exact_text}",
+            "original_user_intent": step_context["intent"],
+        }
+    }
+    loop.confirmed_plan_step_ids = ["step-1"]
+    loop.confirmed_child_results_by_step_id = {"step-1": {"op_1": assert_result}}
+    loop.confirmed_execution_mismatch_count_by_step_id = {"step-1": 0}
+    loop.last_successful_action = assert_result
+    loop.successful_action_by_step_id = {"step-1": assert_result}
+    loop.successful_actions_by_step_id = {"step-1": [assert_result]}
+
+    payload = loop._build_step_record_payload(
+        {
+            "step_id": "step-1",
+            "step_number": 1,
+        },
+        step_context,
+    )
+    code_update_payload = loop._build_code_update_payload(payload, "step-1")
+
+    expected_line = (
+        f'await expect(page.getByText("{exact_text}", {{ exact: true }})).'
+        f'toContainText("{exact_text}");'
+    )
+
+    assert payload["children"][0]["assertion"] == "has_text"
+    assert payload["children"][0]["value"] == exact_text
+    assert payload["children"][0]["expected_value"] == exact_text
+    assert payload["children"][0]["code_lines"] == [expected_line]
+    assert code_update_payload["lines"] == [expected_line]
+    assert code_update_payload["full_spec_preview"] == expected_line
+
+
+def test_recorded_assert_child_preserves_value_and_expected_value_in_code_update_lines() -> None:
+    loop = _make_loop()
+    exact_text = "Fast and reliable docs"
+    exact_locator = f'get_by_text("{exact_text}", exact=True)'
+    step_context = _make_step_context()
+    step_context["intent"] = f"Assert exact text equal to {exact_text}"
+    step_context["element_name"] = exact_text
+    step_context["element_info"] = {
+        "text": exact_text,
+        "attributes": {"aria-label": exact_text},
+    }
+
+    assert_result = {
+        "operation_id": "op_1",
+        "step_id": "step-1",
+        "step_number": 1,
+        "type": "assert",
+        "target": exact_text,
+        "locator": exact_locator,
+        "assertion": "has_text",
+        "status": "success",
+        "tool": "action_assert",
+        "action": "assert",
+        "action_context": {
+            "locator": exact_locator,
+            "assertion": "has_text",
+            "value": exact_text,
+            "expected_value": exact_text,
+        },
+        "tool_args": {
+            "locator": exact_locator,
+            "assertion": "has_text",
+            "value": exact_text,
+            "expected_value": exact_text,
+        },
+        "result": {"success": True, "skipped": False},
+    }
+
+    loop._recording_steps = [step_context]
+    loop.step_state_by_id = {"step-1": step_context}
+    loop.step_context_by_id = loop.step_state_by_id
+    loop.active_step_id = "step-1"
+    loop.plan_confirmed = True
+    loop._active_plan_state = {
+        "plan_id": "plan-1",
+        "summary": f"Assert exact text equal to {exact_text}",
+        "original_user_intent": step_context["intent"],
+        "steps": [deepcopy(step_context)],
+    }
+    loop.confirmed_plan_by_step_id = {
+        "step-1": {
+            "step_id": "step-1",
+            "step_number": 1,
+            "parent_intent": step_context["intent"],
+            "expected_outcome": step_context["expected_outcome"],
+            "children": [
+                {
+                    "operation_id": "op_1",
+                    "type": "assert",
+                    "target": exact_text,
+                    "locator": exact_locator,
+                    "assertion": "has_text",
+                    "value": exact_text,
+                    "expected_value": exact_text,
+                    "status": "planned",
+                }
+            ],
+            "plan_id": "plan-1",
+            "summary": f"Assert exact text equal to {exact_text}",
+            "original_user_intent": step_context["intent"],
+        }
+    }
+    loop.confirmed_plan_step_ids = ["step-1"]
+    loop.confirmed_child_results_by_step_id = {"step-1": {"op_1": assert_result}}
+    loop.confirmed_execution_mismatch_count_by_step_id = {"step-1": 0}
+    loop.last_successful_action = assert_result
+    loop.successful_action_by_step_id = {"step-1": assert_result}
+    loop.successful_actions_by_step_id = {"step-1": [assert_result]}
+
+    payload = loop._build_step_record_payload(
+        {
+            "step_id": "step-1",
+            "step_number": 1,
+        },
+        step_context,
+    )
+    code_update_payload = loop._build_code_update_payload(payload, "step-1")
+
+    expected_line = (
+        f'await expect(page.getByText("{exact_text}", {{ exact: true }})).'
+        f'toContainText("{exact_text}");'
+    )
+
+    assert payload["children"][0]["assertion"] == "has_text"
+    assert payload["children"][0]["value"] == exact_text
+    assert payload["children"][0]["expected_value"] == exact_text
+    assert code_update_payload["lines"] == [expected_line]
+    assert code_update_payload["full_spec_preview"] == expected_line
+
+
+def test_generated_assert_line_requires_text_for_has_text_and_has_value() -> None:
+    loop = _make_loop()
+
+    assert (
+        loop._build_generated_line(
+            "assert",
+            'get_by_label("Submit")',
+            {
+                "locator": 'get_by_label("Submit")',
+                "assertion": "has_text",
+            },
+        )
+        == ""
+    )
+    assert (
+        loop._build_generated_line(
+            "assert",
+            'get_by_label("Submit")',
+            {
+                "locator": 'get_by_label("Submit")',
+                "assertion": "has_value",
+            },
+        )
+        == ""
+    )
+
+
+def test_generated_assert_line_normalizes_single_quoted_locator_syntax() -> None:
+    loop = _make_loop()
+    exact_text = "Playwright Test Agents"
+    single_quoted_locator = f"get_by_role('heading', name='{exact_text}')"
+
+    line = loop._build_generated_line(
+        "assert",
+        single_quoted_locator,
+        {
+            "locator": single_quoted_locator,
+            "assertion": "visible",
+        },
+    )
+
+    assert line == f'await expect(page.getByRole("heading", {{ name: "{exact_text}" }})).toBeVisible();'
+
+
 def test_code_update_payload_does_not_trust_generated_line_without_successful_child_evidence() -> None:
     loop = _make_loop()
     payload = {
