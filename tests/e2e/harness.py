@@ -1763,6 +1763,41 @@ async def wait_for_locator_count(locator: Any, expected_count: int, timeout_ms: 
         await asyncio.sleep(0.1)
 
 
+def extract_latest_recording_step_payload(log_text: str) -> dict[str, Any] | None:
+    latest_payload: dict[str, Any] | None = None
+    for line in log_text.splitlines():
+        if "[AGENT] recording step:" not in line:
+            continue
+        _, _, payload_text = line.partition("[AGENT] recording step:")
+        payload_text = payload_text.strip()
+        if not payload_text:
+            continue
+        try:
+            payload = json.loads(payload_text)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, Mapping):
+            latest_payload = dict(payload)
+    return latest_payload
+
+
+def recording_step_code_lines(payload: Mapping[str, Any] | None) -> list[str]:
+    if payload is None:
+        return []
+    children = payload.get("children")
+    if not isinstance(children, Sequence) or isinstance(children, (str, bytes, bytearray)):
+        return []
+    code_lines: list[str] = []
+    for child in children:
+        if not isinstance(child, Mapping):
+            continue
+        child_code_lines = child.get("code_lines")
+        if not isinstance(child_code_lines, Sequence) or isinstance(child_code_lines, (str, bytes, bytearray)):
+            continue
+        code_lines.extend(str(line) for line in child_code_lines)
+    return code_lines
+
+
 async def find_autoworkbench_panel(page: Any) -> Any:
     shadow_panel = page.locator("#aw-root").first
     try:

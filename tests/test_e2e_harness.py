@@ -546,6 +546,65 @@ def test_wait_for_locator_count_polls_until_expected_count_appears() -> None:
     assert locator.count_calls >= 2
 
 
+def test_extract_latest_recording_step_payload_prefers_final_structured_payload() -> None:
+    assert_line = 'await expect(page.getByTestId("get-started")).toBeVisible();'
+    click_line = 'await page.getByTestId("get-started").click();'
+    click_only_payload = {
+        "step_id": "step-1",
+        "step_number": 1,
+        "action": "click",
+        "generated_line": click_line,
+        "children": [
+            {
+                "operation_id": "op_1",
+                "type": "click",
+                "code_lines": [click_line],
+                "status": "success",
+            }
+        ],
+    }
+    final_payload = {
+        "step_id": "step-1",
+        "step_number": 1,
+        "action": "click",
+        "generated_line": click_line,
+        "children": [
+            {
+                "operation_id": "op_2",
+                "type": "assert",
+                "code_lines": [assert_line],
+                "status": "success",
+            },
+            {
+                "operation_id": "op_1",
+                "type": "click",
+                "code_lines": [click_line],
+                "status": "success",
+            },
+        ],
+    }
+    backend_logs = "\n".join(
+        [
+            "[PHASE] from=awaiting_confirmation to=planning reason=correction step_id=step-1",
+            f"[AGENT] recording step: {json.dumps(click_only_payload, sort_keys=True)}",
+            "[CODE_UPDATE] step_id=step-1 operation_id=op_1 lines=1",
+            f"[AGENT] recording step: {json.dumps(final_payload, sort_keys=True)}",
+            "[CODE_UPDATE] step_id=step-1 operation_id=op_2 lines=2",
+        ]
+    )
+
+    payload = harness.extract_latest_recording_step_payload(backend_logs)
+    assert payload is not None
+    assert payload["step_id"] == "step-1"
+    assert [child["type"] for child in payload["children"]] == ["assert", "click"]
+    assert harness.recording_step_code_lines(payload) == [assert_line, click_line]
+
+    click_only_lines = harness.recording_step_code_lines(click_only_payload)
+    assert click_only_lines == [click_line]
+    with pytest.raises(AssertionError):
+        assert click_only_lines == [assert_line, click_line]
+
+
 class _LeakyFailurePage(_FakePage):
     def __init__(self, url: str, error_message: str) -> None:
         super().__init__(url=url)

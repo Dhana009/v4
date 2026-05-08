@@ -11,7 +11,9 @@ from .harness import start_e2e_session
 from .harness import wait_for_overlay_ready
 from .harness import wait_for_autoworkbench_execution_progress
 from .harness import wait_for_autoworkbench_plan_ready
+from .harness import extract_latest_recording_step_payload
 from .harness import wait_for_locator_count
+from .harness import recording_step_code_lines
 from .harness import wait_for_process_log_markers_async
 
 
@@ -123,18 +125,12 @@ async def _run_correction_assert_then_click_flow() -> None:
         async def wait_for_corrected_code_update() -> None:
             await wait_for_process_log_markers_async(session.backend, ["[CODE_UPDATE]"], timeout_s=15.0)
             backend_logs = session.backend_logs()
-            recording_line = next(
-                line for line in backend_logs.splitlines() if "[AGENT] recording step:" in line
-            )
             assert_line = 'await expect(page.getByTestId("get-started")).toBeVisible();'
             click_line = 'await page.getByTestId("get-started").click();'
-            assert '"children": [{"operation_id": "op_2", "type": "assert"' in recording_line
-            assert '"type": "click"' in recording_line
-            assert recording_line.index('"type": "assert"') < recording_line.index('"type": "click"')
-            assert "visible" in recording_line.lower()
-            assert assert_line in recording_line
-            assert click_line in recording_line
-            assert recording_line.index(assert_line) < recording_line.index(click_line)
+            recording_payload = extract_latest_recording_step_payload(backend_logs)
+            assert recording_payload is not None
+            assert [child["type"] for child in recording_payload["children"]] == ["assert", "click"]
+            assert recording_step_code_lines(recording_payload) == [assert_line, click_line]
             assert page.url.endswith("/agents.html")
 
         await session.run_stage("corrected_code_update_seen", 25.0, wait_for_corrected_code_update)
