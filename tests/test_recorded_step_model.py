@@ -976,6 +976,136 @@ def test_canonicalize_assertion_operation_prefers_exact_text_for_generic_main_lo
     assert child["locator"] == 'get_by_text("Playwright Test Agents", exact=True)'
 
 
+def test_confirmed_visible_assertion_keeps_specific_target_and_emits_code_update_when_source_text_is_broader() -> None:
+    loop = _make_loop()
+    specific_target = "Playwright Test Agents"
+    broad_page_text = "PLAYWRIGHT GUIDE / LOCAL DOCS Playwright Test Agents docs landing page"
+    specific_locator = f'get_by_text("{specific_target}", exact=True)'
+    expected_line = (
+        f'await expect(page.getByText("{specific_target}", {{ exact: true }})).'
+        f'toBeVisible();'
+    )
+
+    step_context = _make_step_context()
+    step_context["intent"] = f"Assert {specific_target} is visible"
+    step_context["element_name"] = broad_page_text
+    step_context["element_info"] = {
+        "text": broad_page_text,
+        "attributes": {"aria-label": broad_page_text},
+    }
+
+    loop._recording_steps = [step_context]
+    loop.step_state_by_id = {"step-1": step_context}
+    loop.step_context_by_id = loop.step_state_by_id
+    loop.active_step_id = "step-1"
+    loop.plan_confirmed = True
+    loop._active_plan_state = {
+        "plan_id": "plan-1",
+        "summary": f"Assert {specific_target} is visible",
+        "original_user_intent": step_context["intent"],
+        "steps": [dict(step_context)],
+    }
+    loop._store_confirmed_execution_plan(
+        {
+            "plan_id": "plan-1",
+            "summary": f"Assert {specific_target} is visible",
+            "original_user_intent": step_context["intent"],
+            "steps": [
+                {
+                    "step_id": "step-1",
+                    "step_number": 1,
+                    "intent": step_context["intent"],
+                    "expected_outcome": step_context["expected_outcome"],
+                    "children": [
+                        {
+                            "operation_id": "op_1",
+                            "type": "assert",
+                            "target": specific_target,
+                            "locator": "main",
+                            "assertion": "visible",
+                            "status": "planned",
+                        }
+                    ],
+                }
+            ],
+        }
+    )
+
+    allowed_result = loop._validate_confirmed_execution_tool_call(
+        "action_assert",
+        {
+            "locator": specific_locator,
+            "assertion": "visible",
+        },
+    )
+
+    assert allowed_result["allowed"] is True
+    assert allowed_result["expected_child"]["type"] == "assert"
+    assert allowed_result["expected_child"]["assertion"] == "visible"
+    assert allowed_result["expected_child"]["target"] == specific_target
+    assert allowed_result["expected_child"]["locator"] == specific_locator
+
+    success_record = loop._record_confirmed_execution_child_result(
+        step_context,
+        allowed_result["expected_child"],
+        tool_name="action_assert",
+        args={
+            "locator": specific_locator,
+            "assertion": "visible",
+        },
+        result={
+            "success": True,
+            "skipped": False,
+            "locator": specific_locator,
+            "assertion": "visible",
+        },
+        status="success",
+    )
+    assert success_record is not None
+    loop.last_successful_action = success_record
+    loop.successful_action_by_step_id = {"step-1": success_record}
+    loop.successful_actions_by_step_id = {"step-1": [success_record]}
+
+    sent_messages: list[tuple[str, dict[str, object]]] = []
+
+    async def fake_send(message_type: str, **kwargs: object) -> None:
+        sent_messages.append((message_type, kwargs))
+
+    loop._send = fake_send
+
+    result = asyncio.run(
+        loop._tool_send_to_overlay(
+            {
+                "message_type": "step_recorded",
+                "payload": {
+                    "step_id": "step-1",
+                    "step_number": 1,
+                },
+            }
+        )
+    )
+
+    assert result["sent"] is True
+    assert sent_messages[0][0] == "step_recorded"
+    assert sent_messages[1][0] == "code_update"
+
+    step_recorded_payload = sent_messages[0][1]
+    code_update_payload = sent_messages[1][1]
+    recorded_child = step_recorded_payload["children"][0]
+
+    assert step_recorded_payload["expected_outcome"] == step_context["expected_outcome"]
+    assert recorded_child["type"] == "assert"
+    assert recorded_child["assertion"] == "visible"
+    assert recorded_child["target"] == specific_target
+    assert recorded_child["locator"] == specific_locator
+    assert "expected_outcome" not in recorded_child
+    assert recorded_child["code_lines"] == [expected_line]
+    assert code_update_payload["lines"] == [expected_line]
+    assert code_update_payload["full_spec_preview"] == expected_line
+    assert specific_target in code_update_payload["full_spec_preview"]
+    assert broad_page_text not in code_update_payload["full_spec_preview"]
+
+
 def test_confirmed_execution_context_message_requires_exact_child_locator() -> None:
     loop = _make_loop()
     step_context = _make_step_context()

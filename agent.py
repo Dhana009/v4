@@ -2374,18 +2374,32 @@ class AgentLoop:
             ):
                 target = expected_value
 
+        visible_target_text = target_text
+        if assertion == "visible" and expected_value:
+            if (
+                not visible_target_text
+                or self._is_outcome_like_label(visible_target_text)
+                or visible_target_text.lower() in {"main", "page", "body", "document"}
+                or expected_value in visible_target_text
+                or visible_target_text in expected_value
+                or "heading" in visible_target_text.lower()
+            ):
+                visible_target_text = expected_value
+
         if assertion in {"visible", "has_text"} and source_element_text:
             if (
-                not target_text
-                or self._is_outcome_like_label(target_text)
-                or source_element_text in target_text
-                or target_text in source_element_text
-                or "heading" in target_text.lower()
+                not visible_target_text
+                or self._is_outcome_like_label(visible_target_text)
+                or visible_target_text.lower() in {"main", "page", "body", "document"}
+                or "heading" in visible_target_text.lower()
             ):
-                target = source_element_text
+                visible_target_text = source_element_text
 
-        if assertion in {"visible", "has_text"}:
-            locator_value_text = source_element_text or expected_value or target_text
+        if assertion == "visible":
+            if visible_target_text:
+                target = visible_target_text
+                target_text = visible_target_text
+            locator_value_text = expected_value or target_text or source_element_text
             normalized_locator = self._normalize_space(locator).strip().lower()
             if locator_value_text and normalized_locator in {"main", 'page.locator("main")', "page.locator('main')"}:
                 locator = f'get_by_text("{self._tool_string_escape(locator_value_text)}", exact=True)'
