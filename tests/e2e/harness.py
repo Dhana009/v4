@@ -1560,6 +1560,70 @@ async def wait_for_overlay_ready(page: Any, timeout_ms: int = 10000) -> None:
     await wait_for_autoworkbench_ready(page, timeout_ms=timeout_ms)
 
 
+_AUTOWORKBENCH_TAB_TEST_IDS = {
+    "workbench": "llm-tab",
+    "steps": "steps-tab",
+    "code": "code-tab",
+    "debug": "trace-tab",
+}
+_AUTOWORKBENCH_TAB_ROLE_NAMES = {
+    "workbench": re.compile(r"^(?:llm|workbench)$", re.IGNORECASE),
+    "steps": re.compile(r"^steps$", re.IGNORECASE),
+    "code": re.compile(r"^code$", re.IGNORECASE),
+    "debug": re.compile(r"^(?:trace|debug)$", re.IGNORECASE),
+}
+_AUTOWORKBENCH_TAB_ALIASES = {
+    "llm": "workbench",
+    "trace": "debug",
+}
+
+
+def _normalize_autoworkbench_tab_name(tab_name: str) -> str:
+    normalized = str(tab_name).strip().lower()
+    normalized = _AUTOWORKBENCH_TAB_ALIASES.get(normalized, normalized)
+    if normalized not in _AUTOWORKBENCH_TAB_TEST_IDS:
+        raise ValueError(f"Unknown AutoWorkbench tab {tab_name!r}")
+    return normalized
+
+
+async def click_autoworkbench_tab(page: Any, tab_name: str, timeout_ms: int = 10000) -> None:
+    normalized = _normalize_autoworkbench_tab_name(tab_name)
+    test_id = _AUTOWORKBENCH_TAB_TEST_IDS[normalized]
+    role_name = _AUTOWORKBENCH_TAB_ROLE_NAMES[normalized]
+
+    candidates: list[Any] = []
+    get_by_test_id = getattr(page, "get_by_test_id", None)
+    if callable(get_by_test_id):
+        candidates.append(get_by_test_id(test_id).first)
+    get_by_role = getattr(page, "get_by_role", None)
+    if callable(get_by_role):
+        candidates.append(get_by_role("button", name=role_name).first)
+
+    last_error: Exception | None = None
+    for candidate in candidates:
+        try:
+            await candidate.wait_for(state="visible", timeout=timeout_ms)
+            await candidate.click(timeout=timeout_ms)
+            return
+        except Exception as exc:  # noqa: BLE001
+            last_error = exc
+
+    raise TimeoutError(f"Timed out waiting to click AutoWorkbench tab {tab_name!r}") from last_error
+
+
+async def wait_for_locator_text(locator: Any, expected_text: str, timeout_ms: int = 10000) -> None:
+    await locator.wait_for(state="visible", timeout=timeout_ms)
+    expected = expected_text.lower()
+    deadline = asyncio.get_running_loop().time() + timeout_ms / 1000
+    while True:
+        current = (await locator.inner_text()).strip().lower()
+        if expected in current:
+            return
+        if asyncio.get_running_loop().time() >= deadline:
+            raise TimeoutError(f"Timed out waiting for text {expected_text!r}")
+        await asyncio.sleep(0.1)
+
+
 async def wait_for_autoworkbench_ready(page: Any, timeout_ms: int = 10000) -> None:
     await page.locator("#autoworkbench-root").wait_for(state="attached", timeout=timeout_ms)
     panel = page.locator("#aw-root").first

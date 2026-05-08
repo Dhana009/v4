@@ -1,14 +1,15 @@
 from __future__ import annotations
 
 import asyncio
-import re
 from pathlib import Path
 
 import pytest
 
+from .harness import click_autoworkbench_tab
 from .harness import start_e2e_session
 from .harness import wait_for_overlay_ready
 from .harness import wait_for_process_log_markers_async
+from .harness import wait_for_locator_text
 
 
 def test_correction_assert_then_click_flow() -> None:
@@ -30,7 +31,7 @@ async def _run_correction_assert_then_click_flow() -> None:
         await session.run_stage("overlay_loaded", 10.0, lambda: wait_for_overlay_ready(page, timeout_ms=8000))
 
         async def arm_picker() -> None:
-            await page.get_by_role("button", name=re.compile(r"^steps")).first.click()
+            await click_autoworkbench_tab(page, "steps")
             attach_button = page.get_by_role("button", name="Attach Element").first
             await attach_button.wait_for(state="visible", timeout=8000)
             await attach_button.click()
@@ -57,7 +58,7 @@ async def _run_correction_assert_then_click_flow() -> None:
         await session.run_stage("pending_step_added", 10.0, prepare_click_step)
 
         async def run_pending_step() -> None:
-            await page.get_by_role("button", name=re.compile(r"^workbench")).first.click()
+            await click_autoworkbench_tab(page, "workbench")
             run_button = page.get_by_role("button", name="Run Pending Steps").first
             await run_button.wait_for(state="visible", timeout=8000)
             await run_button.click()
@@ -143,12 +144,4 @@ def _plan_review_card(page):
 
 
 async def _wait_for_page_mode(page, expected_mode: str, timeout_ms: int) -> None:
-    await page.locator(".ide-hd-state").first.wait_for(state="visible", timeout=timeout_ms)
-    await page.wait_for_function(
-        """([selector, expected]) => {
-            const node = document.querySelector(selector);
-            return !!node && node.textContent && node.textContent.toLowerCase().includes(expected);
-        }""",
-        arg=[".ide-hd-state", expected_mode.lower()],
-        timeout=timeout_ms,
-    )
+    await wait_for_locator_text(page.locator(".ide-hd-state").first, expected_mode, timeout_ms=timeout_ms)

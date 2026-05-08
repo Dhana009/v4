@@ -166,6 +166,130 @@ def test_harness_is_expected_to_gain_shadow_root_aware_autoworkbench_lookup() ->
     pytest.xfail("MR-4D harness contract not implemented yet: " + ", ".join(missing))
 
 
+class _TrackedTabLocator:
+    def __init__(self, label: str, *, visible: bool = True) -> None:
+        self.label = label
+        self.visible = visible
+        self.click_count = 0
+        self.wait_for_count = 0
+
+    @property
+    def first(self) -> "_TrackedTabLocator":
+        return self
+
+    async def wait_for(self, state: str, timeout: int | None = None) -> None:  # noqa: ARG002
+        self.wait_for_count += 1
+        if state == "visible" and not self.visible:
+            raise TimeoutError(f"{self.label} is not visible")
+
+    async def click(self, timeout: int | None = None) -> None:  # noqa: ARG002
+        self.click_count += 1
+
+
+class _TrackedTabPage:
+    def __init__(self, *, test_ids: dict[str, _TrackedTabLocator], roles: dict[str, _TrackedTabLocator]) -> None:
+        self.test_ids = test_ids
+        self.roles = roles
+        self.test_id_requests: list[str] = []
+        self.role_requests: list[str] = []
+
+    def get_by_test_id(self, test_id: str) -> _TrackedTabLocator:
+        self.test_id_requests.append(test_id)
+        return self.test_ids[test_id]
+
+    def get_by_role(self, role: str, name: object) -> _TrackedTabLocator:  # noqa: ARG002
+        self.role_requests.append(str(name))
+        return self.roles[str(name)]
+
+
+def test_click_autoworkbench_tab_prefers_test_id_hooks_and_keeps_role_fallback() -> None:
+    testid_steps = _TrackedTabLocator("steps-tab")
+    testid_workbench = _TrackedTabLocator("llm-tab")
+    role_steps = _TrackedTabLocator("steps-role")
+    role_workbench = _TrackedTabLocator("workbench-role")
+    page = _TrackedTabPage(
+        test_ids={
+            "steps-tab": testid_steps,
+            "llm-tab": testid_workbench,
+        },
+        roles={
+            "re.compile('^steps$', re.IGNORECASE)": role_steps,
+            "re.compile('^(?:llm|workbench)$', re.IGNORECASE)": role_workbench,
+        },
+    )
+
+    asyncio.run(harness.click_autoworkbench_tab(page, "steps"))
+    asyncio.run(harness.click_autoworkbench_tab(page, "workbench"))
+
+    assert page.test_id_requests == ["steps-tab", "llm-tab"]
+    assert testid_steps.wait_for_count == 1
+    assert testid_steps.click_count == 1
+    assert testid_workbench.wait_for_count == 1
+    assert testid_workbench.click_count == 1
+    assert role_steps.wait_for_count == 0
+    assert role_steps.click_count == 0
+    assert role_workbench.wait_for_count == 0
+    assert role_workbench.click_count == 0
+
+
+def test_click_autoworkbench_tab_falls_back_to_role_names_when_test_id_missing() -> None:
+    steps_role = _TrackedTabLocator("Steps", visible=True)
+    workbench_role = _TrackedTabLocator("LLM", visible=True)
+
+    class _RoleOnlyPage:
+        def __init__(self) -> None:
+            self.role_requests: list[str] = []
+            self.call_count = 0
+
+        def get_by_role(self, role: str, name: object) -> _TrackedTabLocator:  # noqa: ARG002
+            self.call_count += 1
+            self.role_requests.append(str(name))
+            return steps_role if self.call_count == 1 else workbench_role
+
+    page = _RoleOnlyPage()
+
+    asyncio.run(harness.click_autoworkbench_tab(page, "steps"))
+    asyncio.run(harness.click_autoworkbench_tab(page, "workbench"))
+
+    assert page.role_requests == [
+        "re.compile('^steps$', re.IGNORECASE)",
+        "re.compile('^(?:llm|workbench)$', re.IGNORECASE)",
+    ]
+    assert steps_role.click_count == 1
+    assert workbench_role.click_count == 1
+
+
+class _ChangingTextLocator:
+    def __init__(self, texts: list[str], *, visible: bool = True) -> None:
+        self.texts = texts
+        self.visible = visible
+        self.wait_for_count = 0
+        self.inner_text_calls = 0
+
+    @property
+    def first(self) -> "_ChangingTextLocator":
+        return self
+
+    async def wait_for(self, state: str, timeout: int | None = None) -> None:  # noqa: ARG002
+        self.wait_for_count += 1
+        if state == "visible" and not self.visible:
+            raise TimeoutError("locator is not visible")
+
+    async def inner_text(self) -> str:
+        index = min(self.inner_text_calls, len(self.texts) - 1)
+        self.inner_text_calls += 1
+        return self.texts[index]
+
+
+def test_wait_for_locator_text_polls_locator_text_until_expected_value_appears() -> None:
+    locator = _ChangingTextLocator(["PLANNING…", "PLAN REVIEW"])
+
+    asyncio.run(harness.wait_for_locator_text(locator, "plan review", timeout_ms=200))
+
+    assert locator.wait_for_count == 1
+    assert locator.inner_text_calls >= 2
+
+
 class _LeakyFailurePage(_FakePage):
     def __init__(self, url: str, error_message: str) -> None:
         super().__init__(url=url)
