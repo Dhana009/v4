@@ -1,6 +1,6 @@
 # INT-LLM-002 Compact system prompt and skill summaries
 
-Status: Planning
+Status: Done
 Sprint: Sprint 3
 Type: Story
 Owner: LLM Runtime

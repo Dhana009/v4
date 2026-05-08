@@ -1,6 +1,6 @@
 # INT-E2E-002 Token-budget regression checks
 
-Status: Planning
+Status: Done
 Sprint: Sprint 3
 Type: Story
 Owner: E2E / Evidence

@@ -1,6 +1,6 @@
 # INT-DOM-002 Compact page and section intelligence packet
 
-Status: Planning
+Status: Done
 Sprint: Sprint 3
 Type: Story
 Owner: DOM Intelligence / LLM Runtime
