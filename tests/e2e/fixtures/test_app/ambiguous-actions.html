@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Ambiguous Actions Fixture</title>
+    <style>
+      :root {
+        font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        color: #1f2937;
+        background: #f8fafc;
+      }
+
+      body {
+        margin: 0;
+        padding: 32px;
+      }
+
+      main {
+        max-width: 920px;
+        margin: 0 auto;
+        display: grid;
+        gap: 24px;
+      }
+
+      section {
+        border: 1px solid #cbd5e1;
+        border-radius: 16px;
+        padding: 20px;
+        background: #ffffff;
+        box-shadow: 0 12px 32px rgba(15, 23, 42, 0.06);
+      }
+
+      h1,
+      h2 {
+        margin: 0 0 12px;
+      }
+
+      p {
+        margin: 0 0 16px;
+        color: #475569;
+      }
+
+      button {
+        border: 0;
+        border-radius: 999px;
+        padding: 10px 18px;
+        font: inherit;
+        color: #ffffff;
+        background: #0f172a;
+        cursor: pointer;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section data-testid="billing-section">
+        <h1>Profile Settings</h1>
+        <p>Use this page to verify that broad or ambiguous instructions still invoke the LLM path.</p>
+      </section>
+
+      <section data-testid="billing-profile">
+        <h2>Billing Profile</h2>
+        <p>Save updates for billing contact details.</p>
+        <button data-testid="billing-save">Save</button>
+      </section>
+
+      <section data-testid="shipping-profile">
+        <h2>Shipping Profile</h2>
+        <p>Save updates for shipping preferences.</p>
+        <button data-testid="shipping-save">Save</button>
+      </section>
+    </main>
+  </body>
+</html>
