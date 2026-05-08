@@ -1,6 +1,6 @@
 # SPRINT-003 LLM Cost, Call Count, and Context Optimization
 
-Status: Done
+Status: In Progress (Phase 2)
 Sprint: Sprint 3
 Duration: Bi-weekly
 Primary focus: Complete LLM Mode cost reduction and context control
@@ -183,6 +183,33 @@ same code path). Rerun confirmed both pass. Not a Sprint 3 regression.
 - mvp_001_lifecycle_smoke: PASS
 - unit/contract (470 tests): PASS
 - no tests weakened, skipped, or xfailed
+
+## Acceptance correction — Sprint 3 Phase 2
+
+Sprint 3 Phase 1 produced infrastructure and measurement. Phase 1 is complete for:
+
+- INT-OBS-001: Done — token breakdown visible in live E2E telemetry
+- INT-E2E-002: Testing — parser module exists but token-report.json never written to artifact dir
+
+The following stories are NOT done because they have no proven live E2E impact:
+
+- INT-LLM-002: Testing — skill_tokens still 2,805–3,135/call in live E2E path
+- INT-CALL-001: Testing — fast path module exists but never triggered in WebSocket picker flow
+- INT-CTX-001: Testing — budget gate exists but budget_status=ok, no capping in live E2E flows
+- INT-DOM-002: Testing — page intelligence module exists but not wired into live agent path
+
+Phase 2 goal: wire all four modules into the live product path and prove token reduction.
+
+Required measurable outcomes before Sprint 3 can be accepted as Done:
+
+| Test | Baseline calls | Baseline input tokens | Target calls | Target tokens |
+|---|---|---|---|---|
+| basic_click_flow | 6 | 27,332 | ≤3 | materially lower |
+| exact_text_assertion_flow | 6 | 27,337 | ≤3 | materially lower |
+| visible_assertion_flow | 6 | 27,841 | ≤3 | materially lower |
+| correction_assert_then_click | 8 | 42,603 | reduce if safe | no quality loss |
+
+All 5 E2E tests must still pass after Phase 2 wiring.
 
 ## Dependency rules
 
