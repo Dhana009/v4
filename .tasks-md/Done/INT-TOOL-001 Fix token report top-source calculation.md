@@ -1,10 +1,11 @@
 # INT-TOOL-001 Fix token report top-source calculation
 
-Status: Planning
+Status: Done
 Sprint: Sprint 3
 Type: Story
 Owner: Runtime / Evidence
 Priority: P0
+Started: 2026-05-08 19:56 IST
 
 ## Problem
 
@@ -54,7 +55,14 @@ No E2E required for this ticket.
 
 ## Evidence
 
-To be filled during implementation.
+- `python -m py_compile runtime/token_report.py` -> passed
+- `python -m pytest tests/test_token_report.py -q` -> 20 passed
+
+## Implementation summary
+
+- `tool_schema_tokens` is now included in `top_token_source` winner logic
+- top-source comparison now covers system, skill, tool schema, history, and DOM/tool-result buckets
+- missing token fields still default safely to zero during aggregation
 
 ## Notes
 

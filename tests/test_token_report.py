@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from runtime.token_report import (
     parse_telemetry_line,
     parse_telemetry_lines,
@@ -88,7 +90,24 @@ def test_build_token_report_largest_call():
 def test_build_token_report_top_token_source():
     records = parse_telemetry_lines(f"{_SAMPLE_LINE}\n{_SAMPLE_LINE_2}")
     report = build_token_report(records, test_name="test_basic_click")
-    assert report["top_token_source"] in ("skill", "history", "dom_tool_result", "system")
+    assert report["top_token_source"] == "history"
+
+
+@pytest.mark.parametrize(
+    ("replacement", "expected_source"),
+    [
+        ("system_prompt_tokens=400", "system"),
+        ("skill_tokens=350", "skill"),
+        ("tool_schema_tokens=300", "tool_schema"),
+        ("message_history_tokens=450", "history"),
+        ("dom_or_tool_result_tokens=50", "dom_tool_result"),
+    ],
+)
+def test_build_token_report_selects_largest_token_bucket(replacement: str, expected_source: str):
+    boosted_line = _SAMPLE_LINE.replace(replacement, f"{replacement.split('=')[0]}=1200")
+    records = parse_telemetry_lines(boosted_line)
+    report = build_token_report(records, test_name="bucket_test")
+    assert report["top_token_source"] == expected_source
 
 
 def test_build_token_report_warns_on_high_call_count():
@@ -120,6 +139,16 @@ def test_build_token_report_handles_missing_fields():
     report = build_token_report(records, test_name="minimal_test")
     assert report["call_count"] == 1
     assert report["total_estimated_input_tokens"] == 500
+    assert report["top_token_source"] == "system"
+    assert report["token_breakdown"]["tool_schema"] == 0
+
+
+def test_build_token_report_includes_tool_schema_totals():
+    records = parse_telemetry_lines(f"{_SAMPLE_LINE}\n{_SAMPLE_LINE_2}")
+    report = build_token_report(records, test_name="totals_test")
+    assert report["token_breakdown"]["tool_schema"] == 600
+    assert report["token_breakdown"]["system"] == 800
+    assert report["token_breakdown"]["skill"] == 700
 
 
 def test_write_token_report_creates_file(tmp_path: Path):

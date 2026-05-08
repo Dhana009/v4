@@ -79,16 +79,13 @@ def build_token_report(
     largest_id = largest.get("call_id")
     largest_tokens = int(largest.get("estimated_total_input_tokens") or 0)
 
-    # Identify top token source across all records
-    skill_total = sum(int(r.get("skill_tokens") or 0) for r in records)
-    history_total = sum(int(r.get("message_history_tokens") or 0) for r in records)
-    dom_total = sum(int(r.get("dom_or_tool_result_tokens") or 0) for r in records)
-    system_total = sum(int(r.get("system_prompt_tokens") or 0) for r in records)
+    # Compare every tracked token bucket so the report surfaces the real cost driver.
     source_map = {
-        "skill": skill_total,
-        "history": history_total,
-        "dom_tool_result": dom_total,
-        "system": system_total,
+        "system": sum(int(r.get("system_prompt_tokens") or 0) for r in records),
+        "skill": sum(int(r.get("skill_tokens") or 0) for r in records),
+        "tool_schema": sum(int(r.get("tool_schema_tokens") or 0) for r in records),
+        "history": sum(int(r.get("message_history_tokens") or 0) for r in records),
+        "dom_tool_result": sum(int(r.get("dom_or_tool_result_tokens") or 0) for r in records),
     }
     top_token_source = max(source_map, key=lambda k: source_map[k])
 
