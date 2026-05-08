@@ -197,6 +197,7 @@ def _purpose_policy(
     skill_names: Sequence[str],
     planning_tools: Sequence[str],
     plan_review_tools: Sequence[str] | None = None,
+    executing_tools: Sequence[str] | None = None,
     token_budget: int,
     context_level: str = "compact",
     context_mode: str = "compact",
@@ -220,6 +221,7 @@ def _purpose_policy(
             purpose=purpose,
             planning_tools=planning_tools,
             plan_review_tools=plan_review_tools,
+            executing_tools=executing_tools,
         ),
         "output_schema": _output_schema(purpose),
         "backend_validator": "schema_validator",
@@ -307,6 +309,7 @@ def _build_purpose_policy_map() -> dict[str, dict[str, Any]]:
             model_class="main",
             skill_names=planner_skill,
             planning_tools=("ask_user",),
+            executing_tools=("action_assert", "action_click", "action_fill"),
             token_budget=1800,
         ),
         "recovery_diagnoser": _purpose_policy(

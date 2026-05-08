@@ -62,6 +62,7 @@ def test_gateway_preserves_confirmation_requirement_in_execution_mode() -> None:
 
     assert decision.purpose == "execution_driver"
     assert decision.model_needed is True
+    assert decision.allowed_tools == ("action_assert", "action_click", "action_fill")
     assert decision.requires_confirmation is True
     assert decision.fallback == "fail_closed"
 

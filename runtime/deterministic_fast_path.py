@@ -42,6 +42,10 @@ def _is_compound_intent(user_message: str) -> bool:
 
 def _extract_action_verb(user_message: str) -> str | None:
     text = str(user_message or "").strip().lower()
+    if "exact text" in text or "assert text" in text:
+        return "assert_text"
+    if "visible" in text and any(keyword in text for keyword in ("assert", "verify", "check", "validate")):
+        return "assert_visible"
     for verb in DETERMINISTIC_ACTION_VERBS:
         if verb in text:
             return verb
@@ -78,13 +82,14 @@ def build_deterministic_plan(
     locator: str,
     action_verb: str,
     step_id: str | None = None,
+    target_label: str | None = None,
     fill_value: str | None = None,
     expected_text: str | None = None,
 ) -> dict[str, Any]:
     """Build a backend-compatible plan_ready payload without an LLM call."""
     normalized_verb = action_verb.replace(" ", "_").lower()
     resolved_step_id = str(step_id or "1").strip() or "1"
-    target = locator
+    target = str(target_label or "").strip() or locator
 
     child_type = "assert" if normalized_verb in {"assert_visible", "assert_text"} else normalized_verb
     child: dict[str, Any] = {

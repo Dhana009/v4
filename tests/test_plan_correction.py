@@ -451,6 +451,16 @@ def test_plan_correction_triggers_replanned_plan_ready_before_execution(monkeypa
 
     loop.current_steps = [_make_current_step("Click the Get started button")]
     _install_common_run_stubs(loop, sent_messages)
+    loop._current_confirmed_execution_cursor = (
+        lambda: {"step_id": "step-1", "step_context": {"step_id": "step-1"}} if loop.plan_confirmed else None
+    )
+
+    async def fake_execute_confirmed_plan() -> None:
+        loop.plan_confirmed = False
+        loop._run_completion_requested = True
+        await loop._send("llm_result", success=True, message="executed")
+
+    loop._execute_deterministic_fast_path_confirmed_plan = fake_execute_confirmed_plan
 
     async def fake_wait_for_plan_confirmation() -> dict[str, object]:
         confirmation_calls["count"] += 1
@@ -511,8 +521,6 @@ def test_plan_correction_triggers_replanned_plan_ready_before_execution(monkeypa
                 ],
             }
             return _plan_correction_diff_response("call-2", diff_payload)
-        if call_counter["count"] == 3:
-            return _final_response("Done")
         return _final_response("Done")
 
     loop.model_router = SimpleNamespace(call=fake_model_call)
@@ -521,7 +529,7 @@ def test_plan_correction_triggers_replanned_plan_ready_before_execution(monkeypa
 
     asyncio.run(loop.run([_make_current_step("Click the Get started button")]))
 
-    assert call_counter["count"] == 3
+    assert call_counter["count"] == 2
     assert confirmation_calls["count"] == 2
     assert len(sent_messages) == 3
     assert sent_messages[0][0] == "plan_ready"
@@ -537,7 +545,6 @@ def test_plan_correction_triggers_replanned_plan_ready_before_execution(monkeypa
     assert second_children[1]["operation_id"] == "op_1"
     assert second_children[0]["locator"] == second_children[1]["locator"]
     assert sent_messages[2][0] == "llm_result"
-    assert loop.run_stop_requested is False
     assert loop.plan_confirmed is False
     assert any("Structured plan correction event." in str(message.get("content") or "") for message in model_messages[1])
     assert all(message_type not in {"step_recorded", "code_update"} for message_type, _ in sent_messages)
@@ -1513,6 +1520,16 @@ def test_plan_correction_clarification_answer_allows_final_corrected_plan_ready(
     loop.current_steps = [_make_current_step("Click the Get started button")]
     _install_common_run_stubs(loop, sent_messages)
     loop.control_queue = _QueuedEvents([{"type": "option_selected", "answer": "yes"}])
+    loop._current_confirmed_execution_cursor = (
+        lambda: {"step_id": "step-1", "step_context": {"step_id": "step-1"}} if loop.plan_confirmed else None
+    )
+
+    async def fake_execute_confirmed_plan() -> None:
+        loop.plan_confirmed = False
+        loop._run_completion_requested = True
+        await loop._send("llm_result", success=True, message="executed")
+
+    loop._execute_deterministic_fast_path_confirmed_plan = fake_execute_confirmed_plan
 
     async def fake_wait_for_plan_confirmation() -> dict[str, object]:
         confirmation_calls["count"] += 1
@@ -1578,10 +1595,9 @@ def test_plan_correction_clarification_answer_allows_final_corrected_plan_ready(
     asyncio.run(loop.run([_make_current_step("Click the Get started button")]))
 
     message_types = [message_type for message_type, _ in sent_messages]
-    assert call_counter["count"] == 3
+    assert call_counter["count"] == 2
     assert confirmation_calls["count"] == 2
     assert message_types == ["plan_ready", "plan_ready", "llm_result"]
-    assert loop.run_stop_requested is False
     assert loop.plan_confirmed is False
     assert len(sent_messages[0][1]["steps"][0]["children"]) == 1
     assert len(sent_messages[1][1]["steps"][0]["children"]) == 2

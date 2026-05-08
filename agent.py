@@ -1399,6 +1399,12 @@ class AgentLoop:
                     self._pending_failure_followup = False
                     self._clear_active_plan_correction_state()
                     return
+                confirmed_cursor = self._current_confirmed_execution_cursor()
+                if current_phase == "executing" and self.plan_confirmed and isinstance(confirmed_cursor, dict):
+                    await self._execute_deterministic_fast_path_confirmed_plan()
+                    if self._run_completion_requested:
+                        return
+                    continue
                 if isinstance(correction_mode, dict):
                     correction_result = await self._run_plan_diff_editor_correction(
                         messages=self.llm.messages,
@@ -1478,6 +1484,8 @@ class AgentLoop:
                             continue
 
                         continue
+                if not hasattr(self, "llm_policy_gateway") or self.llm_policy_gateway is None:
+                    self.llm_policy_gateway = LLMPolicyGateway(PURPOSE_REGISTRY)
                 policy_decision = self.llm_policy_gateway.decide(
                     phase=current_phase,
                     steps=self.current_steps,
@@ -2327,12 +2335,19 @@ class AgentLoop:
         action_verb = reason.split(":")[-1] if ":" in reason else reason
         fill_value = str(step.get("fill_value") or step.get("value") or "").strip() or None
         expected_text = str(step.get("expected_text") or step.get("expectedText") or "").strip() or None
+        selected_element_info = self._resolve_selected_element_info(step.get("element_info") or {})
+        target_label = self._best_fast_path_target_label(step, action_verb) or None
+        if not expected_text and action_verb == "assert_text":
+            expected_text = self._selected_element_text(selected_element_info) or None
+        if target_label and self._should_replace_fast_path_locator_with_text(action_verb, locator):
+            locator = f'get_by_text("{self._tool_string_escape(target_label)}", exact=True)'
 
         plan_payload = build_deterministic_plan(
             user_message=intent,
             locator=locator,
             action_verb=action_verb,
             step_id=step_id,
+            target_label=target_label,
             fill_value=fill_value,
             expected_text=expected_text,
         )
@@ -2350,7 +2365,14 @@ class AgentLoop:
         correction = str(confirmation.get("correction") or "").strip()
         print(f"[FAST_PATH] correction requested, falling through to LLM loop: {correction!r}")
         if correction:
-            self.llm.messages.append({"role": "user", "content": f"Correction: {correction}"})
+            self._append_plan_correction_message(
+                correction,
+                plan_id=str(confirmation.get("plan_id") or plan_payload.get("plan_id") or "").strip() or None,
+                target_step_id=str(
+                    confirmation.get("target_step_id") or plan_payload.get("target_step_id") or step_id or ""
+                ).strip()
+                or None,
+            )
         return False
 
     def _build_confirmed_execution_tool_call(
@@ -2497,6 +2519,9 @@ class AgentLoop:
         )
         recorded_payload = await self._auto_record_successful_step()
         if recorded_payload is None:
+            if not self._confirmed_execution_step_ready_to_record(step_context):
+                print("[FAST_PATH] confirmed child completed; awaiting remaining confirmed children")
+                return
             print("[FAST_PATH] execution failed: auto-record did not produce a recorded payload")
             self.phase_tracker.set_phase(
                 "failed",
@@ -3087,6 +3112,73 @@ class AgentLoop:
             if candidate_text:
                 return candidate_text
         return ""
+
+    def _element_candidate_display_text(self, element_info: dict[str, Any]) -> str:
+        if not isinstance(element_info, dict):
+            return ""
+        attributes = element_info.get("attributes") if isinstance(element_info.get("attributes"), dict) else {}
+        candidates = [
+            element_info.get("clean_text"),
+            element_info.get("cleanText"),
+            element_info.get("text"),
+            attributes.get("aria-label"),
+            element_info.get("ariaLabel"),
+            element_info.get("aria_label"),
+            attributes.get("placeholder"),
+            attributes.get("data-testid"),
+            element_info.get("id"),
+        ]
+        for candidate in candidates:
+            candidate_text = self._normalize_space(str(candidate or "")).strip()
+            if candidate_text:
+                return candidate_text
+        return ""
+
+    def _best_fast_path_target_label(self, step: dict[str, Any], action_verb: str) -> str:
+        step_data = step if isinstance(step, dict) else {}
+        max_label_length = 80
+        preferred_roles = {"heading", "link", "button", "textbox", "text"}
+        explicit_name = self._normalize_space(str(step_data.get("element_name") or "")).strip()
+        if explicit_name and len(explicit_name) <= max_label_length and explicit_name.lower() not in {"main", "page", "body", "document"}:
+            return explicit_name
+
+        element_info = step_data.get("element_info") if isinstance(step_data.get("element_info"), dict) else {}
+        raw_candidates = element_info.get("candidates") if isinstance(element_info.get("candidates"), list) else []
+        fallback_label = ""
+        for raw_candidate in raw_candidates:
+            if not isinstance(raw_candidate, dict):
+                continue
+            candidate_text = self._normalize_space(self._element_candidate_display_text(raw_candidate)).strip()
+            if (
+                not candidate_text
+                or len(candidate_text) > max_label_length
+                or candidate_text.lower() in {"main", "page", "body", "document"}
+            ):
+                continue
+            candidate_role = self._normalize_space(
+                str(
+                    raw_candidate.get("role")
+                    or raw_candidate.get("semanticType")
+                    or raw_candidate.get("semantic_type")
+                    or raw_candidate.get("category")
+                    or raw_candidate.get("tag")
+                    or ""
+                )
+            ).strip().lower()
+            if action_verb in {"assert_visible", "assert_text"} and candidate_role in preferred_roles:
+                return candidate_text
+            if not fallback_label:
+                fallback_label = candidate_text
+        selected_text = self._normalize_space(self._selected_element_text(element_info)).strip()
+        if selected_text and len(selected_text) <= max_label_length and selected_text.lower() not in {"main", "page", "body", "document"}:
+            return selected_text
+        return fallback_label
+
+    def _should_replace_fast_path_locator_with_text(self, action_verb: str, locator: str) -> bool:
+        if action_verb not in {"assert_visible", "assert_text"}:
+            return False
+        normalized_locator = self._normalize_space(str(locator or "")).strip().lower()
+        return normalized_locator in {"main", "body", "page", 'page.locator("main")', "page.locator('main')"}
 
     def _compact_step_element_summary(self, step: dict[str, Any]) -> str:
         element_info = self._resolve_selected_element_info(step.get("element_info") or {})
@@ -7374,6 +7466,22 @@ class AgentLoop:
             child_description = self._build_planned_child_description(current_operation_type, child_target, intent)
             child_value = ""
             child_assertion = ""
+            if current_operation_type in {"click", "fill"}:
+                if self._is_technical_recorded_label_text(child_target):
+                    human_target = self._normalize_space(str(step_data.get("element_name") or "")).strip()
+                    if not human_target:
+                        human_target = self._normalize_space(
+                            self._selected_element_text(step_data.get("element_info") or {})
+                        ).strip()
+                    if not human_target:
+                        human_target = self._normalize_space(self._locator_label_hint(child_locator)).strip()
+                    if human_target and not self._is_technical_recorded_label_text(human_target):
+                        child_target = human_target
+                        child_description = self._build_planned_child_description(
+                            current_operation_type,
+                            child_target,
+                            intent,
+                        )
             if current_operation_type == "assert":
                 canonical_child = self._canonicalize_assertion_operation(
                     {
@@ -7593,6 +7701,7 @@ class AgentLoop:
                 ).strip()
                 if not child_action:
                     child_action = str(confirmed_child.get("type") or "").strip()
+                confirmed_target = str(confirmed_child.get("target") or "").strip()
                 human_target = str(
                     confirmed_step_data.get("element_name")
                     or element_name
@@ -7631,14 +7740,19 @@ class AgentLoop:
                         child_action,
                         child_action,
                         str(
-                            (human_target if not self._is_technical_recorded_label_text(human_target) else "")
+                            (
+                                confirmed_target
+                                if child_action == "assert" and not self._is_technical_recorded_label_text(confirmed_target)
+                                else ""
+                            )
+                            or (human_target if not self._is_technical_recorded_label_text(human_target) else "")
                             or child_result.get("target")
                             or (
                                 self._locator_label_hint(child_locator)
                                 if not self._is_technical_recorded_label_text(self._locator_label_hint(child_locator))
                                 else ""
                             )
-                            or confirmed_child.get("target")
+                            or confirmed_target
                             or element_name
                             or intent
                             or ""
@@ -7648,17 +7762,27 @@ class AgentLoop:
                     )
                 if not description:
                     description = str(
-                        (human_target if not self._is_technical_recorded_label_text(human_target) else "")
-                        or confirmed_child.get("target")
+                        (
+                            confirmed_target
+                            if child_action == "assert" and not self._is_technical_recorded_label_text(confirmed_target)
+                            else ""
+                        )
+                        or (human_target if not self._is_technical_recorded_label_text(human_target) else "")
+                        or confirmed_target
                         or element_name
                         or intent
                         or child_action
                         or ""
                     ).strip()
                 target = str(
-                    (human_target if not self._is_technical_recorded_label_text(human_target) else "")
+                    (
+                        confirmed_target
+                        if child_action == "assert" and not self._is_technical_recorded_label_text(confirmed_target)
+                        else ""
+                    )
+                    or (human_target if not self._is_technical_recorded_label_text(human_target) else "")
                     or child_result.get("target")
-                    or confirmed_child.get("target")
+                    or confirmed_target
                     or element_name
                     or (
                         self._locator_label_hint(child_locator)

@@ -472,3 +472,57 @@ def test_recovery_diagnoser_keeps_failure_context_and_recent_evidence():
     assert "timeout while clicking" in serialized
     assert "continue recovery" in serialized
     assert bundle.metadata["purpose_window_strategy"] == "recovery_recent_evidence"
+
+
+def test_step_plan_normalizer_does_not_keep_orphaned_tool_call_messages():
+    manager = ContextManager()
+    messages = [
+        {"role": "system", "content": "system prompt"},
+        {"role": "user", "content": "assert this is visible"},
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "call-old",
+                    "type": "function",
+                    "function": {"name": "send_to_overlay", "arguments": '{"message_type":"llm_thinking"}'},
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call-old", "content": '{"sent":true}'},
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "call-new",
+                    "type": "function",
+                    "function": {"name": "send_to_overlay", "arguments": '{"message_type":"llm_thinking"}'},
+                }
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call-new", "content": '{"sent":true}'},
+    ]
+
+    bundle = manager.prepare_messages(
+        messages,
+        purpose="step_plan_normalizer",
+        context_mode="normal",
+        metadata={"phase": "planning", "skill_count": 1, "tool_count": 1},
+    )
+
+    assistant_tool_call_ids = {
+        tool_call["id"]
+        for message in bundle.messages
+        if message.get("role") == "assistant"
+        for tool_call in (message.get("tool_calls") or [])
+        if isinstance(tool_call, dict) and str(tool_call.get("id") or "").strip()
+    }
+    tool_response_ids = {
+        str(message.get("tool_call_id") or "").strip()
+        for message in bundle.messages
+        if message.get("role") == "tool"
+    }
+
+    assert assistant_tool_call_ids == tool_response_ids

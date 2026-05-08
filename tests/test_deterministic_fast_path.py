@@ -153,6 +153,19 @@ def test_plan_includes_locator_and_action():
     assert child["status"] == "planned"
 
 
+def test_plan_prefers_human_target_label_over_locator():
+    plan = build_deterministic_plan(
+        user_message="assert this is visible",
+        locator='page.locator("main")',
+        action_verb="assert_visible",
+        target_label="Playwright Test Agents",
+    )
+    child = plan["steps"][0]["children"][0]
+    assert child["locator"] == 'page.locator("main")'
+    assert child["target"] == "Playwright Test Agents"
+    assert child["description"] == "Playwright Test Agents is visible"
+
+
 def test_plan_source_is_deterministic():
     plan = build_deterministic_plan(
         user_message="assert visible heading",
@@ -286,9 +299,22 @@ def test_try_deterministic_fast_path_correction_falls_back_with_message(monkeypa
     loop._resolve_locator = lambda page, locator: _FakeResolvedLocator()
     loop._normalize_space = AgentLoop._normalize_space.__get__(loop, AgentLoop)
     loop._derive_locator_from_step_context = lambda step: ""
+    appended_corrections: list[tuple[str, str | None, str | None]] = []
+
+    def fake_append_plan_correction_message(correction, plan_id=None, target_step_id=None):
+        appended_corrections.append((correction, plan_id, target_step_id))
+        loop.llm.messages.append({"role": "user", "content": f'Correction: "{correction}"'})
+        return correction
+
+    loop._append_plan_correction_message = fake_append_plan_correction_message
 
     async def fake_send_plan_ready_after_confirmation(payload):
-        return {"confirmed": False, "correction": "Use the primary CTA instead"}
+        return {
+            "confirmed": False,
+            "correction": "Use the primary CTA instead",
+            "plan_id": "deterministic-step-1",
+            "target_step_id": "step-1",
+        }
 
     monkeypatch.setattr(agent_module, "get_page", lambda: object())
     loop._send_plan_ready_after_confirmation = fake_send_plan_ready_after_confirmation
@@ -306,9 +332,112 @@ def test_try_deterministic_fast_path_correction_falls_back_with_message(monkeypa
     )
 
     assert handled is False
+    assert appended_corrections == [("Use the primary CTA instead", "deterministic-step-1", "step-1")]
     assert loop.llm.messages == [
-        {"role": "user", "content": "Correction: Use the primary CTA instead"}
+        {"role": "user", "content": 'Correction: "Use the primary CTA instead"'}
     ]
+
+
+def test_try_deterministic_fast_path_derives_expected_text_from_selected_element(monkeypatch):
+    class _FakeResolvedLocator:
+        async def count(self) -> int:
+            return 1
+
+    captured_plan_payloads: list[dict[str, object]] = []
+    loop = AgentLoop.__new__(AgentLoop)
+    loop.llm = SimpleNamespace(messages=[])
+    loop._resolve_locator = lambda page, locator: _FakeResolvedLocator()
+    loop._normalize_space = AgentLoop._normalize_space.__get__(loop, AgentLoop)
+    loop._derive_locator_from_step_context = lambda step: ""
+    loop._resolve_selected_element_info = AgentLoop._resolve_selected_element_info.__get__(loop, AgentLoop)
+    loop._selected_element_text = AgentLoop._selected_element_text.__get__(loop, AgentLoop)
+    loop._append_plan_correction_message = lambda correction, plan_id=None, target_step_id=None: loop.llm.messages.append(
+        {"role": "user", "content": f'Correction: "{correction}"'}
+    )
+
+    async def fake_send_plan_ready_after_confirmation(payload):
+        captured_plan_payloads.append(payload)
+        return {"confirmed": False, "correction": "adjust later"}
+
+    monkeypatch.setattr(agent_module, "get_page", lambda: object())
+    loop._send_plan_ready_after_confirmation = fake_send_plan_ready_after_confirmation
+
+    asyncio.run(
+        loop._try_deterministic_fast_path(
+            [
+                {
+                    "id": "step-1",
+                    "intent": "assert exact text equal to npx playwright init-agents --loop=opencode",
+                    "locator": 'get_by_text("npx playwright init-agents --loop=opencode", exact=True)',
+                    "element_info": {
+                        "text": "npx playwright init-agents --loop=opencode",
+                    },
+                }
+            ]
+        )
+    )
+
+    assert captured_plan_payloads
+    child = captured_plan_payloads[0]["steps"][0]["children"][0]
+    assert child["assertion"] == "has_text"
+    assert child["target"] == "npx playwright init-agents --loop=opencode"
+    assert child["expected_value"] == "npx playwright init-agents --loop=opencode"
+
+
+def test_try_deterministic_fast_path_prefers_short_candidate_for_visible_assertion(monkeypatch):
+    class _FakeResolvedLocator:
+        async def count(self) -> int:
+            return 1
+
+    captured_plan_payloads: list[dict[str, object]] = []
+    loop = AgentLoop.__new__(AgentLoop)
+    loop.llm = SimpleNamespace(messages=[])
+    loop._resolve_locator = lambda page, locator: _FakeResolvedLocator()
+    loop._normalize_space = AgentLoop._normalize_space.__get__(loop, AgentLoop)
+    loop._derive_locator_from_step_context = lambda step: "main"
+    loop._resolve_selected_element_info = AgentLoop._resolve_selected_element_info.__get__(loop, AgentLoop)
+    loop._selected_element_text = AgentLoop._selected_element_text.__get__(loop, AgentLoop)
+    loop._element_candidate_display_text = AgentLoop._element_candidate_display_text.__get__(loop, AgentLoop)
+    loop._best_fast_path_target_label = AgentLoop._best_fast_path_target_label.__get__(loop, AgentLoop)
+    loop._should_replace_fast_path_locator_with_text = AgentLoop._should_replace_fast_path_locator_with_text.__get__(
+        loop, AgentLoop
+    )
+    loop._tool_string_escape = AgentLoop._tool_string_escape.__get__(loop, AgentLoop)
+    loop._append_plan_correction_message = lambda correction, plan_id=None, target_step_id=None: loop.llm.messages.append(
+        {"role": "user", "content": f'Correction: "{correction}"'}
+    )
+
+    async def fake_send_plan_ready_after_confirmation(payload):
+        captured_plan_payloads.append(payload)
+        return {"confirmed": False, "correction": "adjust later"}
+
+    monkeypatch.setattr(agent_module, "get_page", lambda: object())
+    loop._send_plan_ready_after_confirmation = fake_send_plan_ready_after_confirmation
+
+    asyncio.run(
+        loop._try_deterministic_fast_path(
+            [
+                {
+                    "id": "step-1",
+                    "intent": "assert this is visible",
+                    "locator": "main",
+                    "element_info": {
+                        "text": "Very long page copy that should not be used as the visible assertion target",
+                        "selected_candidate_index": 0,
+                        "candidates": [
+                            {"tag": "main", "text": "Very long page copy that should not be used as the visible assertion target"},
+                            {"tag": "h1", "role": "heading", "text": "Playwright Test Agents"},
+                        ],
+                    },
+                }
+            ]
+        )
+    )
+
+    assert captured_plan_payloads
+    child = captured_plan_payloads[0]["steps"][0]["children"][0]
+    assert child["target"] == "Playwright Test Agents"
+    assert child["locator"] == 'get_by_text("Playwright Test Agents", exact=True)'
 
 
 def test_run_uses_fast_path_before_model_loop(monkeypatch):

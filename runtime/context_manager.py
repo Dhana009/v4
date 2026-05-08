@@ -177,7 +177,14 @@ def _apply_purpose_compact_window(
         selected_indices.add(first_user_index)
 
     if strategy == "planning_recent_tool_chain":
-        selected_indices.update(_last_indices_for_roles(messages, roles={"user", "assistant"}, limit=2))
+        selected_indices.update(
+            _last_indices_for_roles(
+                messages,
+                roles={"user", "assistant"},
+                limit=2,
+                include_tool_calling_assistants=False,
+            )
+        )
         selected_indices.update(_last_tool_chain_indices(messages, chain_limit=1))
     elif strategy == "correction_only":
         selected_indices.update(

@@ -519,7 +519,10 @@ def test_llm_005_006_007_purpose_registry_exposes_planning_slice_contracts(
     else:
         assert set(allowed_tools_by_phase["plan_review"]) == {"send_to_overlay", "ask_user"}
         assert set(allowed_tools_by_phase["awaiting_confirmation"]) == {"send_to_overlay", "ask_user"}
-    assert set(allowed_tools_by_phase["executing"]) == set()
+    if purpose == "execution_driver":
+        assert set(allowed_tools_by_phase["executing"]) == {"action_assert", "action_click", "action_fill"}
+    else:
+        assert set(allowed_tools_by_phase["executing"]) == set()
     assert set(allowed_tools_by_phase["recovery"]) <= {"browser_get_state", "ask_user"}
     assert set(allowed_tools_by_phase["completed"]) == set()
     assert expected_planning_tools.isdisjoint(EXECUTION_TOOL_NAMES)

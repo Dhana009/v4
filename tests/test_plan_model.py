@@ -103,6 +103,28 @@ def test_fill_intent_creates_child_operation_type_fill() -> None:
     assert child["locator"] == 'get_by_placeholder("Email address")'
 
 
+def test_click_plan_child_uses_human_label_when_locator_target_is_technical() -> None:
+    loop = _make_loop()
+    step = _make_source_step(
+        "Click this button",
+        {"text": "Get started", "attributes": {"data-testid": "get-started"}},
+    )
+
+    children = loop._build_planned_children(
+        step,
+        {
+            "element_name": "Get started",
+            "target": 'get_by_test_id("get-started")',
+            "locator": 'get_by_test_id("get-started")',
+        },
+    )
+
+    assert len(children) == 1
+    assert children[0]["type"] == "click"
+    assert children[0]["target"] == "Get started"
+    assert children[0]["description"] == "Get started"
+
+
 def test_validate_and_click_intent_creates_assert_then_click_children() -> None:
     loop = _make_loop()
     step = _make_source_step(
