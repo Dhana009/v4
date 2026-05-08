@@ -85,6 +85,35 @@ Minimum fields:
 - Report separates system/skill/tool/history/DOM token categories where possible.
 - Existing 5 E2E tests still pass.
 
+## Key implementation constraint
+
+`ModelCallTelemetry` in `runtime/telemetry.py` does not currently carry:
+
+- system_prompt_tokens
+- skill_tokens
+- tool_schema_tokens
+- message_history_tokens
+- dom_or_tool_result_tokens
+
+It has `skill_count` and `estimated_message_tokens`, but no category breakdown.
+
+INT-OBS-001 must extend `ModelCallTelemetry` and wire `SkillManager.analyze()` results, especially `estimated_total_skill_tokens`, into the telemetry record.
+
+This is the core implementation work for this story.
+
+## Report format
+
+Telemetry emission alone is not enough.
+
+The required report format is:
+
+- parse `[LLM_TELEMETRY]` lines from backend stdout
+- produce a structured JSON artifact named `token-report.json`
+- place it in the E2E artifact directory
+- include a concise summary table at E2E run end
+
+A raw `[LLM_TELEMETRY]` line in `backend.stdout.log` is not sufficient by itself.
+
 ## Evidence
 
 To be filled during implementation.

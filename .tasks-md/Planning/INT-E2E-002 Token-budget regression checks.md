@@ -55,6 +55,27 @@ Initial thresholds can be warning-only until stable.
 - Existing 5 E2E tests still pass.
 - Sprint 3 before/after token comparison can be produced.
 
+## Dependency and boundary
+
+INT-E2E-002 depends on INT-OBS-001.
+
+Clear split:
+
+- INT-OBS-001 owns backend telemetry record emission:
+  - data model
+  - fields
+  - `[LLM_TELEMETRY]` emission
+  - per-call telemetry
+
+- INT-E2E-002 owns harness-level aggregation:
+  - read `[LLM_TELEMETRY]` lines from `backend.stdout.log`
+  - produce `token-report.json` per test
+  - add summary table
+  - add warning/budget checks
+  - avoid changing telemetry emission itself
+
+INT-E2E-002 must not duplicate the telemetry data model work from INT-OBS-001.
+
 ## Evidence
 
 To be filled during implementation.

@@ -64,6 +64,26 @@ Rules:
 - Token report shows lower message/history/DOM token contribution.
 - Existing 5 E2E tests still pass.
 
+## Default context budgets
+
+Initial Sprint 3 budget policy:
+
+- Reuse `PROTECTED_HISTORY_TOKEN_THRESHOLD = 6000` from `runtime/history_manager.py` as the default message-history cap.
+- Cap DOM/tool result re-inclusion at 800 tokens per result.
+- Full raw DOM requires explicit L5 escalation.
+- Budget gate must emit:
+
+```
+budget_status = ok | capped | compacted | escalated
+```
+
+Rules:
+
+- `ok`: context is within budget.
+- `capped`: individual tool/DOM result was trimmed.
+- `compacted`: history was summarized/compacted.
+- `escalated`: larger context was explicitly allowed by purpose/policy.
+
 ## Evidence
 
 To be filled during implementation.

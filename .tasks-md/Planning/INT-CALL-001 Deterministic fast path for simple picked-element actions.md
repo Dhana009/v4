@@ -80,6 +80,28 @@ LLM should be used only if:
 - Existing 5 E2E tests still pass.
 - Token report shows reduced call count for simple flows.
 
+## Deterministic confidence definition
+
+A simple picked-element flow qualifies for the deterministic fast path only when all three conditions are true:
+
+1. Locator validates to exactly one visible/compatible element.
+2. Action verb is in the deterministic action set:
+   - click
+   - fill
+   - assert_visible
+   - assert_text
+3. User message has no compound/multi-step pattern.
+
+Compound/multi-step examples that must not use the zero-LLM fast path:
+
+- "click this and validate the next page"
+- "fill this form and submit"
+- "test this whole section"
+- "check everything on this page"
+- "click this, then verify the result"
+
+If any condition fails, use the normal LLM/planning path or ask clarification.
+
 ## Evidence
 
 To be filled during implementation.

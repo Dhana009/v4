@@ -92,6 +92,14 @@ Do not implement in Sprint 3 unless explicitly approved:
 - permission/autonomy mode
 - broad product feature expansion
 
+## Dependency rules
+
+- INT-OBS-001 must complete before INT-E2E-002.
+- INT-OBS-001 should run before optimization work so we can measure baseline.
+- INT-LLM-002 and INT-CTX-001 must prove token reduction using INT-OBS-001 telemetry.
+- INT-CALL-001 must prove call-count reduction using INT-OBS-001 telemetry.
+- Quality gates must run after every optimization story.
+
 ## Sprint 3 principle
 
 Every LLM call must justify itself.

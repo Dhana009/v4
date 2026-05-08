@@ -67,6 +67,21 @@ Expected behavior examples:
 - Existing 5 E2E tests still pass.
 - Telemetry report shows reduced skill token contribution.
 
+## Skill level mapping
+
+Initial Sprint 3 skill-level mapping:
+
+| Level | Skills |
+|---|---|
+| core_compact always | llm_runtime_controller, prompt_persona_skill_loading |
+| skill_summary by purpose | locator_strategy, backend_step_runner, codegen, contract_testing |
+| full_skill on escalation | capability_framework, replay_repair, real_world_fixtures |
+| debug_skill on recovery | observability_trace, memory_human_feedback |
+
+Implementation must not load full skill files by default for every call.
+
+If a skill is not listed here, default it to `skill_summary` only after the implementation justifies the purpose/capability that needs it.
+
 ## Evidence
 
 To be filled during implementation.
