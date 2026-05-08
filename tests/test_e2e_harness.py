@@ -1970,6 +1970,42 @@ def test_failure_artifacts_will_persist_event_evidence_through_close(tmp_path: P
     assert '"observed_event_types": [' in summary
 
 
+def test_session_close_writes_token_report_from_backend_stdout_telemetry(tmp_path: Path) -> None:
+    telemetry_line = (
+        "[LLM_TELEMETRY] call_id=llm_001 purpose=main_orchestrator "
+        "estimated_total_input_tokens=1500 output_tokens=180 "
+        "system_prompt_tokens=200 skill_tokens=300 tool_schema_tokens=900 "
+        "message_history_tokens=50 dom_or_tool_result_tokens=25 "
+        'skills_loaded="core,locator"'
+    )
+    session = _make_failure_session(tmp_path, backend_stdout_text=f"{telemetry_line}\n")
+
+    asyncio.run(session.close())
+
+    report = json.loads((tmp_path / "token-report.json").read_text(encoding="utf-8"))
+    assert report["test_name"] == "failure_artifacts"
+    assert report["call_count"] == 1
+    assert report["total_estimated_input_tokens"] == 1500
+    assert report["largest_call_id"] == "llm_001"
+    assert report["largest_call_tokens"] == 1500
+    assert report["top_token_source"] == "tool_schema"
+    assert report["token_breakdown"]["tool_schema"] == 900
+    assert report["skills_loaded"] == ["core", "locator"]
+
+
+def test_session_close_writes_empty_token_report_when_telemetry_is_missing(tmp_path: Path) -> None:
+    session = _make_failure_session(tmp_path, backend_stdout_text="[PHASE] run started\n")
+
+    asyncio.run(session.close())
+
+    report = json.loads((tmp_path / "token-report.json").read_text(encoding="utf-8"))
+    assert report["test_name"] == "failure_artifacts"
+    assert report["call_count"] == 0
+    assert report["total_estimated_input_tokens"] == 0
+    assert report["largest_call_id"] is None
+    assert report["top_token_source"] == "none"
+
+
 def test_failure_summary_mentions_expected_and_observed_event_types(tmp_path: Path) -> None:
     session = _make_failure_session(tmp_path)
     event_evidence = {

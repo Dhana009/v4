@@ -1,10 +1,11 @@
 # INT-E2E-002B Ensure per-test token-report artifacts
 
-Status: Planning
+Status: Done
 Sprint: Sprint 3
 Type: Story
 Owner: E2E / Evidence
 Priority: P0
+Started: 2026-05-08 19:56 IST
 
 ## Problem
 
@@ -46,7 +47,14 @@ Do not run E2E unless final acceptance.
 
 ## Evidence
 
-To be filled during implementation.
+- `python -m py_compile tests/e2e/harness.py runtime/token_report.py` -> passed
+- `python -m pytest tests/test_e2e_harness.py -q` -> 60 passed
+
+## Implementation summary
+
+- harness close-path coverage now proves `token-report.json` is written from backend stdout telemetry
+- artifact generation remains safe when telemetry is missing or partial
+- per-test token reports include call counts, largest call, top token source, and token breakdown fields including tool schema totals
 
 ## Notes
 
