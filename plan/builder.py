@@ -1,7 +1,23 @@
 from __future__ import annotations
+import json
+import re
+from copy import deepcopy
 from typing import TYPE_CHECKING, Any
 if TYPE_CHECKING:
     from agent import AgentLoop
+
+EXPECTED_OUTCOME_TYPES: set[str] = {
+    "navigation",
+    "modal",
+    "dropdown",
+    "new_tab",
+    "toast_or_message",
+    "content_change",
+    "download",
+    "file_picker",
+    "no_visible_change",
+    "not_sure",
+}
 
 
 class PlanBuilder:

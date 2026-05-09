@@ -4,6 +4,7 @@ import asyncio
 from typing import TYPE_CHECKING, Any
 
 from starlette.websockets import WebSocketDisconnect
+from runtime.event_contracts import build_run_completed_payload
 
 if TYPE_CHECKING:
     from agent import AgentLoop
@@ -66,14 +67,14 @@ class EventEmitter:
     error_summary: str,
     ) -> None:
         context = self._loop._get_step_context(step) if not isinstance(step, dict) else step
-        step_id = str((context or {}).get("step_id") or getattr(self, "active_failed_step_id", "") or "").strip()
+        step_id = str((context or {}).get("step_id") or getattr(self._loop, "active_failed_step_id", "") or "").strip()
         if not step_id:
             step_id = "unknown"
 
         operation_id = str(
             (context or {}).get("operation_id")
             or (context or {}).get("current_operation_id")
-            or (self.last_successful_action or {}).get("operation_id")
+            or (getattr(self._loop, "last_successful_action", None) or {}).get("operation_id")
             or ""
         ).strip() or None
         current_url = self._loop._current_browser_url() or "unknown"
@@ -108,7 +109,7 @@ class EventEmitter:
     source_payload: dict[str, Any],
     recorded_payload: dict[str, Any],
     ) -> None:
-        if not self._loop._run_completion_requested or getattr(self, "_run_completed_emitted", False):
+        if not self._loop._run_completion_requested or getattr(self._loop, "_run_completed_emitted", False):
             return
 
         run_id = str(
@@ -127,8 +128,8 @@ class EventEmitter:
             1 for step in self._loop._recording_steps if str(step.get("status") or "").strip() == "skipped"
         )
         summary = str(
-            getattr(self, "last_plan_summary", None)
-            or getattr(getattr(self, "last_plan_ready_payload", None), "get", lambda *_: "")("summary")
+            getattr(self._loop, "last_plan_summary", None)
+            or getattr(getattr(self._loop, "last_plan_ready_payload", None), "get", lambda *_: "")("summary")
             or "Run completed"
         ).strip() or "Run completed"
         run_completed_payload = build_run_completed_payload(

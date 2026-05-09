@@ -1,5 +1,7 @@
 from __future__ import annotations
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, Any
+from runtime.snapshot_archive import build_spec_snapshot
 if TYPE_CHECKING:
     from agent import AgentLoop
 
