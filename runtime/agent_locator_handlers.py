@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Focused DOM and locator handler seam extracted from AgentLoop tool methods."""
+
 from typing import Any, Callable
 
 from runtime.dom_locator_contract import rank_locator_candidates, scope_candidates, validate_locator_candidate

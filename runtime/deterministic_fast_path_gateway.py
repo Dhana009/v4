@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Awaitable, Callable
+from typing import Any, Callable
 
 from runtime.deterministic_fast_path import build_deterministic_plan, classify_fast_path
 
@@ -11,10 +11,10 @@ async def attempt_deterministic_fast_path(
     *,
     get_page: Callable[[], Any],
 ) -> bool:
-    """Run the deterministic fast-path gateway without changing execution semantics.
+    """Apply deterministic fast-path qualification and confirmation routing only.
 
-    This extracts only the qualification, deterministic plan construction, and
-    confirmation/correction routing seam. Confirmed execution remains on AgentLoop.
+    Confirmed execution remains on AgentLoop; this module owns only the gateway
+    decision, deterministic plan proposal, and correction fallback wiring.
     """
     if len(steps) != 1:
         print("[FAST_PATH] skip: multi-step run")
