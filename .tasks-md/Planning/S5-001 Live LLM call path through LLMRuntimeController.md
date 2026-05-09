@@ -9,24 +9,33 @@ Source docs: PRD v2.3 02_LLM_RUNTIME.md, runtime/llm_runtime_controller.py, agen
 
 ## Problem / Goal
 
-**Problem:** The live LLM call in agent.py bypasses LLMRuntimeController.call(). Purpose-specific policies (tool filtering, skill scoping, context compaction, token budgets, model routing, telemetry) exist but are never applied to actual model calls.
+**Problem:** The live LLM call in agent.py bypasses LLMRuntimeController.call() for the main planning loop. Purpose-specific policies (tool filtering, skill scoping, context compaction, token budgets, model routing, telemetry) exist but are never applied to actual planning calls.
 
-**Goal:** Wire planning LLM calls (step_plan_normalizer purpose) through LLMRuntimeController so policies are enforced at call time.
+**Goal:** Wire step_plan_normalizer planning calls through LLMRuntimeController so policies are enforced at call time.
+
+**Architecture note (from SPRINT-005-ARCH-DESIGN):**
+- plan_diff_editor is ALREADY wired through `_plan_diff_editor_controller.call()` — this is the reference implementation.
+- S5-001 scope is step_plan_normalizer ONLY — not all 14 purposes.
+- Use a shared `_llm_purpose_controller` pattern (not one controller per purpose) to avoid proliferation.
+- Cluster 1 (S5-012 + S5-007) must be complete and green before S5-001 starts.
+- S5-001 is Cluster 2.
 
 ## Scope
 
-- Route planning phase calls through LLMRuntimeController.call(purpose="step_plan_normalizer")
-- Preserve current planning behavior and output
-- Use fake model tests for verification (no paid LLM)
-- Focus on planning purpose first; other purposes in future stories
-- Ensure LLMPolicyGateway decision flows to controller invocation
+- Wire step_plan_normalizer planning calls through a shared `_llm_purpose_controller.call(purpose="step_plan_normalizer")`
+- Follow the `_plan_diff_editor_controller` pattern already in agent.py as reference
+- Preserve current planning behavior and output schema
+- Use FakeLLMClient from tests/fake_llm_factory.py for verification (no paid LLM)
+- Telemetry must include purpose, skills_loaded, model_class, context_bucket from S5-007 fields
+- recovery_diagnoser may be wired in the same story if low risk, but step_plan_normalizer is the acceptance gate
 
 Out of scope:
-- Refactor agent.py broadly — only add wiring seams
-- Implement all 14 purposes in one story
+- Wiring all 14 purposes — step_plan_normalizer only
+- Broad agent.py refactor — wiring seam only
 - Multi-model cheap/main routing (S5-008)
 - Prompt pack implementation (S5-002)
-- Context compaction (S5-005)
+- Context compaction changes (S5-005)
+- plan_diff_editor (already wired — reference only)
 
 ## Required unit tests
 

@@ -39,26 +39,52 @@ Sprint 5 wires purpose-specific LLM policies into the live call path, implements
 | S5-014 | Prompt/cache-friendly stable prefix strategy | 5 | Planning | — | S5-002 |
 | S5-015 | Sprint 5 regression guardrails | 5 | Planning | — | S5-001, S5-002, S5-003, S5-004 |
 
-## Recommended first 3 stories
+## Execution order (revised per SPRINT-005-ARCH-DESIGN)
 
-**Critical path:**
+**Original S5-001-first order was wrong. Architecture design report (2026-05-10) revised to:**
 
-1. **S5-001** (Live LLM call path through LLMRuntimeController)
-   - Unblocks everything
-   - Implement wiring only, no behavior changes
-   - Fake-model tests only (no paid LLM)
+### Cluster 1 — Test + Measurement Foundation (DONE ✓)
 
-2. **S5-002** (Purpose-specific prompt pack builder)
-   - Builds on S5-001 wiring
-   - Prove system prompt reduction (3496 → 3000 tokens)
-   - Direct impact on token cost
+1. **S5-012** ✓ Fake-model integration suite
+   - FakeLLMClient with schema-valid stubs for planning/correction/recovery
+   - 18 tests, all passing
 
-3. **S5-003** (Skill summary/full-skill escalation policy)
-   - Independent of S5-001/002
-   - Can run in parallel with S5-002
-   - Prove skill loading policy (3398 → ~1500 tokens)
+2. **S5-007** ✓ Token report attribution upgrade
+   - 8 new telemetry fields: prompt_pack_id, skills_loaded, skill_levels, model_class, context_bucket, cached_tokens, prefix_hash, prompt_pack_version
+   - 4 new token report fields: prompt_pack_ids, model_classes, context_buckets, total_cached_tokens
+   - 19 new tests across telemetry_breakdown + token_report
 
-**Why:** S5-001 is critical path. S5-002 and S5-003 together target the dominant token buckets (system + skill = 6894 tokens). Once these three are done, the sprint has proven the core cost reduction hypothesis.
+### Cluster 2 — Core Wiring (next)
+
+3. **S5-001** (step_plan_normalizer controller wiring)
+   - Wire step_plan_normalizer through shared `_llm_purpose_controller`
+   - Follow `_plan_diff_editor_controller` pattern as reference
+   - Use FakeLLMClient (S5-012) for verification
+   - Measure via S5-007 attribution fields
+
+4. **S5-003** (Skill escalation) — independent, can start after S5-001
+5. **S5-004** (Tool schema filtering) — independent, highest ROI
+
+### Cluster 3 — Optimization
+
+6. **S5-002** Prompt pack builder (after wiring + measurement)
+7. **S5-005** Delta context for correction
+8. **S5-006** Recovery-specific context
+
+### Cluster 4 — Multi-model and Page Intelligence
+
+9. **S5-008** ModelRouter routing contract
+10. **S5-011** DOM fixture pages
+11. **S5-009** Page Intelligence contract
+12. **S5-010** Page Intelligence fake-model integration
+
+### Cluster 5 — Acceptance and Guardrails
+
+13. **S5-014** Stable prefix strategy
+14. **S5-015** Regression guardrails
+15. **S5-013** Controlled paid E2E (last, pre-approved)
+
+**Why this order:** Measure first (S5-007), test harness first (S5-012), then wire (S5-001), then optimize. Without measurement, you cannot prove reduction worked. Without fake-model, development depends on paid LLM.
 
 ## Sprint rules
 

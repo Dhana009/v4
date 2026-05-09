@@ -166,3 +166,105 @@ def test_write_token_report_valid_json(tmp_path: Path):
     path = write_token_report(tmp_path, report)
     parsed = json.loads(path.read_text())
     assert isinstance(parsed, dict)
+
+
+# ---------------------------------------------------------------------------
+# S5-007: new attribution fields in token report
+# ---------------------------------------------------------------------------
+
+_S5_LINE_WITH_ATTRIBUTION = (
+    "[LLM_TELEMETRY] timestamp=2026-05-10T00:00:00.000Z call_id=llm_s5_001 "
+    "purpose=step_plan_normalizer model=gpt-4o-mini message_count=3 "
+    "estimated_message_tokens=800 estimated_tools_tokens=120 "
+    "estimated_total_input_tokens=920 skill_count=2 tool_count=3 "
+    "success=true system_prompt_tokens=350 skill_tokens=280 "
+    "tool_schema_tokens=120 message_history_tokens=170 "
+    "dom_or_tool_result_tokens=0 output_tokens=45 latency_ms=800 "
+    "prompt_pack_id=planning_pack_v1 model_class=main context_bucket=planning "
+    "cached_tokens=40 skills_loaded=llm_runtime_controller,prompt_persona_skill_loading"
+)
+
+
+def test_token_report_includes_prompt_pack_ids():
+    records = parse_telemetry_lines(_S5_LINE_WITH_ATTRIBUTION)
+    report = build_token_report(records, test_name="s5_attribution")
+    assert "prompt_pack_ids" in report
+    assert "planning_pack_v1" in report["prompt_pack_ids"]
+
+
+def test_token_report_includes_model_classes():
+    records = parse_telemetry_lines(_S5_LINE_WITH_ATTRIBUTION)
+    report = build_token_report(records, test_name="s5_attribution")
+    assert "model_classes" in report
+    assert "main" in report["model_classes"]
+
+
+def test_token_report_includes_context_buckets():
+    records = parse_telemetry_lines(_S5_LINE_WITH_ATTRIBUTION)
+    report = build_token_report(records, test_name="s5_attribution")
+    assert "context_buckets" in report
+    assert "planning" in report["context_buckets"]
+
+
+def test_token_report_includes_total_cached_tokens():
+    records = parse_telemetry_lines(_S5_LINE_WITH_ATTRIBUTION)
+    report = build_token_report(records, test_name="s5_attribution")
+    assert "total_cached_tokens" in report
+    assert report["total_cached_tokens"] == 40
+
+
+def test_token_report_cached_tokens_aggregates_across_calls():
+    line1 = _S5_LINE_WITH_ATTRIBUTION  # cached_tokens=40
+    line2 = _S5_LINE_WITH_ATTRIBUTION.replace("llm_s5_001", "llm_s5_002").replace("cached_tokens=40", "cached_tokens=60")
+    records = parse_telemetry_lines(f"{line1}\n{line2}")
+    report = build_token_report(records, test_name="cache_aggregate")
+    assert report["total_cached_tokens"] == 100
+
+
+def test_token_report_empty_attribution_fields_when_missing():
+    # Old-style line without S5-007 fields
+    records = parse_telemetry_lines(_SAMPLE_LINE)
+    report = build_token_report(records, test_name="old_style")
+    assert report["prompt_pack_ids"] == []
+    assert report["model_classes"] == []
+    assert report["context_buckets"] == []
+    assert report["total_cached_tokens"] == 0
+
+
+def test_token_report_skills_loaded_from_s5_line():
+    records = parse_telemetry_lines(_S5_LINE_WITH_ATTRIBUTION)
+    report = build_token_report(records, test_name="skills")
+    assert "llm_runtime_controller" in report["skills_loaded"]
+    assert "prompt_persona_skill_loading" in report["skills_loaded"]
+
+
+def test_old_token_report_fields_still_present():
+    records = parse_telemetry_lines(_S5_LINE_WITH_ATTRIBUTION)
+    report = build_token_report(records, test_name="backward_compat")
+    # All original fields must still be present
+    assert "call_count" in report
+    assert "total_estimated_input_tokens" in report
+    assert "total_output_tokens" in report
+    assert "top_token_source" in report
+    assert "token_breakdown" in report
+    assert "skills_loaded" in report
+    assert "purposes" in report
+    assert "warnings" in report
+    assert "records" in report
+
+
+def test_token_report_deduplicates_prompt_pack_ids():
+    line1 = _S5_LINE_WITH_ATTRIBUTION
+    line2 = _S5_LINE_WITH_ATTRIBUTION.replace("llm_s5_001", "llm_s5_002")
+    records = parse_telemetry_lines(f"{line1}\n{line2}")
+    report = build_token_report(records, test_name="dedup")
+    # Same pack id on both lines → should appear once
+    assert report["prompt_pack_ids"].count("planning_pack_v1") == 1
+
+
+def test_empty_report_has_attribution_fields():
+    report = build_token_report([], test_name="empty_s5")
+    assert report["prompt_pack_ids"] == []
+    assert report["model_classes"] == []
+    assert report["context_buckets"] == []
+    assert report["total_cached_tokens"] == 0

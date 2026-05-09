@@ -144,6 +144,15 @@ class ModelCallTelemetry:
     tool_schema_tokens: int | None = None
     message_history_tokens: int | None = None
     dom_or_tool_result_tokens: int | None = None
+    # S5-007: purpose-specific attribution fields
+    prompt_pack_id: str | None = None
+    prompt_pack_version: int | None = None
+    skills_loaded: list[str] | None = None
+    skill_levels: list[str] | None = None
+    model_class: str | None = None
+    context_bucket: str | None = None
+    cached_tokens: int | None = None
+    prefix_hash: str | None = None
 
 
 def _count_dom_tool_result_tokens(messages: list[dict]) -> int:
@@ -193,6 +202,15 @@ def record_model_call_start(
     tools: list[dict] | None,
     skill_count: int = 0,
     skill_tokens: int | None = None,
+    # S5-007 attribution fields — all optional, backward-compatible
+    prompt_pack_id: str | None = None,
+    prompt_pack_version: int | None = None,
+    skills_loaded: list[str] | None = None,
+    skill_levels: list[str] | None = None,
+    model_class: str | None = None,
+    context_bucket: str | None = None,
+    cached_tokens: int | None = None,
+    prefix_hash: str | None = None,
 ) -> ModelCallTelemetry:
     message_count = len(messages or [])
     tool_count = len(tools or [])
@@ -219,6 +237,14 @@ def record_model_call_start(
         tool_schema_tokens=tool_schema_tokens,
         message_history_tokens=message_history_tokens,
         dom_or_tool_result_tokens=dom_or_tool_result_tokens,
+        prompt_pack_id=str(prompt_pack_id) if prompt_pack_id is not None else None,
+        prompt_pack_version=int(prompt_pack_version) if prompt_pack_version is not None else None,
+        skills_loaded=list(skills_loaded) if skills_loaded is not None else None,
+        skill_levels=list(skill_levels) if skill_levels is not None else None,
+        model_class=str(model_class) if model_class is not None else None,
+        context_bucket=str(context_bucket) if context_bucket is not None else None,
+        cached_tokens=int(cached_tokens) if cached_tokens is not None else None,
+        prefix_hash=str(prefix_hash) if prefix_hash is not None else None,
     )
 
 
@@ -248,6 +274,22 @@ def _format_telemetry_line(record: ModelCallTelemetry) -> str:
         parts.append(f"message_history_tokens={record.message_history_tokens}")
     if record.dom_or_tool_result_tokens is not None:
         parts.append(f"dom_or_tool_result_tokens={record.dom_or_tool_result_tokens}")
+    if record.cached_tokens is not None:
+        parts.append(f"cached_tokens={record.cached_tokens}")
+    if record.prompt_pack_id is not None:
+        parts.append(f"prompt_pack_id={record.prompt_pack_id}")
+    if record.prompt_pack_version is not None:
+        parts.append(f"prompt_pack_version={record.prompt_pack_version}")
+    if record.model_class is not None:
+        parts.append(f"model_class={record.model_class}")
+    if record.context_bucket is not None:
+        parts.append(f"context_bucket={record.context_bucket}")
+    if record.skills_loaded is not None:
+        parts.append(f"skills_loaded={','.join(record.skills_loaded)}")
+    if record.skill_levels is not None:
+        parts.append(f"skill_levels={','.join(record.skill_levels)}")
+    if record.prefix_hash is not None:
+        parts.append(f"prefix_hash={record.prefix_hash}")
     if record.output_tokens is not None:
         parts.append(f"output_tokens={record.output_tokens}")
     if record.total_tokens is not None:
@@ -278,6 +320,15 @@ def record_model_call_end(
         record.total_tokens = _usage_value(response_usage, "total_tokens")
         record.error_type = error_type if not success else None
         record.error_message = _sanitize_error_message(error_message) if (not success and error_message) else None
+        # S5-007: extract cached_tokens from OpenAI usage.prompt_tokens_details.cached_tokens if present
+        if record.cached_tokens is None and response_usage is not None:
+            details = getattr(response_usage, "prompt_tokens_details", None)
+            if details is None and isinstance(response_usage, dict):
+                details = response_usage.get("prompt_tokens_details")
+            if details is not None:
+                cached = _usage_value(details, "cached_tokens")
+                if cached is not None:
+                    record.cached_tokens = cached
         print(_format_telemetry_line(record))
     except Exception:  # noqa: BLE001
         pass

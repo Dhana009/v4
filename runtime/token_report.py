@@ -67,6 +67,11 @@ def build_token_report(
             "top_token_source": "none",
             "skills_loaded": [],
             "purposes": [],
+            # S5-007 attribution fields
+            "prompt_pack_ids": [],
+            "model_classes": [],
+            "context_buckets": [],
+            "total_cached_tokens": 0,
             "warnings": [],
             "records": [],
         }
@@ -99,6 +104,24 @@ def build_token_report(
                 if s and s not in skills_loaded:
                     skills_loaded.append(s)
 
+    # S5-007: aggregate attribution fields
+    prompt_pack_ids: list[str] = list({
+        str(r["prompt_pack_id"])
+        for r in records
+        if r.get("prompt_pack_id") is not None
+    })
+    model_classes: list[str] = list({
+        str(r["model_class"])
+        for r in records
+        if r.get("model_class") is not None
+    })
+    context_buckets: list[str] = list({
+        str(r["context_bucket"])
+        for r in records
+        if r.get("context_bucket") is not None
+    })
+    total_cached_tokens = sum(int(r.get("cached_tokens") or 0) for r in records)
+
     warnings: list[str] = []
     if call_count > WARN_CALLS_PER_TEST:
         warnings.append(f"call_count={call_count} exceeds warning threshold {WARN_CALLS_PER_TEST}")
@@ -116,6 +139,11 @@ def build_token_report(
         "token_breakdown": source_map,
         "skills_loaded": skills_loaded,
         "purposes": purposes,
+        # S5-007 attribution fields
+        "prompt_pack_ids": prompt_pack_ids,
+        "model_classes": model_classes,
+        "context_buckets": context_buckets,
+        "total_cached_tokens": total_cached_tokens,
         "warnings": warnings,
         "records": records,
     }
