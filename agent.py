@@ -29,7 +29,7 @@ from runtime.llm_runtime_controller import LLMRuntimeController, PURPOSE_REGISTR
 from runtime.model_router import ModelRouter
 from runtime.recovery_manager import classify_failure
 from runtime.phase_tracker import PhaseTracker
-from runtime.spec_snapshot import build_spec_snapshot
+from runtime.snapshot_archive import build_spec_snapshot
 from runtime.tool_registry import ToolRegistry, filter_tools_for_phase
 from runtime.skill_manager import SkillManager
 from runtime.telemetry import record_model_call_end, record_model_call_start
