@@ -976,6 +976,63 @@ def test_canonicalize_assertion_operation_prefers_exact_text_for_generic_main_lo
     assert child["locator"] == 'get_by_text("Playwright Test Agents", exact=True)'
 
 
+def test_canonicalize_visible_assertion_prefers_locator_hint_over_broad_source_text() -> None:
+    loop = _make_loop()
+    specific_target = "Playwright Test Agents"
+    broad_page_text = "PLAYWRIGHT GUIDE / LOCAL DOCS Playwright Test Agents docs landing page"
+    step_context = _make_step_context()
+    step_context["intent"] = f"Assert {specific_target} is visible"
+    step_context["element_name"] = broad_page_text
+    step_context["element_info"] = {
+        "text": broad_page_text,
+        "attributes": {"aria-label": broad_page_text},
+    }
+
+    child = loop._canonicalize_assertion_operation(
+        {
+            "type": "assert",
+            "target": broad_page_text,
+            "locator": f'get_by_text("{specific_target}", exact=True)',
+            "assertion": "visible",
+        },
+        source_step=step_context,
+    )
+
+    assert child["assertion"] == "visible"
+    assert child["target"] == specific_target
+    assert child["description"] == f"{specific_target} is visible"
+    assert child["locator"] == f'get_by_text("{specific_target}", exact=True)'
+
+
+def test_canonicalize_visible_assertion_prefers_source_locator_over_broad_child_locator() -> None:
+    loop = _make_loop()
+    specific_target = "Playwright Test Agents"
+    broad_page_text = "PLAYWRIGHT GUIDE / LOCAL DOCS Playwright Test Agents docs landing page"
+    step_context = _make_step_context()
+    step_context["intent"] = f"Assert {specific_target} is visible"
+    step_context["element_name"] = broad_page_text
+    step_context["element_info"] = {
+        "text": broad_page_text,
+        "attributes": {"aria-label": broad_page_text},
+    }
+    step_context["locator"] = f'get_by_text("{specific_target}", exact=True)'
+
+    child = loop._canonicalize_assertion_operation(
+        {
+            "type": "assert",
+            "target": broad_page_text,
+            "locator": f'get_by_text("{broad_page_text}", exact=True)',
+            "assertion": "visible",
+        },
+        source_step=step_context,
+    )
+
+    assert child["assertion"] == "visible"
+    assert child["target"] == specific_target
+    assert child["description"] == f"{specific_target} is visible"
+    assert child["locator"] == f'get_by_text("{specific_target}", exact=True)'
+
+
 def test_confirmed_visible_assertion_keeps_specific_target_and_emits_code_update_when_source_text_is_broader() -> None:
     loop = _make_loop()
     specific_target = "Playwright Test Agents"
