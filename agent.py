@@ -33,7 +33,7 @@ from runtime.spec_snapshot import build_spec_snapshot
 from runtime.tool_registry import ToolRegistry, filter_tools_for_phase
 from runtime.skill_manager import SkillManager
 from runtime.telemetry import record_model_call_end, record_model_call_start
-from runtime.deterministic_fast_path import classify_fast_path, build_deterministic_plan
+from runtime.deterministic_fast_path_gateway import attempt_deterministic_fast_path
 from runtime.page_intelligence import build_page_intelligence_packet
 
 
@@ -2290,90 +2290,8 @@ class AgentLoop:
         return skill_path.read_text(encoding="utf-8")
 
     async def _try_deterministic_fast_path(self, steps: list[dict]) -> bool:
-        """Attempt zero-LLM plan for single-step simple picked-element flows.
-
-        Returns True if fast path handled the run (confirmed or failed safely).
-        Returns False to fall through to the normal LLM loop.
-        Confirmation gate is always preserved — no browser action without user approval.
-        """
-        if len(steps) != 1:
-            print("[FAST_PATH] skip: multi-step run")
-            return False
-
-        step = steps[0]
-        intent = self._normalize_space(str(step.get("intent") or "")).strip()
-        step_id = str(step.get("id") or step.get("stepId") or "").strip() or None
-
-        # Derive best locator from step element_info
-        locator = self._normalize_space(str(step.get("locator") or "")).strip()
-        if not locator:
-            locator = self._derive_locator_from_step_context(step)
-        if not locator:
-            print("[FAST_PATH] skip: no locator derivable from step")
-            return False
-
-        # Validate locator live against the page
-        locator_count = 0
-        locator_validated = False
-        try:
-            page = get_page()
-            locator_count = await self._resolve_locator(page, locator).count()
-            locator_validated = locator_count == 1
-        except Exception as exc:  # noqa: BLE001
-            print(f"[FAST_PATH] skip: locator validation error: {exc}")
-            return False
-
-        qualifies, reason = classify_fast_path(
-            user_message=intent,
-            locator_validated=locator_validated,
-            locator_count=locator_count,
-        )
-        if not qualifies:
-            print(f"[FAST_PATH] skip: {reason}")
-            return False
-
-        action_verb = reason.split(":")[-1] if ":" in reason else reason
-        fill_value = str(step.get("fill_value") or step.get("value") or "").strip() or None
-        expected_text = str(step.get("expected_text") or step.get("expectedText") or "").strip() or None
-        selected_element_info = self._resolve_selected_element_info(step.get("element_info") or {})
-        target_label = self._best_fast_path_target_label(step, action_verb) or None
-        if not expected_text and action_verb == "assert_text":
-            expected_text = self._selected_element_text(selected_element_info) or None
-        if target_label and self._should_replace_fast_path_locator_with_text(action_verb, locator):
-            locator = f'get_by_text("{self._tool_string_escape(target_label)}", exact=True)'
-
-        plan_payload = build_deterministic_plan(
-            user_message=intent,
-            locator=locator,
-            action_verb=action_verb,
-            step_id=step_id,
-            target_label=target_label,
-            fill_value=fill_value,
-            expected_text=expected_text,
-        )
-        print(f"[FAST_PATH] qualified: {reason}, locator={locator}")
-
-        # Always go through confirmation gate — no browser action without approval
-        confirmation = await self._send_plan_ready_after_confirmation(plan_payload)
-        if confirmation.get("confirmed"):
-            print("[FAST_PATH] confirmed; executing through confirmed execution contract")
-            self.last_plan_ready_payload = plan_payload
-            await self._execute_deterministic_fast_path_confirmed_plan()
-            return True
-
-        # User requested a correction — fall through to full LLM loop with correction context
-        correction = str(confirmation.get("correction") or "").strip()
-        print(f"[FAST_PATH] correction requested, falling through to LLM loop: {correction!r}")
-        if correction:
-            self._append_plan_correction_message(
-                correction,
-                plan_id=str(confirmation.get("plan_id") or plan_payload.get("plan_id") or "").strip() or None,
-                target_step_id=str(
-                    confirmation.get("target_step_id") or plan_payload.get("target_step_id") or step_id or ""
-                ).strip()
-                or None,
-            )
-        return False
+        """Attempt zero-LLM planning through the extracted deterministic gateway."""
+        return await attempt_deterministic_fast_path(self, steps, get_page=get_page)
 
     def _build_confirmed_execution_tool_call(
         self,
