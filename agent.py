@@ -34,6 +34,7 @@ from runtime.tool_registry import ToolRegistry, filter_tools_for_phase
 from runtime.skill_manager import SkillManager
 from runtime.telemetry import record_model_call_end, record_model_call_start
 from runtime.deterministic_fast_path_gateway import attempt_deterministic_fast_path
+from event.emitter import EventEmitter
 
 
 SKILL_KEYWORDS: list[tuple[str, tuple[str, ...]]] = [
@@ -95,6 +96,7 @@ class AgentLoop:
 
     def __init__(self, ws: Any, control_queue: Any) -> None:
         self.ws = ws
+        self._emitter = EventEmitter(ws, self)
         self.control_queue = control_queue
         self.skills_root = Path("/Users/apple/personal/agent v4/skills/playwright-automation")
         self.llm = LLMClient()
