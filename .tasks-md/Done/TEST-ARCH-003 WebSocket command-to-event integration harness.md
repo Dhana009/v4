@@ -1,10 +1,11 @@
 # TEST-ARCH-003 WebSocket command-to-event integration harness
 
-Status: Planning
+Status: Done
 Sprint: Sprint 3.5
 Type: Integration Test
 Owner: Backend Integration
 Priority: P0
+Started: 2026-05-09
 
 ## Problem
 
@@ -54,3 +55,29 @@ Use fake/stub AgentLoop and fake browser/page objects where needed.
 
 Run focused integration tests only.
 No tests/e2e.
+
+## Evidence
+
+- tests added:
+  - `tests/test_websocket_command_event_integration.py`
+- commands run:
+  - `python -m py_compile server.py runtime/event_contracts.py tests/test_websocket_command_event_integration.py`
+  - `python -m pytest tests/test_websocket_command_event_integration.py -q`
+  - `python -m pytest tests/test_command_contract.py tests/test_process_boundary_contract.py tests/test_late_event_contract.py -q`
+- results:
+  - compile passed
+  - websocket integration harness: `5 passed`
+  - focused regression suites: `23 passed`
+- command/rejection paths covered:
+  - malformed canonical command -> `runtime_rejected`
+  - unknown command -> `runtime_rejected`
+  - stale `run_id` command -> `runtime_rejected`
+  - completed-run correction command -> backend rejection via confirmation consumer
+  - valid canonical correction preserves command correlation before queue forwarding
+
+## Implementation summary
+
+- cheap backend websocket harness added
+- no paid E2E used
+- no real browser or LLM used
+- no product behavior changed
