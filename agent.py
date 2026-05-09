@@ -490,138 +490,32 @@ class AgentLoop:
         return record
 
     def _append_recorded_step_payload(self, payload: dict[str, Any]) -> None:
-        recorded_step_payloads = getattr(self, "recorded_step_payloads", None)
-        if not isinstance(recorded_step_payloads, list):
-            recorded_step_payloads = []
-            self.recorded_step_payloads = recorded_step_payloads
-        recorded_step_payloads.append(deepcopy(payload))
+        return self._replay.append_recorded_step_payload(payload)
 
     def _append_code_update_payload(self, payload: dict[str, Any]) -> None:
-        code_update_payloads = getattr(self, "code_update_payloads", None)
-        if not isinstance(code_update_payloads, list):
-            code_update_payloads = []
-            self.code_update_payloads = code_update_payloads
-        code_update_payloads.append(deepcopy(payload))
+        return self._replay.append_code_update_payload(payload)
 
     def _get_replay_recorded_step_payload(self, step_id: str) -> dict[str, Any] | None:
-        replay_step_id = str(step_id or "").strip()
-        if not replay_step_id:
-            return None
-
-        recorded_step_payloads = getattr(self, "recorded_step_payloads", None)
-        if isinstance(recorded_step_payloads, list):
-            for payload in recorded_step_payloads:
-                if not isinstance(payload, dict):
-                    continue
-                candidate_step_id = str(
-                    payload.get("step_id")
-                    or payload.get("stepId")
-                    or payload.get("id")
-                    or ""
-                ).strip()
-                if candidate_step_id == replay_step_id:
-                    return deepcopy(payload)
-
-        replay_recorded_step_payloads_by_step_id = getattr(
-            self,
-            "replay_recorded_step_payloads_by_step_id",
-            None,
-        )
-        if isinstance(replay_recorded_step_payloads_by_step_id, dict):
-            archived_payload = replay_recorded_step_payloads_by_step_id.get(replay_step_id)
-            if isinstance(archived_payload, dict):
-                return deepcopy(archived_payload)
-
-        return None
+        return self._replay.get_replay_recorded_step_payload(step_id)
 
     def _get_replay_action_history(self, step_id: str) -> list[dict[str, Any]]:
-        replay_step_id = str(step_id or "").strip()
-        if not replay_step_id:
-            return []
-
-        history_by_step_id = getattr(self, "successful_actions_by_step_id", None)
-        if isinstance(history_by_step_id, dict):
-            action_history = history_by_step_id.get(replay_step_id)
-            if isinstance(action_history, list):
-                return deepcopy(action_history)
-
-        replay_action_history_by_step_id = getattr(self, "replay_action_history_by_step_id", None)
-        if isinstance(replay_action_history_by_step_id, dict):
-            archived_history = replay_action_history_by_step_id.get(replay_step_id)
-            if isinstance(archived_history, list):
-                return deepcopy(archived_history)
-
-        return []
+        return self._replay.get_replay_action_history(step_id)
 
     def _safe_replay_error_message(self, message: Any) -> str:
-        text = self._normalize_space(str(message or "")).strip()
-        if not text:
-            return "Replay failed"
-        if len(text) > 200:
-            return f"{text[:197]}..."
-        return text
+        return self._replay.safe_replay_error_message(message)
 
     def _get_replay_recorded_start_state(self, recorded_step_payload: dict[str, Any]) -> tuple[str, str]:
-        observed_outcome = recorded_step_payload.get("observed_outcome")
-        if not isinstance(observed_outcome, dict):
-            return "", ""
-
-        before_url = str(observed_outcome.get("before_url") or "").strip()
-        before_title = str(observed_outcome.get("before_title") or "").strip()
-        return before_url, before_title
+        return self._replay.get_replay_recorded_start_state(recorded_step_payload)
 
     def _get_replay_precondition_target_locator(
         self,
         recorded_step_payload: dict[str, Any],
         action_history: list[dict[str, Any]],
     ) -> str:
-        locator = str(recorded_step_payload.get("locator") or "").strip()
-        if locator:
-            return locator
-
-        recorded_children = recorded_step_payload.get("children")
-        if isinstance(recorded_children, list):
-            for child in recorded_children:
-                if not isinstance(child, dict):
-                    continue
-                locator = str(child.get("locator") or "").strip()
-                if locator:
-                    return locator
-
-        for action_record in action_history:
-            if not isinstance(action_record, dict):
-                continue
-            replay_args: dict[str, Any] = {}
-            tool_args = action_record.get("tool_args")
-            if isinstance(tool_args, dict):
-                replay_args.update(tool_args)
-            action_context = action_record.get("action_context")
-            if isinstance(action_context, dict):
-                for key, value in action_context.items():
-                    if key not in replay_args:
-                        replay_args[key] = value
-            locator = str(replay_args.get("locator") or action_record.get("locator") or "").strip()
-            if locator:
-                return locator
-
-        return ""
+        return self._replay.get_replay_precondition_target_locator(recorded_step_payload, action_history)
 
     async def _validate_replay_target_locator(self, locator: str) -> dict[str, Any]:
-        locator_text = str(locator or "").strip()
-        if not locator_text:
-            return {"valid": False, "count": 0}
-
-        try:
-            page = get_page()
-        except Exception:  # noqa: BLE001
-            return {"valid": False, "count": 0}
-
-        try:
-            locator_count = await self._resolve_locator(page, locator_text).count()
-        except Exception:  # noqa: BLE001
-            locator_count = 0
-
-        return {"valid": locator_count > 0, "count": locator_count}
+        return await self._replay.validate_replay_target_locator(locator)
 
     def _log_replay_precondition_failure(
         self,
@@ -631,32 +525,7 @@ class AgentLoop:
         actual_url: str,
         locator: str = "",
     ) -> None:
-        if reason == "url_mismatch":
-            print(
-                "[REPLAY_PRECONDITION] failed "
-                f"step_id={step_id} "
-                "reason=url_mismatch "
-                f"expected_url={expected_url} "
-                f"actual_url={actual_url}"
-            )
-            return
-
-        if reason == "locator_missing":
-            print(
-                "[REPLAY_PRECONDITION] failed "
-                f"step_id={step_id} "
-                "reason=locator_missing "
-                f"locator={locator}"
-            )
-            return
-
-        print(
-            "[REPLAY_PRECONDITION] failed "
-            f"step_id={step_id} "
-            "reason=unknown "
-            f"expected_url={expected_url} "
-            f"actual_url={actual_url}"
-        )
+        return self._replay.log_replay_precondition_failure(step_id, reason, expected_url, actual_url, locator)
 
     def _build_replay_precondition_failure_result(
         self,
@@ -671,25 +540,7 @@ class AgentLoop:
         log_reason: str,
         locator: str = "",
     ) -> dict[str, Any]:
-        safe_message = self._safe_replay_error_message(message)
-        self._log_replay_precondition_failure(step_id, log_reason, before_url, current_url, locator)
-        return {
-            "type": "replay_one_result",
-            "ok": False,
-            "step_id": step_id,
-            "reason": "replay_precondition_failed",
-            "failure_type": failure_type,
-            "expected": {
-                "before_url": before_url,
-                "before_title": before_title,
-            },
-            "actual": {
-                "url": current_url,
-                "title": current_title,
-            },
-            "message": safe_message,
-            "error": safe_message,
-        }
+        return self._replay.build_replay_precondition_failure_result(step_id, before_url, before_title, current_url, current_title, message)
 
     async def _check_replay_precondition(
         self,
@@ -697,105 +548,10 @@ class AgentLoop:
         recorded_step_payload: dict[str, Any],
         action_history: list[dict[str, Any]],
     ) -> dict[str, Any] | None:
-        before_url, before_title = self._get_replay_recorded_start_state(recorded_step_payload)
-        if not before_url:
-            print(f"[REPLAY_PRECONDITION] missing before_url step_id={step_id}")
-            return None
-
-        current_state = await self._capture_browser_state()
-        current_url = str((current_state or {}).get("url") or "").strip()
-        current_title = str((current_state or {}).get("title") or "").strip()
-        if current_state is None:
-            return self._build_replay_precondition_failure_result(
-                step_id,
-                before_url,
-                before_title,
-                current_url,
-                current_title,
-                "Replay blocked",
-                failure_type="unknown",
-                log_reason="unknown",
-            )
-
-        if current_url != before_url:
-            return self._build_replay_precondition_failure_result(
-                step_id,
-                before_url,
-                before_title,
-                current_url,
-                current_title,
-                "Wrong start page",
-                failure_type="wrong_start_page",
-                log_reason="url_mismatch",
-            )
-
-        target_locator = self._get_replay_precondition_target_locator(recorded_step_payload, action_history)
-        if not target_locator:
-            return self._build_replay_precondition_failure_result(
-                step_id,
-                before_url,
-                before_title,
-                current_url,
-                current_title,
-                "Element not found",
-                failure_type="locator_missing",
-                log_reason="locator_missing",
-                locator=target_locator,
-            )
-
-        locator_validation = await self._validate_replay_target_locator(target_locator)
-        if locator_validation.get("valid") is not True:
-            return self._build_replay_precondition_failure_result(
-                step_id,
-                before_url,
-                before_title,
-                current_url,
-                current_title,
-                "Element not found",
-                failure_type="locator_missing",
-                log_reason="locator_missing",
-                locator=target_locator,
-            )
-
-        return None
+        return await self._replay.check_replay_precondition(step_id, recorded_step_payload, action_history)
 
     def _get_replay_archive_step_ids(self) -> list[str]:
-        step_ids: list[str] = []
-        seen_step_ids: set[str] = set()
-
-        recorded_step_payloads = getattr(self, "recorded_step_payloads", None)
-        if isinstance(recorded_step_payloads, list):
-            for payload in recorded_step_payloads:
-                if not isinstance(payload, dict):
-                    continue
-                step_id = str(
-                    payload.get("step_id")
-                    or payload.get("stepId")
-                    or payload.get("id")
-                    or ""
-                ).strip()
-                if not step_id or step_id in seen_step_ids:
-                    continue
-                seen_step_ids.add(step_id)
-                step_ids.append(step_id)
-
-        if step_ids:
-            return step_ids
-
-        replay_recorded_step_payloads_by_step_id = getattr(
-            self,
-            "replay_recorded_step_payloads_by_step_id",
-            None,
-        )
-        if isinstance(replay_recorded_step_payloads_by_step_id, dict):
-            for step_id in replay_recorded_step_payloads_by_step_id.keys():
-                step_id_text = str(step_id or "").strip()
-                if not step_id_text or step_id_text in seen_step_ids:
-                    continue
-                seen_step_ids.add(step_id_text)
-                step_ids.append(step_id_text)
-
-        return step_ids
+        return self._replay.get_replay_archive_step_ids()
 
     async def replay_one(self, step_id: str) -> dict[str, Any]:
         replay_step_id = str(step_id or "").strip()
@@ -1170,174 +926,26 @@ class AgentLoop:
         loaded_skill_names: list[str],
         loaded_skills: Any,
     ) -> list[tuple[str, str]]:
-        if isinstance(loaded_skills, dict):
-            return [
-                (skill_name, str(loaded_skills.get(skill_name) or ""))
-                for skill_name in loaded_skill_names
-                if skill_name in loaded_skills
-            ]
-
-        if isinstance(loaded_skills, (list, tuple)):
-            skill_entries: list[tuple[str, str]] = []
-            for index, item in enumerate(loaded_skills):
-                if isinstance(item, dict):
-                    skill_name = item.get("name") or item.get("skill_name") or item.get("id")
-                    if skill_name is None and index < len(loaded_skill_names):
-                        skill_name = loaded_skill_names[index]
-                    skill_content = item.get("content")
-                    if skill_content is None:
-                        skill_content = item.get("text")
-                    if skill_content is None:
-                        skill_content = item.get("body")
-                    skill_entries.append(
-                        (
-                            str(skill_name or f"skill_{index + 1}").strip() or f"skill_{index + 1}",
-                            str(skill_content or ""),
-                        )
-                    )
-                    continue
-
-                if isinstance(item, (list, tuple)) and len(item) >= 2:
-                    skill_name = str(item[0] or "").strip() or f"skill_{index + 1}"
-                    skill_content = str(item[1] or "")
-                    skill_entries.append((skill_name, skill_content))
-                    continue
-
-                if index < len(loaded_skill_names):
-                    skill_entries.append((loaded_skill_names[index], str(item or "")))
-                    continue
-
-                skill_entries.append((f"skill_{index + 1}", str(item or "")))
-            return skill_entries
-
-        if isinstance(loaded_skills, str):
-            skill_name = loaded_skill_names[0] if loaded_skill_names else "combined_skill_text"
-            return [(skill_name, loaded_skills)]
-
-        fallback_name = loaded_skill_names[0] if loaded_skill_names else "combined_skill_text"
-        return [(fallback_name, str(loaded_skills or ""))]
+        return self._skills_loader.skill_entries_from_loaded_skills(loaded_skill_names, loaded_skills)
 
     def _compose_skill_prompt_from_entries(self) -> str:
         skill_entries = list(getattr(self, "_loaded_skill_entries", []))
         return "\n\n".join(content for _, content in skill_entries)
 
     def _sync_skill_prompt_from_entries(self) -> str:
-        prompt = self._compose_skill_prompt_from_entries()
-        llm = getattr(self, "llm", None)
-        if llm is None:
-            return prompt
-
-        llm.system_prompt = prompt
-        messages = getattr(llm, "messages", None)
-        if isinstance(messages, list) and messages:
-            first_message = messages[0]
-            if isinstance(first_message, dict) and first_message.get("role") == "system":
-                first_message["content"] = prompt
-        return prompt
+        return self._skills_loader.sync_skill_prompt_from_entries()
 
     def _log_skill_load(self, added_skill_names: list[str], phase: str) -> None:
-        added_text = ",".join(added_skill_names) if added_skill_names else "none"
-        total_skill_count = len(getattr(self, "_loaded_skill_names", []))
-        print(
-            "[SKILL_LOAD] "
-            f"added={added_text} "
-            f"total={total_skill_count} "
-            f"phase={phase}"
-        )
+        return self._skills_loader.log_skill_load(added_skill_names, phase)
 
     def _log_skill_diagnostics(self) -> None:
-        skill_manager = getattr(self, "skill_manager", None)
-        analyze = getattr(skill_manager, "analyze", None)
-        if not callable(analyze):
-            return
-
-        loaded_skill_entries = list(getattr(self, "_loaded_skill_entries", []))
-        loaded_skill_names = list(getattr(self, "_loaded_skill_names", []))
-        skill_diagnostics = analyze(
-            loaded_skill_entries,
-            loaded_skill_names=loaded_skill_names,
-        )
-        print(
-            "[SKILL_DIAGNOSTICS] "
-            f"skills={skill_diagnostics.skill_count} "
-            f"names={','.join(skill_diagnostics.loaded_skill_names) or 'none'} "
-            f"estimated_tokens={skill_diagnostics.estimated_total_skill_tokens} "
-            f"largest={skill_diagnostics.largest_skill_name} "
-            f"largest_tokens={skill_diagnostics.largest_skill_tokens} "
-            f"policy={skill_diagnostics.suggested_future_policy}"
-        )
+        return self._skills_loader.log_skill_diagnostics()
 
     def _requires_complex_codegen(self) -> bool:
-        for step in list(getattr(self, "current_steps", [])):
-            if not isinstance(step, dict):
-                continue
-            metadata = step.get("metadata")
-            if not isinstance(metadata, dict):
-                continue
-            if metadata.get("complex_codegen") or metadata.get("requires_codegen") or metadata.get(
-                "codegen_required"
-            ):
-                return True
-            codegen_mode = str(metadata.get("codegen_mode") or "").strip().lower()
-            if codegen_mode == "complex":
-                return True
-        return False
+        return self._skills_loader.requires_complex_codegen()
 
     def _load_phase_skill_expansion(self, phase: str) -> list[str]:
-        normalized_phase = str(phase or "").strip().lower() or "planning"
-        if normalized_phase == "recovering":
-            normalized_phase = "recovery"
-
-        phase_skill_names: list[str] = []
-        pending_recovery = bool(getattr(self, "pending_recovery", False))
-        active_failed_step_id = str(getattr(self, "active_failed_step_id", "") or "").strip()
-        failed_step_context = None
-        if active_failed_step_id:
-            step_state_by_id = getattr(self, "step_state_by_id", {})
-            if isinstance(step_state_by_id, dict):
-                failed_step_context = step_state_by_id.get(active_failed_step_id)
-        if failed_step_context is None:
-            recording_steps = list(getattr(self, "_recording_steps", []))
-            for recording_step in recording_steps:
-                if isinstance(recording_step, dict) and str(recording_step.get("status") or "") in {
-                    "failed",
-                    "recovery_pending",
-                }:
-                    failed_step_context = recording_step
-                    break
-        if normalized_phase == "recovery" or pending_recovery or failed_step_context is not None:
-            phase_skill_names.append("debugging")
-        if self._requires_complex_codegen():
-            phase_skill_names.append("codegen")
-
-        loaded_skill_names = list(getattr(self, "_loaded_skill_names", []))
-        loaded_skill_entries = list(getattr(self, "_loaded_skill_entries", []))
-        loaded_skill_name_set = set(loaded_skill_names)
-        added_skill_names: list[str] = []
-        for skill_name in phase_skill_names:
-            if skill_name in loaded_skill_name_set:
-                continue
-            # Recovery/debug phase expansions use full skills — they need complete details
-            skill_text = self._read_skill(skill_name, compact_mode=False)
-            if skill_text is None:
-                continue
-            loaded_skill_names.append(skill_name)
-            loaded_skill_entries.append((skill_name, skill_text))
-            loaded_skill_name_set.add(skill_name)
-            added_skill_names.append(skill_name)
-
-        previous_phase = getattr(self, "_last_skill_load_phase", None)
-        if added_skill_names or normalized_phase != previous_phase:
-            self._loaded_skill_names = loaded_skill_names
-            self._loaded_skill_entries = loaded_skill_entries
-            self._last_skill_load_phase = normalized_phase
-            if added_skill_names:
-                self._sync_skill_prompt_from_entries()
-            self._log_skill_load(added_skill_names, normalized_phase)
-            if added_skill_names:
-                self._log_skill_diagnostics()
-
-        return added_skill_names
+        return self._skills_loader.load_phase_skill_expansion(phase)
 
     async def run(self, steps: list[dict]) -> None:
         try:
@@ -2109,174 +1717,25 @@ class AgentLoop:
             await self._send("error", message=f"Agent failed: {type(exc).__name__}: {exc}")
 
     def _should_request_user_followup(self, final_text: str, had_tool_failure: bool) -> bool:
-        text = self._normalize_space(final_text).lower()
-        if not text:
-            return had_tool_failure
-
-        request_phrases = (
-            "please advise",
-            "how would you like to proceed",
-            "await your instruction",
-            "please confirm",
-            "which option",
-            "i need your input",
-            "need your input",
-            "i need your guidance",
-            "can you clarify",
-            "what should i do next",
-            "please let me know how you would like to proceed",
-            "please tell me how you would like to proceed",
-            "what would you like me to do",
-            "what would you like to do",
-            "do you want me to",
-            "would you like me to",
-            "should i",
-        )
-        if any(phrase in text for phrase in request_phrases):
-            return True
-
-        blocked_phrases = (
-            "cannot continue",
-            "can't continue",
-            "unable to continue",
-            "unable to proceed",
-            "i am blocked",
-            "blocked",
-            "stuck",
-            "need guidance",
-            "need correction",
-            "need clarification",
-            "need help",
-            "i can't proceed",
-            "i cannot proceed",
-            "i am unable",
-        )
-        if any(phrase in text for phrase in blocked_phrases):
-            return True
-
-        if had_tool_failure and not self._looks_like_completion_message(text):
-            return True
-
-        return False
+        return self._llm_orchestrator.should_request_user_followup(final_text, had_tool_failure)
 
     def _looks_like_completion_message(self, text: str) -> bool:
-        normalized = self._normalize_space(text).lower()
-        if not normalized:
-            return False
-
-        word_patterns = (
-            r"\bdone\b",
-            r"\bfinished\b",
-            r"\bcompleted\b",
-            r"\bsuccessfully\b",
-        )
-        if any(re.search(pattern, normalized) for pattern in word_patterns):
-            return True
-
-        multi_word_phrases = (
-            "task complete",
-            "task is complete",
-            "completed successfully",
-            "all set",
-            "wrapped up",
-            "run is complete",
-            "run complete",
-        )
-        return any(phrase in normalized for phrase in multi_word_phrases)
+        return self._llm_orchestrator.looks_like_completion_message(text)
 
     def _format_user_followup_message(self, answer: str, event_type: str) -> str:
-        answer_text = self._normalize_space(answer)
-        if self._is_correction_followup(answer_text, event_type):
-            details = answer_text or "the user requested a correction"
-            return f"User correction: {details}. Revise the plan and continue safely."
-
-        details = answer_text or "confirmed"
-        return f"User confirmed: {details}. Continue safely from the current browser state."
+        return self._llm_orchestrator.format_user_followup_message(answer, event_type)
 
     def _is_correction_followup(self, answer: str, event_type: str) -> bool:
-        if event_type == "correction":
-            return True
-        if event_type != "option_selected":
-            return False
-
-        normalized = self._normalize_space(answer).lower()
-        correction_markers = (
-            "instead",
-            "first",
-            "then",
-            "before",
-            "after",
-            "revise",
-            "change",
-            "fix",
-            "retry",
-            "go back",
-            "navigate back",
-            "assert",
-            "click",
-            "fill",
-        )
-        return any(marker in normalized for marker in correction_markers)
+        return self._llm_orchestrator.is_correction_followup(answer, event_type)
 
     def _is_browser_state_tool(self, tool_name: str) -> bool:
-        return tool_name in {
-            "dom_extract",
-            "locator_find",
-            "locator_validate",
-            "action_click",
-            "action_fill",
-            "action_assert",
-            "page_navigate",
-            "page_go_back",
-            "page_go_forward",
-            "page_reload",
-            "scroll_into_view",
-            "browser_get_state",
-            "screenshot_take",
-        }
+        return self._tool_dispatcher.is_browser_state_tool(tool_name)
 
     def _load_skills_for_steps(self, steps: list[dict]) -> tuple[list[str], str, dict[str, str]]:
-        intents = " ".join(str(step.get("intent") or "") for step in steps).lower()
-        loaded_names = ["core"]
-        core_skill_text = self._read_skill("core", compact_mode=True) or ""
-        loaded_skills = {"core": core_skill_text}
-        contents = [core_skill_text]
-
-        for skill_name, keywords in SKILL_KEYWORDS:
-            if skill_name == "core":
-                continue
-            if any(keyword in intents for keyword in keywords):
-                skill_text = self._read_skill(skill_name, compact_mode=True)
-                if skill_text is None:
-                    continue
-                loaded_names.append(skill_name)
-                loaded_skills[skill_name] = skill_text
-                contents.append(skill_text)
-
-        return loaded_names, "\n\n".join(contents), loaded_skills
+        return self._skills_loader.load_skills_for_steps(steps)
 
     def _read_skill(self, skill_name: str, *, compact_mode: bool = False) -> str | None:
-        if compact_mode:
-            compact_path = self.skills_root / skill_name / "SKILL_COMPACT.md"
-            if compact_path.is_file():
-                print(f"[SKILL_COMPACT] loading compact skill: {skill_name}")
-                return compact_path.read_text(encoding="utf-8")
-        skill_path = self.skills_root / skill_name / "SKILL.md"
-        if not skill_path.is_file():
-            missing_skill_names = getattr(self, "_missing_skill_names", set())
-            if skill_name not in missing_skill_names:
-                print(f"[SKILL_WARNING] missing skill folder: {skill_name}")
-                self._record_capability_gap(
-                    "missing_skill",
-                    "_read_skill",
-                    "warn",
-                    f"missing skill folder: {skill_name}",
-                    skill_name=skill_name,
-                )
-                missing_skill_names.add(skill_name)
-                self._missing_skill_names = missing_skill_names
-            return None
-        return skill_path.read_text(encoding="utf-8")
+        return self._skills_loader.read_skill(skill_name)
 
     async def _try_deterministic_fast_path(self, steps: list[dict]) -> bool:
         """Attempt zero-LLM planning through the extracted deterministic gateway."""
@@ -2522,18 +1981,7 @@ class AgentLoop:
         return ""
 
     def _select_plan_correction_child_target(self, candidates: list[tuple[str, Any]]) -> str:
-        for field_name, candidate in candidates:
-            candidate_text = self._normalize_space(str(candidate or "")).strip()
-            if not candidate_text:
-                continue
-            if self._is_outcome_like_label(candidate_text):
-                print(
-                    "[PLAN_CORRECTION_CHILD] ignored outcome-like child field "
-                    f"value={candidate_text} field={field_name}"
-                )
-                continue
-            return candidate_text
-        return ""
+        return self._plan_correction.select_plan_correction_child_target(candidates)
 
     def _canonicalize_assertion_operation(
         self,
@@ -2806,36 +2254,7 @@ class AgentLoop:
         raw_description: str,
         intent: str,
     ) -> str:
-        operation_name = self._normalize_space(str(operation_type or "")).strip().lower()
-        target_text = self._normalize_space(str(target or "")).strip()
-        assertion_text = self._normalize_space(str(assertion or "")).strip().lower()
-        value_text = self._normalize_space(str(value_text or "")).strip()
-        intent_text = self._normalize_space(str(intent or "")).strip()
-        raw_description_text = self._normalize_space(str(raw_description or "")).strip()
-
-        if operation_name == "assert":
-            if raw_description_text and self._is_outcome_like_label(raw_description_text):
-                print(
-                    "[PLAN_CORRECTION_CHILD] ignored outcome-like child field "
-                    f"value={raw_description_text} field=description"
-                )
-            action_context: dict[str, Any] = {}
-            if assertion_text:
-                action_context["assertion"] = assertion_text
-            if value_text:
-                action_context["value"] = value_text
-            return self._build_recorded_child_description("assert", "assert", target_text, action_context, intent_text)
-
-        if raw_description_text:
-            if self._is_outcome_like_label(raw_description_text):
-                print(
-                    "[PLAN_CORRECTION_CHILD] ignored outcome-like child field "
-                    f"value={raw_description_text} field=description"
-                )
-            else:
-                return raw_description_text
-
-        return self._build_planned_child_description(operation_name, target_text, intent_text)
+        return self._plan_correction.build_plan_correction_child_description(operation_type, target, assertion, value_text, raw_description, intent)
 
     def _normalize_expected_outcome(
         self,
@@ -3104,279 +2523,43 @@ class AgentLoop:
         return " · ".join(parts[:3])
 
     def _validate_recording_steps(self, steps: list[dict[str, Any]]) -> None:
-        for index, step in enumerate(steps, start=1):
-            if not isinstance(step, dict):
-                continue
-
-            intent = self._normalize_space(str(step.get("intent") or "")).strip()
-            if not intent or not self._is_click_like_intent(intent):
-                continue
-
-            normalized_expected_outcome = self._normalize_expected_outcome(
-                step.get("expected_outcome") or step.get("expectedOutcome"),
-                True,
-            )
-            if normalized_expected_outcome is None or not str(normalized_expected_outcome.get("type") or "").strip():
-                step_ref = str(step.get("id") or step.get("step_id") or step.get("stepId") or index).strip() or str(index)
-                raise ValueError(f"Click-like step {step_ref} requires expected_outcome.type")
+        return self._plan_builder.validate_recording_steps(steps)
 
     def _format_steps(self, steps: list[dict]) -> str:
-        normalized_steps = self._normalize_steps(steps)
-        lines = ["User steps:"]
-        for index, step in enumerate(normalized_steps, start=1):
-            step_intent = self._normalize_space(str(step.get("intent") or "")).strip()
-            lines.append(f"{index}. {step_intent}" if step_intent else f"{index}.")
-
-            raw_step = steps[index - 1] if index - 1 < len(steps) and isinstance(steps[index - 1], dict) else {}
-            step_expected_outcome = self._expected_outcome_summary(
-                self._normalize_expected_outcome(
-                    raw_step.get("expected_outcome") or raw_step.get("expectedOutcome"),
-                    self._is_click_like_intent(step_intent),
-                )
-            )
-            if step_expected_outcome:
-                lines.append(f"   expected_outcome: {step_expected_outcome}")
-
-            element_summary = self._compact_step_element_summary(raw_step)
-            if element_summary:
-                lines.append(f"   element: {element_summary}")
-
-        lines.extend(
-            [
-                "",
-                "Execution requirements:",
-                "- Always use tools. Never guess.",
-                '- Start by calling send_to_overlay with message_type "llm_thinking".',
-                "- Use browser_get_state or dom_extract before deciding what is on the page.",
-                "- If a step includes suggested_scope for a picked element, call dom_extract with that suggested_scope first.",
-                "- Validate locators before using them for actions or assertions.",
-                "- Use page_go_back, page_go_forward, and page_reload for browser history or refresh actions.",
-                "- Use action_fill only on editable fields. Never use it on body to simulate navigation.",
-                "- Recording is backend-owned. After successful execution, the runtime records the step automatically and emits code_update.",
-                "- If the user corrects the plan, revise it before any action and ask for confirmation again.",
-                '- When finished, report the outcome clearly through send_to_overlay or the final assistant response.',
-            ]
-        )
-        return "\n".join(lines)
+        return self._plan_builder.format_steps(steps)
 
     def _prepare_recording_steps(self, steps: list[dict]) -> None:
-        self.current_steps = list(steps)
-        self._recording_steps = []
-        self._recording_step_index = 0
-        self._recorded_step_ids = set()
-        self.step_state_by_id = {}
-        self.step_context_by_id = self.step_state_by_id
-        self._last_action_context = None
-        self._awaiting_step_record = False
-        self.current_step_index = 0
-
-        for idx, step in enumerate(self.current_steps, start=1):
-            raw_element_info = step.get("element_info") if isinstance(step.get("element_info"), dict) else {}
-            resolved_element_info = self._resolve_selected_element_info(raw_element_info)
-            step_id = str(step.get("id") or "").strip() or str(idx)
-            intent_text = str(step.get("intent") or "").strip()
-            context = {
-                "step_id": step_id,
-                "step_number": idx,
-                "intent": intent_text,
-                "element_info": resolved_element_info,
-                "element_name": self._derive_step_context_element_name(step, resolved_element_info),
-                "locator": None,
-                "last_error": None,
-                "status": "pending",
-                "recorded": False,
-                "expected_outcome": self._normalize_expected_outcome(
-                    step.get("expected_outcome") or step.get("expectedOutcome"),
-                    self._is_click_like_intent(intent_text),
-                ),
-            }
-            self._recording_steps.append(context)
-            self.step_state_by_id[step_id] = context
-            print(f"[AGENT] step pending: {step_id}")
+        return self._step_manager.prepare_recording_steps(steps)
 
     def _get_step_context(self, step_id: str | None = None) -> dict[str, Any] | None:
-        if step_id is not None:
-            resolved_step_id = str(step_id).strip()
-            if resolved_step_id:
-                return self.step_state_by_id.get(resolved_step_id)
-
-        if self.active_step_id:
-            active_step = self.step_state_by_id.get(self.active_step_id)
-            if active_step and active_step.get("status") not in {"recorded", "skipped"}:
-                return active_step
-
-        unresolved_steps = [
-            step
-            for step in self._recording_steps
-            if str(step.get("status") or "") not in {"recorded", "skipped"}
-        ]
-        if len(unresolved_steps) == 1:
-            return unresolved_steps[0]
-
-        for step in self._recording_steps:
-            if str(step.get("status") or "") in {"pending", "recovery_pending"}:
-                return step
-
-        return None
+        return self._step_manager.get_step_context(step_id)
 
     def _resolve_recording_target_step(self, payload: dict[str, Any] | None = None) -> dict[str, Any] | None:
-        confirmed_cursor = self._current_confirmed_execution_cursor()
-        if isinstance(confirmed_cursor, dict):
-            step_context = confirmed_cursor.get("step_context")
-            if isinstance(step_context, dict):
-                step_id = str(step_context.get("step_id") or "").strip() or "unknown"
-                print(f"[RECORDING_TARGET] confirmed_mode=true step_id={step_id} source=confirmed_cursor")
-                return step_context
-
-        payload = payload or {}
-        explicit_step_id = str(payload.get("step_id") or payload.get("id") or payload.get("stepId") or "").strip()
-        if explicit_step_id:
-            step = self.step_state_by_id.get(explicit_step_id)
-            if step and str(step.get("status") or "") not in {"recorded", "skipped"}:
-                return step
-
-        explicit_step_number = self._coerce_step_number(payload.get("step_number"))
-        if explicit_step_number is not None:
-            return self._find_step_for_recording(None, explicit_step_number)
-
-        unresolved_steps = [
-            step
-            for step in self._recording_steps
-            if str(step.get("status") or "") not in {"recorded", "skipped"}
-        ]
-        if len(self.successful_action_by_step_id) > 1:
-            if len(unresolved_steps) == 1:
-                return unresolved_steps[0]
-            return None
-
-        for candidate_step_id in (self.active_step_id, self.active_failed_step_id):
-            if not candidate_step_id:
-                continue
-            step = self.step_state_by_id.get(candidate_step_id)
-            if step and str(step.get("status") or "") not in {"recorded", "skipped"}:
-                return step
-
-        last_action_step = (self.last_successful_action or {}).get("step_context") or {}
-        last_action_step_id = str(last_action_step.get("step_id") or "").strip()
-        if last_action_step_id:
-            step = self.step_state_by_id.get(last_action_step_id)
-            if step and str(step.get("status") or "") not in {"recorded", "skipped"}:
-                return step
-
-        return self._find_step_for_recording()
+        return self._step_manager.resolve_recording_target_step(payload)
 
     def _get_failed_step_context(self) -> dict[str, Any] | None:
-        if self.active_failed_step_id:
-            step = self._get_step_context(self.active_failed_step_id)
-            if step is not None:
-                return step
-
-        for step in self._recording_steps:
-            if str(step.get("status") or "") in {"failed", "recovery_pending"}:
-                return step
-
-        return None
+        return self._step_manager.get_failed_step_context()
 
     def _mark_step_executing(self, step: dict[str, Any] | str | None) -> dict[str, Any] | None:
-        context = self._get_step_context(step) if not isinstance(step, dict) else step
-        if context is None:
-            return None
-
-        step_id = str(context.get("step_id") or "").strip()
-        if not step_id:
-            return None
-
-        if context.get("status") not in {"recorded", "skipped"}:
-            if context.get("status") != "recovery_pending":
-                context["status"] = "executing"
-            context["last_error"] = context.get("last_error")
-        self.completed_step_ids.discard(step_id)
-        self.skipped_step_ids.discard(step_id)
-        self.active_step_id = step_id
-        self.current_step_index = max(0, int(context.get("step_number") or 1) - 1)
-        print(f"[AGENT] step executing: {step_id}")
-        return context
+        return self._step_manager.mark_step_executing(step)
 
     def _mark_step_failed(self, step: dict[str, Any] | str | None, error: Any) -> dict[str, Any] | None:
-        context = self._get_step_context(step) if not isinstance(step, dict) else step
-        if context is None:
-            return None
-
-        step_id = str(context.get("step_id") or "").strip()
-        if not step_id:
-            return None
-
-        context["status"] = "recovery_pending"
-        context["last_error"] = str(error or "").strip() or "execution tool failed"
-        context["recorded"] = False
-        self.pending_recovery = True
-        self.active_failed_step_id = step_id
-        self.active_step_id = step_id
-        self.phase_tracker.set_phase("recovery", reason="tool_failed", step_id=step_id)
-        self.phase = "recovering"
-        self.completed_step_ids.discard(step_id)
-        self.skipped_step_ids.discard(step_id)
-        self._last_action_context = None
-        self._awaiting_step_record = False
-        self._recording_wait_guard_armed = False
-        self.current_step_index = max(0, int(context.get("step_number") or 1) - 1)
-        self._clear_failed_step_success_state(context)
-        self._emit_recovery_needed_event(context, context["last_error"])
-        print(f"[AGENT] step recovery_pending: {step_id}")
-        return context
+        return self._step_manager.mark_step_failed(step, error)
 
     def _clear_failed_step_success_state(self, step: dict[str, Any] | str | None) -> None:
-        context = self._get_step_context(step) if not isinstance(step, dict) else step
-        if context is None:
-            return
-
-        step_id = str(context.get("step_id") or "").strip()
-        if not step_id:
-            return
-
-        step_number = self._coerce_step_number(context.get("step_number"))
-        last_action = getattr(self, "last_successful_action", None) or {}
-        last_action_step = last_action.get("step_context") or {}
-        last_action_step_id = str(last_action_step.get("step_id") or last_action.get("step_id") or "").strip()
-        last_action_step_number = self._coerce_step_number(
-            last_action_step.get("step_number") or last_action.get("step_number")
-        )
-        if last_action_step_id == step_id or (
-            step_number is not None and last_action_step_number is not None and last_action_step_number == step_number
-        ):
-            self.last_successful_action = None
-
-        history_by_step_id = getattr(self, "successful_actions_by_step_id", None)
-        if not isinstance(history_by_step_id, dict):
-            history_by_step_id = {}
-            self.successful_actions_by_step_id = history_by_step_id
-        history_by_step_id.pop(step_id, None)
-        successful_action_by_step_id = getattr(self, "successful_action_by_step_id", None)
-        if not isinstance(successful_action_by_step_id, dict):
-            successful_action_by_step_id = {}
-            self.successful_action_by_step_id = successful_action_by_step_id
-        successful_action_by_step_id.pop(step_id, None)
-        self._last_action_context = None
+        return self._step_manager.clear_failed_step_success_state(step)
 
     def _clear_plan_review_context(self) -> None:
-        self.last_plan_ready_payload = None
-        self.last_plan_step_ids = []
-        self.last_plan_summary = None
-        self.last_plan_original_user_intent = None
+        return self._plan_correction.clear_plan_review_context()
 
     def _clear_confirmed_execution_contract_state(self) -> None:
-        self.confirmed_plan_by_step_id = {}
-        self.confirmed_plan_step_ids = []
-        self.confirmed_child_results_by_step_id = {}
-        self.confirmed_execution_mismatch_count_by_step_id = {}
+        return self._plan_state.clear_confirmed_execution_contract_state()
 
     def _clear_active_plan_correction_state(self) -> None:
-        self._active_plan_correction_state = None
-        self._plan_correction_pending = False
+        return self._plan_state.clear_active_plan_correction_state()
 
     def _clear_active_plan_state(self) -> None:
-        self._active_plan_state = None
-        self._clear_active_plan_correction_state()
+        return self._plan_state.clear_active_plan_state()
 
     def _record_plan_diff_editor_telemetry(self, **payload: Any) -> None:
         self._plan_diff_editor_telemetry.append(dict(payload))
@@ -3459,39 +2642,7 @@ class AgentLoop:
         phase: str | None,
         context_mode: str = "normal",
     ) -> dict[str, Any]:
-        controller = getattr(self, "_plan_diff_editor_controller", None)
-        call = getattr(controller, "call", None) if controller is not None else None
-        if not callable(call):
-            return {"used_controller": False}
-
-        try:
-            result = await call(
-                purpose="plan_diff_editor",
-                messages=messages,
-                phase=phase,
-                context_mode=context_mode,
-                client=self.llm.client,
-                tools=[],
-                tool_choice=None,
-            )
-        except Exception as exc:  # noqa: BLE001
-            return {
-                "used_controller": True,
-                "validation_status": "retry_failed",
-                "parsed_output": None,
-                "errors": [type(exc).__name__],
-                "message": str(exc),
-            }
-        if not isinstance(result, dict):
-            return {
-                "used_controller": True,
-                "validation_status": "retry_failed",
-                "parsed_output": None,
-                "errors": ["invalid_controller_result"],
-            }
-        result = dict(result)
-        result["used_controller"] = True
-        return result
+        return await self._plan_correction.call_plan_diff_editor_controller()
 
     async def _run_plan_diff_editor_correction(
         self,
@@ -3500,185 +2651,35 @@ class AgentLoop:
         phase: str | None,
         context_mode: str = "normal",
     ) -> dict[str, Any]:
-        controller_messages = list(messages)
-        correction_context_message = self._build_plan_correction_context_message()
-        if correction_context_message:
-            controller_messages.append({"role": "user", "content": correction_context_message})
-        schema_message = self._build_plan_diff_editor_schema_message()
-        if schema_message:
-            controller_messages.append({"role": "system", "content": schema_message})
-        controller_context_mode = "normal" if context_mode == "compact" else context_mode
-        controller_result = await self._call_plan_diff_editor_controller(
-            messages=controller_messages,
-            phase=phase,
-            context_mode=controller_context_mode,
-        )
-        if not controller_result.get("used_controller"):
-            return controller_result
-
-        validation_status = str(
-            controller_result.get("validation_status")
-            or controller_result.get("status")
-            or controller_result.get("result")
-            or ""
-        ).strip()
-        parsed_output = controller_result.get("parsed_output")
-        if validation_status != "valid" or not isinstance(parsed_output, dict):
-            controller = getattr(self, "_plan_diff_editor_controller", None)
-            if isinstance(controller, LLMRuntimeController):
-                synthesized_output = self._synthesize_plan_diff_editor_output()
-                if synthesized_output:
-                    overlay_result = await self._tool_send_to_overlay(
-                        {
-                            "message_type": "plan_correction_diff",
-                            "payload": synthesized_output,
-                        }
-                    )
-                    if isinstance(overlay_result, dict):
-                        result = dict(controller_result)
-                        result["validation_status"] = "valid"
-                        result["status"] = "valid"
-                        result["result"] = "valid"
-                        result["parsed_output"] = synthesized_output
-                        result["fallback_used"] = True
-                        result["overlay_result"] = dict(overlay_result)
-                        result.update(dict(overlay_result))
-                        result["used_controller"] = True
-                        return result
-            return controller_result
-
-        result = dict(controller_result)
-        overlay_result = await self._tool_send_to_overlay(
-            {
-                "message_type": "plan_correction_diff",
-                "payload": parsed_output,
-            }
-        )
-        if isinstance(overlay_result, dict):
-            result.update(dict(overlay_result))
-            result["overlay_result"] = dict(overlay_result)
-        else:
-            result["overlay_result"] = overlay_result
-        result["used_controller"] = True
-        return result
+        return await self._plan_correction.run_plan_diff_editor_correction()
 
     def _current_active_plan_state(self) -> dict[str, Any] | None:
-        active_plan_state = getattr(self, "_active_plan_state", None)
-        if isinstance(active_plan_state, dict):
-            return active_plan_state
-        return None
+        return self._plan_state.current_active_plan_state()
 
     def _current_plan_version(self) -> int:
-        candidates: list[Any] = []
-
-        active_plan_state = self._current_active_plan_state()
-        if isinstance(active_plan_state, dict):
-            candidates.extend(
-                [
-                    active_plan_state.get("plan_version"),
-                    active_plan_state.get("planVersion"),
-                ]
-            )
-            source_payload = active_plan_state.get("source_payload")
-            if isinstance(source_payload, dict):
-                candidates.extend(
-                    [
-                        source_payload.get("plan_version"),
-                        source_payload.get("planVersion"),
-                    ]
-                )
-
-        last_plan_ready_payload = getattr(self, "last_plan_ready_payload", None)
-        if isinstance(last_plan_ready_payload, dict):
-            candidates.extend(
-                [
-                    last_plan_ready_payload.get("plan_version"),
-                    last_plan_ready_payload.get("planVersion"),
-                ]
-            )
-
-        for candidate in candidates:
-            try:
-                version = int(str(candidate).strip())
-            except (TypeError, ValueError):
-                continue
-            if version > 0:
-                return version
-        return 1
+        return self._plan_state.current_plan_version()
 
     def _confirmation_context(self, payload: dict[str, Any] | None) -> dict[str, str]:
-        if not isinstance(payload, dict):
-            return {}
-
-        context: dict[str, str] = {}
-        for key, alt_key in (("run_id", "runId"), ("plan_id", "planId"), ("plan_version", "planVersion")):
-            value = str(payload.get(key) or payload.get(alt_key) or "").strip()
-            if value:
-                context[key] = value
-        return context
+        return self._plan_confirmation.confirmation_context(payload)
 
     def _confirmation_context_mismatch_reason(
         self,
         active_context: dict[str, str] | None,
         event_context: dict[str, str] | None,
     ) -> str | None:
-        active_context_data = active_context if isinstance(active_context, dict) else {}
-        event_context_data = event_context if isinstance(event_context, dict) else {}
-        if not active_context_data or not event_context_data:
-            return None
-
-        mismatches: list[str] = []
-        for key in ("run_id", "plan_id", "plan_version"):
-            received_value = str(event_context_data.get(key) or "").strip()
-            if not received_value:
-                continue
-            expected_value = str(active_context_data.get(key) or "").strip()
-            if expected_value and received_value != expected_value:
-                mismatches.append(key)
-
-        if not mismatches:
-            return None
-        return ", ".join(mismatches)
+        return self._plan_confirmation.confirmation_context_mismatch_reason(active_context, event_context)
 
     def _completed_run_confirmation_rejection_reason(self, event_context: dict[str, str] | None) -> str | None:
-        event_context_data = event_context if isinstance(event_context, dict) else {}
-        run_id = str(event_context_data.get("run_id") or "").strip()
-        if not run_id:
-            return None
-        if self._current_phase() != "completed" and not getattr(self, "_run_completed_emitted", False):
-            return None
-        return "completed run is already closed"
+        return self._plan_confirmation.completed_run_confirmation_rejection_reason(event_context)
 
     def _plan_steps_from_state(self, plan_state: dict[str, Any] | None) -> list[dict[str, Any]]:
-        if not isinstance(plan_state, dict):
-            return []
-        steps = plan_state.get("steps")
-        if not isinstance(steps, list):
-            return []
-        return [step for step in steps if isinstance(step, dict)]
+        return self._plan_state.plan_steps_from_state(plan_state)
 
     def _plan_child_operations_from_step(self, step: dict[str, Any]) -> list[dict[str, Any]]:
-        if not isinstance(step, dict):
-            return []
-        children = step.get("children")
-        if isinstance(children, list) and children:
-            return [child for child in children if isinstance(child, dict)]
-        return [step]
+        return self._plan_state.plan_child_operations_from_step(step)
 
     def _plan_operation_text(self, operation: dict[str, Any] | None) -> str:
-        if not isinstance(operation, dict):
-            return ""
-        return self._normalize_space(
-            str(
-                operation.get("description")
-                or operation.get("target")
-                or operation.get("locator")
-                or operation.get("text")
-                or operation.get("label")
-                or operation.get("title")
-                or ""
-            )
-        ).strip()
+        return self._plan_state.plan_operation_text(operation)
 
     def _plan_operation_type(self, operation: dict[str, Any] | None) -> str:
         if not isinstance(operation, dict):
@@ -3686,146 +2687,30 @@ class AgentLoop:
         return self._normalize_space(str(operation.get("type") or operation.get("action") or "")).lower()
 
     def _plan_operation_signature(self, operation: dict[str, Any] | None) -> str:
-        if not isinstance(operation, dict):
-            return ""
-        operation_type = self._plan_operation_type(operation)
-        target_text = self._normalize_space(self._plan_operation_text(operation)).lower()
-        locator_text = self._normalize_space(str(operation.get("locator") or "")).lower()
-        if not operation_type and not target_text and not locator_text:
-            return ""
-        if locator_text:
-            return f"{operation_type}|{target_text}|{locator_text}"
-        return f"{operation_type}|{target_text}"
+        return self._plan_state.plan_operation_signature(operation)
 
     def _plan_operation_types_from_state(self, plan_state: dict[str, Any] | None) -> list[str]:
-        operation_types: list[str] = []
-        for step in self._plan_steps_from_state(plan_state):
-            for operation in self._plan_child_operations_from_step(step):
-                operation_type = self._plan_operation_type(operation)
-                if operation_type:
-                    operation_types.append(operation_type)
-        return operation_types
+        return self._plan_state.plan_operation_types_from_state(plan_state)
 
     def _plan_operation_signatures_from_state(self, plan_state: dict[str, Any] | None) -> list[str]:
-        operation_signatures: list[str] = []
-        for step in self._plan_steps_from_state(plan_state):
-            for operation in self._plan_child_operations_from_step(step):
-                operation_signature = self._plan_operation_signature(operation)
-                if operation_signature:
-                    operation_signatures.append(operation_signature)
-        return operation_signatures
+        return self._plan_state.plan_operation_signatures_from_state(plan_state)
 
     def _sequence_contains_subsequence(self, sequence: list[str], subsequence: list[str]) -> bool:
-        if not subsequence:
-            return True
-        if not sequence:
-            return False
-
-        search_index = 0
-        for expected_item in subsequence:
-            found_index = -1
-            for index in range(search_index, len(sequence)):
-                if sequence[index] == expected_item:
-                    found_index = index
-                    break
-            if found_index < 0:
-                return False
-            search_index = found_index + 1
-        return True
+        return self._plan_state.sequence_contains_subsequence(sequence, subsequence)
 
     def _build_active_plan_state(
         self,
         payload: dict[str, Any],
         source_plan_state: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        active_plan_state = deepcopy(payload) if isinstance(payload, dict) else {}
-        plan_id = str(
-            active_plan_state.get("plan_id")
-            or active_plan_state.get("planId")
-            or active_plan_state.get("id")
-            or f"plan-{uuid4().hex}"
-        ).strip()
-        active_plan_state["plan_id"] = plan_id
-
-        summary = self._normalize_space(str(active_plan_state.get("summary") or "")).strip() or None
-        if summary is None:
-            if isinstance(source_plan_state, dict):
-                summary = self._normalize_space(str(source_plan_state.get("summary") or "")).strip() or None
-            if summary is None:
-                summary = self.last_plan_summary
-        active_plan_state["summary"] = summary
-
-        original_user_intent = self._normalize_space(str(active_plan_state.get("original_user_intent") or "")).strip() or None
-        if original_user_intent is None:
-            if isinstance(source_plan_state, dict):
-                original_user_intent = self._normalize_space(
-                    str(source_plan_state.get("original_user_intent") or "")
-                ).strip() or None
-            if original_user_intent is None:
-                original_user_intent = self.last_plan_original_user_intent
-        active_plan_state["original_user_intent"] = original_user_intent
-
-        run_id = str(
-            active_plan_state.get("run_id")
-            or active_plan_state.get("runId")
-            or (source_plan_state or {}).get("run_id")
-            or (source_plan_state or {}).get("runId")
-            or getattr(self, "session_id", None)
-            or getattr(self, "_run_session_id", None)
-            or ""
-        ).strip()
-        if run_id:
-            active_plan_state["run_id"] = run_id
-
-        steps = self._plan_steps_from_state(active_plan_state)
-        active_plan_state["steps"] = steps
-        active_plan_state["step_ids"] = [
-            str(step.get("step_id") or step.get("id") or "").strip()
-            for step in steps
-            if str(step.get("step_id") or step.get("id") or "").strip()
-        ]
-        active_plan_state["target_step_id"] = active_plan_state["step_ids"][0] if active_plan_state["step_ids"] else None
-        active_plan_state["source_payload"] = deepcopy(payload) if isinstance(payload, dict) else {}
-        return active_plan_state
+        return self._plan_state.build_active_plan_state(payload, source_plan_state)
 
     def _infer_confirmed_execution_child_assertion(
         self,
         child: dict[str, Any] | None,
         source_step: dict[str, Any] | None = None,
     ) -> str:
-        child_data = child if isinstance(child, dict) else {}
-        assertion = self._normalize_space(str(child_data.get("assertion") or "")).strip().lower()
-        if assertion:
-            return assertion
-
-        child_type = self._normalize_space(str(child_data.get("type") or child_data.get("action") or "")).strip().lower()
-        if child_type != "assert":
-            return ""
-
-        canonical_child = self._canonicalize_assertion_operation(child_data, source_step=source_step)
-        canonical_assertion = self._normalize_space(
-            str(canonical_child.get("assertion") or "")
-        ).strip().lower()
-        if canonical_assertion:
-            return canonical_assertion
-
-        description = self._normalize_space(str(child_data.get("description") or "")).strip().lower()
-        target = self._normalize_space(
-            str(child_data.get("target") or child_data.get("element_name") or "")
-        ).strip().lower()
-        source_intent = self._normalize_space(str((source_step or {}).get("intent") or "")).strip().lower()
-        hint_text = " ".join(part for part in (description, target, source_intent) if part).strip()
-
-        for keyword in ("visible", "hidden", "enabled", "disabled", "checked"):
-            if re.search(rf"\b{keyword}\b", hint_text):
-                return keyword
-
-        if "has text" in hint_text or "contains text" in hint_text:
-            return "has_text"
-        if "has value" in hint_text:
-            return "has_value"
-
-        return "visible"
+        return self._plan_state.infer_confirmed_execution_child_assertion(child, source_step)
 
     def _normalize_confirmed_execution_child(
         self,
@@ -3833,450 +2718,54 @@ class AgentLoop:
         source_step: dict[str, Any] | None = None,
         child_index: int = 1,
     ) -> dict[str, Any]:
-        child_data = child if isinstance(child, dict) else {}
-        operation_id = str(child_data.get("operation_id") or child_data.get("operationId") or "").strip()
-        if not operation_id:
-            operation_id = f"op_{child_index}"
-
-        child_type = self._normalize_space(str(child_data.get("type") or child_data.get("action") or "")).strip().lower()
-        target = self._select_plan_correction_child_target(
-            [
-                ("child.target", child_data.get("target")),
-                ("child.element_name", child_data.get("element_name")),
-                ("child.label", child_data.get("label")),
-                ("child.description", child_data.get("description")),
-                ("source.element_name", (source_step or {}).get("element_name")),
-                ("source.intent", (source_step or {}).get("intent")),
-            ]
-        )
-        locator = self._normalize_space(str(child_data.get("locator") or "")).strip()
-        if not locator and isinstance(source_step, dict):
-            locator = self._normalize_space(str(source_step.get("locator") or "")).strip()
-            if not locator:
-                locator = self._derive_locator_from_step_context(source_step)
-        if locator in {"*", 'page.locator("")'}:
-            locator = ""
-
-        assertion = self._infer_confirmed_execution_child_assertion(child_data, source_step=source_step)
-        value_text = self._normalize_space(
-            str(child_data.get("value") or child_data.get("expected_value") or "")
-        ).strip()
-        description = self._normalize_space(str(child_data.get("description") or "")).strip()
-        if child_type == "assert":
-            canonical_child = self._canonicalize_assertion_operation(
-                child_data,
-                source_step=source_step,
-            )
-            if canonical_child:
-                target = str(canonical_child.get("target") or target or "").strip()
-                locator = str(canonical_child.get("locator") or locator or "").strip()
-                assertion = str(canonical_child.get("assertion") or assertion or "").strip().lower()
-                value_text = str(
-                    canonical_child.get("value") or canonical_child.get("expected_value") or value_text or ""
-                ).strip()
-                canonical_description = str(canonical_child.get("description") or "").strip()
-                if canonical_description:
-                    description = canonical_description
-        if child_type == "assert" and assertion == "visible":
-            locator_target_hint = self._normalize_space(self._locator_label_hint(locator)).strip()
-            if locator_target_hint and not self._is_outcome_like_label(locator_target_hint):
-                if locator_target_hint.lower() not in {"main", "page", "body", "document"}:
-                    target = locator_target_hint
-        if not description:
-            description = self._build_plan_correction_child_description(
-                child_type or self._infer_operation_type(target),
-                target,
-                assertion,
-                value_text,
-                str(child_data.get("description") or ""),
-                str((source_step or {}).get("intent") or target or "").strip(),
-            )
-        code_lines: list[str] = []
-        child_code_lines = child_data.get("code_lines")
-        if isinstance(child_code_lines, list):
-            for code_line in child_code_lines:
-                line_text = str(code_line or "").strip()
-                if line_text:
-                    code_lines.append(line_text)
-        if not code_lines:
-            child_code = self._normalize_space(str(child_data.get("code") or "")).strip()
-            if child_code:
-                code_lines.append(child_code)
-
-        normalized_child: dict[str, Any] = {
-            "operation_id": operation_id,
-            "type": child_type or "unknown",
-            "description": description or target or child_type or "child",
-            "target": target,
-            "locator": locator,
-            "status": self._normalize_space(str(child_data.get("status") or "planned")).strip().lower() or "planned",
-        }
-        if assertion:
-            normalized_child["assertion"] = assertion
-        if value_text:
-            normalized_child["value"] = value_text
-            normalized_child.setdefault("expected_value", value_text)
-        if code_lines:
-            normalized_child["code_lines"] = code_lines
-        return normalized_child
+        return self._plan_state.normalize_confirmed_execution_child(child, source_step, child_index)
 
     def _build_confirmed_execution_plan(
         self,
         payload: dict[str, Any],
         source_plan_state: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        confirmed_plan = deepcopy(payload) if isinstance(payload, dict) else {}
-        source_plan = source_plan_state if isinstance(source_plan_state, dict) else self._current_active_plan_state()
-        source_steps = self._plan_steps_from_state(source_plan)
-        source_steps_by_id: dict[str, dict[str, Any]] = {}
-        for index, source_step in enumerate(source_steps, start=1):
-            if not isinstance(source_step, dict):
-                continue
-            source_step_id = str(source_step.get("step_id") or source_step.get("id") or "").strip()
-            if source_step_id:
-                source_steps_by_id[source_step_id] = source_step
-            if index == 1 and "1" not in source_steps_by_id:
-                source_steps_by_id["1"] = source_step
-
-        confirmed_steps = self._plan_steps_from_state(confirmed_plan)
-        confirmed_plan_by_step_id: dict[str, dict[str, Any]] = {}
-        confirmed_step_ids: list[str] = []
-        confirmed_child_results_by_step_id: dict[str, dict[str, Any]] = {}
-        confirmed_execution_mismatch_count_by_step_id: dict[str, int] = {}
-
-        for index, confirmed_step in enumerate(confirmed_steps, start=1):
-            if not isinstance(confirmed_step, dict):
-                continue
-
-            source_step = source_steps_by_id.get(str(confirmed_step.get("step_id") or confirmed_step.get("id") or "").strip())
-            if source_step is None and index - 1 < len(source_steps):
-                source_candidate = source_steps[index - 1]
-                if isinstance(source_candidate, dict):
-                    source_step = source_candidate
-
-            normalized_step = dict(confirmed_step)
-            step_id = str(
-                normalized_step.get("step_id")
-                or normalized_step.get("id")
-                or (source_step or {}).get("step_id")
-                or (source_step or {}).get("id")
-                or index
-            ).strip() or str(index)
-            step_number = (
-                self._coerce_step_number(normalized_step.get("step_number"))
-                or self._coerce_step_number(normalized_step.get("number"))
-                or self._coerce_step_number((source_step or {}).get("step_number"))
-                or index
-            )
-            parent_intent = self._normalize_space(
-                str(
-                    normalized_step.get("intent")
-                    or normalized_step.get("title")
-                    or normalized_step.get("text")
-                    or normalized_step.get("label")
-                    or (source_step or {}).get("intent")
-                    or ""
-                )
-            ).strip()
-            expected_outcome = self._normalize_expected_outcome(
-                normalized_step.get("expected_outcome")
-                or normalized_step.get("expectedOutcome")
-                or (source_step or {}).get("expected_outcome")
-                or (source_step or {}).get("expectedOutcome"),
-                self._is_click_like_intent(parent_intent),
-            )
-            normalized_children: list[dict[str, Any]] = []
-            children = normalized_step.get("children")
-            if not isinstance(children, list):
-                children = []
-            for child_index, child in enumerate(children, start=1):
-                normalized_children.append(
-                    self._normalize_confirmed_execution_child(
-                        child if isinstance(child, dict) else {},
-                        source_step=source_step,
-                        child_index=child_index,
-                    )
-                )
-
-            confirmed_plan_by_step_id[step_id] = {
-                "step_id": step_id,
-                "step_number": step_number,
-                "parent_intent": parent_intent,
-                "expected_outcome": expected_outcome,
-                "children": normalized_children,
-                "plan_id": str(confirmed_plan.get("plan_id") or "").strip() or None,
-                "summary": str(confirmed_plan.get("summary") or "").strip() or None,
-                "original_user_intent": str(confirmed_plan.get("original_user_intent") or "").strip() or None,
-            }
-            if isinstance(source_step, dict) and source_step.get("element_info") is not None:
-                confirmed_plan_by_step_id[step_id]["element_info"] = deepcopy(source_step.get("element_info"))
-            confirmed_step_ids.append(step_id)
-            confirmed_child_results_by_step_id[step_id] = {}
-            confirmed_execution_mismatch_count_by_step_id[step_id] = 0
-
-        confirmed_plan["steps"] = [confirmed_plan_by_step_id[step_id] for step_id in confirmed_step_ids]
-        if str(confirmed_plan.get("plan_id") or "").strip() == "":
-            confirmed_plan["plan_id"] = str((source_plan or {}).get("plan_id") or "").strip() or None
-        if str(confirmed_plan.get("summary") or "").strip() == "":
-            confirmed_plan["summary"] = str((source_plan or {}).get("summary") or "").strip() or None
-        if str(confirmed_plan.get("original_user_intent") or "").strip() == "":
-            confirmed_plan["original_user_intent"] = str((source_plan or {}).get("original_user_intent") or "").strip() or None
-        confirmed_plan["step_ids"] = list(confirmed_step_ids)
-        confirmed_plan["target_step_id"] = confirmed_step_ids[0] if confirmed_step_ids else None
-
-        self.confirmed_plan_by_step_id = confirmed_plan_by_step_id
-        self.confirmed_plan_step_ids = confirmed_step_ids
-        self.confirmed_child_results_by_step_id = confirmed_child_results_by_step_id
-        self.confirmed_execution_mismatch_count_by_step_id = confirmed_execution_mismatch_count_by_step_id
-        return confirmed_plan
+        return self._plan_state.build_confirmed_execution_plan(payload, source_plan_state)
 
     def _store_confirmed_execution_plan(self, payload: dict[str, Any]) -> dict[str, Any]:
-        confirmed_plan = self._build_confirmed_execution_plan(
-            payload,
-            source_plan_state=self._current_active_plan_state(),
-        )
-        step_count = len(self.confirmed_plan_step_ids)
-        print(
-            "[CONFIRMED_PLAN] stored "
-            f"plan_id={str(confirmed_plan.get('plan_id') or '').strip() or 'unknown'} "
-            f"steps={step_count}"
-        )
-        for step_id in self.confirmed_plan_step_ids:
-            contract = self.confirmed_plan_by_step_id.get(step_id) or {}
-            print(
-                "[CONFIRMED_PLAN] "
-                f"stored step_id={step_id} "
-                f"step_number={contract.get('step_number') or 'unknown'} "
-                f"children={len(contract.get('children') or [])}"
-            )
-        return confirmed_plan
+        return self._plan_state.store_confirmed_execution_plan(payload)
 
     def _current_confirmed_execution_cursor(self) -> dict[str, Any] | None:
-        confirmed_plan_by_step_id = getattr(self, "confirmed_plan_by_step_id", None)
-        if not isinstance(confirmed_plan_by_step_id, dict) or not confirmed_plan_by_step_id:
-            return None
-
-        confirmed_step_ids = getattr(self, "confirmed_plan_step_ids", None)
-        if not isinstance(confirmed_step_ids, list) or not confirmed_step_ids:
-            confirmed_step_ids = list(confirmed_plan_by_step_id.keys())
-
-        recorded_step_ids = getattr(self, "_recorded_step_ids", set())
-        skipped_step_ids = getattr(self, "skipped_step_ids", set())
-
-        for candidate_step_id in confirmed_step_ids:
-            resolved_candidate_step_id = str(candidate_step_id or "").strip()
-            if not resolved_candidate_step_id:
-                continue
-
-            contract = confirmed_plan_by_step_id.get(resolved_candidate_step_id)
-            if not isinstance(contract, dict):
-                continue
-
-            step_context = self.step_state_by_id.get(resolved_candidate_step_id)
-            if not isinstance(step_context, dict):
-                step_context = contract
-
-            step_status = str(step_context.get("status") or "").strip().lower()
-            if (
-                step_status in {"recorded", "skipped"}
-                or resolved_candidate_step_id in recorded_step_ids
-                or resolved_candidate_step_id in skipped_step_ids
-            ):
-                continue
-
-            current_contract, next_child, next_child_result = self._confirmed_execution_next_child_for_step(
-                resolved_candidate_step_id
-            )
-            if not isinstance(current_contract, dict):
-                current_contract = contract
-
-            return {
-                "step_id": resolved_candidate_step_id,
-                "step_context": step_context,
-                "contract": current_contract,
-                "next_child": next_child,
-                "next_child_result": next_child_result,
-            }
-
-        return None
+        return self._plan_state.current_confirmed_execution_cursor()
 
     def _log_confirmed_execution_cursor(self, prefix: str) -> None:
-        confirmed_cursor = self._current_confirmed_execution_cursor()
-        if not isinstance(confirmed_cursor, dict):
-            return
-
-        current_contract = confirmed_cursor.get("contract")
-        if not isinstance(current_contract, dict):
-            current_contract = {}
-        current_step_id = str(confirmed_cursor.get("step_id") or "").strip() or "unknown"
-        current_step_number = self._coerce_step_number(current_contract.get("step_number"))
-        next_child = confirmed_cursor.get("next_child")
-        next_child_description = (
-            self._describe_confirmed_execution_child(next_child) if isinstance(next_child, dict) else "none"
-        )
-        print(
-            f"{prefix} current step_id={current_step_id} "
-            f"step_number={current_step_number or 'unknown'} next_child={next_child_description}"
-        )
+        return self._plan_state.log_confirmed_execution_cursor(prefix)
 
     def _confirmed_execution_contract_for_step(
         self,
         step: dict[str, Any] | str | None = None,
     ) -> dict[str, Any] | None:
-        confirmed_plan_by_step_id = getattr(self, "confirmed_plan_by_step_id", None)
-        if not isinstance(confirmed_plan_by_step_id, dict) or not confirmed_plan_by_step_id:
-            return None
-
-        candidate_step_ids: list[str] = []
-        if isinstance(step, dict):
-            for key in ("step_id", "id", "stepId"):
-                candidate_step_id = str(step.get(key) or "").strip()
-                if candidate_step_id and candidate_step_id not in candidate_step_ids:
-                    candidate_step_ids.append(candidate_step_id)
-        else:
-            candidate_step_id = str(step or "").strip()
-            if candidate_step_id:
-                candidate_step_ids.append(candidate_step_id)
-
-        for candidate_step_id in candidate_step_ids:
-            contract = confirmed_plan_by_step_id.get(candidate_step_id)
-            if isinstance(contract, dict):
-                return contract
-
-        return None
+        return self._plan_state.confirmed_execution_contract_for_step(step)
 
     def _confirmed_execution_results_for_step(self, step_id: str | None) -> dict[str, Any]:
-        confirmed_child_results_by_step_id = getattr(self, "confirmed_child_results_by_step_id", None)
-        if not isinstance(confirmed_child_results_by_step_id, dict):
-            confirmed_child_results_by_step_id = {}
-            self.confirmed_child_results_by_step_id = confirmed_child_results_by_step_id
-
-        resolved_step_id = str(step_id or "").strip()
-        if not resolved_step_id:
-            return {}
-
-        step_results = confirmed_child_results_by_step_id.get(resolved_step_id)
-        if not isinstance(step_results, dict):
-            step_results = {}
-            confirmed_child_results_by_step_id[resolved_step_id] = step_results
-        return step_results
+        return self._plan_state.confirmed_execution_results_for_step(step_id)
 
     def _confirmed_execution_next_child_for_step(
         self,
         step: dict[str, Any] | str | None = None,
     ) -> tuple[dict[str, Any] | None, dict[str, Any] | None, dict[str, Any] | None]:
-        contract = self._confirmed_execution_contract_for_step(step)
-        if not isinstance(contract, dict):
-            return None, None, None
-
-        step_id = str(contract.get("step_id") or "").strip()
-        step_results = self._confirmed_execution_results_for_step(step_id)
-        children = contract.get("children")
-        if not isinstance(children, list):
-            return contract, None, None
-
-        for child in children:
-            if not isinstance(child, dict):
-                continue
-            operation_id = str(child.get("operation_id") or "").strip()
-            if not operation_id:
-                continue
-            child_result = step_results.get(operation_id)
-            if not isinstance(child_result, dict) or str(child_result.get("status") or "").strip().lower() != "success":
-                return contract, child, child_result if isinstance(child_result, dict) else None
-
-        return contract, None, None
+        return self._plan_state.confirmed_execution_next_child_for_step(step)
 
     def _confirmed_execution_step_ready_to_record(
         self,
         step: dict[str, Any] | str | None = None,
     ) -> bool:
-        confirmed_cursor = self._current_confirmed_execution_cursor()
-        if not isinstance(confirmed_cursor, dict):
-            return False
-
-        if step is not None:
-            candidate_step_id = ""
-            if isinstance(step, dict):
-                for key in ("step_id", "id", "stepId"):
-                    candidate_step_id = str(step.get(key) or "").strip()
-                    if candidate_step_id:
-                        break
-            else:
-                candidate_step_id = str(step or "").strip()
-            if candidate_step_id and candidate_step_id != str(confirmed_cursor.get("step_id") or "").strip():
-                return False
-
-        contract, next_child, _ = self._confirmed_execution_next_child_for_step(confirmed_cursor.get("step_id"))
-        return isinstance(contract, dict) and next_child is None
+        return self._plan_state.confirmed_execution_step_ready_to_record(step)
 
     def _build_confirmed_execution_context_message(self) -> str:
-        confirmed_cursor = self._current_confirmed_execution_cursor()
-        if not isinstance(confirmed_cursor, dict):
-            return ""
-
-        current_contract = confirmed_cursor.get("contract")
-        if not isinstance(current_contract, dict):
-            return ""
-
-        step_id = str(current_contract.get("step_id") or "").strip()
-        step_results = self._confirmed_execution_results_for_step(step_id)
-        _, next_child, _ = self._confirmed_execution_next_child_for_step(step_id)
-
-        lines = ["Confirmed execution plan:"]
-        step_number = self._coerce_step_number(current_contract.get("step_number"))
-        header_parts = [part for part in (step_id, f"step {step_number}" if step_number else "") if part]
-        if header_parts:
-            lines.append(f'Current step: {" | ".join(header_parts)}')
-        parent_intent = self._normalize_space(str(current_contract.get("parent_intent") or "")).strip()
-        if parent_intent:
-            lines.append(f'Parent intent: "{parent_intent}"')
-        expected_outcome_text = self._expected_outcome_summary(current_contract.get("expected_outcome"))
-        if expected_outcome_text:
-            lines.append(f"Expected outcome: {expected_outcome_text}")
-        children = current_contract.get("children")
-        if isinstance(children, list) and children:
-            lines.append("Children:")
-            for index, child in enumerate(children, start=1):
-                if not isinstance(child, dict):
-                    continue
-                operation_id = str(child.get("operation_id") or "").strip() or f"op_{index}"
-                child_result = step_results.get(operation_id)
-                status = "pending"
-                if isinstance(child_result, dict):
-                    status = str(child_result.get("status") or "").strip().lower() or "pending"
-                    if status == "success":
-                        status = "passed"
-                    elif status == "blocked":
-                        status = "blocked"
-                    elif status == "failed":
-                        status = "failed"
-                elif next_child is not None and operation_id == str(next_child.get("operation_id") or "").strip():
-                    status = "next"
-                elif index == 1:
-                    status = "next"
-                child_description = self._describe_confirmed_execution_child(child)
-                lines.append(f"{index}. {child_description} [{status}]")
-        lines.append("Use these confirmed children in order.")
-        lines.append("- Use the confirmed child locator exactly as written.")
-        lines.append("- Do not swap a confirmed locator for a different equivalent locator during retries.")
-        lines.append("Do not replace them with page.title assertions.")
-        lines.append("Do not skip or reorder children.")
-        return "\n".join(lines)
+        return self._plan_state.build_confirmed_execution_context_message()
 
     def _locator_matches_confirmed_execution_child(
         self,
         expected_locator: str,
         actual_locator: str,
     ) -> bool:
-        expected = self._canonical_confirmed_execution_locator(expected_locator)
-        actual = self._canonical_confirmed_execution_locator(actual_locator)
-        if not expected:
-            return True
-        if expected == actual:
-            return True
-
-        return False
+        return self._plan_state.locator_matches_confirmed_execution_child(expected_locator, actual_locator)
 
     def _assertion_matches_confirmed_execution_child(
         self,
@@ -4284,82 +2773,20 @@ class AgentLoop:
         actual_assertion: str,
         actual_args: dict[str, Any],
     ) -> bool:
-        expected_assertion = self._normalize_space(
-            str(expected_child.get("assertion") or self._infer_confirmed_execution_child_assertion(expected_child) or "")
-        ).strip().lower()
-        actual_assertion_text = self._normalize_space(str(actual_assertion or "")).strip().lower()
-        assertion_aliases = {
-            "exact_text": "has_text",
-            "text_equal": "has_text",
-            "text_equals": "has_text",
-            "contains_text": "has_text",
-            "includes_text": "has_text",
-        }
-        expected_assertion = assertion_aliases.get(expected_assertion, expected_assertion)
-        actual_assertion_text = assertion_aliases.get(actual_assertion_text, actual_assertion_text)
-        if not expected_assertion:
-            return True
-        if expected_assertion != actual_assertion_text:
-            return False
-
-        if expected_assertion in {"has_text", "has_value"}:
-            expected_value = self._normalize_space(
-                str(expected_child.get("value") or expected_child.get("expected_value") or "")
-            ).strip()
-            actual_value = self._normalize_space(str(actual_args.get("expected_value") or actual_args.get("value") or "")).strip()
-            if expected_value and actual_value and expected_value != actual_value:
-                return False
-
-        return True
+        return self._plan_state.assertion_matches_confirmed_execution_child(expected_child, actual_assertion, actual_args)
 
     def _value_matches_confirmed_execution_child(
         self,
         expected_child: dict[str, Any],
         actual_args: dict[str, Any],
     ) -> bool:
-        expected_value = self._normalize_space(
-            str(expected_child.get("value") or expected_child.get("expected_value") or "")
-        ).strip()
-        if not expected_value:
-            return True
-        actual_value = self._normalize_space(str(actual_args.get("value") or actual_args.get("expected_value") or "")).strip()
-        return not actual_value or expected_value == actual_value
+        return self._plan_state.value_matches_confirmed_execution_child(expected_child, actual_args)
 
     def _describe_confirmed_execution_child(self, child: dict[str, Any] | None) -> str:
-        if not isinstance(child, dict):
-            return "unknown child"
-
-        operation_id = str(child.get("operation_id") or "").strip() or "child"
-        child_type = str(child.get("type") or "").strip() or "unknown"
-        target = self._normalize_space(str(child.get("target") or "")).strip()
-        locator = self._normalize_space(str(child.get("locator") or "")).strip()
-        assertion = self._normalize_space(str(child.get("assertion") or "")).strip().lower()
-        value_text = self._normalize_space(str(child.get("value") or child.get("expected_value") or "")).strip()
-
-        parts = [operation_id, child_type]
-        if target:
-            parts.append(f'target="{target}"')
-        if locator:
-            parts.append(f'locator="{locator}"')
-        if assertion:
-            parts.append(f'assertion="{assertion}"')
-        if value_text:
-            parts.append(f'value="{value_text}"')
-        return " ".join(parts)
+        return self._plan_state.describe_confirmed_execution_child(child)
 
     def _describe_confirmed_execution_call(self, tool_name: str, args: dict[str, Any]) -> str:
-        action = self._action_name_for_tool(tool_name) or tool_name
-        locator = self._normalize_space(str(args.get("locator") or "")).strip()
-        assertion = self._normalize_space(str(args.get("assertion") or "")).strip().lower()
-        value_text = self._normalize_space(str(args.get("value") or args.get("expected_value") or "")).strip()
-        parts = [action]
-        if locator:
-            parts.append(f'locator="{locator}"')
-        if assertion:
-            parts.append(f'assertion="{assertion}"')
-        if value_text:
-            parts.append(f'value="{value_text}"')
-        return " ".join(parts)
+        return self._plan_state.describe_confirmed_execution_call(tool_name, args)
 
     def _record_confirmed_execution_child_result(
         self,
@@ -4373,110 +2800,7 @@ class AgentLoop:
         browser_state_before: dict[str, str] | None = None,
         browser_state_after: dict[str, str] | None = None,
     ) -> dict[str, Any] | None:
-        contract = self._confirmed_execution_contract_for_step(step)
-        if not isinstance(contract, dict) or not isinstance(child, dict):
-            return None
-
-        step_id = str(contract.get("step_id") or "").strip()
-        operation_id = str(child.get("operation_id") or "").strip()
-        if not step_id or not operation_id:
-            return None
-
-        step_results = self._confirmed_execution_results_for_step(step_id)
-        child_result = step_results.get(operation_id)
-        if not isinstance(child_result, dict):
-            child_result = {}
-            step_results[operation_id] = child_result
-
-        action = self._action_name_for_tool(tool_name)
-        action_context: dict[str, Any] = {
-            "locator": self._normalize_space(str(args.get("locator") or result.get("locator") or child.get("locator") or "")).strip(),
-        }
-        if "assertion" in args:
-            action_context["assertion"] = self._normalize_space(str(args.get("assertion") or "")).strip().lower()
-        if "value" in args:
-            action_context["value"] = args.get("value")
-        if "expected_value" in args:
-            action_context["expected_value"] = args.get("expected_value")
-        if "url" in args:
-            action_context["url"] = self._normalize_space(str(args.get("url") or "")).strip()
-        if "wait_until" in args:
-            action_context["wait_until"] = self._normalize_space(str(args.get("wait_until") or "")).strip()
-        if "filename" in args:
-            action_context["filename"] = self._normalize_space(str(args.get("filename") or "")).strip()
-        if result.get("url") and not action_context.get("url"):
-            action_context["url"] = self._normalize_space(str(result.get("url") or "")).strip()
-
-        child_result.update(
-            {
-                "operation_id": operation_id,
-                "step_id": step_id,
-                "step_number": contract.get("step_number"),
-                "type": child.get("type") or "unknown",
-                "target": child.get("target") or "",
-                "locator": child.get("locator") or action_context.get("locator") or "",
-                "assertion": child.get("assertion") or action_context.get("assertion") or "",
-                "value": child.get("value") or child.get("expected_value") or action_context.get("value") or action_context.get("expected_value") or "",
-                "status": status,
-                "tool": tool_name,
-                "action": action,
-                "action_context": action_context,
-                "tool_args": dict(args),
-                "result": dict(result),
-                "step_context": dict(step) if isinstance(step, dict) else None,
-            }
-        )
-
-        if browser_state_before is not None:
-            child_result["browser_state_before"] = self._normalize_browser_state_snapshot(browser_state_before)
-        if browser_state_after is not None:
-            child_result["browser_state_after"] = self._normalize_browser_state_snapshot(browser_state_after)
-
-        attempts = child_result.get("attempts")
-        if not isinstance(attempts, list):
-            attempts = []
-        attempt: dict[str, Any] = {
-            "status": status,
-            "tool": tool_name,
-            "action": action,
-            "tool_args": dict(args),
-            "result": dict(result),
-        }
-        if action_context:
-            attempt["action_context"] = dict(action_context)
-        if browser_state_before is not None:
-            attempt["browser_state_before"] = self._normalize_browser_state_snapshot(browser_state_before)
-        if browser_state_after is not None:
-            attempt["browser_state_after"] = self._normalize_browser_state_snapshot(browser_state_after)
-        error_text = str(result.get("error") or result.get("message") or "").strip()
-        if error_text:
-            attempt["error"] = error_text
-            child_result["error"] = error_text
-        if status == "blocked":
-            child_result["blocked"] = True
-        elif status == "failed":
-            child_result["blocked"] = False
-        attempts.append(attempt)
-        child_result["attempts"] = attempts
-        child_result["attempt_count"] = len(attempts)
-
-        if status == "success":
-            generated_line = self._build_generated_line(action or child_result.get("type") or "", str(child_result.get("locator") or ""), action_context)
-            if generated_line:
-                child_result["generated_line"] = generated_line
-                child_result["code_lines"] = [generated_line]
-            else:
-                child_result["code_lines"] = list(child_result.get("code_lines") or [])
-            mismatch_counts = getattr(self, "confirmed_execution_mismatch_count_by_step_id", None)
-            if not isinstance(mismatch_counts, dict):
-                mismatch_counts = {}
-                self.confirmed_execution_mismatch_count_by_step_id = mismatch_counts
-            mismatch_counts[step_id] = 0
-        else:
-            child_result["code_lines"] = list(child_result.get("code_lines") or [])
-
-        step_results[operation_id] = child_result
-        return child_result
+        return self._plan_state.record_confirmed_execution_child_result(step, child)
 
     def _validate_confirmed_execution_tool_call(
         self,
@@ -4484,247 +2808,14 @@ class AgentLoop:
         args: dict[str, Any],
         result: dict[str, Any] | None = None,
     ) -> dict[str, Any] | None:
-        if tool_name not in self.EXECUTION_TOOLS:
-            return None
-
-        confirmed_cursor = self._current_confirmed_execution_cursor()
-        if not isinstance(confirmed_cursor, dict):
-            return None
-
-        step_context = confirmed_cursor.get("step_context")
-        contract = confirmed_cursor.get("contract")
-        expected_child = confirmed_cursor.get("next_child")
-        expected_child_result = confirmed_cursor.get("next_child_result")
-        if not isinstance(contract, dict):
-            return None
-
-        step_id = str(contract.get("step_id") or "").strip()
-        if not step_id or not isinstance(expected_child, dict):
-            return None
-
-        expected_description = self._describe_confirmed_execution_child(expected_child)
-        actual_description = self._describe_confirmed_execution_call(tool_name, args)
-        expected_tool = str(expected_child.get("type") or "").strip().lower()
-        actual_tool = self._action_name_for_tool(tool_name)
-        actual_locator = str(args.get("locator") or (result or {}).get("locator") or "").strip()
-        expected_locator = str(expected_child.get("locator") or "").strip()
-        actual_assertion = self._normalize_space(str(args.get("assertion") or (result or {}).get("assertion") or "")).strip().lower()
-        expected_assertion = self._normalize_space(
-            str(expected_child.get("assertion") or self._infer_confirmed_execution_child_assertion(expected_child, source_step=step_context) or "")
-        ).strip().lower()
-        actual_value = self._normalize_space(str(args.get("value") or args.get("expected_value") or "")).strip()
-        expected_value = self._normalize_space(
-            str(expected_child.get("value") or expected_child.get("expected_value") or "")
-        ).strip()
-
-        self._log_confirmed_execution_cursor("[CONFIRMED_CURSOR]")
-        print(f"[EXECUTION_CONTRACT] expected step_id={step_id} op={expected_tool} actual={actual_tool}")
-
-        expected_tool_name = {
-            "assert": "action_assert",
-            "click": "action_click",
-            "fill": "action_fill",
-        }.get(expected_tool)
-        if expected_tool_name is None:
-            return {
-                "allowed": False,
-                "blocked": True,
-                "skipped": True,
-                "reason": "execution_contract_unsupported",
-                "message": (
-                    "Execution blocked: confirmed plan child type "
-                    f"{expected_tool!r} is not supported by the execution contract."
-                ),
-                "requires_replan": False,
-                "step_id": step_id,
-                "expected_child": deepcopy(expected_child),
-                "actual_tool": tool_name,
-                "actual_description": actual_description,
-                "terminal": True,
-            }
-
-        locator_matches = self._locator_matches_confirmed_execution_child(expected_locator, actual_locator)
-        assertion_matches = self._assertion_matches_confirmed_execution_child(expected_child, actual_assertion, args)
-        value_matches = self._value_matches_confirmed_execution_child(expected_child, args)
-        tool_matches = expected_tool_name == tool_name
-        allowed = tool_matches and locator_matches and assertion_matches and value_matches
-
-        print(
-            "[EXECUTION_CONTRACT] expected "
-            f"{expected_description} actual={actual_description}"
-        )
-        if allowed:
-            return {
-                "allowed": True,
-                "step_id": step_id,
-                "expected_child": deepcopy(expected_child),
-            }
-
-        mismatch_counts = getattr(self, "confirmed_execution_mismatch_count_by_step_id", None)
-        if not isinstance(mismatch_counts, dict):
-            mismatch_counts = {}
-            self.confirmed_execution_mismatch_count_by_step_id = mismatch_counts
-        mismatch_count = int(mismatch_counts.get(step_id) or 0) + 1
-        mismatch_counts[step_id] = mismatch_count
-        terminal = mismatch_count >= 2
-        if not terminal and isinstance(expected_child_result, dict):
-            expected_child_result.setdefault("status", "pending")
-        message = (
-            "Execution blocked: confirmed plan expected "
-            f"{expected_description}, but model tried {actual_description}."
-        )
-        if terminal:
-            message = (
-                f"{message} Execution contract violated twice for step {step_id}. "
-                "Failing closed."
-            )
-        print(f"[EXECUTION_CONTRACT] blocked mismatch step_id={step_id} expected={expected_tool} actual={actual_tool}")
-        return {
-            "allowed": False,
-            "blocked": True,
-            "skipped": True,
-            "reason": "execution_contract_mismatch",
-            "message": message,
-            "requires_replan": False,
-            "step_id": step_id,
-            "expected_child": deepcopy(expected_child),
-            "actual_tool": tool_name,
-            "actual_description": actual_description,
-            "actual_locator": actual_locator,
-            "actual_assertion": actual_assertion,
-            "actual_value": actual_value,
-            "expected_locator": expected_locator,
-            "expected_assertion": expected_assertion,
-            "expected_value": expected_value,
-            "terminal": terminal,
-        }
+        return self._plan_state.validate_confirmed_execution_tool_call(tool_name, args, result)
 
     def _classify_plan_correction(
         self,
         correction: str,
         active_plan_state: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        normalized = self._normalize_space(correction).lower()
-        ordered_types = self._infer_planned_operation_sequence(normalized)
-        active_operation_count = len(self._plan_operation_signatures_from_state(active_plan_state))
-
-        explicit_remove = any(
-            marker in normalized
-            for marker in (
-                "don't",
-                "do not",
-                "remove",
-                "only",
-                "no need",
-                "skip",
-                "without",
-            )
-        )
-        explicit_order = any(
-            marker in normalized
-            for marker in (
-                " first",
-                " then",
-                " before",
-                " after",
-                " order",
-                " next",
-                "swap",
-                "reverse",
-            )
-        )
-        explicit_replace = any(
-            marker in normalized
-            for marker in (
-                "replace",
-                "instead of",
-                "instead",
-                "swap",
-                "change it to",
-            )
-        )
-        explicit_target_change = any(
-            marker in normalized
-            for marker in (
-                "use the",
-                "switch",
-                "header button",
-                "button",
-                "link",
-                "target",
-                "selector",
-                "locator",
-            )
-        )
-        explicit_expected_outcome = any(
-            marker in normalized
-            for marker in (
-                "should open",
-                "should show",
-                "should navigate",
-                "expected",
-                "modal",
-                "new tab",
-                "visible",
-                "hidden",
-                "enabled",
-                "disabled",
-            )
-        )
-        explicit_split_merge = any(marker in normalized for marker in ("split", "merge"))
-        explicit_add = any(
-            marker in normalized
-            for marker in (
-                "add",
-                "also",
-                "check",
-                "verify",
-                "validate",
-                "ensure",
-            )
-        )
-        if not explicit_add and "assert" in normalized and not explicit_remove:
-            explicit_add = True
-
-        category = "ambiguous"
-        if not normalized:
-            category = "ambiguous"
-        elif explicit_split_merge:
-            if "split" in normalized and "merge" not in normalized:
-                category = "split_step"
-            elif "merge" in normalized and "split" not in normalized:
-                category = "merge_steps"
-            else:
-                category = "ambiguous"
-        elif explicit_replace:
-            category = "replace_operation"
-        elif explicit_target_change and not explicit_add and not explicit_remove and not explicit_order:
-            category = "change_target"
-        elif explicit_expected_outcome and not explicit_add and not explicit_remove and not explicit_order:
-            category = "change_expected_outcome"
-        elif explicit_order and len(ordered_types) > 1:
-            if active_operation_count > 0 and len(ordered_types) > active_operation_count:
-                category = "add_and_reorder_operations"
-            else:
-                category = "reorder_operations"
-        elif explicit_add and not explicit_remove:
-            category = "add_operation"
-        elif explicit_remove and not explicit_add:
-            category = "remove_operation"
-        elif ordered_types and active_operation_count == len(ordered_types) and ordered_types != self._plan_operation_types_from_state(active_plan_state):
-            category = "reorder_operations"
-
-        return {
-            "category": category,
-            "ordered_types": ordered_types,
-            "explicit_add": explicit_add,
-            "explicit_remove": explicit_remove,
-            "explicit_order": explicit_order,
-            "explicit_replace": explicit_replace,
-            "explicit_target_change": explicit_target_change,
-            "explicit_expected_outcome": explicit_expected_outcome,
-            "explicit_split_merge": explicit_split_merge,
-        }
+        return self._plan_correction.classify_plan_correction(correction, active_plan_state)
 
     def _build_plan_correction_validation_feedback(
         self,
@@ -4733,341 +2824,29 @@ class AgentLoop:
         active_plan_state: dict[str, Any] | None = None,
         proposed_payload: dict[str, Any] | None = None,
     ) -> str:
-        category = str(correction_state.get("category") or "").strip() or "ambiguous"
-        ordered_types = list(correction_state.get("ordered_types") or [])
-        active_operation_signatures = self._plan_operation_signatures_from_state(active_plan_state)
-        proposed_operation_signatures = self._plan_operation_signatures_from_state(proposed_payload)
-        active_operation_types = self._plan_operation_types_from_state(active_plan_state)
-        active_steps = self._plan_steps_from_state(active_plan_state)
-        active_operation_texts: list[str] = []
-        for step in active_steps:
-            for child in self._plan_child_operations_from_step(step):
-                child_signature = self._plan_operation_signature(child)
-                if child_signature and child_signature not in active_operation_signatures:
-                    continue
-                child_text = self._plan_operation_text(child)
-                active_operation_texts.append(child_text or self._plan_operation_type(child) or "child")
-        validation_reason_text = self._normalize_space(validation_reason).strip()
-
-        if correction_state.get("needs_clarification") or category == "ambiguous":
-            if category in {"add_operation", "add_and_reorder_operations"}:
-                added_types = [operation_type for operation_type in ordered_types if operation_type not in active_operation_types]
-                kept_types = [operation_type for operation_type in active_operation_types if operation_type in ordered_types]
-                if "click" in kept_types and "assert" in added_types:
-                    return "Should I keep the click and add an assertion before it?"
-                if kept_types and added_types:
-                    kept_text = " and ".join(kept_types)
-                    added_text = " and ".join(added_types)
-                    return f"Should I keep the {kept_text} and add the {added_text}?"
-                if ordered_types:
-                    return f"Should I add {' then '.join(ordered_types)} and keep the existing child operations?"
-            if category == "remove_operation":
-                removed_types = [operation_type for operation_type in active_operation_types if operation_type not in ordered_types]
-                if "click" in removed_types:
-                    return "Should I remove the click and keep the remaining child operations?"
-                if removed_types:
-                    removed_text = " and ".join(removed_types)
-                    return f"Should I remove the {removed_text} operation and keep the remaining child operations?"
-            if category in {"reorder_operations", "add_and_reorder_operations"} and ordered_types:
-                return f"Should I keep the same child operations but reorder them as {' then '.join(ordered_types)}?"
-            return "Should I keep the current plan and apply the correction as written?"
-
-        if category in {"add_operation", "add_and_reorder_operations"} and len(proposed_operation_signatures) <= len(active_operation_signatures):
-            missing_active_operation = ""
-            for index, active_signature in enumerate(active_operation_signatures):
-                if active_signature not in proposed_operation_signatures:
-                    missing_active_operation = (
-                        active_operation_texts[index]
-                        if index < len(active_operation_texts) and active_operation_texts[index]
-                        else ""
-                    )
-                    break
-            if missing_active_operation:
-                missing_active_operation_type = ""
-                if index < len(active_steps):
-                    missing_child = None
-                    for child in self._plan_child_operations_from_step(active_steps[index]):
-                        if self._plan_operation_signature(child) == active_signature:
-                            missing_child = child
-                            break
-                    if isinstance(missing_child, dict):
-                        missing_active_operation_type = self._plan_operation_type(missing_child)
-                missing_active_operation_label = missing_active_operation_type or missing_active_operation
-                if ordered_types:
-                    return (
-                        f"Corrected plan is invalid because existing {missing_active_operation_label} operation was dropped. "
-                        f"Return one parent step with {' then '.join(ordered_types)}."
-                    )
-                return f"Corrected plan is invalid because existing {missing_active_operation_label} operation was dropped. Restore the dropped child operation."
-            if ordered_types:
-                return f"Corrected plan is invalid because the added {' then '.join(ordered_types)} operation is missing. Return one parent step with {' then '.join(ordered_types)}."
-            return "Corrected plan is invalid because the added operation is missing. Return one parent step with the requested child operations."
-
-        if category == "remove_operation" and len(proposed_operation_signatures) >= len(active_operation_signatures):
-            return "Corrected plan is invalid because no operation was removed. Remove the explicitly rejected child operation and try again."
-
-        if category in {"reorder_operations", "add_and_reorder_operations"} and ordered_types:
-            ordered_text = " then ".join(ordered_types)
-            if ordered_text:
-                return f"Corrected plan is invalid because the child order does not match the correction. Return one parent step with {ordered_text}."
-
-        if validation_reason_text:
-            return validation_reason_text
-
-        return "Corrected plan is invalid. Preserve the active child operations or ask one clarification."
+        return self._plan_correction.build_plan_correction_validation_feedback(correction_state, validation_reason, active_plan_state, proposed_payload)
 
     def _build_plan_correction_operation_context_lines(
         self,
         active_plan_state: dict[str, Any] | None,
     ) -> list[str]:
-        if not isinstance(active_plan_state, dict):
-            return []
-
-        lines: list[str] = []
-        for step in self._plan_steps_from_state(active_plan_state):
-            if not isinstance(step, dict):
-                continue
-            step_id = str(step.get("step_id") or step.get("id") or "").strip()
-            intent = self._normalize_space(
-                str(step.get("intent") or step.get("title") or step.get("text") or step.get("label") or "")
-            ).strip()
-            header_parts = [part for part in (step_id, intent) if part]
-            if header_parts:
-                lines.append(f'Parent step: {" | ".join(header_parts)}')
-            expected_outcome_text = self._expected_outcome_summary(
-                self._normalize_expected_outcome(
-                    step.get("expected_outcome") or step.get("expectedOutcome"),
-                    self._is_click_like_intent(intent),
-                )
-            )
-            if expected_outcome_text:
-                lines.append(f"  expected_outcome: {expected_outcome_text}")
-            children = self._plan_child_operations_from_step(step)
-            if not children:
-                lines.append("  child operations: none")
-                continue
-            for child in children:
-                if not isinstance(child, dict):
-                    continue
-                child_operation_id = str(child.get("operation_id") or "").strip()
-                child_type = str(child.get("type") or "").strip()
-                child_target = self._normalize_space(str(child.get("target") or child.get("description") or "")).strip()
-                child_locator = self._normalize_space(str(child.get("locator") or "")).strip()
-                child_parts = [part for part in (child_operation_id, child_type) if part]
-                child_text = " ".join(child_parts) if child_parts else "child"
-                if child_target:
-                    child_text += f' target="{child_target}"'
-                if child_locator:
-                    child_text += f' locator="{child_locator}"'
-                lines.append(f"  - {child_text}")
-        return lines
+        return self._plan_correction.build_plan_correction_operation_context_lines(active_plan_state)
 
     def _build_plan_correction_context_message(self) -> str:
-        correction_state = getattr(self, "_active_plan_correction_state", None)
-        active_plan_state = self._current_active_plan_state()
-        if not isinstance(correction_state, dict) or not isinstance(active_plan_state, dict):
-            return ""
-
-        correction_text = self._normalize_space(str(correction_state.get("correction_text") or "")).strip()
-        answer_text = self._normalize_space(str(correction_state.get("clarification_answer") or "")).strip()
-        lines = [
-            "Structured correction diff context.",
-            f'active_plan_id: "{str(correction_state.get("plan_id") or "")}"',
-            f'target_step_id: "{str(correction_state.get("target_step_id") or "")}"',
-            f"target_plan_version: {self._current_plan_version()}",
-            f'correction_type: "{str(correction_state.get("category") or "ambiguous")}"',
-            f'Correction: "{correction_text}"',
-        ]
-        if answer_text:
-            lines.append(f'Clarification answer: "{answer_text}"')
-        lines.extend(self._build_plan_correction_operation_context_lines(active_plan_state))
-        lines.append("Mutation rules:")
-        lines.append("- You MUST respond with send_to_overlay message_type='plan_correction_diff'.")
-        lines.append("- Your send_to_overlay call must include a payload with target_step_id and mutations.")
-        lines.append("- An empty or message_type-only plan_correction_diff call is invalid.")
-        lines.append("- Do NOT respond with plan_ready during correction mode.")
-        lines.append("- Do NOT respond with llm_thinking during correction mode.")
-        lines.append("- Do NOT use ask_user unless the correction category is ambiguous.")
-        lines.append("- Allowed mutation ops: keep, add, remove, reorder, change_expected_outcome.")
-        lines.append("- Required mutation object shape: {\"op\": \"keep\"|\"add\"|\"remove\"|\"reorder\"|\"change_expected_outcome\", ...}")
-        lines.append("- For \"add\": include operation object with type, target, and optional locator/assertion.")
-        lines.append("- For \"keep\" and \"remove\": reference existing operation_id.")
-        lines.append("- For \"reorder\": reference existing operation_id and include it in final position.")
-        lines.append("- List mutations in final child order.")
-        lines.append("- Preserve every existing child operation unless it is explicitly removed or reordered.")
-        lines.append("- Do not reconstruct a full plan_ready in correction mode.")
-        lines.append("- Do not call DOM extraction or locator search for pure plan edits.")
-        lines.append("- Ask one clarification only if the correction is ambiguous.")
-        return "\n".join(lines)
+        return self._plan_correction.build_plan_correction_context_message()
 
     def _build_plan_diff_editor_schema_message(self) -> str:
-        correction_state = getattr(self, "_active_plan_correction_state", None)
-        active_plan_state = self._current_active_plan_state()
-        if not isinstance(correction_state, dict) or not isinstance(active_plan_state, dict):
-            return ""
-
-        correction_text = self._normalize_space(str(correction_state.get("correction_text") or "")).strip()
-        plan_id = str(correction_state.get("plan_id") or active_plan_state.get("plan_id") or "").strip()
-        plan_version = self._current_plan_version()
-        plan_summary = str(active_plan_state.get("summary") or "").strip()
-        lines = [
-            "Authoritative controller schema for this correction.",
-            "Return one JSON object and nothing else.",
-            "Do not call send_to_overlay.",
-            "Do not call plan_ready.",
-            "Do not call llm_thinking.",
-            'schema_id: "plan_diff_editor.v1"',
-            'purpose: "plan_diff_editor"',
-            f'correction_intent: "{correction_text}"',
-            f'target_plan_id: "{plan_id}"',
-            f"target_plan_version: {plan_version}",
-            'requires_user_clarification: false',
-            'reasoning_summary: "brief diff summary"',
-            'ambiguity: []',
-            "operations: [ ... ]",
-            "Operation rules:",
-            '- Use action "add" for the new assert operation.',
-            '- Use action "reorder" for the existing click operation so it stays second.',
-            '- Use action "update" only for plan text edits.',
-            '- Use action "remove" only when a child must be deleted.',
-            '- Include target_type, target_id, patch, position, and reason exactly where required.',
-            '- Keep the corrected child order in the operations list.',
-        ]
-        if plan_summary:
-            lines.append(f'Current plan summary: "{plan_summary}"')
-        lines.extend(
-            [
-                "Example for this correction:",
-                "{",
-                '  "schema_id": "plan_diff_editor.v1",',
-                '  "purpose": "plan_diff_editor",',
-                f'  "correction_intent": "{correction_text}",',
-                f'  "target_plan_id": "{plan_id}",',
-                f'  "target_plan_version": {plan_version},',
-                '  "operations": [',
-                '    {',
-                '      "action": "add",',
-                '      "target_type": "operation",',
-                '      "patch": {',
-                '        "type": "assert",',
-                '        "target": "Get started",',
-                '        "assertion": "visible"',
-                '      },',
-                '      "reason": "add visible assertion before the click"',
-                '    },',
-                '    {',
-                '      "action": "reorder",',
-                '      "target_type": "operation",',
-                '      "target_id": "op_1",',
-                '      "position": 2,',
-                '      "reason": "keep the click after the assertion"',
-                '    }',
-                '  ],',
-                '  "requires_user_clarification": false',
-                "}",
-            ]
-        )
-        return "\n".join(lines)
+        return self._plan_correction.build_plan_diff_editor_schema_message()
 
     def _synthesize_plan_diff_editor_output(self) -> dict[str, Any]:
-        correction_state = getattr(self, "_active_plan_correction_state", None)
-        active_plan_state = self._current_active_plan_state()
-        if not isinstance(correction_state, dict) or not isinstance(active_plan_state, dict):
-            return {}
-
-        category = str(correction_state.get("category") or "").strip()
-        if category not in {"add_operation", "add_and_reorder_operations"}:
-            return {}
-
-        active_steps = self._plan_steps_from_state(active_plan_state)
-        if not active_steps:
-            return {}
-        source_step = active_steps[0] if isinstance(active_steps[0], dict) else {}
-        active_children = self._plan_child_operations_from_step(source_step)
-        if not active_children:
-            return {}
-
-        click_child = None
-        for child in active_children:
-            if self._plan_operation_type(child) == "click":
-                click_child = child
-                break
-        if click_child is None:
-            click_child = active_children[0]
-
-        click_operation_id = str(click_child.get("operation_id") or "").strip()
-        if not click_operation_id:
-            return {}
-
-        target = self._select_plan_correction_child_target(
-            [
-                ("child.target", click_child.get("target")),
-                ("child.element_name", click_child.get("element_name")),
-                ("child.label", click_child.get("label")),
-                ("source.element_name", source_step.get("element_name")),
-                ("source.intent", source_step.get("intent")),
-            ]
-        )
-        if not target:
-            return {}
-
-        correction_text = self._normalize_space(str(correction_state.get("correction_text") or "")).strip()
-        plan_id = str(correction_state.get("plan_id") or active_plan_state.get("plan_id") or "").strip()
-        plan_version = self._current_plan_version()
-        return {
-            "schema_id": "plan_diff_editor.v1",
-            "purpose": "plan_diff_editor",
-            "correction_intent": correction_text,
-            "target_plan_id": plan_id,
-            "target_plan_version": plan_version,
-            "operations": [
-                {
-                    "action": "add",
-                    "target_type": "operation",
-                    "patch": {
-                        "type": "assert",
-                        "target": target,
-                        "assertion": "visible",
-                    },
-                    "reason": "add visible assertion before the click",
-                },
-                {
-                    "action": "reorder",
-                    "target_type": "operation",
-                    "target_id": click_operation_id,
-                    "position": 2,
-                    "reason": "keep the click after the assertion",
-                },
-            ],
-            "reasoning_summary": "Add a visible assertion before the click and keep the click second.",
-            "ambiguity": [],
-            "requires_user_clarification": False,
-        }
+        return self._plan_correction.synthesize_plan_diff_editor_output()
 
     def _build_plan_correction_clarification_message(
         self,
         correction_state: dict[str, Any],
         answer: str,
     ) -> str:
-        clarification_question = self._normalize_space(
-            str(correction_state.get("clarification_question") or correction_state.get("last_validation_feedback") or "")
-        ).strip()
-        correction_text = self._normalize_space(str(correction_state.get("correction_text") or "")).strip()
-        category = str(correction_state.get("category") or "").strip() or "ambiguous"
-        answer_text = self._normalize_space(answer).strip() or "answered"
-        lines = [
-            "Structured correction clarification resolved.",
-            f'User answered: "{answer_text}"',
-        ]
-        if clarification_question:
-            lines.append(f'Clarification question: "{clarification_question}"')
-        if correction_text:
-            lines.append(f'Original correction: "{correction_text}"')
-        lines.append(f'Correction type: "{category}"')
-        lines.append("Do not ask the same clarification again.")
-        lines.append("List mutations in final child order.")
-        lines.append("Send a structured correction diff.")
-        return "\n".join(lines)
+        return self._plan_correction.build_plan_correction_clarification_message(correction_state, answer)
 
     def _build_plan_correction_state(
         self,
@@ -5075,40 +2854,7 @@ class AgentLoop:
         source_plan_state: dict[str, Any] | None = None,
         target_step_id: str | None = None,
     ) -> dict[str, Any]:
-        active_plan_state = source_plan_state if isinstance(source_plan_state, dict) else self._current_active_plan_state()
-        correction_classification = self._classify_plan_correction(correction, active_plan_state)
-        correction_text = self._normalize_space(correction).strip()
-        plan_id = str((active_plan_state or {}).get("plan_id") or "").strip() or None
-        active_target_step_id = target_step_id or str((active_plan_state or {}).get("target_step_id") or "").strip() or None
-        if active_target_step_id is None and active_plan_state is not None:
-            step_ids = list((active_plan_state or {}).get("step_ids") or [])
-            active_target_step_id = step_ids[0] if step_ids else None
-
-        return {
-            "plan_id": plan_id,
-            "target_step_id": active_target_step_id,
-            "correction_text": correction_text,
-            "category": correction_classification["category"],
-            "ordered_types": list(correction_classification["ordered_types"]),
-            "explicit_add": bool(correction_classification["explicit_add"]),
-            "explicit_remove": bool(correction_classification["explicit_remove"]),
-            "explicit_order": bool(correction_classification["explicit_order"]),
-            "explicit_replace": bool(correction_classification["explicit_replace"]),
-            "explicit_target_change": bool(correction_classification["explicit_target_change"]),
-            "explicit_expected_outcome": bool(correction_classification["explicit_expected_outcome"]),
-            "explicit_split_merge": bool(correction_classification["explicit_split_merge"]),
-            "retry_count": 0,
-            "needs_clarification": correction_classification["category"] == "ambiguous",
-            "clarification_question": None,
-            "clarification_answer": None,
-            "clarification_resolved": False,
-            "clarification_closed": False,
-            "correction_failed": False,
-            "no_progress_count": 0,
-            "schema_retry_count": 0,
-            "last_validation_reason": None,
-            "last_validation_feedback": None,
-        }
+        return self._plan_correction.build_plan_correction_state(correction, source_plan_state, target_step_id)
 
     def _build_plan_correction_added_child(
         self,
@@ -5117,369 +2863,13 @@ class AgentLoop:
         anchor_child: dict[str, Any] | None,
         operation_id: str,
     ) -> dict[str, Any]:
-        operation_type = self._normalize_space(
-            str(operation_spec.get("type") or operation_spec.get("action") or "")
-        ).strip().lower()
-        if not operation_type or operation_type == "unknown":
-            return {}
-
-        target = self._select_plan_correction_child_target(
-            [
-                ("operation.target", operation_spec.get("target")),
-                ("operation.element_name", operation_spec.get("element_name")),
-                ("anchor.target", (anchor_child or {}).get("target")),
-                ("anchor.description", (anchor_child or {}).get("description")),
-                ("source.element_name", source_step.get("element_name")),
-                ("source.intent", source_step.get("intent")),
-            ]
-        )
-        if not target and operation_type != "assert":
-            return {}
-
-        locator = self._normalize_space(
-            str(
-                operation_spec.get("locator")
-                or (anchor_child or {}).get("locator")
-                or source_step.get("locator")
-                or self._derive_locator_from_step_context(source_step)
-                or ""
-            )
-        ).strip()
-        if locator in {"*", 'page.locator("")'}:
-            locator = ""
-
-        canonical_child: dict[str, Any] = {}
-        assertion = self._normalize_space(str(operation_spec.get("assertion") or "")).strip().lower()
-        value_text = self._normalize_space(
-            str(operation_spec.get("value") or operation_spec.get("expected_value") or "")
-        ).strip()
-        description = str(operation_spec.get("description") or "").strip()
-        if operation_type == "assert":
-            canonical_child = self._canonicalize_assertion_operation(
-                operation_spec,
-                source_step=source_step,
-                anchor_child=anchor_child,
-            )
-            if canonical_child:
-                target = str(canonical_child.get("target") or target or "").strip()
-                locator = str(canonical_child.get("locator") or locator or "").strip()
-                assertion = str(canonical_child.get("assertion") or assertion or "").strip().lower()
-                value_text = str(
-                    canonical_child.get("value") or canonical_child.get("expected_value") or value_text or ""
-                ).strip()
-                description = str(canonical_child.get("description") or description or "").strip()
-        if not assertion and operation_type == "assert":
-            assertion = "visible"
-        if operation_type != "assert" and not description:
-            description = self._build_plan_correction_child_description(
-                operation_type,
-                target,
-                assertion,
-                value_text,
-                str(operation_spec.get("description") or ""),
-                str(source_step.get("intent") or "").strip(),
-            )
-        elif operation_type == "assert" and not description:
-            description = self._build_plan_correction_child_description(
-                operation_type,
-                target,
-                assertion,
-                value_text,
-                str(operation_spec.get("description") or ""),
-                str(source_step.get("intent") or "").strip(),
-            )
-        if operation_type == "assert":
-            print(
-                "[PLAN_CORRECTION_CHILD] canonicalized assert "
-                f"target={target!r} assertion={assertion or 'visible'!r} locator_present={bool(locator)}"
-            )
-
-        child = {
-            "operation_id": operation_id,
-            "type": operation_type,
-            "description": description or target or operation_type,
-            "target": target,
-            "locator": locator,
-            "status": "planned",
-        }
-        if assertion:
-            child["assertion"] = assertion
-        if value_text:
-            child["value"] = value_text
-            child["expected_value"] = value_text
-        return child
+        return self._plan_correction.build_plan_correction_added_child(operation_spec, source_step, anchor_child, operation_id)
 
     def _build_structured_plan_correction_payload_from_diff(
         self,
         diff_payload: dict[str, Any],
     ) -> dict[str, Any]:
-        active_plan_state = self._current_active_plan_state()
-        correction_state = getattr(self, "_active_plan_correction_state", None)
-        if not isinstance(active_plan_state, dict) or not isinstance(correction_state, dict):
-            return {}
-
-        proposed_diff = deepcopy(diff_payload) if isinstance(diff_payload, dict) else {}
-        active_plan_id = str(active_plan_state.get("plan_id") or "").strip()
-        proposed_target_plan_id = str(
-            proposed_diff.get("target_plan_id")
-            or proposed_diff.get("targetPlanId")
-            or correction_state.get("plan_id")
-            or ""
-        ).strip()
-        if proposed_target_plan_id and active_plan_id and proposed_target_plan_id != active_plan_id:
-            return {}
-
-        def _patch_value(patch: dict[str, Any], *names: str) -> Any:
-            for name in names:
-                value = patch.get(name)
-                if value not in (None, "", [], {}, ()):
-                    return value
-            return None
-
-        def _normalize_step_patch(patch: dict[str, Any]) -> dict[str, Any]:
-            if any(name in patch for name in ("children", "operations")):
-                return {}
-
-            updates: dict[str, Any] = {}
-            intent_value = _patch_value(patch, "intent", "title", "text", "label")
-            if intent_value is not None:
-                intent_text = self._normalize_space(str(intent_value)).strip()
-                if intent_text:
-                    updates["intent"] = intent_text
-
-            expected_outcome_value = _patch_value(patch, "expected_outcome", "expectedOutcome")
-            if expected_outcome_value is not None:
-                updates["expected_outcome"] = deepcopy(expected_outcome_value)
-            return updates
-
-        mutations = proposed_diff.get("mutations")
-        if not isinstance(mutations, list):
-            operations = proposed_diff.get("operations")
-            if not isinstance(operations, list):
-                return {}
-
-            mutations = []
-            for operation in operations:
-                if not isinstance(operation, dict):
-                    return {}
-                mutation_op = self._normalize_space(
-                    str(operation.get("op") or operation.get("action") or "")
-                ).strip().lower()
-                target_type = self._normalize_space(
-                    str(operation.get("target_type") or operation.get("targetType") or "")
-                ).strip().lower()
-                target_id = self._normalize_space(
-                    str(operation.get("target_id") or operation.get("targetId") or "")
-                ).strip()
-
-                if mutation_op in {"keep", "remove", "reorder"}:
-                    if target_type and target_type not in {"operation", "child"}:
-                        return {}
-                    if not target_id:
-                        return {}
-                    mutation: dict[str, Any] = {"op": mutation_op, "operation_id": target_id}
-                    for key in (
-                        "position",
-                        "relative_to_operation_id",
-                        "relativeToOperationId",
-                        "before_operation_id",
-                        "beforeOperationId",
-                        "after_operation_id",
-                        "afterOperationId",
-                    ):
-                        value = _patch_value(operation, key)
-                        if value is not None:
-                            mutation[key] = value
-                    mutations.append(mutation)
-                    continue
-
-                if mutation_op == "add":
-                    if target_type and target_type not in {"operation", "child"}:
-                        return {}
-                    operation_spec = _patch_value(operation, "operation", "patch", "child", "child_operation")
-                    if not isinstance(operation_spec, dict):
-                        return {}
-                    mutation = {"op": "add", "operation": deepcopy(operation_spec)}
-                    for key in (
-                        "position",
-                        "relative_to_operation_id",
-                        "relativeToOperationId",
-                        "before_operation_id",
-                        "beforeOperationId",
-                        "after_operation_id",
-                        "afterOperationId",
-                    ):
-                        value = _patch_value(operation, key)
-                        if value is not None:
-                            mutation[key] = value
-                    mutations.append(mutation)
-                    continue
-
-                if mutation_op == "update":
-                    patch = _patch_value(operation, "patch")
-                    if not isinstance(patch, dict):
-                        return {}
-                    if target_type == "step":
-                        step_updates = _normalize_step_patch(patch)
-                        if not step_updates:
-                            return {}
-                        mutations.append({"op": "step_update", "step_updates": step_updates})
-                        continue
-                    if target_type == "operation":
-                        expected_outcome = _patch_value(patch, "expected_outcome", "expectedOutcome")
-                        if expected_outcome is None:
-                            return {}
-                        mutations.append(
-                            {
-                                "op": "change_expected_outcome",
-                                "expected_outcome": deepcopy(expected_outcome),
-                            }
-                        )
-                        continue
-                    return {}
-
-                return {}
-
-        step_updates: dict[str, Any] = {}
-
-        target_step_id = str(
-            proposed_diff.get("target_step_id")
-            or proposed_diff.get("targetStepId")
-            or correction_state.get("target_step_id")
-            or ""
-        ).strip()
-
-        corrected_payload = deepcopy(active_plan_state)
-        corrected_steps: list[dict[str, Any]] = []
-        target_step_found = False
-
-        for active_step in self._plan_steps_from_state(active_plan_state):
-            step_copy = deepcopy(active_step)
-            step_id = str(step_copy.get("step_id") or step_copy.get("id") or "").strip()
-            if target_step_found or (target_step_id and step_id != target_step_id):
-                corrected_steps.append(step_copy)
-                continue
-
-            target_step_found = True
-            active_children = self._plan_child_operations_from_step(step_copy)
-            child_by_id: dict[str, dict[str, Any]] = {}
-            for child in active_children:
-                child_operation_id = str(child.get("operation_id") or "").strip()
-                if child_operation_id:
-                    child_by_id[child_operation_id] = child
-
-            next_operation_index = 1
-            for child_operation_id in child_by_id:
-                if not child_operation_id.startswith("op_"):
-                    continue
-                try:
-                    next_operation_index = max(next_operation_index, int(child_operation_id.split("_", 1)[1]) + 1)
-                except (IndexError, ValueError):
-                    continue
-
-            def allocate_operation_id() -> str:
-                nonlocal next_operation_index
-                while True:
-                    candidate = f"op_{next_operation_index}"
-                    next_operation_index += 1
-                    if candidate not in child_by_id:
-                        return candidate
-
-            new_children: list[dict[str, Any]] = []
-            changed_expected_outcome = None
-            seen_operation_ids: set[str] = set()
-
-            for mutation in mutations:
-                if not isinstance(mutation, dict):
-                    return {}
-                mutation_op = self._normalize_space(
-                    str(mutation.get("op") or mutation.get("type") or "")
-                ).strip().lower()
-                if mutation_op == "step_update":
-                    step_update_values = mutation.get("step_updates")
-                    if not isinstance(step_update_values, dict):
-                        return {}
-                    step_updates.update(dict(step_update_values))
-                    continue
-                if mutation_op in {"keep", "reorder", "remove"}:
-                    operation_id = self._normalize_space(
-                        str(mutation.get("operation_id") or mutation.get("operationId") or "")
-                    ).strip()
-                    if not operation_id or operation_id not in child_by_id or operation_id in seen_operation_ids:
-                        return {}
-                    seen_operation_ids.add(operation_id)
-                    if mutation_op != "remove":
-                        new_children.append(deepcopy(child_by_id[operation_id]))
-                    continue
-                if mutation_op == "add":
-                    operation_spec = mutation.get("operation")
-                    if not isinstance(operation_spec, dict):
-                        return {}
-                    anchor_operation_id = self._normalize_space(
-                        str(
-                            mutation.get("relative_to_operation_id")
-                            or mutation.get("relativeToOperationId")
-                            or mutation.get("before_operation_id")
-                            or mutation.get("beforeOperationId")
-                            or mutation.get("after_operation_id")
-                            or mutation.get("afterOperationId")
-                            or ""
-                        )
-                    ).strip()
-                    anchor_child = child_by_id.get(anchor_operation_id) if anchor_operation_id else None
-                    added_operation_id = allocate_operation_id()
-                    added_child = self._build_plan_correction_added_child(
-                        operation_spec,
-                        step_copy,
-                        anchor_child,
-                        added_operation_id,
-                    )
-                    if not added_child:
-                        return {}
-                    new_children.append(added_child)
-                    continue
-                if mutation_op == "change_expected_outcome":
-                    changed_expected_outcome = mutation.get("expected_outcome") or mutation.get("expectedOutcome")
-                    continue
-                if mutation_op in {"split_step", "merge_steps", "replace_target", "ambiguous"}:
-                    return {}
-                return {}
-
-            if step_updates:
-                intent_value = step_updates.get("intent")
-                if intent_value is not None:
-                    step_copy["intent"] = self._normalize_space(str(intent_value)).strip()
-                expected_outcome_value = step_updates.get("expected_outcome")
-                if expected_outcome_value is not None:
-                    normalized_expected_outcome = self._normalize_expected_outcome(
-                        expected_outcome_value,
-                        self._is_click_like_intent(
-                            str(step_copy.get("intent") or step_copy.get("title") or step_copy.get("text") or "").strip(),
-                        ),
-                    )
-                    if normalized_expected_outcome is None:
-                        return {}
-                    step_copy["expected_outcome"] = normalized_expected_outcome
-
-            if changed_expected_outcome is not None:
-                normalized_expected_outcome = self._normalize_expected_outcome(
-                    changed_expected_outcome,
-                    self._is_click_like_intent(
-                        str(step_copy.get("intent") or step_copy.get("title") or step_copy.get("text") or "").strip(),
-                    ),
-                )
-                if normalized_expected_outcome is None:
-                    return {}
-                step_copy["expected_outcome"] = normalized_expected_outcome
-
-            step_copy["children"] = new_children
-            corrected_steps.append(step_copy)
-
-        if target_step_id and not target_step_found:
-            return {}
-
-        corrected_payload["steps"] = corrected_steps
-        return corrected_payload
+        return self._plan_correction.build_structured_plan_correction_payload_from_diff(diff_payload)
 
     def _validate_structured_plan_step(
         self,
@@ -5488,348 +2878,19 @@ class AgentLoop:
         correction_state: dict[str, Any],
         active_plan_state: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        active_children = self._plan_child_operations_from_step(active_step)
-        proposed_children = self._plan_child_operations_from_step(proposed_step)
-        category = str(correction_state.get("category") or "").strip()
-        ordered_types = list(correction_state.get("ordered_types") or [])
-        explicit_add = bool(correction_state.get("explicit_add"))
-        explicit_remove = bool(correction_state.get("explicit_remove"))
-        explicit_order = bool(correction_state.get("explicit_order"))
-        explicit_replace = bool(correction_state.get("explicit_replace"))
-        explicit_target_change = bool(correction_state.get("explicit_target_change"))
-        explicit_expected_outcome = bool(correction_state.get("explicit_expected_outcome"))
-        explicit_split_merge = bool(correction_state.get("explicit_split_merge"))
-
-        active_signatures = [
-            self._plan_operation_signature(child)
-            for child in active_children
-            if self._plan_operation_signature(child)
-        ]
-        proposed_signatures = [
-            self._plan_operation_signature(child)
-            for child in proposed_children
-            if self._plan_operation_signature(child)
-        ]
-        active_types = [
-            self._plan_operation_type(child)
-            for child in active_children
-            if self._plan_operation_type(child)
-        ]
-        proposed_types = [
-            self._plan_operation_type(child)
-            for child in proposed_children
-            if self._plan_operation_type(child)
-        ]
-
-        active_count = len(active_signatures)
-        proposed_count = len(proposed_signatures)
-
-        if category == "ambiguous" or correction_state.get("needs_clarification"):
-            return {
-                "valid": False,
-                "reason": "ambiguous correction",
-                "needs_clarification": True,
-            }
-
-        if category in {"split_step", "merge_steps"}:
-            return {
-                "valid": False,
-                "reason": "split and merge corrections are not yet accepted in this path",
-                "needs_clarification": True,
-            }
-
-        if category in {"change_target", "change_expected_outcome", "replace_operation"}:
-            if proposed_count != active_count:
-                return {
-                    "valid": False,
-                    "reason": "replacement or target change must preserve the current child count",
-                }
-            normalized_children = []
-            for index, proposed_child in enumerate(proposed_children):
-                normalized_child = dict(proposed_child)
-                active_child = active_children[index] if index < len(active_children) else {}
-                active_operation_id = str(active_child.get("operation_id") or "").strip()
-                if active_operation_id:
-                    normalized_child["operation_id"] = active_operation_id
-                elif not str(normalized_child.get("operation_id") or "").strip():
-                    normalized_child["operation_id"] = f"op_{index + 1}"
-                normalized_children.append(normalized_child)
-
-            normalized_step = dict(proposed_step)
-            if str(active_step.get("step_id") or "").strip():
-                normalized_step["step_id"] = str(active_step.get("step_id") or "").strip()
-            normalized_step["children"] = normalized_children
-            return {"valid": True, "normalized_step": normalized_step}
-
-        if category == "remove_operation":
-            if proposed_count >= active_count:
-                return {
-                    "valid": False,
-                    "reason": "remove correction did not drop any child operation",
-                }
-            if not self._sequence_contains_subsequence(active_signatures, proposed_signatures):
-                return {
-                    "valid": False,
-                    "reason": "remaining child operations were reordered or changed unexpectedly",
-                }
-        elif category == "add_operation":
-            if proposed_count <= active_count:
-                return {
-                    "valid": False,
-                    "reason": "added child operation is missing",
-                }
-            if not self._sequence_contains_subsequence(proposed_signatures, active_signatures):
-                return {
-                    "valid": False,
-                    "reason": "existing child operations were reordered or changed unexpectedly",
-                }
-        elif category in {"reorder_operations", "add_and_reorder_operations"}:
-            if not all(active_signature in proposed_signatures for active_signature in active_signatures):
-                return {
-                    "valid": False,
-                    "reason": "existing child operation was dropped",
-                }
-            if ordered_types and not self._sequence_contains_subsequence(proposed_types, ordered_types):
-                return {
-                    "valid": False,
-                    "reason": "child order does not match the correction text",
-                }
-            if category == "reorder_operations" and proposed_count != active_count:
-                return {
-                    "valid": False,
-                    "reason": "reorder correction changed the child count",
-                }
-            if category == "add_and_reorder_operations" and proposed_count <= active_count:
-                return {
-                    "valid": False,
-                    "reason": "added child operation is missing",
-                }
-        else:
-            if proposed_count != active_count:
-                return {
-                    "valid": False,
-                    "reason": "plan correction changed the child count without an explicit category",
-                }
-            if not self._sequence_contains_subsequence(proposed_signatures, active_signatures):
-                return {
-                    "valid": False,
-                    "reason": "existing child operations were reordered or changed unexpectedly",
-                }
-
-        normalized_children: list[dict[str, Any]] = []
-        existing_operation_ids = {
-            str(child.get("operation_id") or "").strip()
-            for child in active_children
-            if str(child.get("operation_id") or "").strip()
-        }
-        next_operation_index = 1
-
-        def allocate_operation_id() -> str:
-            nonlocal next_operation_index
-            while True:
-                candidate = f"op_{next_operation_index}"
-                next_operation_index += 1
-                if candidate not in existing_operation_ids:
-                    existing_operation_ids.add(candidate)
-                    return candidate
-
-        if category == "reorder_operations":
-            matched_indices: set[int] = set()
-            for proposed_child in proposed_children:
-                normalized_child = dict(proposed_child)
-                normalized_signature = self._plan_operation_signature(normalized_child)
-                matched_index = -1
-                for index, active_child in enumerate(active_children):
-                    if index in matched_indices:
-                        continue
-                    if self._plan_operation_signature(active_child) == normalized_signature:
-                        matched_index = index
-                        break
-                if matched_index >= 0:
-                    matched_indices.add(matched_index)
-                    active_child = active_children[matched_index]
-                    active_operation_id = str(active_child.get("operation_id") or "").strip()
-                    if active_operation_id:
-                        normalized_child["operation_id"] = active_operation_id
-                    elif not str(normalized_child.get("operation_id") or "").strip():
-                        normalized_child["operation_id"] = allocate_operation_id()
-                else:
-                    normalized_child["operation_id"] = str(normalized_child.get("operation_id") or "").strip() or allocate_operation_id()
-                normalized_children.append(normalized_child)
-        else:
-            matched_indices: set[int] = set()
-            for proposed_child in proposed_children:
-                normalized_child = dict(proposed_child)
-                normalized_signature = self._plan_operation_signature(normalized_child)
-                matched_index = -1
-                for index, active_child in enumerate(active_children):
-                    if index in matched_indices:
-                        continue
-                    active_signature = self._plan_operation_signature(active_child)
-                    active_type = self._plan_operation_type(active_child)
-                    proposed_type = self._plan_operation_type(normalized_child)
-                    if category == "add_operation":
-                        signature_matches = active_signature == normalized_signature
-                    elif category == "remove_operation":
-                        signature_matches = active_signature == normalized_signature
-                    else:
-                        signature_matches = (
-                            active_signature == normalized_signature
-                            or (
-                                category in {"change_target", "change_expected_outcome", "replace_operation"}
-                                and active_type == proposed_type
-                            )
-                        )
-                    if signature_matches:
-                        matched_index = index
-                        break
-                if matched_index >= 0:
-                    matched_indices.add(matched_index)
-                    active_child = active_children[matched_index]
-                    active_operation_id = str(active_child.get("operation_id") or "").strip()
-                    if active_operation_id:
-                        normalized_child["operation_id"] = active_operation_id
-                    elif not str(normalized_child.get("operation_id") or "").strip():
-                        normalized_child["operation_id"] = allocate_operation_id()
-                else:
-                    normalized_child["operation_id"] = str(normalized_child.get("operation_id") or "").strip() or allocate_operation_id()
-                normalized_children.append(normalized_child)
-
-        normalized_step = dict(proposed_step)
-        active_step_id = str(active_step.get("step_id") or active_step.get("id") or "").strip()
-        if active_step_id:
-            normalized_step["step_id"] = active_step_id
-        elif not str(normalized_step.get("step_id") or normalized_step.get("id") or "").strip():
-            normalized_step["step_id"] = str(proposed_step.get("step_id") or proposed_step.get("id") or "").strip() or "1"
-        normalized_step["children"] = normalized_children
-        return {"valid": True, "normalized_step": normalized_step}
+        return self._plan_correction.validate_structured_plan_step(active_step, proposed_step, correction_state, active_plan_state)
 
     def _validate_structured_plan_correction(
         self,
         proposed_payload: dict[str, Any],
     ) -> dict[str, Any]:
-        active_plan_state = self._current_active_plan_state()
-        correction_state = getattr(self, "_active_plan_correction_state", None)
-        proposed_plan = deepcopy(proposed_payload) if isinstance(proposed_payload, dict) else {}
-
-        if not isinstance(active_plan_state, dict) or not isinstance(correction_state, dict):
-            return {"valid": True, "normalized_payload": proposed_plan}
-
-        active_steps = self._plan_steps_from_state(active_plan_state)
-        proposed_steps = self._plan_steps_from_state(proposed_plan)
-        category = str(correction_state.get("category") or "").strip()
-
-        if correction_state.get("needs_clarification") or category == "ambiguous":
-            return {
-                "valid": False,
-                "reason": "ambiguous correction",
-                "needs_clarification": True,
-            }
-
-        if len(active_steps) != len(proposed_steps) and category not in {"split_step", "merge_steps"}:
-            return {
-                "valid": False,
-                "reason": "parent step count changed",
-            }
-
-        normalized_steps: list[dict[str, Any]] = []
-        for index, active_step in enumerate(active_steps):
-            proposed_step = proposed_steps[index] if index < len(proposed_steps) else {}
-            validation = self._validate_structured_plan_step(
-                active_step,
-                proposed_step,
-                correction_state,
-                active_plan_state=active_plan_state,
-            )
-            if not validation.get("valid"):
-                return validation
-            normalized_steps.append(validation["normalized_step"])
-
-        normalized_payload = deepcopy(proposed_plan)
-        normalized_payload["steps"] = normalized_steps
-        if str(active_plan_state.get("plan_id") or "").strip():
-            normalized_payload["plan_id"] = str(active_plan_state.get("plan_id") or "").strip()
-        if str(active_plan_state.get("summary") or "").strip():
-            normalized_payload["summary"] = str(active_plan_state.get("summary") or "").strip()
-        if str(active_plan_state.get("original_user_intent") or "").strip():
-            normalized_payload["original_user_intent"] = str(active_plan_state.get("original_user_intent") or "").strip()
-        return {
-            "valid": True,
-            "normalized_payload": normalized_payload,
-        }
+        return self._plan_correction.validate_structured_plan_correction(proposed_payload)
 
     def _remember_plan_review_context(self, payload: dict[str, Any]) -> None:
-        plan_ready_payload = deepcopy(payload) if isinstance(payload, dict) else {}
-        steps = plan_ready_payload.get("steps") if isinstance(plan_ready_payload.get("steps"), list) else []
-        plan_step_ids: list[str] = []
-        for step in steps:
-            if not isinstance(step, dict):
-                continue
-            step_id = str(step.get("step_id") or step.get("id") or "").strip()
-            if step_id:
-                plan_step_ids.append(step_id)
-
-        source_steps = list(getattr(self, "current_steps", []))
-        if not source_steps:
-            source_steps = list(steps)
-        intent_parts: list[str] = []
-        for source_step in source_steps:
-            if not isinstance(source_step, dict):
-                continue
-            intent_text = self._normalize_space(str(source_step.get("intent") or "")).strip()
-            if intent_text:
-                intent_parts.append(intent_text)
-
-        self.last_plan_ready_payload = plan_ready_payload
-        self.last_plan_step_ids = plan_step_ids
-        self.last_plan_summary = str(plan_ready_payload.get("summary") or "").strip() or None
-        self.last_plan_original_user_intent = " | ".join(intent_parts).strip() or None
-        self._active_plan_state = self._build_active_plan_state(
-            plan_ready_payload,
-            source_plan_state=self._current_active_plan_state(),
-        )
+        return self._plan_correction.remember_plan_review_context(payload)
 
     def _build_plan_step_context_lines(self, plan_payload: dict[str, Any] | None = None) -> list[str]:
-        plan_ready_payload = plan_payload if isinstance(plan_payload, dict) else getattr(self, "last_plan_ready_payload", None)
-        if not isinstance(plan_ready_payload, dict):
-            return []
-
-        steps = plan_ready_payload.get("steps")
-        if not isinstance(steps, list):
-            return []
-
-        step_lines: list[str] = []
-        for index, step in enumerate(steps, start=1):
-            if not isinstance(step, dict):
-                continue
-            step_intent = self._normalize_space(
-                str(step.get("intent") or step.get("title") or step.get("text") or step.get("label") or "")
-            ).strip()
-            step_lines.append(f"{index}. {step_intent}" if step_intent else f"{index}.")
-            expected_outcome_text = self._expected_outcome_summary(
-                self._normalize_expected_outcome(
-                    step.get("expected_outcome") or step.get("expectedOutcome"),
-                    self._is_click_like_intent(step_intent),
-                )
-            )
-            if expected_outcome_text:
-                step_lines.append(f"   expected_outcome: {expected_outcome_text}")
-            children = step.get("children")
-            if not isinstance(children, list):
-                continue
-            for child in children:
-                if not isinstance(child, dict):
-                    continue
-                child_operation_id = str(child.get("operation_id") or "").strip()
-                child_type = str(child.get("type") or "").strip()
-                child_description = self._normalize_space(str(child.get("description") or "")).strip()
-                child_parts = [part for part in (child_operation_id, child_type, child_description) if part]
-                if child_parts:
-                    step_lines.append(f"   - {' '.join(child_parts)}")
-                child_locator = self._normalize_space(str(child.get("locator") or "")).strip()
-                if child_locator:
-                    step_lines.append(f"     locator: {child_locator}")
-        return step_lines
+        return self._plan_correction.build_plan_step_context_lines(plan_payload)
 
     def _build_plan_correction_message(
         self,
@@ -5837,51 +2898,7 @@ class AgentLoop:
         plan_id: str | None = None,
         target_step_id: str | None = None,
     ) -> str:
-        correction_text = self._normalize_space(correction) or "the user requested a correction"
-        active_plan_state = self._current_active_plan_state()
-        correction_state = self._build_plan_correction_state(
-            correction_text,
-            source_plan_state=active_plan_state,
-            target_step_id=target_step_id,
-        )
-        if plan_id:
-            correction_state["plan_id"] = plan_id
-        lines = [
-            "Structured plan correction event.",
-            f'active_plan_id: "{str(correction_state.get("plan_id") or "")}"',
-            f'target_step_id: "{str(correction_state.get("target_step_id") or "")}"',
-            f'correction_type: "{str(correction_state.get("category") or "ambiguous")}"',
-            f'Correction: "{correction_text}"',
-        ]
-        original_user_intent = str(
-            (active_plan_state or {}).get("original_user_intent")
-            or self.last_plan_original_user_intent
-            or ""
-        ).strip()
-        if original_user_intent:
-            lines.append(f'Original user intent: "{original_user_intent}"')
-        previous_summary = str(
-            (active_plan_state or {}).get("summary")
-            or self.last_plan_summary
-            or ""
-        ).strip()
-        if previous_summary:
-            lines.append(f'Previous plan summary: "{previous_summary}"')
-        lines.append(f"Current plan version: {self._current_plan_version()}")
-        step_lines = self._build_plan_step_context_lines(active_plan_state)
-        if step_lines:
-            lines.append("Previous plan steps:")
-            lines.extend(step_lines)
-        else:
-            lines.append("Previous plan steps: none available.")
-        lines.append("Validation rules:")
-        lines.append("- Do not drop child operations unless the correction explicitly removes them.")
-        lines.append("- Do not reorder child operations unless the correction explicitly states order.")
-        lines.append("- Keep one parent step unless split or merge is explicit.")
-        lines.append("- Ask clarification if the correction is ambiguous.")
-        lines.append("- List mutations in final child order.")
-        lines.append("Return a structured correction diff. Do not execute. Do not reconstruct a full plan_ready.")
-        return "\n".join(lines)
+        return self._plan_correction.build_plan_correction_message(correction, plan_id, target_step_id)
 
     def _append_plan_correction_message(
         self,
@@ -5889,93 +2906,25 @@ class AgentLoop:
         plan_id: str | None = None,
         target_step_id: str | None = None,
     ) -> str:
-        message = self._build_plan_correction_message(
-            correction,
-            plan_id=plan_id,
-            target_step_id=target_step_id,
-        )
-        correction_state = self._build_plan_correction_state(
-            correction,
-            source_plan_state=self._current_active_plan_state(),
-            target_step_id=target_step_id,
-        )
-        if plan_id:
-            correction_state["plan_id"] = plan_id
-        self._active_plan_correction_state = correction_state
-        self._plan_correction_pending = True
-        self.llm.messages.append({"role": "user", "content": message})
-        self._clear_plan_review_context()
-        return message
+        return self._plan_correction.append_plan_correction_message(correction, plan_id, target_step_id)
 
     def _mark_step_skipped(self, step: dict[str, Any] | str | None, reason: Any) -> dict[str, Any] | None:
-        context = self._get_step_context(step) if not isinstance(step, dict) else step
-        if context is None:
-            return None
-
-        step_id = str(context.get("step_id") or "").strip()
-        if not step_id:
-            return None
-
-        context["status"] = "skipped"
-        context["last_error"] = str(reason or "").strip() or None
-        context["recorded"] = False
-        self.skipped_step_ids.add(step_id)
-        self.completed_step_ids.discard(step_id)
-        if self.active_failed_step_id == step_id:
-            self.active_failed_step_id = None
-            self.pending_recovery = False
-            self._pending_failure_followup = False
-        if self.active_step_id == step_id:
-            self.active_step_id = None
-        if self.plan_confirmed:
-            self.phase = "executing"
-        self._recording_wait_guard_armed = False
-        self.current_step_index = max(0, int(context.get("step_number") or 1) - 1)
-        print(f"[AGENT] step skipped: {step_id}")
-        self._log_confirmed_execution_cursor("[CONFIRMED_CURSOR]")
-        return context
+        return self._step_manager.mark_step_skipped(step, reason)
 
     def _has_unresolved_steps(self) -> bool:
-        return any(
-            str(step.get("status") or "") in {"pending", "executing", "failed", "recovery_pending"}
-            for step in self._recording_steps
-        )
+        return self._step_manager.has_unresolved_steps()
 
     def _has_unresolved_failure(self) -> bool:
-        return self.pending_recovery or self._get_failed_step_context() is not None
+        return self._step_manager.has_unresolved_failure()
 
     def _all_steps_done(self) -> bool:
-        if not self._recording_steps:
-            return True
-        return all(str(step.get("status") or "") in {"recorded", "skipped"} for step in self._recording_steps)
+        return self._step_manager.all_steps_done()
 
     def _all_steps_resolved(self) -> bool:
-        if not self._recording_steps:
-            return False
-        if not self.plan_confirmed:
-            return False
-        if self._awaiting_step_record or self.pending_recovery or self._pending_failure_followup:
-            return False
-        if self.active_step_id or self.active_failed_step_id:
-            return False
-        if self._has_unresolved_failure():
-            return False
-        return all(str(step.get("status") or "") in {"recorded", "skipped"} for step in self._recording_steps)
+        return self._step_manager.all_steps_resolved()
 
     def _step_state_summary(self, step: dict[str, Any] | None) -> dict[str, Any]:
-        if step is None:
-            return {}
-        element_info = self._resolve_selected_element_info(step.get("element_info") if isinstance(step.get("element_info"), dict) else {})
-        return {
-            "step_id": str(step.get("step_id") or "").strip(),
-            "step_number": step.get("step_number"),
-            "intent": str(step.get("intent") or "").strip(),
-            "element_info": element_info,
-            "status": str(step.get("status") or "").strip(),
-            "locator": str(step.get("locator") or "").strip() or None,
-            "last_error": str(step.get("last_error") or "").strip() or None,
-            "recorded": bool(step.get("recorded")),
-        }
+        return self._step_manager.step_state_summary(step)
 
     def _current_browser_url(self) -> str:
         try:
@@ -6067,33 +3016,10 @@ class AgentLoop:
         return any(phrase in normalized for phrase in stop_phrases)
 
     def _derive_step_context_element_name(self, step: dict[str, Any], element_info: dict[str, Any]) -> str:
-        element_info = self._resolve_selected_element_info(element_info)
-        attrs = element_info.get("attributes") if isinstance(element_info.get("attributes"), dict) else {}
-        candidates = [
-            self._selected_element_text(element_info),
-            str(attrs.get("aria-label") or "").strip(),
-            str(attrs.get("placeholder") or "").strip(),
-            str(attrs.get("data-testid") or "").strip(),
-            str(step.get("intent") or "").strip(),
-        ]
-        for candidate in candidates:
-            if candidate:
-                return candidate[:160]
-        return "step"
+        return self._step_manager.derive_step_context_element_name(step, element_info)
 
     def _step_context_text(self, step: dict[str, Any]) -> str:
-        element_info = self._resolve_selected_element_info(step.get("element_info") or {})
-        attrs = element_info.get("attributes") or {}
-        parts = [
-            str(step.get("intent") or "").strip(),
-            str(step.get("element_name") or "").strip(),
-            self._selected_element_text(element_info),
-            str(attrs.get("aria-label") or "").strip(),
-            str(attrs.get("placeholder") or "").strip(),
-            str(attrs.get("data-testid") or "").strip(),
-            str(element_info.get("id") or "").strip(),
-        ]
-        return self._normalize_space(" ".join(part for part in parts if part))
+        return self._step_manager.step_context_text(step)
 
     def _score_step_context(
         self,
@@ -6102,31 +3028,7 @@ class AgentLoop:
         intent_hint: str,
         element_text_hint: str,
     ) -> int:
-        score = 0
-        step_blob = self._step_context_text(step).lower()
-        if intent_hint and (intent_hint in step_blob or step_blob in intent_hint):
-            score += 4
-        if element_text_hint and (element_text_hint in step_blob or step_blob in element_text_hint):
-            score += 3
-        if locator_hint:
-            if locator_hint in step_blob or step_blob in locator_hint:
-                score += 4
-            for candidate in (
-                str(step.get("element_name") or "").strip().lower(),
-                self._normalize_space(
-                    str((step.get("element_info") or {}).get("text") or "")
-                ).lower(),
-            ):
-                if candidate and (candidate in locator_hint or locator_hint in candidate):
-                    score += 2
-                    break
-        if 0 <= self.current_step_index < len(self._recording_steps):
-            try:
-                if int(step.get("step_number") or 0) - 1 == self.current_step_index:
-                    score += 1
-            except (TypeError, ValueError):
-                pass
-        return score
+        return self._step_manager.score_step_context(step, locator_hint, intent_hint, element_text_hint)
 
     def _resolve_step_context(
         self,
@@ -6134,393 +3036,55 @@ class AgentLoop:
         args: dict[str, Any],
         result: dict[str, Any],
     ) -> dict[str, Any] | None:
-        confirmed_cursor = self._current_confirmed_execution_cursor()
-        if isinstance(confirmed_cursor, dict):
-            step_context = confirmed_cursor.get("step_context")
-            if isinstance(step_context, dict):
-                return step_context
-
-        explicit_step_id = str(args.get("step_id") or result.get("step_id") or "").strip()
-        if explicit_step_id and explicit_step_id in self.step_context_by_id:
-            return self.step_context_by_id[explicit_step_id]
-
-        explicit_step_number = self._coerce_step_number(args.get("step_number") or result.get("step_number"))
-        if explicit_step_number is not None:
-            for step in self._recording_steps:
-                if int(step.get("step_number") or 0) == explicit_step_number:
-                    return step
-
-        pending_steps = [step for step in self._recording_steps if not step.get("recorded")]
-        if len(pending_steps) == 1:
-            return pending_steps[0]
-
-        locator = str(args.get("locator") or result.get("locator") or "").strip()
-        locator_hint = self._normalize_space(self._locator_label_hint(locator) or locator).lower()
-        intent_hint = self._normalize_space(
-            str(args.get("intent") or result.get("intent") or self._action_name_for_tool(tool_name) or "")
-        ).lower()
-        element_text_hint = self._normalize_space(
-            str(
-                args.get("element_text")
-                or args.get("element_name")
-                or result.get("element_text")
-                or result.get("element_name")
-                or ""
-            )
-        ).lower()
-
-        candidate_steps = pending_steps or self._recording_steps
-        best_step: dict[str, Any] | None = None
-        best_score = 0
-        for step in candidate_steps:
-            if step.get("recorded"):
-                continue
-            score = self._score_step_context(step, locator_hint, intent_hint, element_text_hint)
-            if score > best_score:
-                best_score = score
-                best_step = step
-        if best_step is not None and best_score > 0:
-            return best_step
-
-        if 0 <= self.current_step_index < len(self._recording_steps):
-            current_step = self._recording_steps[self.current_step_index]
-            if not current_step.get("recorded"):
-                return current_step
-
-        return None
+        return self._step_manager.resolve_step_context(tool_name, args, result)
 
     def _has_successful_action_to_record(
         self,
         step_context: dict[str, Any] | None = None,
         payload: dict[str, Any] | None = None,
     ) -> bool:
-        confirmed_cursor = self._current_confirmed_execution_cursor()
-        if isinstance(confirmed_cursor, dict):
-            return self._confirmed_execution_step_ready_to_record(confirmed_cursor.get("step_context"))
-        if self._confirmed_execution_contract_for_step(step_context or payload) is not None:
-            return self._confirmed_execution_step_ready_to_record(step_context or payload)
-        action = self._get_successful_action_for_step(step_context, payload)
-        if not action:
-            return False
-        result = action.get("result") or {}
-        return result.get("success") is True and not result.get("skipped")
+        return self._recorder.has_successful_action_to_record(step_context, payload)
 
     def _should_block_additional_execution_action(
         self,
         tool_name: str,
         args: dict[str, Any],
     ) -> bool:
-        if tool_name not in self.EXECUTION_TOOLS:
-            return False
-        if not getattr(self, "_recording_wait_guard_armed", False):
-            return False
-
-        history_by_step_id = getattr(self, "successful_actions_by_step_id", None)
-        if not isinstance(history_by_step_id, dict):
-            return True
-
-        active_step_id = str(getattr(self, "active_step_id", "") or "").strip()
-        step_context = self.step_state_by_id.get(active_step_id) if active_step_id else None
-        if step_context is None:
-            step_context = self._resolve_step_context(tool_name, args, {})
-        if step_context is None:
-            return True
-
-        resolved_step_id = str(step_context.get("step_id") or "").strip()
-        if not resolved_step_id:
-            return True
-        if active_step_id and resolved_step_id != active_step_id:
-            return True
-
-        return False
+        return self._recorder.should_block_additional_execution_action(tool_name, args)
 
     async def _record_step_payload(
         self,
         payload: dict[str, Any],
         step_context: dict[str, Any] | None = None,
     ) -> dict[str, Any] | None:
-        confirmed_cursor = self._current_confirmed_execution_cursor()
-        confirmed_mode = isinstance(confirmed_cursor, dict)
-        if confirmed_mode:
-            target_step = confirmed_cursor.get("step_context")
-        else:
-            target_step = step_context or self._resolve_recording_target_step(payload)
-        if not self._has_successful_action_to_record(target_step, payload):
-            step_ref = str(
-                (target_step or {}).get("step_id")
-                or payload.get("step_id")
-                or payload.get("id")
-                or payload.get("stepId")
-                or "unknown"
-            ).strip() or "unknown"
-            if self._confirmed_execution_contract_for_step(target_step or payload) is not None:
-                print(f"[AGENT] confirmed execution contract not ready for recorded step: {step_ref}")
-            else:
-                print(f"[AGENT] no successful action context for recorded step: {step_ref}")
-            return None
-
-        recorded_payload = self._build_step_record_payload(payload, target_step)
-        if not recorded_payload:
-            return None
-
-        step_id = str((target_step or {}).get("step_id") or recorded_payload.get("step_id") or "").strip()
-        if step_id:
-            print(f"[AGENT] using successful action for recorded step: {step_id}")
-        print(f"[AGENT] recording step: {json.dumps(recorded_payload, ensure_ascii=True)}")
-
-        await self._send("step_recorded", **recorded_payload)
-        self._append_recorded_step_payload(recorded_payload)
-
-        recorded_target_step = self.step_state_by_id.get(step_id) if step_id else None
-        if recorded_target_step is not None and str(recorded_target_step.get("status") or "") in {"recorded", "skipped"}:
-            recorded_target_step = None
-        if recorded_target_step is None and target_step is not None:
-            target_step_id = str(target_step.get("step_id") or "").strip()
-            if not step_id or target_step_id == step_id:
-                recorded_target_step = target_step
-        step_number = self._coerce_step_number(recorded_payload.get("step_number"))
-        if not confirmed_mode and recorded_target_step is None and (step_id or step_number is not None):
-            recorded_target_step = self._find_step_for_recording(
-                step_id or None,
-                step_number,
-            )
-        if not confirmed_mode and recorded_target_step is None:
-            unresolved_steps = [
-                step
-                for step in self._recording_steps
-                if str(step.get("status") or "") not in {"recorded", "skipped"}
-            ]
-            if len(unresolved_steps) == 1:
-                recorded_target_step = unresolved_steps[0]
-        if confirmed_mode and recorded_target_step is None:
-            recorded_target_step = target_step
-        if recorded_target_step is not None:
-            self._mark_step_recorded(recorded_target_step, recorded_payload)
-            code_update_payload = self._build_code_update_payload(recorded_payload, step_id)
-            if code_update_payload:
-                try:
-                    await self._send("code_update", **code_update_payload)
-                    self._append_code_update_payload(code_update_payload)
-                    print(
-                        f"[CODE_UPDATE] step_id={step_id} "
-                        f"operation_id={code_update_payload.get('operation_id') or 'op_1'} "
-                        f"lines={len(code_update_payload.get('lines') or [])}"
-                    )
-                except Exception as exc:  # noqa: BLE001
-                    print(f"[AGENT] code_update emit failed: {type(exc).__name__}: {exc}")
-
-        replay_recorded_step_payloads_by_step_id = getattr(
-            self,
-            "replay_recorded_step_payloads_by_step_id",
-            None,
-        )
-        if not isinstance(replay_recorded_step_payloads_by_step_id, dict):
-            replay_recorded_step_payloads_by_step_id = {}
-            self.replay_recorded_step_payloads_by_step_id = replay_recorded_step_payloads_by_step_id
-        if step_id:
-            replay_recorded_step_payloads_by_step_id[step_id] = deepcopy(recorded_payload)
-            history_by_step_id = getattr(self, "successful_actions_by_step_id", None)
-            if isinstance(history_by_step_id, dict):
-                history_by_step_id.pop(step_id, None)
-            self.successful_action_by_step_id.pop(step_id, None)
-
-        last_action = self.last_successful_action or {}
-        last_action_step = last_action.get("step_context") or {}
-        last_action_step_id = str(last_action_step.get("step_id") or last_action.get("step_id") or "").strip()
-        last_action_step_number = self._coerce_step_number(
-            last_action_step.get("step_number") or last_action.get("step_number")
-        )
-        recorded_step_number = self._coerce_step_number(recorded_payload.get("step_number"))
-        if step_id and last_action_step_id == step_id:
-            self.last_successful_action = None
-        elif step_id and recorded_step_number is not None and last_action_step_number == recorded_step_number:
-            self.last_successful_action = None
-        elif not step_id and recorded_step_number is not None and last_action_step_number == recorded_step_number:
-            self.last_successful_action = None
-
-        self._awaiting_step_record = False
-        self._recording_wait_guard_armed = False
-        self._last_action_context = None
-        if recorded_target_step is not None:
-            recorded_step_id = str(
-                (recorded_target_step or {}).get("step_id")
-                or recorded_payload.get("step_id")
-                or recorded_payload.get("id")
-                or recorded_payload.get("stepId")
-                or ""
-            ).strip() or None
-            if self._all_steps_resolved():
-                self._run_completion_requested = True
-                self.phase_tracker.set_phase(
-                    "completed",
-                    reason="all_steps_resolved",
-                    step_id=recorded_step_id,
-                )
-            elif not self.pending_recovery and not self._pending_failure_followup:
-                self.phase_tracker.set_phase(
-                    "executing",
-                    reason="step_recorded",
-                    step_id=recorded_step_id,
-                )
-
-        return recorded_payload
+        return await self._recorder.record_step_payload(payload, step_context)
 
     async def _auto_record_successful_step(self) -> dict[str, Any] | None:
-        confirmed_cursor = self._current_confirmed_execution_cursor()
-        if isinstance(confirmed_cursor, dict):
-            target_step = confirmed_cursor.get("step_context")
-        else:
-            target_step = self._resolve_recording_target_step()
-        if target_step is None:
-            return None
-
-        step_id = str(target_step.get("step_id") or "").strip()
-        if not step_id:
-            return None
-
-        if not self._has_successful_action_to_record(
-            target_step,
-            {"step_id": step_id, "step_number": target_step.get("step_number")},
-        ):
-            return None
-
-        print(f"[AGENT] auto-recording successful step: {step_id}")
-        payload = {
-            "step_id": step_id,
-            "step_number": target_step.get("step_number"),
-        }
-        recorded_payload = await self._record_step_payload(payload, target_step)
-        if recorded_payload:
-            await self._emit_run_completed_event(payload, recorded_payload)
-        return recorded_payload
+        return await self._recorder.auto_record_successful_step()
 
     def _should_block_recording_wait_tool(
         self,
         tool_name: str,
         args: dict[str, Any],
     ) -> bool:
-        if not getattr(self, "_recording_wait_guard_armed", False):
-            return False
-        if tool_name == "ask_user":
-            return False
-        if tool_name == "send_to_overlay":
-            return str(args.get("message_type") or "").strip() != "step_recorded"
-        return True
+        return self._recorder.should_block_recording_wait_tool(tool_name, args)
 
     def _get_successful_action_for_step(
         self,
         step_context: dict[str, Any] | None = None,
         payload: dict[str, Any] | None = None,
     ) -> dict[str, Any] | None:
-        confirmed_cursor = self._current_confirmed_execution_cursor()
-        if isinstance(confirmed_cursor, dict):
-            strict_step_id = str(confirmed_cursor.get("step_id") or "").strip()
-            if not strict_step_id:
-                return None
-            return self.successful_action_by_step_id.get(strict_step_id)
-
-        payload = payload or {}
-        step_context = step_context or {}
-
-        candidate_step_ids: list[str] = []
-        for source in (step_context, payload):
-            if not isinstance(source, dict):
-                continue
-            for key in ("step_id", "id", "stepId"):
-                candidate_step_id = str(source.get(key) or "").strip()
-                if candidate_step_id and candidate_step_id not in candidate_step_ids:
-                    candidate_step_ids.append(candidate_step_id)
-
-        for candidate_step_id in candidate_step_ids:
-            action_record = self.successful_action_by_step_id.get(candidate_step_id)
-            if action_record is not None:
-                return action_record
-
-        candidate_step_number = self._coerce_step_number(
-            step_context.get("step_number") if isinstance(step_context, dict) else None
-        )
-        if candidate_step_number is None:
-            candidate_step_number = self._coerce_step_number(payload.get("step_number"))
-        if candidate_step_number is not None:
-            matching_records = [
-                action_record
-                for action_record in self.successful_action_by_step_id.values()
-                if self._coerce_step_number((action_record.get("step_context") or {}).get("step_number"))
-                == candidate_step_number
-            ]
-            if len(matching_records) == 1:
-                return matching_records[0]
-            if len(matching_records) > 1:
-                return None
-
-        if not candidate_step_ids and candidate_step_number is None:
-            if len(self.successful_action_by_step_id) == 1:
-                return next(iter(self.successful_action_by_step_id.values()))
-            if len(self.successful_action_by_step_id) == 0:
-                last_action = self.last_successful_action or {}
-                if last_action:
-                    return last_action
-            return None
-
-        last_action = self.last_successful_action or {}
-        if not last_action:
-            return None
-
-        last_step_context = last_action.get("step_context") or {}
-        last_step_id = str(last_step_context.get("step_id") or last_action.get("step_id") or "").strip()
-        last_step_number = self._coerce_step_number(last_step_context.get("step_number") or last_action.get("step_number"))
-        if candidate_step_ids and last_step_id and last_step_id in candidate_step_ids:
-            return last_action
-        if candidate_step_number is not None and last_step_number == candidate_step_number:
-            return last_action
-        return None
+        return self._recorder.get_successful_action_for_step(step_context, payload)
 
     def _get_successful_action_history_for_step(
         self,
         step_context: dict[str, Any] | None = None,
         payload: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
-        confirmed_cursor = self._current_confirmed_execution_cursor()
-        if isinstance(confirmed_cursor, dict):
-            strict_step_id = str(confirmed_cursor.get("step_id") or "").strip()
-            if not strict_step_id:
-                return []
-            history_by_step_id = getattr(self, "successful_actions_by_step_id", None)
-            if not isinstance(history_by_step_id, dict):
-                return []
-            action_history = history_by_step_id.get(strict_step_id)
-            if isinstance(action_history, list):
-                return action_history
-            return []
-
-        payload = payload or {}
-        step_context = step_context or {}
-        history_by_step_id = getattr(self, "successful_actions_by_step_id", None)
-        if not isinstance(history_by_step_id, dict):
-            return []
-
-        candidate_step_ids: list[str] = []
-        for source in (step_context, payload):
-            if not isinstance(source, dict):
-                continue
-            for key in ("step_id", "id", "stepId"):
-                candidate_step_id = str(source.get(key) or "").strip()
-                if candidate_step_id and candidate_step_id not in candidate_step_ids:
-                    candidate_step_ids.append(candidate_step_id)
-
-        for candidate_step_id in candidate_step_ids:
-            action_history = history_by_step_id.get(candidate_step_id)
-            if isinstance(action_history, list):
-                return action_history
-
-        return []
+        return self._recorder.get_successful_action_history_for_step(step_context, payload)
 
     def _coerce_step_number(self, value: Any) -> int | None:
-        try:
-            number = int(value)
-        except (TypeError, ValueError):
-            return None
-        return number if number > 0 else None
+        return self._step_manager.coerce_step_number(value)
 
     async def _capture_browser_state(self) -> dict[str, str] | None:
         try:
@@ -6711,124 +3275,24 @@ class AgentLoop:
         return ""
 
     def _current_pending_step(self) -> dict[str, Any] | None:
-        confirmed_cursor = self._current_confirmed_execution_cursor()
-        if isinstance(confirmed_cursor, dict):
-            step_context = confirmed_cursor.get("step_context")
-            if isinstance(step_context, dict):
-                return step_context
-
-        self._advance_recording_cursor()
-        if self._recording_step_index >= len(self._recording_steps):
-            return None
-        step = self._recording_steps[self._recording_step_index]
-        self.current_step_index = self._recording_step_index
-        if step.get("recorded") or str(step.get("status") or "") == "skipped":
-            return None
-        step_id = str(step.get("step_id") or "").strip()
-        if step_id and (step_id in self._recorded_step_ids or step_id in self.skipped_step_ids):
-            return None
-        return step
+        return self._step_manager.current_pending_step()
 
     def _find_step_for_recording(
         self,
         step_id: str | None = None,
         step_number: int | None = None,
     ) -> dict[str, Any] | None:
-        confirmed_cursor = self._current_confirmed_execution_cursor()
-        if isinstance(confirmed_cursor, dict):
-            current_step_context = confirmed_cursor.get("step_context")
-            current_step_id = str(confirmed_cursor.get("step_id") or "").strip()
-            current_contract = confirmed_cursor.get("contract")
-            current_step_number = self._coerce_step_number(
-                current_contract.get("step_number") if isinstance(current_contract, dict) else None
-            )
-            if step_id:
-                if step_id != current_step_id:
-                    return None
-                return current_step_context if isinstance(current_step_context, dict) else None
-            if step_number is not None:
-                if current_step_number != step_number:
-                    return None
-                return current_step_context if isinstance(current_step_context, dict) else None
-            return current_step_context if isinstance(current_step_context, dict) else None
-
-        if step_id:
-            for step in self._recording_steps:
-                if (
-                    str(step.get("step_id") or "").strip() == step_id
-                    and not step.get("recorded")
-                    and str(step.get("status") or "") != "skipped"
-                ):
-                    return step
-            return None
-
-        if step_number is not None:
-            for step in self._recording_steps:
-                if (
-                    int(step.get("step_number") or 0) == step_number
-                    and not step.get("recorded")
-                    and str(step.get("status") or "") != "skipped"
-                ):
-                    return step
-            return None
-
-        return self._current_pending_step()
+        return self._step_manager.find_step_for_recording(step_id, step_number)
 
     def _advance_recording_cursor(self) -> None:
-        while self._recording_step_index < len(self._recording_steps):
-            step = self._recording_steps[self._recording_step_index]
-            if step.get("recorded") or str(step.get("status") or "") == "skipped":
-                self._recording_step_index += 1
-                continue
-            step_id = str(step.get("step_id") or "").strip()
-            if step_id and (step_id in self._recorded_step_ids or step_id in self.skipped_step_ids):
-                self._recording_step_index += 1
-                continue
-            break
-        if self._recording_step_index < len(self._recording_steps):
-            self.current_step_index = self._recording_step_index
-        elif self._recording_steps:
-            self.current_step_index = len(self._recording_steps) - 1
+        return self._step_manager.advance_recording_cursor()
 
     def _mark_step_recorded(
         self,
         step: dict[str, Any] | str | None,
         metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any] | None:
-        context = self._get_step_context(step) if not isinstance(step, dict) else step
-        if context is None:
-            return None
-
-        step_id = str(context.get("step_id") or "").strip()
-        if not step_id:
-            return None
-
-        metadata = dict(metadata or {})
-        context["recorded"] = True
-        context["status"] = "recorded"
-        context["last_error"] = None
-        for key in ("step_number", "action", "locator", "element_name", "generated_line"):
-            if key in metadata and metadata.get(key) not in (None, "", [], {}):
-                context[key] = metadata.get(key)
-        if metadata.get("locator"):
-            context["locator"] = str(metadata.get("locator") or "").strip() or context.get("locator")
-        if metadata.get("element_name"):
-            context["element_name"] = str(metadata.get("element_name") or "").strip() or context.get("element_name")
-        self.completed_step_ids.add(step_id)
-        self.skipped_step_ids.discard(step_id)
-        self._recorded_step_ids.add(step_id)
-        if self.active_failed_step_id == step_id:
-            self.active_failed_step_id = None
-            self.pending_recovery = False
-            self._pending_failure_followup = False
-        if self.active_step_id == step_id:
-            self.active_step_id = None
-        if self.plan_confirmed:
-            self.phase = "executing"
-        print(f"[AGENT] marked step recorded: {step_id}")
-        self._advance_recording_cursor()
-        self._log_confirmed_execution_cursor("[CONFIRMED_CURSOR]")
-        return context
+        return self._step_manager.mark_step_recorded(step, metadata)
 
     def _derive_element_name(
         self,
@@ -6836,589 +3300,59 @@ class AgentLoop:
         action_context: dict[str, Any],
         locator: str,
     ) -> str:
-        element_info = self._resolve_selected_element_info(step.get("element_info") or {})
-        attrs = element_info.get("attributes") or {}
-        candidates = [
-            self._selected_element_text(element_info),
-            str(attrs.get("aria-label") or "").strip(),
-            str(attrs.get("placeholder") or "").strip(),
-            str(attrs.get("data-testid") or "").strip(),
-            str(step.get("intent") or "").strip(),
-            self._locator_label_hint(locator),
-            str(action_context.get("locator") or "").strip(),
-        ]
-        for candidate in candidates:
-            if candidate:
-                return candidate[:160]
-        return "step"
+        return self._codegen.derive_element_name(step, action_context, locator)
 
     def _locator_label_hint(self, locator: str) -> str:
-        locator = str(locator or "").strip()
-        if not locator:
-            return ""
-
-        if match := self._match_tool_locator_call(locator, "get_by_test_id"):
-            return match
-        if match := self._match_tool_locator_call(locator, "get_by_label"):
-            return match
-        if match := self._match_tool_locator_call(locator, "get_by_placeholder"):
-            return match
-        if match := self._match_tool_locator_text(locator):
-            return match[0]
-        if match := self._match_tool_locator_role(locator):
-            return match[1]
-
-        if locator.startswith("#"):
-            return locator[1:]
-        return ""
+        return self._codegen.locator_label_hint(locator)
 
     def _canonical_confirmed_execution_locator(self, locator: str) -> str:
-        locator = str(locator or "").strip()
-        if not locator:
-            return ""
-
-        if match := self._match_tool_locator_call(locator, "get_by_test_id"):
-            return f'get_by_test_id({json.dumps(match, ensure_ascii=True)})'
-
-        if match := self._match_tool_locator_call(locator, "get_by_label"):
-            return f'get_by_label({json.dumps(match, ensure_ascii=True)})'
-
-        if match := self._match_tool_locator_call(locator, "get_by_placeholder"):
-            return f'get_by_placeholder({json.dumps(match, ensure_ascii=True)})'
-
-        if match := self._match_tool_locator_text(locator):
-            text, exact = match
-            return f'get_by_text({json.dumps(text, ensure_ascii=True)}, exact={str(exact).lower()})'
-
-        if match := self._match_tool_locator_role(locator):
-            role, name = match
-            return f'get_by_role({json.dumps(role, ensure_ascii=True)}, name={json.dumps(name, ensure_ascii=True)})'
-
-        if locator.startswith("#"):
-            return f"#{locator[1:]}"
-        return self._normalize_space(locator).strip()
+        return self._codegen.canonical_confirmed_execution_locator(locator)
 
     def _match_tool_locator_call(self, locator: str, function_name: str) -> str:
-        return _locator_resolver.match_tool_locator_call(locator, function_name)
+        return self._codegen.match_tool_locator_call(locator, function_name)
     def _match_tool_locator_text(self, locator: str) -> tuple[str, bool] | None:
-        return _locator_resolver.match_tool_locator_text(locator)
+        return self._codegen.match_tool_locator_text(locator)
     def _match_tool_locator_role(self, locator: str) -> tuple[str, str] | None:
-        return _locator_resolver.match_tool_locator_role(locator)
+        return self._codegen.match_tool_locator_role(locator)
     def _build_generated_line(
         self,
         action: str,
         locator: str,
         action_context: dict[str, Any],
     ) -> str:
-        action = str(action or "").strip().lower()
-        locator_expr = self._locator_to_playwright_expression(locator)
-
-        if action == "click":
-            if not locator_expr:
-                locator_expr = "page.locator(\"\")"
-            return f"await {locator_expr}.click();"
-        if action == "fill":
-            if not locator_expr:
-                locator_expr = "page.locator(\"\")"
-            return f"await {locator_expr}.fill({json.dumps(str(action_context.get('value') or ''), ensure_ascii=True)});"
-        if action == "navigate":
-            url = str(action_context.get("url") or "").strip()
-            return f"await page.goto({json.dumps(url, ensure_ascii=True)});"
-        if action == "go back":
-            wait_until = str(action_context.get("wait_until") or "domcontentloaded").strip() or "domcontentloaded"
-            return f'await page.goBack({{ waitUntil: {json.dumps(wait_until, ensure_ascii=True)} }});'
-        if action == "go forward":
-            wait_until = str(action_context.get("wait_until") or "domcontentloaded").strip() or "domcontentloaded"
-            return f'await page.goForward({{ waitUntil: {json.dumps(wait_until, ensure_ascii=True)} }});'
-        if action == "reload":
-            wait_until = str(action_context.get("wait_until") or "domcontentloaded").strip() or "domcontentloaded"
-            return f'await page.reload({{ waitUntil: {json.dumps(wait_until, ensure_ascii=True)} }});'
-        if action == "scroll":
-            if not locator_expr:
-                locator_expr = "page.locator(\"\")"
-            return f"await {locator_expr}.scrollIntoViewIfNeeded();"
-        if action == "assert":
-            if not locator_expr:
-                locator_expr = "page.locator(\"\")"
-            assertion = str(action_context.get("assertion") or "").strip()
-            if assertion in {"exact_text", "text_equal", "text_equals", "contains_text", "includes_text"}:
-                assertion = "has_text"
-            if assertion == "visible":
-                return f"await expect({locator_expr}).toBeVisible();"
-            if assertion == "hidden":
-                return f"await expect({locator_expr}).toBeHidden();"
-            if assertion == "enabled":
-                return f"await expect({locator_expr}).toBeEnabled();"
-            if assertion == "disabled":
-                return f"await expect({locator_expr}).toBeDisabled();"
-            if assertion == "checked":
-                return f"await expect({locator_expr}).toBeChecked();"
-            if assertion == "has_value":
-                expected_value = str(action_context.get("expected_value") or action_context.get("value") or "").strip()
-                if not expected_value:
-                    return ""
-                return (
-                    f"await expect({locator_expr}).toHaveValue("
-                    f"{json.dumps(expected_value, ensure_ascii=True)});"
-                )
-            if assertion == "has_text":
-                expected_value = str(action_context.get("expected_value") or action_context.get("value") or "").strip()
-                if not expected_value:
-                    return ""
-                return (
-                    f"await expect({locator_expr}).toContainText("
-                    f"{json.dumps(expected_value, ensure_ascii=True)});"
-                )
-            return f"await expect({locator_expr}).toBeVisible();"
-        if not locator_expr:
-            locator_expr = "page.locator(\"\")"
-        return f"await {locator_expr}.{action}();"
+        return self._codegen.build_generated_line(action, locator, action_context)
 
     def _locator_to_playwright_expression(self, locator: str) -> str:
-        locator = str(locator or "").strip()
-        if not locator:
-            return ""
-
-        if match := self._match_tool_locator_call(locator, "get_by_test_id"):
-            return f'page.getByTestId({json.dumps(match, ensure_ascii=True)})'
-
-        if match := self._match_tool_locator_call(locator, "get_by_label"):
-            return f'page.getByLabel({json.dumps(match, ensure_ascii=True)})'
-
-        if match := self._match_tool_locator_call(locator, "get_by_placeholder"):
-            return f'page.getByPlaceholder({json.dumps(match, ensure_ascii=True)})'
-
-        if match := self._match_tool_locator_text(locator):
-            text, exact = match
-            return f'page.getByText({json.dumps(text, ensure_ascii=True)}, {{ exact: {str(exact).lower()} }})'
-
-        if match := self._match_tool_locator_role(locator):
-            role, name = match
-            return (
-                f'page.getByRole({json.dumps(role, ensure_ascii=True)}, '
-                f'{{ name: {json.dumps(name, ensure_ascii=True)} }})'
-            )
-
-        if locator.startswith("#") and len(locator) > 1:
-            return f'page.getByTestId({json.dumps(locator[1:], ensure_ascii=True)})'
-
-        return f'page.locator({json.dumps(locator, ensure_ascii=True)})'
+        return self._codegen.locator_to_playwright_expression(locator)
 
     def _build_step_record_payload(
         self,
         payload: dict[str, Any],
         step_context: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
-        clean_payload = {
-            key: value
-            for key, value in payload.items()
-            if value not in (None, "", [], {})
-        }
-        confirmed_cursor = self._current_confirmed_execution_cursor()
-        confirmed_mode = isinstance(confirmed_cursor, dict)
-        if confirmed_mode:
-            step_context = confirmed_cursor.get("step_context")
-            confirmed_contract = confirmed_cursor.get("contract")
-        else:
-            step_context = step_context or self._resolve_recording_target_step(clean_payload)
-            confirmed_contract = self._confirmed_execution_contract_for_step(step_context or clean_payload)
-        confirmed_child_results: dict[str, Any] = {}
-        if isinstance(confirmed_contract, dict):
-            if not self._confirmed_execution_step_ready_to_record(step_context or clean_payload):
-                return {}
-            confirmed_step_id = str(confirmed_contract.get("step_id") or "").strip()
-            confirmed_child_results = self._confirmed_execution_results_for_step(confirmed_step_id)
-        action_history = self._get_successful_action_history_for_step(step_context, clean_payload)
-        if action_history:
-            action_record = action_history[-1]
-        else:
-            action_record = self._get_successful_action_for_step(step_context, clean_payload)
-            if action_record:
-                action_history = [action_record]
-            elif isinstance(confirmed_contract, dict):
-                confirmed_step_id = str(confirmed_contract.get("step_id") or "").strip()
-                confirmed_step_results = self._confirmed_execution_results_for_step(confirmed_step_id)
-                confirmed_children = confirmed_contract.get("children")
-                if isinstance(confirmed_children, list):
-                    for confirmed_child in reversed(confirmed_children):
-                        if not isinstance(confirmed_child, dict):
-                            continue
-                        operation_id = str(confirmed_child.get("operation_id") or "").strip()
-                        child_result = confirmed_step_results.get(operation_id)
-                        if isinstance(child_result, dict) and str(child_result.get("status") or "").strip().lower() == "success":
-                            action_record = child_result
-                            action_history = [child_result]
-                            break
-        if not action_record:
-            step_ref = str(
-                (step_context or {}).get("step_id")
-                or clean_payload.get("step_id")
-                or clean_payload.get("id")
-                or clean_payload.get("stepId")
-                or "unknown"
-            ).strip() or "unknown"
-            print(f"[AGENT] no successful action context for recorded step: {step_ref}")
-            return {}
-        result = action_record.get("result") or {}
-        if result.get("success") is not True or result.get("skipped"):
-            return {}
-
-        action_context = dict(action_record.get("action_context") or {})
-        recorded_step_context = action_record.get("step_context") or {}
-        if recorded_step_context:
-            step_context = recorded_step_context
-
-        step_id = str(
-            (step_context.get("step_id") if step_context else "")
-            or (recorded_step_context.get("step_id") if recorded_step_context else "")
-            or action_record.get("step_id")
-            or clean_payload.get("step_id")
-            or ""
-        ).strip()
-        step_number = (
-            self._coerce_step_number(clean_payload.get("step_number"))
-            or self._coerce_step_number(recorded_step_context.get("step_number") if recorded_step_context else None)
-            or self._coerce_step_number(step_context.get("step_number") if step_context else None)
-            or self._coerce_step_number(action_record.get("step_number"))
-        )
-
-        action = str(
-            action_record.get("action")
-            or clean_payload.get("action")
-            or self._action_name_for_tool(str(action_record.get("tool") or ""))
-            or ""
-        ).strip()
-        locator = str(
-            action_context.get("locator")
-            or action_record.get("locator")
-            or clean_payload.get("locator")
-            or ""
-        ).strip()
-        if not locator and step_context is not None:
-            locator = self._derive_locator_from_step_context(step_context)
-        element_name = str(
-            (step_context.get("element_name") if step_context else "")
-            or (recorded_step_context.get("element_name") if recorded_step_context else "")
-            or clean_payload.get("element_name")
-            or self._derive_element_name(step_context or {}, action_context, locator)
-            or ""
-        ).strip()
-        generated_line = str(
-            self._build_generated_line(action, locator, action_context)
-            or clean_payload.get("generated_line")
-            or ""
-        ).strip()
-        intent = str(
-            clean_payload.get("intent")
-            or (recorded_step_context.get("intent") if recorded_step_context else "")
-            or (step_context.get("intent") if step_context else "")
-            or ""
-        ).strip()
-        expected_outcome = self._normalize_expected_outcome(
-            clean_payload.get("expected_outcome")
-            or clean_payload.get("expectedOutcome")
-            or (recorded_step_context.get("expected_outcome") if recorded_step_context else None)
-            or (recorded_step_context.get("expectedOutcome") if recorded_step_context else None)
-            or (step_context.get("expected_outcome") if step_context else None)
-            or (step_context.get("expectedOutcome") if step_context else None),
-            self._is_click_like_intent(intent),
-        )
-        status = "success"
-
-        if not action:
-            action = "step"
-        if not element_name:
-            element_name = locator or action
-        if not locator and step_context is not None:
-            locator = self._derive_locator_from_step_context(step_context) or str(step_context.get("intent") or "").strip()
-        if not generated_line:
-            generated_line = self._build_generated_line(action, locator, action_context)
-        if not intent:
-            intent = str(step_context.get("intent") if step_context else "").strip()
-        children = self._build_recorded_children(
-            action_history,
-            intent,
-            element_name,
-            locator,
-            confirmed_children=(confirmed_contract or {}).get("children") if isinstance(confirmed_contract, dict) else None,
-            confirmed_child_results=confirmed_child_results,
-            confirmed_step=confirmed_contract if isinstance(confirmed_contract, dict) else None,
-        )
-        observed_outcome = self._build_observed_outcome(action_history, expected_outcome)
-
-        merged: dict[str, Any] = dict(clean_payload)
-        if step_id:
-            merged["step_id"] = step_id
-        else:
-            merged.pop("step_id", None)
-        if step_number is not None:
-            merged["step_number"] = int(step_number)
-        else:
-            merged.pop("step_number", None)
-        merged["action"] = action
-        merged["element_name"] = element_name
-        merged["locator"] = locator
-        merged["generated_line"] = generated_line
-        merged["status"] = status
-        merged["intent"] = intent
-        if expected_outcome is not None:
-            merged["expected_outcome"] = expected_outcome
-        else:
-            merged.pop("expected_outcome", None)
-        merged.pop("observed_outcome", None)
-        merged.pop("browser_state_before", None)
-        merged.pop("browser_state_after", None)
-        merged["observed_outcome"] = observed_outcome
-        merged["children"] = children
-
-        required = ("action", "element_name", "locator", "generated_line")
-        if not all(str(merged.get(key) or "").strip() for key in required):
-            return {}
-
-        return merged
+        return self._recorder.build_step_record_payload(payload, step_context)
 
     def _derive_locator_from_step_context(self, step: dict[str, Any]) -> str:
-        element_info = self._resolve_selected_element_info(step.get("element_info") or {})
-        if not isinstance(element_info, dict):
-            return ""
-
-        candidates = self._build_locator_candidates(element_info)
-        for candidate in candidates:
-            locator = str(candidate.get("locator") or "").strip()
-            if locator:
-                return locator
-
-        return self._build_locator_from_strategy("css", element_info)
+        return self._step_manager.derive_locator_from_step_context(step)
 
     def _normalize_steps(self, steps: list[dict]) -> list[dict[str, Any]]:
-        normalized: list[dict[str, Any]] = []
-        for idx, step in enumerate(steps, start=1):
-            element_info = self._resolve_selected_element_info(step.get("element_info") or {})
-            attrs = element_info.get("attributes") or {}
-            normalized.append(
-                {
-                    "id": str(step.get("id") or idx),
-                    "intent": str(step.get("intent") or "").strip(),
-                    "element_data": {
-                        "tag": element_info.get("tag", ""),
-                        "text": element_info.get("text", ""),
-                        "id": element_info.get("id", ""),
-                        "class": element_info.get("class", ""),
-                        "aria_label": attrs.get("aria-label", ""),
-                        "data_testid": attrs.get("data-testid", ""),
-                        "placeholder": attrs.get("placeholder", ""),
-                        "parent_tag": element_info.get("parent_tag", ""),
-                        "parent_id": element_info.get("parent_id", ""),
-                    },
-                    "suggested_scope": self._build_suggested_scope(element_info),
-                    "raw_element_info": element_info,
-                }
-            )
-        return normalized
+        return self._plan_builder.normalize_steps(steps)
 
     def _infer_operation_type(self, intent: str) -> str:
-        normalized = self._normalize_space(str(intent or "")).lower()
-        if not normalized:
-            return "unknown"
-
-        click_match = re.search(r"\b(?:click|tap|press)\b", normalized)
-        assert_match = re.search(r"\b(?:assert|verify|check|expect)\b", normalized)
-        fill_match = re.search(r"\b(?:fill|type|enter|input)\b", normalized)
-
-        matches = [
-            operation_type
-            for operation_type, matched in (
-                ("click", click_match),
-                ("assert", assert_match),
-                ("fill", fill_match),
-            )
-            if matched
-        ]
-        if len(matches) == 1:
-            return matches[0]
-        return "unknown"
+        return self._plan_builder.infer_operation_type(intent)
 
     def _infer_planned_operation_sequence(self, intent: str) -> list[str]:
-        normalized = self._normalize_space(str(intent or "")).lower()
-        if not normalized:
-            return []
-
-        operation_patterns = (
-            ("assert", r"\b(?:validate|check|assert|verify)\b"),
-            ("click", r"\b(?:click|tap|press)\b"),
-            ("fill", r"\b(?:fill|type|enter|input)\b"),
-        )
-        matched_operations: list[tuple[int, str]] = []
-        for operation_type, pattern in operation_patterns:
-            match = re.search(pattern, normalized)
-            if match:
-                matched_operations.append((match.start(), operation_type))
-
-        matched_operations.sort(key=lambda item: item[0])
-        return [operation_type for _, operation_type in matched_operations]
+        return self._plan_builder.infer_planned_operation_sequence(intent)
 
     def _build_planned_child_description(self, operation_type: str, target: str, intent: str) -> str:
-        target_text = self._normalize_space(str(target or "")).strip()
-        intent_text = self._normalize_space(str(intent or "")).lower()
-
-        if operation_type == "assert":
-            if target_text:
-                if any(keyword in intent_text for keyword in ("disabled", "enabled", "checked", "hidden")):
-                    if "disabled" in intent_text:
-                        return f"{target_text} is disabled"
-                    if "enabled" in intent_text:
-                        return f"{target_text} is enabled"
-                    if "checked" in intent_text:
-                        return f"{target_text} is checked"
-                    if "hidden" in intent_text:
-                        return f"{target_text} is hidden"
-                return f"{target_text} is visible"
-            return "Assert"
-
-        if operation_type == "click":
-            return target_text or "Click"
-
-        if operation_type == "fill":
-            return target_text or "Fill"
-
-        if operation_type == "navigate":
-            return target_text or "Navigate"
-
-        if operation_type == "hover":
-            return target_text or "Hover"
-
-        return target_text or operation_type
+        return self._plan_builder.build_planned_child_description(operation_type, target, intent)
 
     def _build_planned_children(
         self,
         step: dict[str, Any],
         existing_plan_data: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
-        step_data = step if isinstance(step, dict) else {}
-        plan_data = existing_plan_data if isinstance(existing_plan_data, dict) else {}
-
-        intent = str(
-            step_data.get("intent")
-            or plan_data.get("intent")
-            or plan_data.get("description")
-            or plan_data.get("text")
-            or ""
-        ).strip()
-        action_hint = str(step_data.get("action") or plan_data.get("action") or "").strip()
-        operation_hint = " ".join(
-            part for part in (action_hint, intent, str(plan_data.get("description") or "").strip()) if part
-        )
-        operation_type = self._infer_operation_type(operation_hint)
-        target = str(
-            plan_data.get("target")
-            or plan_data.get("element_name")
-            or step_data.get("element_name")
-            or ""
-        ).strip()
-        locator = str(
-            plan_data.get("locator")
-            or step_data.get("locator")
-            or self._derive_locator_from_step_context(step_data)
-            or ""
-        ).strip()
-        if locator in {"*", 'page.locator("")'}:
-            locator = ""
-        operation_types = self._infer_planned_operation_sequence(intent or operation_hint)
-        if not operation_types:
-            operation_types = [operation_type]
-        if any(current_operation_type == "unknown" for current_operation_type in operation_types):
-            self._record_capability_gap(
-                "unknown_planned_operation",
-                "_build_planned_children",
-                "warn",
-                "Planned child operation fell back to unknown.",
-                operation_type=operation_type,
-                planned_child_count=len(operation_types),
-            )
-
-        planned_children: list[dict[str, Any]] = []
-        for index, current_operation_type in enumerate(operation_types, start=1):
-            child_target = target
-            child_locator = locator
-            child_description = self._build_planned_child_description(current_operation_type, child_target, intent)
-            child_value = ""
-            child_assertion = ""
-            if current_operation_type in {"click", "fill"}:
-                if self._is_technical_recorded_label_text(child_target):
-                    human_target = self._normalize_space(str(step_data.get("element_name") or "")).strip()
-                    if not human_target:
-                        human_target = self._normalize_space(
-                            self._selected_element_text(step_data.get("element_info") or {})
-                        ).strip()
-                    if not human_target:
-                        human_target = self._normalize_space(self._locator_label_hint(child_locator)).strip()
-                    if human_target and not self._is_technical_recorded_label_text(human_target):
-                        child_target = human_target
-                        child_description = self._build_planned_child_description(
-                            current_operation_type,
-                            child_target,
-                            intent,
-                        )
-            if current_operation_type == "assert":
-                canonical_child = self._canonicalize_assertion_operation(
-                    {
-                        "type": current_operation_type,
-                        "target": target,
-                        "locator": locator,
-                        "description": intent,
-                        "intent": intent,
-                    },
-                    source_step=step_data,
-                    anchor_child=plan_data,
-                )
-                if canonical_child:
-                    child_target = str(canonical_child.get("target") or child_target or "").strip()
-                    child_locator = str(canonical_child.get("locator") or child_locator or "").strip()
-                    child_description = str(canonical_child.get("description") or child_description or "").strip()
-                    child_assertion = str(canonical_child.get("assertion") or "").strip().lower()
-                    child_value = str(
-                        canonical_child.get("value") or canonical_child.get("expected_value") or ""
-                    ).strip()
-                if current_operation_type == "assert":
-                    source_element_name = self._normalize_space(str(step_data.get("element_name") or "")).strip()
-                    if (
-                        source_element_name
-                        and source_element_name not in {"main", "page", "body", "document"}
-                        and source_element_name in child_target
-                        and len(source_element_name) < len(child_target)
-                    ):
-                        child_target = source_element_name
-                        child_description = self._build_planned_child_description(
-                            current_operation_type,
-                            child_target,
-                            intent,
-                        )
-                if child_assertion == "visible":
-                    locator_target_hint = self._normalize_space(self._locator_label_hint(child_locator)).strip()
-                    if locator_target_hint and not self._is_outcome_like_label(locator_target_hint):
-                        if locator_target_hint.lower() not in {"main", "page", "body", "document"}:
-                            child_target = locator_target_hint
-                            child_description = self._build_planned_child_description(
-                                current_operation_type,
-                                child_target,
-                                intent,
-                            )
-            child_payload: dict[str, Any] = {
-                "operation_id": f"op_{index}",
-                "type": current_operation_type,
-                "description": child_description,
-                "target": child_target,
-                "locator": child_locator,
-                "status": "planned",
-            }
-            if child_assertion:
-                child_payload["assertion"] = child_assertion
-            if child_value:
-                child_payload["value"] = child_value
-                child_payload["expected_value"] = child_value
-            planned_children.append(child_payload)
-
-        return planned_children
+        return self._plan_builder.build_planned_children(step, existing_plan_data)
 
     def _build_plan_ready_parent_step(
         self,
@@ -7426,45 +3360,7 @@ class AgentLoop:
         source_step: dict[str, Any],
         step_index: int,
     ) -> dict[str, Any]:
-        parent_step = dict(plan_step) if isinstance(plan_step, dict) else {"text": str(plan_step or "").strip()}
-        source_step_data = source_step if isinstance(source_step, dict) else {}
-
-        step_id = str(
-            parent_step.get("step_id")
-            or parent_step.get("id")
-            or source_step_data.get("step_id")
-            or source_step_data.get("id")
-            or step_index + 1
-        ).strip()
-        intent = str(
-            source_step_data.get("intent")
-            or parent_step.get("intent")
-            or parent_step.get("description")
-            or parent_step.get("text")
-            or ""
-        ).strip()
-        if not intent:
-            intent = str(parent_step.get("action") or "").strip()
-
-        parent_step["step_id"] = step_id
-        parent_step["intent"] = intent
-        normalized_expected_outcome = self._normalize_expected_outcome(
-            source_step_data.get("expected_outcome") or source_step_data.get("expectedOutcome"),
-            self._is_click_like_intent(intent),
-        )
-        if normalized_expected_outcome is not None:
-            parent_step["expected_outcome"] = normalized_expected_outcome
-        parent_step["status"] = "planned"
-        parent_step["children"] = self._build_planned_children(source_step_data, parent_step)
-
-        display_text = intent or str(parent_step.get("text") or "").strip()
-        if display_text:
-            parent_step["text"] = display_text
-            parent_step["label"] = display_text
-            parent_step["title"] = display_text
-        parent_step["kind"] = "step"
-        parent_step["type"] = "step"
-        return parent_step
+        return self._plan_builder.build_plan_ready_parent_step(plan_step, source_step, step_index)
 
     def _build_recorded_child_description(
         self,
@@ -7474,70 +3370,10 @@ class AgentLoop:
         action_context: dict[str, Any],
         intent: str,
     ) -> str:
-        operation_name = str(action or operation_type or "").strip().lower()
-        target_text = self._normalize_space(str(target or "")).strip()
-        intent_text = self._normalize_space(str(intent or "")).strip()
-        value_text = self._normalize_space(
-            str(action_context.get("value") or action_context.get("expected_value") or "")
-        ).strip()
-        assertion_text = str(action_context.get("assertion") or "").strip().lower()
-
-        if operation_name in {"click", "tap", "press"}:
-            return target_text or intent_text
-
-        if operation_name in {"fill", "type"}:
-            if target_text and value_text:
-                return f"{target_text}: {value_text}"
-            return target_text or value_text or intent_text
-
-        if operation_name == "assert" or assertion_text:
-            if assertion_text in {"exact_text", "text_equal", "text_equals", "contains_text", "includes_text"}:
-                assertion_text = "has_text"
-            if assertion_text == "visible":
-                return f"{target_text} is visible" if target_text else intent_text
-            if assertion_text == "hidden":
-                return f"{target_text} is hidden" if target_text else intent_text
-            if assertion_text == "enabled":
-                return f"{target_text} is enabled" if target_text else intent_text
-            if assertion_text == "disabled":
-                return f"{target_text} is disabled" if target_text else intent_text
-            if assertion_text == "checked":
-                return f"{target_text} is checked" if target_text else intent_text
-            if assertion_text == "has_text":
-                if target_text and value_text:
-                    if target_text == value_text:
-                        return f"Text equals {value_text}"
-                    return f"{target_text} has text {value_text}"
-                return target_text or value_text or intent_text
-            if assertion_text == "has_value":
-                if target_text and value_text:
-                    return f"{target_text} has value {value_text}"
-                return target_text or value_text or intent_text
-            return target_text or intent_text
-
-        if operation_name == "navigate":
-            return target_text or intent_text
-
-        if operation_name == "hover":
-            return target_text or intent_text
-
-        return target_text or intent_text
+        return self._plan_builder.build_recorded_child_description(action, operation_type, target, action_context, intent)
 
     def _is_technical_recorded_label_text(self, value: Any) -> bool:
-        text = self._normalize_space(str(value or "")).strip()
-        if not text:
-            return False
-        lowered = text.lower()
-        technical_markers = (
-            "get_by_",
-            "page.locator(",
-            "locator(",
-            "[data-testid",
-            "css=",
-            "xpath=",
-            "role=",
-        )
-        return lowered.startswith("#") or any(marker in lowered for marker in technical_markers)
+        return self._plan_builder.is_technical_recorded_label_text(value)
 
     def _build_recorded_children(
         self,
@@ -7549,372 +3385,29 @@ class AgentLoop:
         confirmed_child_results: dict[str, Any] | None = None,
         confirmed_step: dict[str, Any] | None = None,
     ) -> list[dict[str, Any]]:
-        if isinstance(confirmed_children, list) and confirmed_children:
-            recorded_children: list[dict[str, Any]] = []
-            confirmed_results = confirmed_child_results if isinstance(confirmed_child_results, dict) else {}
-            confirmed_step_data = confirmed_step if isinstance(confirmed_step, dict) else {}
-            for index, confirmed_child in enumerate(confirmed_children, start=1):
-                if not isinstance(confirmed_child, dict):
-                    continue
-                operation_id = str(confirmed_child.get("operation_id") or "").strip() or f"op_{index}"
-                child_result = confirmed_results.get(operation_id)
-                if not isinstance(child_result, dict):
-                    child_result = {}
-
-                action_context = dict(child_result.get("action_context") or {})
-                child_locator = str(
-                    child_result.get("locator")
-                    or confirmed_child.get("locator")
-                    or action_context.get("locator")
-                    or locator
-                    or self._derive_locator_from_step_context(confirmed_step_data)
-                    or ""
-                ).strip()
-                child_action = str(
-                    child_result.get("action")
-                    or confirmed_child.get("type")
-                    or self._action_name_for_tool(str(child_result.get("tool") or ""))
-                    or ""
-                ).strip()
-                if not child_action:
-                    child_action = str(confirmed_child.get("type") or "").strip()
-                confirmed_target = str(confirmed_child.get("target") or "").strip()
-                human_target = str(
-                    confirmed_step_data.get("element_name")
-                    or element_name
-                    or ""
-                ).strip()
-                if not human_target:
-                    locator_target_hint = self._locator_label_hint(child_locator)
-                    if locator_target_hint and not self._is_technical_recorded_label_text(locator_target_hint):
-                        human_target = locator_target_hint
-                child_value_text = str(
-                    child_result.get("value")
-                    or child_result.get("expected_value")
-                    or confirmed_child.get("value")
-                    or confirmed_child.get("expected_value")
-                    or action_context.get("value")
-                    or action_context.get("expected_value")
-                    or ""
-                ).strip()
-                child_generated_line = str(
-                    child_result.get("generated_line")
-                    or self._build_generated_line(child_action, child_locator, action_context)
-                    or ""
-                ).strip()
-                child_status = str(child_result.get("status") or confirmed_child.get("status") or "pending").strip().lower()
-                if child_status not in {"success", "failed", "blocked", "pending", "skipped"}:
-                    child_status = "pending"
-                description = str(
-                    child_result.get("description")
-                    or confirmed_child.get("description")
-                    or ""
-                ).strip()
-                if self._is_technical_recorded_label_text(description):
-                    description = ""
-                if not description:
-                    description = self._build_recorded_child_description(
-                        child_action,
-                        child_action,
-                        str(
-                            (
-                                confirmed_target
-                                if child_action == "assert" and not self._is_technical_recorded_label_text(confirmed_target)
-                                else ""
-                            )
-                            or (human_target if not self._is_technical_recorded_label_text(human_target) else "")
-                            or child_result.get("target")
-                            or (
-                                self._locator_label_hint(child_locator)
-                                if not self._is_technical_recorded_label_text(self._locator_label_hint(child_locator))
-                                else ""
-                            )
-                            or confirmed_target
-                            or element_name
-                            or intent
-                            or ""
-                        ).strip(),
-                        action_context,
-                        intent,
-                    )
-                if not description:
-                    description = str(
-                        (
-                            confirmed_target
-                            if child_action == "assert" and not self._is_technical_recorded_label_text(confirmed_target)
-                            else ""
-                        )
-                        or (human_target if not self._is_technical_recorded_label_text(human_target) else "")
-                        or confirmed_target
-                        or element_name
-                        or intent
-                        or child_action
-                        or ""
-                    ).strip()
-                target = str(
-                    (
-                        confirmed_target
-                        if child_action == "assert" and not self._is_technical_recorded_label_text(confirmed_target)
-                        else ""
-                    )
-                    or (human_target if not self._is_technical_recorded_label_text(human_target) else "")
-                    or child_result.get("target")
-                    or confirmed_target
-                    or element_name
-                    or (
-                        self._locator_label_hint(child_locator)
-                        if not self._is_technical_recorded_label_text(self._locator_label_hint(child_locator))
-                        else ""
-                    )
-                    or intent
-                    or child_action
-                    or ""
-                ).strip()
-
-                child_payload: dict[str, Any] = {
-                    "operation_id": operation_id,
-                    "type": str(confirmed_child.get("type") or child_action or "unknown").strip() or "unknown",
-                    "description": description or target or child_action,
-                    "target": target,
-                    "locator": child_locator,
-                    "status": child_status,
-                    "code_lines": [],
-                }
-                if confirmed_child.get("assertion"):
-                    child_payload["assertion"] = confirmed_child.get("assertion")
-                if child_value_text:
-                    child_payload["value"] = child_value_text
-                    if child_action == "assert":
-                        child_payload["expected_value"] = child_value_text
-                elif confirmed_child.get("value") not in (None, "", [], {}):
-                    child_payload["value"] = confirmed_child.get("value")
-                if confirmed_child.get("expected_value") not in (None, "", [], {}):
-                    child_payload["expected_value"] = confirmed_child.get("expected_value")
-                error_text = str(child_result.get("error") or child_result.get("message") or "").strip()
-                if error_text:
-                    child_payload["error"] = error_text
-                if child_status == "success":
-                    code_lines = list(child_result.get("code_lines") or [])
-                    if not code_lines and child_generated_line:
-                        code_lines = [child_generated_line]
-                    child_payload["code_lines"] = code_lines
-                recorded_children.append(child_payload)
-
-            return recorded_children
-
-        recorded_children: list[dict[str, Any]] = []
-        for index, action_record in enumerate(action_records, start=1):
-            if not isinstance(action_record, dict):
-                continue
-
-            action_context = dict(action_record.get("action_context") or {})
-            recorded_step_context = action_record.get("step_context") or {}
-            if not isinstance(recorded_step_context, dict):
-                recorded_step_context = {}
-
-            action = str(
-                action_record.get("action")
-                or self._action_name_for_tool(str(action_record.get("tool") or ""))
-                or ""
-            ).strip()
-            child_locator = str(
-                action_context.get("locator")
-                or action_record.get("locator")
-                or locator
-                or self._derive_locator_from_step_context(recorded_step_context)
-                or ""
-            ).strip()
-            child_generated_line = str(
-                action_record.get("generated_line")
-                or self._build_generated_line(action, child_locator, action_context)
-                or ""
-            ).strip()
-            operation_type = self._infer_operation_type(action)
-            if operation_type == "unknown" and action:
-                operation_type = action
-            description_target = str(
-                action_record.get("element_name")
-                or recorded_step_context.get("element_name")
-                or self._locator_label_hint(child_locator)
-                or ""
-            ).strip()
-            description = self._build_recorded_child_description(
-                action,
-                operation_type,
-                description_target,
-                action_context,
-                intent,
-            )
-            if not description:
-                description = str(action_record.get("description") or "").strip()
-            if not description:
-                description = str(element_name or action or operation_type or intent or "").strip()
-            target = str(
-                action_record.get("element_name")
-                or element_name
-                or child_locator
-                or intent
-                or action
-                or ""
-            ).strip()
-
-            recorded_children.append(
-                {
-                    "operation_id": f"op_{index}",
-                    "type": operation_type,
-                    "description": description,
-                    "target": target,
-                    "locator": child_locator,
-                    "status": "success",
-                    "code_lines": [child_generated_line] if child_generated_line else [],
-                }
-            )
-
-        return recorded_children
+        return self._plan_builder.build_recorded_children(action_records, intent, element_name, locator, confirmed_children, confirmed_child_results, confirmed_step)
 
     def _build_code_update_payload(self, payload: dict[str, Any], step_id: str) -> dict[str, Any]:
-        if not step_id:
-            return {}
-
-        children = payload.get("children")
-        lines: list[str] = []
-        operation_id = "op_1"
-        operation_id_set = False
-        if isinstance(children, list) and children:
-            for child in children:
-                if not isinstance(child, dict):
-                    continue
-                child_status = str(child.get("status") or "").strip().lower()
-                if child_status not in {"success", "recorded"}:
-                    continue
-                if not operation_id_set:
-                    child_operation_id = str(child.get("operation_id") or "").strip()
-                    if child_operation_id:
-                        operation_id = child_operation_id
-                    operation_id_set = True
-                child_code_lines = child.get("code_lines")
-                if not isinstance(child_code_lines, list):
-                    continue
-                for child_code_line in child_code_lines:
-                    line_text = str(child_code_line or "").strip()
-                    if line_text:
-                        lines.append(line_text)
-        if not lines:
-            return {}
-        return {
-            "step_id": step_id,
-            "operation_id": operation_id,
-            "lines": lines,
-            "full_spec_preview": "\n".join(lines),
-            "diagnostics": [],
-        }
+        return self._codegen.build_code_update_payload(payload, step_id)
 
     def _build_plan_ready_payload(
         self,
         payload: dict[str, Any],
         prefer_plan_step_source: bool = False,
     ) -> dict[str, Any]:
-        plan_ready_payload = dict(payload)
-        steps = payload.get("steps")
-        if not isinstance(steps, list):
-            return plan_ready_payload
-
-        current_steps = list(getattr(self, "current_steps", []))
-        use_plan_step_source = bool(prefer_plan_step_source)
-        if len(current_steps) == 1 and len(steps) > 1:
-            first_plan_step = steps[0] if isinstance(steps[0], dict) else {"text": str(steps[0] or "").strip()}
-            if use_plan_step_source and isinstance(current_steps[0], dict):
-                correction_context_step = current_steps[0]
-                correction_context_locator = self._normalize_space(
-                    str(correction_context_step.get("locator") or "")
-                ).strip()
-                if not correction_context_locator:
-                    correction_context_locator = self._derive_locator_from_step_context(correction_context_step)
-                if correction_context_locator and not str(first_plan_step.get("locator") or "").strip():
-                    first_plan_step["locator"] = correction_context_locator
-                if (
-                    isinstance(correction_context_step.get("element_info"), dict)
-                    and not isinstance(first_plan_step.get("element_info"), dict)
-                ):
-                    first_plan_step["element_info"] = deepcopy(correction_context_step.get("element_info"))
-            source_step = first_plan_step if use_plan_step_source else (
-                current_steps[0] if isinstance(current_steps[0], dict) else {}
-            )
-            plan_ready_payload["steps"] = [self._build_plan_ready_parent_step(first_plan_step, source_step, 0)]
-            return plan_ready_payload
-
-        planned_steps: list[dict[str, Any]] = []
-        for index, step in enumerate(steps):
-            parent_step = dict(step) if isinstance(step, dict) else {"text": str(step or "").strip()}
-            source_step = current_steps[index] if index < len(current_steps) and isinstance(current_steps[index], dict) else {}
-            if use_plan_step_source:
-                if isinstance(source_step, dict):
-                    correction_context_locator = self._normalize_space(str(source_step.get("locator") or "")).strip()
-                    if not correction_context_locator:
-                        correction_context_locator = self._derive_locator_from_step_context(source_step)
-                    if correction_context_locator and not str(parent_step.get("locator") or "").strip():
-                        parent_step["locator"] = correction_context_locator
-                    if isinstance(source_step.get("element_info"), dict) and not isinstance(parent_step.get("element_info"), dict):
-                        parent_step["element_info"] = deepcopy(source_step.get("element_info"))
-                source_step = parent_step
-            planned_steps.append(self._build_plan_ready_parent_step(parent_step, source_step, index))
-
-        plan_ready_payload["steps"] = planned_steps
-        return plan_ready_payload
+        return self._plan_builder.build_plan_ready_payload(payload, prefer_plan_step_source)
 
     def _assistant_message_entry(self, message: Any) -> dict[str, Any]:
-        entry: dict[str, Any] = {"role": "assistant", "content": message.content or ""}
-        if message.tool_calls:
-            entry["tool_calls"] = [
-                {
-                    "id": tool_call.id,
-                    "type": tool_call.type,
-                    "function": {
-                        "name": tool_call.function.name,
-                        "arguments": tool_call.function.arguments,
-                    },
-                }
-                for tool_call in message.tool_calls
-            ]
-        return entry
+        return self._llm_orchestrator.assistant_message_entry(message)
 
     def _parse_tool_args(self, raw_args: str) -> dict[str, Any]:
-        parsed = json.loads(raw_args or "{}")
-        if not isinstance(parsed, dict):
-            raise ValueError("Tool arguments must decode to an object")
-        return parsed
+        return self._tool_dispatcher.parse_tool_args(raw_args)
 
     def _build_tool_definitions(self) -> list[dict[str, Any]]:
         return self._tool_definitions.build()
 
     async def _dispatch_tool(self, tool_name: str, args: dict[str, Any]) -> dict[str, Any]:
-        handlers = {
-            "dom_extract": self._tool_dom_extract,
-            "locator_find": self._tool_locator_find,
-            "locator_validate": self._tool_locator_validate,
-            "action_click": self._tool_action_click,
-            "action_fill": self._tool_action_fill,
-            "action_assert": self._tool_action_assert,
-            "page_navigate": self._tool_page_navigate,
-            "page_go_back": self._tool_page_go_back,
-            "page_go_forward": self._tool_page_go_forward,
-            "page_reload": self._tool_page_reload,
-            "scroll_into_view": self._tool_scroll_into_view,
-            "browser_get_state": self._tool_browser_get_state,
-            "screenshot_take": self._tool_screenshot_take,
-            "send_to_overlay": self._tool_send_to_overlay,
-            "ask_user": self._tool_ask_user,
-        }
-        if tool_name not in handlers:
-            self._record_capability_gap(
-                "unknown_tool",
-                "_dispatch_tool",
-                "error",
-                "Unsupported tool requested.",
-                tool_name=tool_name,
-            )
-            raise RuntimeError(f"Unsupported tool requested: {tool_name}")
-        return await handlers[tool_name](args)
+        return await self._tool_dispatcher.dispatch(tool_name, args)
 
     async def _tool_dom_extract(self, args: dict[str, Any]) -> dict[str, Any]:
         return await tool_dom_extract(self, args, get_page=get_page)
@@ -8439,34 +3932,16 @@ class AgentLoop:
         return {"sent": True}
 
     def _normalize_wait_until(self, value: Any) -> str:
-        wait_until = str(value or "domcontentloaded").strip() or "domcontentloaded"
-        if wait_until not in {"load", "domcontentloaded", "networkidle"}:
-            return "domcontentloaded"
-        return wait_until
+        return self._tool_dispatcher.normalize_wait_until(value)
 
     def _append_tool_response(self, tool_call_id: str, result: dict[str, Any]) -> None:
-        self.llm.messages.append(
-            {
-                "role": "tool",
-                "tool_call_id": tool_call_id,
-                "content": json.dumps(result, ensure_ascii=True),
-            }
-        )
+        return self._tool_dispatcher.append_tool_response(tool_call_id, result)
 
     def _append_skipped_tool_response(self, tool_call_id: str, reason: str) -> None:
-        self._append_tool_response(
-            tool_call_id,
-            {
-                "success": False,
-                "skipped": True,
-                "reason": reason,
-                "requires_replan": True,
-            },
-        )
+        return self._tool_dispatcher.append_skipped_tool_response(tool_call_id, reason)
 
     def _append_skipped_tool_responses(self, tool_calls: list[Any], start_index: int, reason: str) -> None:
-        for skipped_call in tool_calls[start_index:]:
-            self._append_skipped_tool_response(skipped_call.id, reason)
+        return self._tool_dispatcher.append_skipped_tool_responses(tool_calls, start_index, reason)
 
     async def _wait_for_plan_confirmation(self) -> dict[str, Any]:
         active_confirmation_context = self._confirmation_context(self._current_active_plan_state())
