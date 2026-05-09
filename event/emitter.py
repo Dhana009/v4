@@ -59,3 +59,90 @@ class EventEmitter:
             return
 
         loop.create_task(coroutine)
+
+    def emit_recovery_needed_event(
+    self,
+    step: dict[str, Any] | str | None,
+    error_summary: str,
+    ) -> None:
+        context = self._loop._get_step_context(step) if not isinstance(step, dict) else step
+        step_id = str((context or {}).get("step_id") or getattr(self, "active_failed_step_id", "") or "").strip()
+        if not step_id:
+            step_id = "unknown"
+
+        operation_id = str(
+            (context or {}).get("operation_id")
+            or (context or {}).get("current_operation_id")
+            or (self.last_successful_action or {}).get("operation_id")
+            or ""
+        ).strip() or None
+        current_url = self._loop._current_browser_url() or "unknown"
+        tried = [
+            {
+                "step_id": step_id,
+                "status": "failed",
+                "error_summary": error_summary,
+                "current_url": current_url,
+            }
+        ]
+        recovery_payload = build_recovery_needed_payload(
+            run_id=self._loop._current_run_session_id(),
+            step_id=step_id,
+            error_summary=error_summary,
+            current_url=current_url,
+            tried=tried,
+            options=["retry", "skip", "stop"],
+            operation_id=operation_id,
+        )
+        self._loop._emit_backend_event_now(
+            recovery_payload["type"],
+            **{
+                key: value
+                for key, value in recovery_payload.items()
+                if key != "type"
+            },
+        )
+
+    async def emit_run_completed_event(
+    self,
+    source_payload: dict[str, Any],
+    recorded_payload: dict[str, Any],
+    ) -> None:
+        if not self._loop._run_completion_requested or getattr(self, "_run_completed_emitted", False):
+            return
+
+        run_id = str(
+            source_payload.get("run_id")
+            or recorded_payload.get("run_id")
+            or self._loop._current_run_session_id()
+            or ""
+        ).strip()
+        if not run_id:
+            return
+
+        recorded_count = sum(
+            1 for step in self._loop._recording_steps if str(step.get("status") or "").strip() == "recorded"
+        )
+        skipped_count = sum(
+            1 for step in self._loop._recording_steps if str(step.get("status") or "").strip() == "skipped"
+        )
+        summary = str(
+            getattr(self, "last_plan_summary", None)
+            or getattr(getattr(self, "last_plan_ready_payload", None), "get", lambda *_: "")("summary")
+            or "Run completed"
+        ).strip() or "Run completed"
+        run_completed_payload = build_run_completed_payload(
+            run_id=run_id,
+            summary=summary,
+            recorded_count=recorded_count,
+            skipped_count=skipped_count,
+        )
+        self._loop._run_completed_emitted = True
+        await self._loop._send(
+            run_completed_payload["type"],
+            **{
+                key: value
+                for key, value in run_completed_payload.items()
+                if key != "type"
+            },
+        )

@@ -223,3 +223,122 @@ class LocatorResolver:
             return page.get_by_role(match[0], name=match[1])
 
         return page.locator(locator_string)
+
+    def build_locator_candidates(self, element_data: dict[str, Any]) -> list[dict[str, str]]:
+        element_data = self._loop._resolve_selected_element_info(element_data)
+        text = self._loop._selected_element_text(element_data)
+        tag = re.sub(r"[^a-zA-Z0-9:_-]", "", str(element_data.get("tag") or "").strip())
+        attributes = element_data.get("attributes") if isinstance(element_data.get("attributes"), dict) else {}
+        role = (
+            str(element_data.get("role") or attributes.get("role") or "").strip()
+            or self._loop._infer_role(element_data)
+        )
+        class_name = str(element_data.get("class") or element_data.get("className") or attributes.get("class") or "").strip()
+        classes = [
+            re.sub(r"[^a-zA-Z0-9_-]", "", item)
+            for item in class_name.split()
+            if re.sub(r"[^a-zA-Z0-9_-]", "", item)
+        ]
+        partial_text = text[:50].strip()
+        candidates: list[dict[str, str]] = []
+
+        locator_hint = str(element_data.get("locator_hint") or element_data.get("locatorHint") or "").strip()
+        if locator_hint:
+            candidates.append(
+                {
+                    "strategy": "locator_hint",
+                    "locator": locator_hint,
+                }
+            )
+
+        data_testid = str(
+            element_data.get("data_testid")
+            or element_data.get("dataTestid")
+            or attributes.get("data-testid")
+            or attributes.get("data-test-id")
+            or attributes.get("data-test")
+            or attributes.get("data-qa")
+            or attributes.get("data-cy")
+            or ""
+        ).strip()
+        if data_testid:
+            candidates.append(
+                {
+                    "strategy": "data-testid",
+                    "locator": f'get_by_test_id("{self._loop._tool_string_escape(data_testid)}")',
+                }
+            )
+
+        aria_label = self._loop._normalize_space(
+            str(element_data.get("aria_label") or element_data.get("ariaLabel") or attributes.get("aria-label") or "")
+        )
+        if aria_label:
+            candidates.append(
+                {
+                    "strategy": "aria-label",
+                    "locator": f'get_by_label("{self._loop._tool_string_escape(aria_label)}")',
+                }
+            )
+
+        element_id = str(element_data.get("id") or attributes.get("id") or "").strip()
+        if element_id:
+            candidates.append({"strategy": "id", "locator": f"#{self._loop._css_escape(element_id)}"})
+
+        placeholder = self._loop._normalize_space(str(element_data.get("placeholder") or attributes.get("placeholder") or ""))
+        if placeholder:
+            candidates.append(
+                {
+                    "strategy": "placeholder",
+                    "locator": f'get_by_placeholder("{self._loop._tool_string_escape(placeholder)}")',
+                }
+            )
+
+        if text:
+            candidates.append(
+                {
+                    "strategy": "exact_text",
+                    "locator": f'get_by_text("{self._loop._tool_string_escape(text)}", exact=True)',
+                }
+            )
+
+        if partial_text:
+            candidates.append(
+                {
+                    "strategy": "partial_text",
+                    "locator": f'get_by_text("{self._loop._tool_string_escape(partial_text)}", exact=False)',
+                }
+            )
+
+        if role and partial_text:
+            candidates.append(
+                {
+                    "strategy": "role+name",
+                    "locator": (
+                        f'get_by_role("{self._loop._tool_string_escape(role)}", '
+                        f'name="{self._loop._tool_string_escape(partial_text)}")'
+                    ),
+                }
+            )
+
+        css_locator = self._loop._build_locator_from_strategy("css", element_data)
+        if css_locator:
+            candidates.append({"strategy": "css", "locator": css_locator})
+
+        if tag and partial_text:
+            candidates.append(
+                {
+                    "strategy": "relative_xpath",
+                    "locator": f"//{tag}[contains(normalize-space(.), {self._loop._xpath_literal(partial_text)})]",
+                }
+            )
+
+        if tag:
+            if element_id:
+                absolute_xpath = f"//{tag}[@id={self._loop._xpath_literal(element_id)}]"
+            elif classes:
+                absolute_xpath = f"//{tag}[contains(@class, {self._loop._xpath_literal(classes[0])})]"
+            else:
+                absolute_xpath = f"//{tag}"
+            candidates.append({"strategy": "absolute_xpath", "locator": absolute_xpath})
+
+        return candidates
