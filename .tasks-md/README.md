@@ -5,8 +5,8 @@ This folder is the Jira-style project board for AutoWorkbench / Playwright Autom
 ## Workflow folders
 
 ```text
-Backlog      = full remaining product roadmap and reference planning inventory
-Planning     = only active Sprint 2 selected stories
+Backlog      = future product scope and reference planning inventory
+Planning     = only active Sprint 3.5 selected stories
 In Progress  = actively being edited
 Testing      = implementation complete, verification pending
 Done         = verified completed work
@@ -19,7 +19,8 @@ Bugs/Done    = fixed and verified bugs
 ## Current active sprint
 
 ```text
-Sprint 2 — Complete LLM Mode Runtime Wiring and E2E Truth
+Sprint 3 is complete.
+Sprint 3.5 — Backend Contract Confidence, Integration Testing, and Refactor Readiness
 ```
 
 Read first:
@@ -27,7 +28,7 @@ Read first:
 ```text
 Board/WORKFLOW.md
 Board/SPRINT-RULES.md
-Sprints/SPRINT-002 Complete LLM Mode Runtime Wiring and E2E Truth.md
+Sprints/SPRINT-003-5 Backend Contract Confidence and Refactor Readiness.md
 ```
 
 ## Non-negotiables
