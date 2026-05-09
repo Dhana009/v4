@@ -1,10 +1,11 @@
 # TEST-ARCH-002 Golden backend event sequence tests
 
-Status: Planning
+Status: Done
 Sprint: Sprint 3.5
 Type: Contract / Integration Test
 Owner: Backend Events
 Priority: P0
+Started: 2026-05-09
 
 ## Problem
 
@@ -61,3 +62,27 @@ Expected deterministic sequence should include or explicitly account for:
 No tests/e2e.
 No paid LLM.
 Use fake browser/fake LLM.
+
+## Evidence
+
+- tests added:
+  - `tests/test_backend_event_sequences.py`
+- commands run:
+  - `python -m py_compile runtime/event_contracts.py tests/test_backend_event_sequences.py`
+  - `python -m pytest tests/test_backend_event_sequences.py -q`
+  - `python -m pytest tests/test_event_sequence_contract.py tests/test_event_contract.py tests/test_event_contracts.py -q`
+  - `python -m pytest tests/test_recorded_step_model.py tests/test_code_update.py -q`
+- results:
+  - compile passed
+  - golden sequence suite: `4 passed`
+  - event sequence / contract suites: `23 passed`
+  - recording / code_update suites: `22 passed`
+- golden sequences covered:
+  - deterministic click: `plan_ready -> step_recorded -> code_update -> run_completed`, with pre-confirmation recording blocked
+  - deterministic assertion: `plan_ready -> step_recorded -> code_update -> run_completed`, with specific assertion target preserved from confirmed execution/evidence
+  - runtime rejection: malformed websocket command emits `runtime_rejected` and no success lifecycle events
+  - fake LLM ambiguous planning: fast path does not qualify, a fake model-planning round emits `plan_ready`, and no execution/recording occurs before confirmation
+
+## Known remaining gap
+
+- `run_started` and `execution_started` remain non-typed checkpoint gaps and are deferred to `TEST-ARCH-006`.
