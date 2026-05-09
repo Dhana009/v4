@@ -41,6 +41,13 @@ from step.manager import StepManager
 from recording.codegen import Codegen
 from recording.recorder import Recorder
 from recording.replay import Replay
+from plan.state import PlanState
+from plan.builder import PlanBuilder
+from plan.correction import PlanCorrection
+from plan.confirmation import PlanConfirmation
+from llm.tool_definitions import ToolDefinitions
+from llm.tool_dispatcher import ToolDispatcher
+from llm.orchestrator import LLMOrchestrator
 
 # Module-level singleton — delegates use this so they work even when the
 # AgentLoop instance was created via __new__ (bypassing __init__).
@@ -198,6 +205,13 @@ class AgentLoop:
         self._llm_call_counter = 0
         self._ws_disconnected = False
         self._ws_disconnect_logged = False
+        self._plan_state = PlanState(self)
+        self._plan_builder = PlanBuilder(self)
+        self._plan_correction = PlanCorrection(self)
+        self._plan_confirmation = PlanConfirmation(self)
+        self._tool_definitions = ToolDefinitions(self)
+        self._tool_dispatcher = ToolDispatcher(self)
+        self._llm_orchestrator = LLMOrchestrator(self)
 
     def _reset_lifecycle_state(self, steps: list[dict] | None = None) -> None:
         self.phase = "planning"
