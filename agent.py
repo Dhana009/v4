@@ -36,6 +36,7 @@ from runtime.telemetry import record_model_call_end, record_model_call_start
 from runtime.deterministic_fast_path_gateway import attempt_deterministic_fast_path
 from event.emitter import EventEmitter
 from locator.resolver import LocatorResolver
+from skills.loader import SkillsLoader
 
 # Module-level singleton — delegates use this so they work even when the
 # AgentLoop instance was created via __new__ (bypassing __init__).
@@ -106,6 +107,7 @@ class AgentLoop:
         self.ws = ws
         self._emitter = EventEmitter(ws, self)
         self._locator_resolver = LocatorResolver()
+        self._skills_loader = SkillsLoader(self)
         self.control_queue = control_queue
         self.skills_root = Path("/Users/apple/personal/agent v4/skills/playwright-automation")
         self.llm = LLMClient()
