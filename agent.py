@@ -38,6 +38,7 @@ from event.emitter import EventEmitter
 from locator.resolver import LocatorResolver
 from skills.loader import SkillsLoader
 from step.manager import StepManager
+from recording.codegen import Codegen
 
 # Module-level singleton — delegates use this so they work even when the
 # AgentLoop instance was created via __new__ (bypassing __init__).
@@ -110,6 +111,7 @@ class AgentLoop:
         self._locator_resolver = LocatorResolver()
         self._skills_loader = SkillsLoader(self)
         self._step_manager = StepManager(self)
+        self._codegen = Codegen(self)
         self.control_queue = control_queue
         self.skills_root = Path("/Users/apple/personal/agent v4/skills/playwright-automation")
         self.llm = LLMClient()
