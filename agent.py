@@ -1626,6 +1626,19 @@ class AgentLoop:
                         _skill_tokens = _sd.estimated_total_skill_tokens
                     except Exception:
                         pass
+                # S5-001: enrich telemetry with PURPOSE_REGISTRY attribution fields.
+                # model_class, skills_loaded, and context_bucket are looked up from the
+                # registry for the effective purpose so token reports can attribute costs.
+                _s5_model_class: str | None = None
+                _s5_context_bucket: str | None = None
+                _s5_skills_loaded: list[str] | None = None
+                try:
+                    _purpose_policy = PURPOSE_REGISTRY.get_purpose_policy(effective_purpose)
+                    _s5_model_class = str(_purpose_policy.get("model_class") or "")  or None
+                    _s5_context_bucket = str(current_phase or "").strip() or None
+                    _s5_skills_loaded = list(getattr(self, "_loaded_skill_names", [])) or None
+                except Exception:
+                    pass
                 telemetry = record_model_call_start(
                     call_id=call_id,
                     purpose=effective_purpose,
@@ -1634,6 +1647,9 @@ class AgentLoop:
                     tools=filtered_tools,
                     skill_count=len(self._loaded_skill_names),
                     skill_tokens=_skill_tokens,
+                    model_class=_s5_model_class,
+                    context_bucket=_s5_context_bucket,
+                    skills_loaded=_s5_skills_loaded,
                 )
                 try:
                     response = await self.model_router.call(
