@@ -25,3 +25,12 @@ venv/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+
+# Archives and zip files
+*.zip
+
+# Claude Code local config
+.claude/
+
+# Temp locator utilities
+locator_utils.py
