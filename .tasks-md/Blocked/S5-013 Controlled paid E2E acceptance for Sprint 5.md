@@ -259,6 +259,46 @@ Retry interpretation:
 
 ## Latest controlled retry evidence
 
+## Middle-layer live contract probe
+
+Status: Blocked pending one fresh valid live contract probe
+
+Probe goal:
+- Validate `step_plan_normalizer` ambiguous Profile behavior with real LLM before any more browser E2E.
+- Run directly through `LLMRuntimeController.call_with_raw_response()` with no Playwright and no app launch.
+
+Probe test:
+- `tests/test_real_llm_planner_contract.py`
+
+Probe default behavior:
+- Skipped unless `RUN_PAID_LLM_CONTRACT=1`
+
+Probe cheap verification:
+- `python -m pytest tests/test_prompt_pack_builder.py tests/test_prompt_pack_safety_rules.py tests/test_tool_contract_clarity.py -q`
+  - `23 passed`
+- `python -m pytest tests/test_planning_convergence_contract.py tests/test_planning_loop_guard.py -q`
+  - `11 passed`
+- `python -m pytest tests/test_sprint5_llm_runtime_guardrails.py tests/test_e2e_harness.py -q`
+  - `101 passed`
+- `python -m pytest tests/test_real_llm_planner_contract.py -q`
+  - `1 skipped`
+
+Probe live evidence so far:
+- first artifact: `test-results/llm-contract/step_plan_normalizer_ambiguous_profile-20260511-124958/`
+  - result: `APIConnectionError`
+  - no tool call captured
+- second artifact: `test-results/llm-contract/step_plan_normalizer_ambiguous_profile-20260511-125024/`
+  - result: `AuthenticationError`
+  - no tool call captured
+
+Interpretation:
+- The new contract probe exists and writes the required local artifacts.
+- The first live attempts did not yield planner behavior evidence because provider access failed before the model returned a tool call.
+- The test seam has now been corrected to prefer repo `.env` key precedence, matching product startup behavior.
+
+Next step:
+- One fresh live contract probe after approval, before any further browser E2E retry.
+
 Retry status: Blocked
 
 Retry paid E2E scope:
