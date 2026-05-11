@@ -8,6 +8,8 @@ from typing import Any
 
 from runtime.prompt_pack_builder import (
     build_prompt_pack,
+    build_plan_diff_editor_dynamic_context,
+    build_recovery_diagnoser_dynamic_context,
     build_step_plan_normalizer_dynamic_context,
 )
 from runtime.prompt_packs import apply_prompt_pack_to_messages
@@ -621,16 +623,41 @@ class LLMRuntimeController:
         skill_levels: list[str],
         output_schema: Any,
     ) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
-        if purpose != "step_plan_normalizer":
+        if purpose not in {"step_plan_normalizer", "plan_diff_editor", "recovery_diagnoser"}:
             return messages, None
 
-        prompt_context = build_step_plan_normalizer_dynamic_context(
-            messages=messages,
-            metadata=metadata,
-            skills_loaded=skills_loaded,
-            skill_levels=skill_levels,
-            output_schema=output_schema if isinstance(output_schema, Mapping) else {},
-        )
+        if purpose == "step_plan_normalizer":
+            prompt_context = build_step_plan_normalizer_dynamic_context(
+                messages=messages,
+                metadata=metadata,
+                skills_loaded=skills_loaded,
+                skill_levels=skill_levels,
+                output_schema=output_schema if isinstance(output_schema, Mapping) else {},
+            )
+        elif purpose == "plan_diff_editor":
+            prompt_context = build_plan_diff_editor_dynamic_context(
+                messages=messages,
+                active_plan_state=_value(metadata, "active_plan_state", default=None) if isinstance(metadata, Mapping) else None,
+                correction_state=_value(metadata, "correction_state", default=None) if isinstance(metadata, Mapping) else None,
+                validation_feedback=str(_value(metadata, "validation_feedback", default="") or "").strip() or None,
+                allowed_edit_policy=str(_value(metadata, "allowed_edit_policy", default="") or "").strip() or None,
+                validated_locators=_normalize_names(_value(metadata, "validated_locators", default=None)),
+            )
+        else:
+            prompt_context = build_recovery_diagnoser_dynamic_context(
+                messages=messages,
+                metadata=metadata,
+                failed_step_state=_value(metadata, "failed_step_state", default=None) if isinstance(metadata, Mapping) else None,
+                failed_step_id=str(_value(metadata, "failed_step_id", default="") or "").strip() or None,
+                failed_operation_id=str(_value(metadata, "failed_operation_id", default="") or "").strip() or None,
+                error_summary=str(_value(metadata, "error_summary", default="") or "").strip() or None,
+                current_page=str(_value(metadata, "current_page", default="") or "").strip() or None,
+                tried_fixes=_value(metadata, "tried_fixes", default=None),
+                failure_evidence=_value(metadata, "failure_evidence", default=None),
+                user_recovery_instruction=str(_value(metadata, "user_recovery_instruction", default="") or "").strip() or None,
+                retry_attempts=_value(metadata, "retry_attempts", default=None),
+                run_id=str(_value(metadata, "run_id", default="") or "").strip() or None,
+            )
         prompt_pack = build_prompt_pack(
             purpose,
             dynamic_context=prompt_context,
@@ -821,7 +848,12 @@ class LLMRuntimeController:
                 final_tools.append(tool)
         return final_tools
 
-    def _emit_telemetry(self, telemetry_sink: Any | None, telemetry_record: ControllerTelemetry) -> None:
+    def _emit_telemetry(
+        self,
+        telemetry_sink: Any | None,
+        telemetry_record: ControllerTelemetry,
+        prompt_pack_metadata: Mapping[str, Any] | None = None,
+    ) -> None:
         if telemetry_sink is None:
             return
 
@@ -846,6 +878,17 @@ class LLMRuntimeController:
             "schema_version": telemetry_record.schema_version,
             "error_code": telemetry_record.error_code,
         }
+        if isinstance(prompt_pack_metadata, Mapping):
+            for key in (
+                "prompt_pack_id",
+                "prompt_pack_version",
+                "prefix_hash",
+                "estimated_stable_tokens",
+                "prompt_pack_applied",
+            ):
+                value = prompt_pack_metadata.get(key)
+                if value is not None:
+                    payload[key] = value
 
         for method_name in ("record", "emit", "log", "record_call"):
             method = getattr(telemetry_sink, method_name, None)
@@ -1168,6 +1211,7 @@ class LLMRuntimeController:
                     schema_version=schema_version,
                     error_code=None,
                 ),
+                None,
             )
             return result
 
@@ -1301,6 +1345,7 @@ class LLMRuntimeController:
                     schema_version=schema_version,
                     error_code="TOKEN_BUDGET_EXCEEDED",
                 ),
+                prompt_pack_metadata,
             )
             return failure_result
 
@@ -1409,6 +1454,7 @@ class LLMRuntimeController:
                         schema_version=schema_version,
                         error_code=None,
                     ),
+                    prompt_pack_metadata,
                 )
                 return result
 
@@ -1470,6 +1516,7 @@ class LLMRuntimeController:
                 schema_version=schema_version,
                 error_code="SCHEMA_RETRY_FAILED",
             ),
+            prompt_pack_metadata,
         )
         return failure_result
 
@@ -1724,6 +1771,7 @@ class LLMRuntimeController:
                     schema_version=schema_version,
                     error_code="TOKEN_BUDGET_EXCEEDED",
                 ),
+                prompt_pack_metadata,
             )
             return failure_result
 
@@ -1806,6 +1854,7 @@ class LLMRuntimeController:
                 schema_version=schema_version,
                 error_code=None,
             ),
+            prompt_pack_metadata,
         )
         return result
 

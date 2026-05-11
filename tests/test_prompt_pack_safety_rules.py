@@ -32,11 +32,28 @@ def test_step_plan_normalizer_pack_has_all_safety_rules_and_backend_truth_guard(
     assert "Do not change the active plan structure silently" in pack.stable_prefix
 
 
-def test_step_plan_normalizer_pack_does_not_use_forbidden_finality_phrases() -> None:
-    pack = build_prompt_pack("step_plan_normalizer")
-    stable_prefix = pack.stable_prefix.lower()
-    for phrase in FORBIDDEN_PHRASES:
-        assert phrase not in stable_prefix
+def test_plan_diff_editor_pack_has_correction_rules() -> None:
+    pack = build_prompt_pack("plan_diff_editor")
+    assert "do not silently drop operations" in pack.stable_prefix.lower()
+    assert "do not silently reorder operations" in pack.stable_prefix.lower()
+    assert "do not split or merge parent steps unless the user explicitly asks" in pack.stable_prefix.lower()
+    assert "backend validates and applies the diff" in pack.stable_prefix.lower()
+
+
+def test_recovery_diagnoser_pack_has_recovery_rules() -> None:
+    pack = build_prompt_pack("recovery_diagnoser")
+    assert "diagnose the failed step only" in pack.stable_prefix.lower()
+    assert "stay anchored to the failed step" in pack.stable_prefix.lower()
+    assert "propose retry, ask user, skip, or stop only" in pack.stable_prefix.lower()
+    assert "backend validates any retry before execution" in pack.stable_prefix.lower()
+
+
+def test_registered_prompt_packs_do_not_use_forbidden_finality_phrases() -> None:
+    for purpose in REGISTERED_PROMPT_PACK_PURPOSES:
+        pack = build_prompt_pack(purpose)
+        stable_prefix = pack.stable_prefix.lower()
+        for phrase in FORBIDDEN_PHRASES:
+            assert phrase not in stable_prefix
 
 
 def test_safety_rules_survive_rendering_with_dynamic_context() -> None:
@@ -59,4 +76,4 @@ def test_safety_rules_survive_rendering_with_dynamic_context() -> None:
 
 def test_prompt_pack_builder_raises_controlled_error_for_unsupported_purpose() -> None:
     with pytest.raises(ValueError, match="Unsupported prompt pack purpose"):
-        build_prompt_pack("recovery_diagnoser")
+        build_prompt_pack("unknown_purpose")

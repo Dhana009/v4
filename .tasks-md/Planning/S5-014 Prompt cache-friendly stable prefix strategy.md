@@ -78,6 +78,11 @@ Will include:
 - Documentation of stable prefix per purpose
 - Hash consistency report
 
+Partial evidence from Cluster 5:
+- Verified `step_plan_normalizer.v1`, `plan_diff_editor.v1`, and `recovery_diagnoser.v1` all keep stable-prefix content deterministic and separate from dynamic suffix data.
+- Verified `prefix_hash` remains deterministic for identical stable prefixes.
+- Full S5-014 remains Planning; this note only records prompt-pack behavior already validated in Cluster 5.
+
 ## Verification commands/results
 
 ```bash

@@ -649,6 +649,90 @@ def test_controller_call_with_raw_response_applies_prompt_pack_for_step_plan_nor
     assert "OUTPUT_EXPECTATION:" in first_system_content
 
 
+def test_controller_call_applies_prompt_pack_for_plan_diff_editor() -> None:
+    contract = _load_controller_contract()
+    recorder = FakeCallRecorder(
+        responses=[
+            _response(
+                '{"schema_id":"plan_diff_editor.v1","purpose":"plan_diff_editor","correction_intent":"add assertion first","target_plan_id":"plan-1","target_plan_version":1,"operations":[{"action":"add","target_type":"operation","patch":{"type":"assert","target":"Get started","assertion":"visible"},"reason":"add visible assertion before the click"}],"requires_user_clarification":false}'
+            )
+        ]
+    )
+    dependencies = _controller_dependencies(recorder, contract.registry)
+    controller = _resolve_controller_target(contract.target, dependencies)
+    call = getattr(controller, "call", None)
+    assert callable(call)
+
+    result = asyncio.run(
+        call(
+            purpose="plan_diff_editor",
+            messages=[{"role": "user", "content": "Correction: add assertion first"}],
+            phase="planning",
+            context_mode="compact",
+            tools=[],
+            tool_choice=None,
+            client=dependencies["client"],
+        )
+    )
+
+    assert result["prompt_pack_applied"] is True
+    assert result["prompt_pack_id"] == "plan_diff_editor.v1"
+    assert result["prompt_pack_version"] == 1
+    assert result["prefix_hash"]
+    assert result["estimated_message_tokens"] > 0
+
+    first_call = recorder.calls[0]["payload"]
+    first_system_message = next(
+        message for message in first_call["messages"] if message.get("role") == "system"
+    )
+    first_system_content = str(first_system_message.get("content") or "")
+    assert first_system_content.startswith("PROMPT_PACK_ID: plan_diff_editor.v1")
+    assert "NON_NEGOTIABLE_RUNTIME_RULES:" in first_system_content
+    assert "CORRECTION_RULES:" in first_system_content
+
+
+def test_controller_call_with_raw_response_applies_prompt_pack_for_recovery_diagnoser() -> None:
+    contract = _load_controller_contract()
+    recorder = FakeCallRecorder(
+        responses=[_response('{"purpose":"recovery_diagnoser","schema_id":"recovery_diagnoser.v1","recovery_action":"retry","requires_user_confirmation":false}')]
+    )
+    dependencies = _controller_dependencies(recorder, contract.registry)
+    controller = _resolve_controller_target(contract.target, dependencies)
+    call = getattr(controller, "call_with_raw_response", None)
+    assert callable(call)
+
+    result = asyncio.run(
+        call(
+            purpose="recovery_diagnoser",
+            messages=[{"role": "user", "content": "Recovery: retry the failed step"}],
+            phase="recovery",
+            context_mode="compact",
+            tools=[
+                {"type": "function", "function": {"name": "browser_get_state"}},
+                {"type": "function", "function": {"name": "ask_user"}},
+            ],
+            tool_choice="auto",
+            client=dependencies["client"],
+        )
+    )
+
+    assert result["prompt_pack_applied"] is True
+    assert result["prompt_pack_id"] == "recovery_diagnoser.v1"
+    assert result["prompt_pack_version"] == 1
+    assert result["prefix_hash"]
+    assert result["raw_response"] is not None
+    assert result["raw_message"] is not None
+
+    first_call = recorder.calls[0]["payload"]
+    first_system_message = next(
+        message for message in first_call["messages"] if message.get("role") == "system"
+    )
+    first_system_content = str(first_system_message.get("content") or "")
+    assert first_system_content.startswith("PROMPT_PACK_ID: recovery_diagnoser.v1")
+    assert "NON_NEGOTIABLE_RUNTIME_RULES:" in first_system_content
+    assert "RECOVERY_RULES:" in first_system_content
+
+
 def test_purpose_registry_accepts_only_known_llm_purposes() -> None:
     contract = _load_controller_contract()
     purpose_names = _registry_names(contract.registry)

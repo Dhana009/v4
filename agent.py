@@ -17,6 +17,11 @@ from starlette.websockets import WebSocketDisconnect
 
 from browser import get_page
 from llm import LLMClient
+from runtime.correction_context import (
+    build_plan_diff_editor_context_payload,
+    build_plan_diff_editor_schema_message,
+    render_plan_diff_editor_context,
+)
 from runtime.context_manager import ContextManager
 from runtime.event_contracts import (
     build_recovery_needed_payload,
@@ -27,6 +32,10 @@ from runtime.llm_policy_gateway import LLMPolicyGateway
 from runtime.llm_runtime_controller import LLMRuntimeController, PURPOSE_REGISTRY
 from runtime.model_router import ModelRouter
 from runtime.recovery_manager import classify_failure
+from runtime.recovery_context import (
+    build_recovery_diagnoser_context_payload,
+    render_recovery_diagnoser_context,
+)
 from runtime.phase_tracker import PhaseTracker
 from runtime.snapshot_archive import build_spec_snapshot
 from runtime.agent_locator_handlers import tool_dom_extract, tool_locator_find, tool_locator_validate
@@ -1612,6 +1621,11 @@ class AgentLoop:
                         "policy_gateway_effective_purpose": effective_purpose,
                     },
                 )
+                recovery_context = ""
+                if effective_purpose == "recovery_diagnoser":
+                    recovery_context = await self._build_recovery_diagnoser_context_message()
+                    if recovery_context:
+                        context_bundle.messages.append({"role": "user", "content": recovery_context})
                 self._llm_call_counter += 1
                 call_id = f"llm_{self._llm_call_counter:03d}"
                 model = "gpt-4o-mini"
@@ -1659,6 +1673,14 @@ class AgentLoop:
                             messages=context_bundle.messages,
                             phase=current_phase,
                             context_mode=execution_context,
+                            tools=filtered_tools,
+                            tool_choice="auto",
+                        )
+                    elif effective_purpose == "recovery_diagnoser":
+                        controller_result = await self._call_recovery_diagnoser_controller(
+                            messages=context_bundle.messages,
+                            phase=current_phase,
+                            context_mode="compact",
                             tools=filtered_tools,
                             tool_choice="auto",
                         )
@@ -3647,6 +3669,53 @@ class AgentLoop:
         result["used_controller"] = True
         return result
 
+    async def _call_recovery_diagnoser_controller(
+        self,
+        *,
+        messages: list[dict[str, Any]],
+        phase: str | None,
+        context_mode: str,
+        tools: list[dict[str, Any]],
+        tool_choice: Any,
+    ) -> dict[str, Any]:
+        controller = getattr(self, "_llm_runtime_controller", None)
+        if controller is None:
+            controller = getattr(self, "_plan_diff_editor_controller", None)
+        call = getattr(controller, "call_with_raw_response", None) if controller is not None else None
+        if not callable(call):
+            return {"used_controller": False}
+
+        try:
+            result = await call(
+                purpose="recovery_diagnoser",
+                messages=messages,
+                phase=phase,
+                context_mode=context_mode,
+                client=self.llm.client,
+                tools=tools,
+                tool_choice=tool_choice,
+            )
+        except Exception as exc:  # noqa: BLE001
+            return {
+                "used_controller": True,
+                "validation_status": "retry_failed",
+                "parsed_output": None,
+                "errors": [type(exc).__name__],
+                "message": str(exc),
+                "raw_response": None,
+            }
+        if not isinstance(result, dict):
+            return {
+                "used_controller": True,
+                "validation_status": "retry_failed",
+                "parsed_output": None,
+                "errors": ["invalid_controller_result"],
+                "raw_response": None,
+            }
+        result = dict(result)
+        result["used_controller"] = True
+        return result
+
     def _sync_controller_prompt_pack_telemetry(
         self,
         telemetry: Any,
@@ -5046,18 +5115,35 @@ class AgentLoop:
         if not isinstance(correction_state, dict) or not isinstance(active_plan_state, dict):
             return ""
 
+        payload = build_plan_diff_editor_context_payload(
+            active_plan_state=active_plan_state,
+            correction_state=correction_state,
+            correction_text=self._normalize_space(str(correction_state.get("correction_text") or "")).strip(),
+            validation_feedback=self._normalize_space(
+                str(correction_state.get("last_validation_feedback") or correction_state.get("last_validation_reason") or "")
+            ).strip() or None,
+            allowed_edit_policy=self._normalize_space(
+                str(correction_state.get("allowed_edit_policy") or "")
+            ).strip() or None,
+        )
+        lines = [render_plan_diff_editor_context(payload)]
         correction_text = self._normalize_space(str(correction_state.get("correction_text") or "")).strip()
         answer_text = self._normalize_space(str(correction_state.get("clarification_answer") or "")).strip()
-        lines = [
-            "Structured correction diff context.",
-            f'active_plan_id: "{str(correction_state.get("plan_id") or "")}"',
-            f'target_step_id: "{str(correction_state.get("target_step_id") or "")}"',
-            f"target_plan_version: {self._current_plan_version()}",
-            f'correction_type: "{str(correction_state.get("category") or "ambiguous")}"',
-            f'Correction: "{correction_text}"',
-        ]
+        lines.extend(
+            [
+                "Structured plan correction event.",
+                f'active_plan_id: "{str(correction_state.get("plan_id") or "")}"',
+                f'target_step_id: "{str(correction_state.get("target_step_id") or "")}"',
+                f"target_plan_version: {self._current_plan_version()}",
+                f'correction_type: "{str(correction_state.get("category") or "ambiguous")}"',
+                f'Correction: "{correction_text}"',
+            ]
+        )
         if answer_text:
             lines.append(f'Clarification answer: "{answer_text}"')
+        previous_plan_summary = self._normalize_space(str(active_plan_state.get("summary") or "")).strip()
+        if previous_plan_summary:
+            lines.append(f'Previous plan summary: "{previous_plan_summary}"')
         lines.extend(self._build_plan_correction_operation_context_lines(active_plan_state))
         lines.append("Mutation rules:")
         lines.append("- You MUST respond with send_to_overlay message_type='plan_correction_diff'.")
@@ -5076,7 +5162,7 @@ class AgentLoop:
         lines.append("- Do not reconstruct a full plan_ready in correction mode.")
         lines.append("- Do not call DOM extraction or locator search for pure plan edits.")
         lines.append("- Ask one clarification only if the correction is ambiguous.")
-        return "\n".join(lines)
+        return "\n".join(lines).strip()
 
     def _build_plan_diff_editor_schema_message(self) -> str:
         correction_state = getattr(self, "_active_plan_correction_state", None)
@@ -5084,68 +5170,66 @@ class AgentLoop:
         if not isinstance(correction_state, dict) or not isinstance(active_plan_state, dict):
             return ""
 
-        correction_text = self._normalize_space(str(correction_state.get("correction_text") or "")).strip()
-        plan_id = str(correction_state.get("plan_id") or active_plan_state.get("plan_id") or "").strip()
-        plan_version = self._current_plan_version()
-        plan_summary = str(active_plan_state.get("summary") or "").strip()
-        lines = [
-            "Authoritative controller schema for this correction.",
-            "Return one JSON object and nothing else.",
-            "Do not call send_to_overlay.",
-            "Do not call plan_ready.",
-            "Do not call llm_thinking.",
-            'schema_id: "plan_diff_editor.v1"',
-            'purpose: "plan_diff_editor"',
-            f'correction_intent: "{correction_text}"',
-            f'target_plan_id: "{plan_id}"',
-            f"target_plan_version: {plan_version}",
-            'requires_user_clarification: false',
-            'reasoning_summary: "brief diff summary"',
-            'ambiguity: []',
-            "operations: [ ... ]",
-            "Operation rules:",
-            '- Use action "add" for the new assert operation.',
-            '- Use action "reorder" for the existing click operation so it stays second.',
-            '- Use action "update" only for plan text edits.',
-            '- Use action "remove" only when a child must be deleted.',
-            '- Include target_type, target_id, patch, position, and reason exactly where required.',
-            '- Keep the corrected child order in the operations list.',
-        ]
-        if plan_summary:
-            lines.append(f'Current plan summary: "{plan_summary}"')
-        lines.extend(
-            [
-                "Example for this correction:",
-                "{",
-                '  "schema_id": "plan_diff_editor.v1",',
-                '  "purpose": "plan_diff_editor",',
-                f'  "correction_intent": "{correction_text}",',
-                f'  "target_plan_id": "{plan_id}",',
-                f'  "target_plan_version": {plan_version},',
-                '  "operations": [',
-                '    {',
-                '      "action": "add",',
-                '      "target_type": "operation",',
-                '      "patch": {',
-                '        "type": "assert",',
-                '        "target": "Get started",',
-                '        "assertion": "visible"',
-                '      },',
-                '      "reason": "add visible assertion before the click"',
-                '    },',
-                '    {',
-                '      "action": "reorder",',
-                '      "target_type": "operation",',
-                '      "target_id": "op_1",',
-                '      "position": 2,',
-                '      "reason": "keep the click after the assertion"',
-                '    }',
-                '  ],',
-                '  "requires_user_clarification": false',
-                "}",
-            ]
+        payload = build_plan_diff_editor_context_payload(
+            active_plan_state=active_plan_state,
+            correction_state=correction_state,
+            correction_text=self._normalize_space(str(correction_state.get("correction_text") or "")).strip(),
+            validation_feedback=self._normalize_space(
+                str(correction_state.get("last_validation_feedback") or correction_state.get("last_validation_reason") or "")
+            ).strip() or None,
+            allowed_edit_policy=self._normalize_space(
+                str(correction_state.get("allowed_edit_policy") or "")
+            ).strip() or None,
         )
-        return "\n".join(lines)
+        return build_plan_diff_editor_schema_message(payload)
+
+    async def _build_recovery_diagnoser_context_message(self) -> str:
+        failed_step = self._get_failed_step_context()
+        if not isinstance(failed_step, dict):
+            return ""
+
+        browser_state = await self._capture_browser_state()
+        current_page = ""
+        if isinstance(browser_state, dict):
+            current_url = self._normalize_space(str(browser_state.get("url") or "")).strip()
+            current_title = self._normalize_space(str(browser_state.get("title") or "")).strip()
+            current_page = " | ".join(part for part in (current_url, current_title) if part)
+
+        step_id = str(
+            failed_step.get("step_id")
+            or failed_step.get("id")
+            or self.active_failed_step_id
+            or ""
+        ).strip() or None
+        operation_id = str(
+            failed_step.get("operation_id")
+            or failed_step.get("current_operation_id")
+            or (self.last_successful_action or {}).get("operation_id")
+            or ""
+        ).strip() or None
+        error_summary = str(
+            failed_step.get("last_error")
+            or failed_step.get("error_summary")
+            or failed_step.get("error")
+            or ""
+        ).strip() or None
+        payload = build_recovery_diagnoser_context_payload(
+            run_id=self._current_run_session_id(),
+            failed_step_state=failed_step,
+            failed_step_id=step_id,
+            failed_operation_id=operation_id,
+            error_summary=error_summary,
+            current_page=current_page or None,
+            messages=list(getattr(self.llm, "messages", []) or []),
+            metadata={
+                "run_id": self._current_run_session_id(),
+                "failed_step_id": step_id,
+                "failed_operation_id": operation_id,
+                "error_summary": error_summary,
+                "current_page": current_page or None,
+            },
+        )
+        return render_recovery_diagnoser_context(payload)
 
     def _synthesize_plan_diff_editor_output(self) -> dict[str, Any]:
         correction_state = getattr(self, "_active_plan_correction_state", None)

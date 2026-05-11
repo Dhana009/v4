@@ -5,7 +5,11 @@ import pytest
 from runtime.prompt_pack_builder import (
     NON_NEGOTIABLE_RUNTIME_RULES,
     REGISTERED_PROMPT_PACK_PURPOSES,
+    build_plan_diff_editor_dynamic_context,
+    build_plan_diff_editor_pack,
     build_prompt_pack,
+    build_recovery_diagnoser_dynamic_context,
+    build_recovery_diagnoser_pack,
     build_step_plan_normalizer_dynamic_context,
     build_step_plan_normalizer_pack,
 )
@@ -61,6 +65,82 @@ def test_step_plan_normalizer_rendered_suffix_stays_separate_from_stable_prefix(
     assert rendered_suffix in rendered_prompt
 
 
+def test_plan_diff_editor_pack_identity_and_suffix() -> None:
+    pack = build_plan_diff_editor_pack()
+    assert pack.purpose == "plan_diff_editor"
+    assert pack.prompt_pack_id == "plan_diff_editor.v1"
+    assert pack.prompt_pack_version == 1
+    assert pack.prefix_hash == hash_stable_prefix(pack.stable_prefix)
+
+    dynamic_context = build_plan_diff_editor_dynamic_context(
+        messages=[{"role": "user", "content": "Correction: add an assertion first"}],
+        active_plan_state={
+            "plan_id": "plan-1",
+            "summary": "I will click Get started",
+            "steps": [
+                {
+                    "step_id": "step-1",
+                    "intent": "Click the Get started button",
+                    "children": [
+                        {
+                            "operation_id": "op-1",
+                            "type": "click",
+                            "target": "Get started",
+                            "locator": 'get_by_text("Get started", exact=True)',
+                        }
+                    ],
+                }
+            ],
+        },
+        correction_state={"target_step_id": "step-1"},
+        validation_feedback="use a structured diff",
+        allowed_edit_policy="preserve children and order",
+        validated_locators=["get_by_text('Get started', exact=True)"],
+    )
+    rendered_suffix = pack.render_dynamic_suffix(dynamic_context)
+    rendered_prompt = pack.render_prompt(dynamic_context)
+
+    assert "DYNAMIC_CORRECTION_CONTEXT:" in rendered_suffix
+    assert "Structured correction diff context." in rendered_suffix
+    assert "add an assertion first" in rendered_suffix
+    assert rendered_prompt.startswith(pack.stable_prefix)
+    assert rendered_suffix in rendered_prompt
+
+
+def test_recovery_diagnoser_pack_identity_and_suffix() -> None:
+    pack = build_recovery_diagnoser_pack()
+    assert pack.purpose == "recovery_diagnoser"
+    assert pack.prompt_pack_id == "recovery_diagnoser.v1"
+    assert pack.prompt_pack_version == 1
+    assert pack.prefix_hash == hash_stable_prefix(pack.stable_prefix)
+
+    dynamic_context = build_recovery_diagnoser_dynamic_context(
+        messages=[
+            {"role": "user", "content": "The click failed with a timeout."},
+            {"role": "assistant", "content": "Recovery: retry after checking visibility."},
+        ],
+        metadata={
+            "run_id": "run-1",
+            "failed_step_id": "step-1",
+            "failed_operation_id": "op-1",
+            "current_page": "http://fixture/current | Fixture page",
+        },
+        failed_step_state={
+            "step_id": "step-1",
+            "operation_id": "op-1",
+            "last_error": "timeout while clicking",
+        },
+    )
+    rendered_suffix = pack.render_dynamic_suffix(dynamic_context)
+    rendered_prompt = pack.render_prompt(dynamic_context)
+
+    assert "DYNAMIC_RECOVERY_CONTEXT:" in rendered_suffix
+    assert "Recovery required for the failed original step." in rendered_suffix
+    assert "timeout while clicking" in rendered_suffix
+    assert rendered_prompt.startswith(pack.stable_prefix)
+    assert rendered_suffix in rendered_prompt
+
+
 def test_prefix_hash_is_deterministic_and_content_bound() -> None:
     pack_one = build_step_plan_normalizer_pack()
     pack_two = build_step_plan_normalizer_pack()
@@ -91,4 +171,6 @@ def test_step_plan_normalizer_stable_prefix_token_budget_is_small() -> None:
 
 
 def test_registered_prompt_pack_purposes_include_step_plan_normalizer() -> None:
-    assert "step_plan_normalizer" in REGISTERED_PROMPT_PACK_PURPOSES
+    assert {"step_plan_normalizer", "plan_diff_editor", "recovery_diagnoser"}.issubset(
+        set(REGISTERED_PROMPT_PACK_PURPOSES)
+    )
