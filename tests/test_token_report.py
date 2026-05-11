@@ -181,7 +181,8 @@ _S5_LINE_WITH_ATTRIBUTION = (
     "tool_schema_tokens=120 message_history_tokens=170 "
     "dom_or_tool_result_tokens=0 output_tokens=45 latency_ms=800 "
     "prompt_pack_id=planning_pack_v1 model_class=main context_bucket=planning "
-    "cached_tokens=40 skills_loaded=llm_runtime_controller,prompt_persona_skill_loading"
+    "cached_tokens=40 skills_loaded=llm_runtime_controller,prompt_persona_skill_loading "
+    "skill_levels=core_compact,core_compact"
 )
 
 
@@ -236,6 +237,7 @@ def test_token_report_skills_loaded_from_s5_line():
     report = build_token_report(records, test_name="skills")
     assert "llm_runtime_controller" in report["skills_loaded"]
     assert "prompt_persona_skill_loading" in report["skills_loaded"]
+    assert report["skill_levels"] == ["core_compact"]
 
 
 def test_old_token_report_fields_still_present():

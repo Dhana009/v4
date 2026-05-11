@@ -285,7 +285,7 @@ def _build_purpose_policy_map() -> dict[str, dict[str, Any]]:
             model_class="main",
             skill_names=planner_skill,
             planning_tools=planning_tools_for_purpose("step_plan_normalizer"),
-            token_budget=2000,
+            token_budget=3000,
         ),
         "plan_diff_editor": _purpose_policy(
             purpose="plan_diff_editor",

@@ -9,7 +9,9 @@ from typing import Any
 # and produce a structured token-report.json artifact.
 
 _TELEMETRY_LINE_RE = re.compile(r"\[LLM_TELEMETRY\](.+)")
-_KV_RE = re.compile(r'(\w+)=("(?:[^"\\]|\\.)*"|-?\d+(?:\.\d+)?|true|false|\S+)')
+_KV_RE = re.compile(r'(\w+)=("(?:[^"\\]|\\.)*"|\S+)')
+_INTEGER_RE = re.compile(r"-?\d+")
+_FLOAT_RE = re.compile(r"-?\d+\.\d+")
 
 # Warning thresholds (warning-only, not hard failures in Sprint 3)
 WARN_CALLS_PER_TEST = 10
@@ -29,14 +31,12 @@ def parse_telemetry_line(line: str) -> dict[str, Any] | None:
             record[key] = True
         elif value == "false":
             record[key] = False
+        elif _INTEGER_RE.fullmatch(value):
+            record[key] = int(value)
+        elif _FLOAT_RE.fullmatch(value):
+            record[key] = float(value)
         else:
-            try:
-                record[key] = int(value)
-            except ValueError:
-                try:
-                    record[key] = float(value)
-                except ValueError:
-                    record[key] = value
+            record[key] = value
     return record if record else None
 
 
@@ -66,6 +66,7 @@ def build_token_report(
             "largest_call_tokens": 0,
             "top_token_source": "none",
             "skills_loaded": [],
+            "skill_levels": [],
             "purposes": [],
             # S5-007 attribution fields
             "prompt_pack_ids": [],
@@ -96,6 +97,7 @@ def build_token_report(
 
     purposes = list({str(r.get("purpose") or "unknown") for r in records})
     skills_loaded: list[str] = []
+    skill_levels: list[str] = []
     for r in records:
         raw = str(r.get("skills_loaded") or "")
         if raw and raw != "unknown":
@@ -103,6 +105,12 @@ def build_token_report(
                 s = s.strip()
                 if s and s not in skills_loaded:
                     skills_loaded.append(s)
+        raw_levels = str(r.get("skill_levels") or "")
+        if raw_levels and raw_levels != "unknown":
+            for s in raw_levels.split(","):
+                s = s.strip()
+                if s and s not in skill_levels:
+                    skill_levels.append(s)
 
     # S5-007: aggregate attribution fields
     prompt_pack_ids: list[str] = list({
@@ -138,6 +146,7 @@ def build_token_report(
         "top_token_source": top_token_source,
         "token_breakdown": source_map,
         "skills_loaded": skills_loaded,
+        "skill_levels": skill_levels,
         "purposes": purposes,
         # S5-007 attribution fields
         "prompt_pack_ids": prompt_pack_ids,

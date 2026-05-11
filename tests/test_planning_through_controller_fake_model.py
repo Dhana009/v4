@@ -240,7 +240,7 @@ def test_purpose_registry_has_model_class_for_step_plan_normalizer() -> None:
 
 def test_purpose_registry_has_token_budget_for_step_plan_normalizer() -> None:
     policy = PURPOSE_REGISTRY.get_purpose_policy("step_plan_normalizer")
-    assert policy["token_budget"] == 2000
+    assert policy["token_budget"] == 3000
 
 
 def test_purpose_registry_has_planning_tools_for_step_plan_normalizer() -> None:
@@ -622,6 +622,7 @@ def test_step_plan_normalizer_prompt_pack_metadata_reaches_telemetry_line(capsys
     assert "prompt_pack_version=1" in telemetry_line
     assert "prefix_hash=deadbeefdeadbeef" in telemetry_line
     assert "system_prompt_tokens=321" in telemetry_line
+    assert "skill_levels=" in telemetry_line
 
 
 def test_malformed_controller_response_fails_closed_without_plan_ready_or_execution(monkeypatch) -> None:

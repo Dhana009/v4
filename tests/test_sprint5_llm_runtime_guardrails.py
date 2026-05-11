@@ -462,6 +462,7 @@ def test_token_report_includes_prompt_pack_and_cache_fields_when_present() -> No
     assert report["model_classes"] == ["main"]
     assert report["context_buckets"] == ["planning"]
     assert report["skills_loaded"] == ["llm_runtime_controller"]
+    assert report["skill_levels"] == ["core_compact"]
 
 
 def test_controller_raw_response_preserves_tool_calls() -> None:

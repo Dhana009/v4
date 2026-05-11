@@ -41,6 +41,7 @@ from runtime.snapshot_archive import build_spec_snapshot
 from runtime.agent_locator_handlers import tool_dom_extract, tool_locator_find, tool_locator_validate
 from runtime.tool_registry import ToolRegistry, filter_tools_for_phase
 from runtime.skill_manager import SkillManager
+from runtime.skill_policy import get_skill_levels_for_names
 from runtime.telemetry import record_model_call_end, record_model_call_start
 from runtime.deterministic_fast_path_gateway import attempt_deterministic_fast_path
 from event.emitter import EventEmitter
@@ -1647,11 +1648,14 @@ class AgentLoop:
                 _s5_model_class: str | None = None
                 _s5_context_bucket: str | None = None
                 _s5_skills_loaded: list[str] | None = None
+                _s5_skill_levels: list[str] | None = None
                 try:
                     _purpose_policy = PURPOSE_REGISTRY.get_purpose_policy(effective_purpose)
                     _s5_model_class = str(_purpose_policy.get("model_class") or "")  or None
                     _s5_context_bucket = str(current_phase or "").strip() or None
                     _s5_skills_loaded = list(getattr(self, "_loaded_skill_names", [])) or None
+                    if _s5_skills_loaded is not None:
+                        _s5_skill_levels = get_skill_levels_for_names(_s5_skills_loaded)
                 except Exception:
                     pass
                 telemetry = record_model_call_start(
@@ -1665,6 +1669,7 @@ class AgentLoop:
                     model_class=_s5_model_class,
                     context_bucket=_s5_context_bucket,
                     skills_loaded=_s5_skills_loaded,
+                    skill_levels=_s5_skill_levels,
                 )
                 try:
                     controller_result: dict[str, Any] | None = None
