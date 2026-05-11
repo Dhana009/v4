@@ -45,6 +45,7 @@ PURPOSE_COMPACT_WINDOW_POLICIES = {
     "locator_specialist": "locator_recent_tool_chain",
     "recovery_diagnoser": "recovery_recent_evidence",
 }
+TOOL_CHAIN_RESTORATION_PURPOSES = {"step_plan_normalizer", "locator_specialist"}
 
 
 def _message_role(message: Any) -> str:
@@ -150,6 +151,140 @@ def _last_tool_chain_indices(messages: list[dict], *, chain_limit: int) -> list[
 def _message_is_failure_recovery_related(message: Any) -> bool:
     text = _message_text(message).lower()
     return any(marker in text for marker in ("failed", "failure", "recovery", "error", "retry", "blocked"))
+
+
+def _find_source_message_indices(
+    selected_messages: list[dict],
+    source_messages: list[dict],
+) -> tuple[list[int], dict[int, list[dict]]]:
+    matched_indices: list[int] = []
+    extras_after_source_index: dict[int, list[dict]] = {}
+    source_cursor = 0
+    last_matched_index = -1
+
+    for message in selected_messages:
+        matched_index: int | None = None
+        for index in range(source_cursor, len(source_messages)):
+            source_message = source_messages[index]
+            if source_message is message or source_message == message:
+                matched_index = index
+                break
+        if matched_index is None:
+            extras_after_source_index.setdefault(last_matched_index, []).append(message)
+            continue
+        matched_indices.append(matched_index)
+        source_cursor = matched_index + 1
+        last_matched_index = matched_index
+
+    return matched_indices, extras_after_source_index
+
+
+def _expand_tool_call_chain_indices(
+    source_messages: list[dict],
+    selected_indices: list[int],
+) -> set[int]:
+    assistant_index_by_tool_call_id: dict[str, int] = {}
+    assistant_tool_call_ids_by_index: dict[int, list[str]] = {}
+    tool_indices_by_tool_call_id: dict[str, list[int]] = {}
+
+    for index, message in enumerate(source_messages):
+        role = _message_role(message)
+        if role == "assistant":
+            tool_call_ids = sorted(_message_tool_call_ids(message))
+            if not tool_call_ids:
+                continue
+            assistant_tool_call_ids_by_index[index] = tool_call_ids
+            for tool_call_id in tool_call_ids:
+                assistant_index_by_tool_call_id[tool_call_id] = index
+        elif role == "tool":
+            tool_call_id = _message_tool_call_id(message)
+            if not tool_call_id:
+                continue
+            tool_indices_by_tool_call_id.setdefault(tool_call_id, []).append(index)
+
+    expanded_indices = set(selected_indices)
+    changed = True
+    while changed:
+        changed = False
+        for index in sorted(expanded_indices):
+            message = source_messages[index]
+            role = _message_role(message)
+            if role == "assistant":
+                for tool_call_id in assistant_tool_call_ids_by_index.get(index, []):
+                    for tool_index in tool_indices_by_tool_call_id.get(tool_call_id, []):
+                        if tool_index not in expanded_indices:
+                            expanded_indices.add(tool_index)
+                            changed = True
+            elif role == "tool":
+                tool_call_id = _message_tool_call_id(message)
+                assistant_index = assistant_index_by_tool_call_id.get(tool_call_id)
+                if assistant_index is None:
+                    continue
+                if assistant_index not in expanded_indices:
+                    expanded_indices.add(assistant_index)
+                    changed = True
+                for sibling_tool_call_id in assistant_tool_call_ids_by_index.get(assistant_index, []):
+                    for tool_index in tool_indices_by_tool_call_id.get(sibling_tool_call_id, []):
+                        if tool_index not in expanded_indices:
+                            expanded_indices.add(tool_index)
+                            changed = True
+
+    return expanded_indices
+
+
+def _prune_orphaned_tool_call_messages(messages: list[dict]) -> list[dict]:
+    tool_response_ids = {
+        _message_tool_call_id(message)
+        for message in messages
+        if _message_role(message) == "tool" and _message_tool_call_id(message)
+    }
+    complete_assistant_tool_call_ids: set[str] = set()
+    pruned_messages: list[dict] = []
+
+    for message in messages:
+        role = _message_role(message)
+        if role != "assistant":
+            continue
+        tool_call_ids = _message_tool_call_ids(message)
+        if not tool_call_ids:
+            continue
+        if tool_call_ids.issubset(tool_response_ids):
+            complete_assistant_tool_call_ids.update(tool_call_ids)
+
+    for message in messages:
+        role = _message_role(message)
+        if role == "assistant":
+            tool_call_ids = _message_tool_call_ids(message)
+            if tool_call_ids and not tool_call_ids.issubset(tool_response_ids):
+                continue
+            pruned_messages.append(message)
+            continue
+        if role == "tool":
+            tool_call_id = _message_tool_call_id(message)
+            if tool_call_id and tool_call_id not in complete_assistant_tool_call_ids:
+                continue
+            pruned_messages.append(message)
+            continue
+        pruned_messages.append(message)
+
+    return pruned_messages
+
+
+def _restore_complete_tool_call_chains(
+    selected_messages: list[dict],
+    *,
+    source_messages: list[dict],
+) -> list[dict]:
+    matched_indices, extras_after_source_index = _find_source_message_indices(selected_messages, source_messages)
+    expanded_indices = _expand_tool_call_chain_indices(source_messages, matched_indices)
+    restored_messages: list[dict] = list(extras_after_source_index.get(-1, []))
+
+    for index, message in enumerate(source_messages):
+        if index in expanded_indices:
+            restored_messages.append(message)
+        restored_messages.extend(extras_after_source_index.get(index, []))
+
+    return _prune_orphaned_tool_call_messages(restored_messages)
 
 
 def _apply_purpose_compact_window(
@@ -351,13 +486,21 @@ class ContextManager:
             dict(message) if isinstance(message, dict) else message
             for message in (messages or [])
         ]
+        original_messages = list(copied_messages)
+        normalized_purpose = str(purpose or "").strip()
         copied_messages, purpose_window_details = _apply_purpose_compact_window(
             copied_messages,
-            purpose=str(purpose or "").strip(),
+            purpose=normalized_purpose,
             metadata=metadata,
         )
+        if normalized_purpose in TOOL_CHAIN_RESTORATION_PURPOSES:
+            copied_messages = _restore_complete_tool_call_chains(
+                copied_messages,
+                source_messages=original_messages,
+            )
         # INT-CTX-001: cap tool/DOM result messages before history analysis
         copied_messages, tool_result_capped = _cap_tool_result_messages(copied_messages)
+        history_source_messages = list(copied_messages)
         history_manager = HistoryManager()
         history_diagnostics = history_manager.analyze(copied_messages)
         managed_history = history_manager.build_managed_history(
@@ -371,6 +514,11 @@ class ContextManager:
             requested_phase = "planning"
         phase_instruction = _build_phase_instruction(context_mode, requested_phase)
         final_messages = list(managed_history.messages)
+        if normalized_purpose in TOOL_CHAIN_RESTORATION_PURPOSES:
+            final_messages = _restore_complete_tool_call_chains(
+                final_messages,
+                source_messages=history_source_messages,
+            )
         recovery_scope_instruction_applied = False
         execution_context = str(bundle_metadata.get("execution_context") or "").strip()
         correction_context = str(bundle_metadata.get("correction_context") or "").strip()
@@ -429,7 +577,7 @@ class ContextManager:
         bundle_metadata["original_estimated_tokens"] = managed_history.original_estimated_tokens
         bundle_metadata["final_estimated_tokens"] = estimated_message_tokens
         bundle_metadata["preserved_reason_counts"] = dict(managed_history.preserved_reason_counts)
-        bundle_metadata["purpose"] = str(purpose or "").strip() or "unknown"
+        bundle_metadata["purpose"] = normalized_purpose or "unknown"
         bundle_metadata["phase"] = requested_phase
         bundle_metadata["phase_instruction_applied"] = phase_instruction is not None
         bundle_metadata["recovery_scope_instruction_applied"] = recovery_scope_instruction_applied

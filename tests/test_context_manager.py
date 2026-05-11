@@ -526,3 +526,55 @@ def test_step_plan_normalizer_does_not_keep_orphaned_tool_call_messages():
     }
 
     assert assistant_tool_call_ids == tool_response_ids
+
+
+def test_step_plan_normalizer_keeps_complete_multi_tool_call_chain():
+    manager = ContextManager()
+    messages = [
+        {"role": "system", "content": "system prompt"},
+        {"role": "user", "content": "inspect the selected element"},
+        {
+            "role": "assistant",
+            "content": "",
+            "tool_calls": [
+                {
+                    "id": "call-first",
+                    "type": "function",
+                    "function": {"name": "browser_get_state", "arguments": "{}"},
+                },
+                {
+                    "id": "call-second",
+                    "type": "function",
+                    "function": {"name": "dom_extract", "arguments": '{"scope":"page"}'},
+                },
+            ],
+        },
+        {"role": "tool", "tool_call_id": "call-first", "content": '{"url":"http://fixture/current"}'},
+        {"role": "tool", "tool_call_id": "call-second", "content": '{"elements":["Get started"]}'},
+        {"role": "assistant", "content": "I have the latest page summary."},
+    ]
+
+    bundle = manager.prepare_messages(
+        messages,
+        purpose="step_plan_normalizer",
+        context_mode="normal",
+        metadata={"phase": "planning", "skill_count": 1, "tool_count": 2},
+    )
+
+    assistant_tool_call_ids = [
+        sorted(
+            str(tool_call.get("id") or "").strip()
+            for tool_call in (message.get("tool_calls") or [])
+            if isinstance(tool_call, dict)
+        )
+        for message in bundle.messages
+        if message.get("role") == "assistant" and message.get("tool_calls")
+    ]
+    tool_response_ids = sorted(
+        str(message.get("tool_call_id") or "").strip()
+        for message in bundle.messages
+        if message.get("role") == "tool"
+    )
+
+    assert ["call-first", "call-second"] in assistant_tool_call_ids
+    assert tool_response_ids == ["call-first", "call-second"]

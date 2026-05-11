@@ -696,6 +696,76 @@ def test_controller_call_with_raw_response_preserves_tool_calls_when_content_is_
     assert recorder.calls[0]["kind"] == "client"
 
 
+def test_controller_call_with_raw_response_sends_complete_multi_tool_call_history() -> None:
+    contract = _load_controller_contract()
+    recorder = FakeCallRecorder(responses=[_response("plan ready")])
+    dependencies = _controller_dependencies(recorder, contract.registry)
+    controller = _resolve_controller_target(contract.target, dependencies)
+    call = getattr(controller, "call_with_raw_response", None)
+    assert callable(call), "LLMRuntimeController must expose call_with_raw_response for planning"
+
+    from runtime.context_manager import ContextManager
+
+    result = asyncio.run(
+        call(
+            purpose="step_plan_normalizer",
+            messages=[
+                {"role": "system", "content": "system prompt"},
+                {"role": "user", "content": "inspect the selected element"},
+                {
+                    "role": "assistant",
+                    "content": "",
+                    "tool_calls": [
+                        {
+                            "id": "call-first",
+                            "type": "function",
+                            "function": {"name": "browser_get_state", "arguments": "{}"},
+                        },
+                        {
+                            "id": "call-second",
+                            "type": "function",
+                            "function": {"name": "dom_extract", "arguments": '{"scope":"page"}'},
+                        },
+                    ],
+                },
+                {"role": "tool", "tool_call_id": "call-first", "content": '{"url":"http://fixture/current"}'},
+                {"role": "tool", "tool_call_id": "call-second", "content": '{"elements":["Get started"]}'},
+                {"role": "assistant", "content": "I have the latest page summary."},
+            ],
+            phase="planning",
+            context_mode="compact",
+            tools=[
+                {"type": "function", "function": {"name": "send_to_overlay"}},
+                {"type": "function", "function": {"name": "ask_user"}},
+                {"type": "function", "function": {"name": "dom_extract"}},
+            ],
+            tool_choice="auto",
+            client=dependencies["client"],
+            context_manager=ContextManager(),
+        )
+    )
+
+    assert result["validation_status"] == "raw_response_preserved"
+    outbound_messages = recorder.calls[0]["payload"]["messages"]
+    outbound_assistant_tool_calls = [
+        sorted(
+            str(tool_call.get("id") or "").strip()
+            for tool_call in (message.get("tool_calls") or [])
+            if isinstance(tool_call, dict)
+        )
+        for message in outbound_messages
+        if isinstance(message, dict) and message.get("role") == "assistant" and message.get("tool_calls")
+    ]
+    outbound_tool_response_ids = sorted(
+        str(message.get("tool_call_id") or "").strip()
+        for message in outbound_messages
+        if isinstance(message, dict) and message.get("role") == "tool"
+    )
+
+    assert ["call-first", "call-second"] in outbound_assistant_tool_calls
+    assert outbound_tool_response_ids == ["call-first", "call-second"]
+
+
 def test_controller_call_with_raw_response_applies_prompt_pack_for_step_plan_normalizer() -> None:
     contract = _load_controller_contract()
     recorder = FakeCallRecorder(
