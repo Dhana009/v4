@@ -31,6 +31,7 @@ from runtime.event_contracts import (
 from runtime.llm_policy_gateway import LLMPolicyGateway
 from runtime.llm_runtime_controller import LLMRuntimeController, PURPOSE_REGISTRY
 from runtime.model_router import ModelRouter
+from runtime.planning_loop_guard import PlanningLoopGuardState, advance_planning_loop_guard
 from runtime.recovery_manager import classify_failure
 from runtime.recovery_context import (
     build_recovery_diagnoser_context_payload,
@@ -207,6 +208,7 @@ class AgentLoop:
         self.last_plan_step_ids: list[str] = []
         self.last_plan_summary: str | None = None
         self.last_plan_original_user_intent: str | None = None
+        self._planning_loop_guard_state: PlanningLoopGuardState = PlanningLoopGuardState()
         self._active_plan_state: dict[str, Any] | None = None
         self._active_plan_correction_state: dict[str, Any] | None = None
         self._plan_correction_pending = False
@@ -284,6 +286,7 @@ class AgentLoop:
         self._active_plan_state = None
         self._active_plan_correction_state = None
         self._plan_correction_pending = False
+        self._planning_loop_guard_state = PlanningLoopGuardState()
         self._clear_confirmed_execution_contract_state()
         self.capability_gaps = []
         self.recorded_step_payloads = []
@@ -1742,6 +1745,44 @@ class AgentLoop:
                     response_usage=getattr(response, "usage", None),
                 )
                 message = response.choices[0].message
+                if effective_purpose == "step_plan_normalizer":
+                    guard_state = getattr(self, "_planning_loop_guard_state", None)
+                    guard_result = advance_planning_loop_guard(
+                        guard_state if isinstance(guard_state, PlanningLoopGuardState) else None,
+                        message,
+                        purpose=effective_purpose,
+                    )
+                    self._planning_loop_guard_state = guard_result.state
+                    if guard_result.should_stop:
+                        self.phase_tracker.set_phase(
+                            "failed",
+                            reason="planning_no_progress",
+                            step_id=None,
+                        )
+                        self.phase = "failed"
+                        rejection_message = guard_result.message or "Planning did not produce a terminal response."
+                        await self._send(
+                            "runtime_rejected",
+                            **build_runtime_rejection_payload(
+                                guard_result.reason_code or "PLANNING_NO_PROGRESS",
+                                rejection_message,
+                                detail=guard_result.detail,
+                                current_state={
+                                    "run_id": self._current_run_session_id(),
+                                    "phase": self._current_phase(),
+                                    "purpose": effective_purpose,
+                                    "consecutive_thinking_only_turns": guard_result.state.consecutive_thinking_only_turns,
+                                    "planning_turns_without_terminal_output": guard_result.state.planning_turns_without_terminal_output,
+                                    "max_consecutive_thinking_only_turns": 2,
+                                    "max_planning_turns_without_terminal_output": 3,
+                                },
+                                run_id=self._current_run_session_id(),
+                                recoverable=True,
+                                source="agent",
+                            ),
+                        )
+                        self._pending_failure_followup = False
+                        return
                 self.llm.messages.append(self._assistant_message_entry(message))
 
                 if not message.tool_calls:

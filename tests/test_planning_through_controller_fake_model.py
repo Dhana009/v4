@@ -25,6 +25,7 @@ import agent as agent_module
 from agent import AgentLoop
 from runtime.phase_tracker import PhaseTracker
 from runtime.llm_runtime_controller import PURPOSE_REGISTRY
+from runtime.planning_loop_guard import PlanningLoopGuardState
 from runtime.telemetry import ModelCallTelemetry, record_model_call_start
 from tests.fake_llm_factory import FakeLLMClient, MALFORMED_RESPONSE
 
@@ -37,7 +38,11 @@ def _run(coro: Any) -> Any:
     return asyncio.run(coro)
 
 
-def _make_overlay_tool_call(call_id: str, payload: dict[str, Any]) -> SimpleNamespace:
+def _make_overlay_tool_call(
+    call_id: str,
+    payload: dict[str, Any],
+    message_type: str = "plan_ready",
+) -> SimpleNamespace:
     return SimpleNamespace(
         id=call_id,
         type="function",
@@ -45,7 +50,7 @@ def _make_overlay_tool_call(call_id: str, payload: dict[str, Any]) -> SimpleName
             name="send_to_overlay",
             arguments=json.dumps(
                 {
-                    "message_type": "plan_ready",
+                    "message_type": message_type,
                     "payload": payload,
                 }
             ),
@@ -127,6 +132,7 @@ def _make_agent_loop() -> AgentLoop:
     loop.last_plan_step_ids = []
     loop.last_plan_summary = None
     loop.last_plan_original_user_intent = None
+    loop._planning_loop_guard_state = PlanningLoopGuardState()
     loop._active_plan_state = None
     loop._active_plan_correction_state = None
     loop._run_completion_requested = False
@@ -192,6 +198,7 @@ def _install_common_run_stubs(
         loop._run_completion_requested = False
         loop.run_stop_requested = False
         loop._llm_call_counter = 0
+        loop._planning_loop_guard_state = PlanningLoopGuardState()
         loop.confirmed_plan_by_step_id = {}
         loop.confirmed_plan_step_ids = []
         loop.confirmed_child_results_by_step_id = {}
@@ -660,3 +667,65 @@ def test_malformed_controller_response_fails_closed_without_plan_ready_or_execut
     assert sent_messages == [
         ("llm_result", {"success": True, "message": json.dumps(MALFORMED_RESPONSE)})
     ]
+
+
+def test_repeated_llm_thinking_stops_before_harness_timeout(monkeypatch) -> None:
+    loop = _make_agent_loop()
+    sent_messages: list[tuple[str, dict[str, Any]]] = []
+    controller_calls: list[dict[str, Any]] = []
+    loop.current_steps = [_make_current_step()]
+    _install_common_run_stubs(loop, sent_messages)
+
+    thinking_responses = [
+        _make_response_with_tool_calls(
+            _make_overlay_tool_call(
+                f"call-{index}",
+                {"turn": index},
+                message_type="llm_thinking",
+            )
+        )
+        for index in range(1, 4)
+    ]
+
+    async def fake_wait_for_plan_confirmation() -> dict[str, Any]:
+        raise AssertionError("plan confirmation should not be requested during repeated thinking")
+
+    async def fake_controller_call(**kwargs: Any) -> dict[str, Any]:
+        controller_calls.append(dict(kwargs))
+        response = thinking_responses[min(len(controller_calls) - 1, len(thinking_responses) - 1)]
+        return {
+            "validation_status": "tool_calls_preserved",
+            "raw_response": response,
+            "raw_message": response.choices[0].message,
+            "content": "",
+            "tool_calls": list(response.choices[0].message.tool_calls),
+            "prompt_pack_applied": True,
+            "prompt_pack_id": "step_plan_normalizer.v1",
+            "prompt_pack_version": 1,
+            "prefix_hash": "deadbeefdeadbeef",
+            "skills_loaded": ["core", "actions", "download"],
+            "skill_levels": ["skill_summary", "skill_summary", "skill_summary"],
+        }
+
+    loop._wait_for_plan_confirmation = fake_wait_for_plan_confirmation
+    loop._llm_runtime_controller = SimpleNamespace(call_with_raw_response=fake_controller_call)
+
+    monkeypatch.setattr(agent_module, "record_model_call_start", lambda **kwargs: object())
+    monkeypatch.setattr(agent_module, "record_model_call_end", lambda *args, **kwargs: None)
+
+    asyncio.run(loop.run([_make_current_step()]))
+
+    assert len(controller_calls) == 3
+    message_types = [message_type for message_type, _payload in sent_messages]
+    assert message_types.count("llm_thinking") == 2
+    assert "runtime_rejected" in message_types
+    rejection_payload = next(
+        payload for message_type, payload in sent_messages if message_type == "runtime_rejected"
+    )
+    assert rejection_payload["rejection_code"] == "PLANNING_NO_PROGRESS"
+    assert "thinking_only_turns=3" in str(rejection_payload.get("detail") or "")
+    assert "planning_turns_without_terminal_output=3" in str(rejection_payload.get("detail") or "")
+    assert all(
+        message_type not in {"plan_ready", "step_recorded", "code_update", "run_completed"}
+        for message_type in message_types
+    )
