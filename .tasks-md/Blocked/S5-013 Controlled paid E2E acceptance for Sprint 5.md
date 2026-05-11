@@ -256,3 +256,49 @@ Retry attribution:
 Retry interpretation:
 - What this proves: BUG-S5-013-002 fixed the generic raw-response masking, because the live failure now surfaces the provider `model_not_found` error instead of only the old generic missing-raw-response message.
 - What remains: the live provider/model routing still needs correction before another paid retry; token-report attribution is present on this retry, but the flow is still blocked by the provider 404.
+
+## Latest controlled retry evidence
+
+Retry status: Blocked
+
+Retry paid E2E scope:
+- `tests/e2e/test_llm_required_ambiguous_action_flow.py`
+- One live-LLM retry only; no second paid flow and no rerun after failure
+
+Retry command:
+- `python -m pytest tests/e2e/test_llm_required_ambiguous_action_flow.py -q`
+
+Retry artifact path:
+- `test-results/autoworkbench-e2e/llm_required_ambiguous_action_flow-20260511-141048-68814/`
+
+Retry results:
+- The live flow reached the model and then timed out waiting for plan review or clarification.
+- Backend logs show repeated `send_to_overlay({"message_type": "llm_thinking"})` tool calls and no `plan_ready` or clarification event before timeout.
+- `failure-context.json` reports `stage=llm_response_seen` and `reason=Timed out waiting for plan review or clarification`.
+- The run remained stuck in `PLANNING…` with no confirmation prompt surfaced to the UI.
+- No second paid flow was run because the first live LLM call already failed and the stop condition was hit.
+
+Retry token comparison:
+
+| Metric | Baseline | Retry result | Delta | Pass? |
+|---|---:|---:|---:|---|
+| Input tokens | 4442 | 60326 | +55884 (+1258.1%) | No |
+| Output tokens | 62 | 621 | +559 (+901.6%) | No |
+| System bucket | ~3496 | 18480 | +14984 (+428.6%) | No |
+| Skill bucket | ~3398 | 37378 | +33980 (+1000.0%) | No |
+| Tool schema bucket | ~410 | 12848 | +12438 (+3033.7%) | No |
+| History bucket | ~495 | 5736 | +5241 (+1059.8%) | No |
+| DOM/tool bucket | ~4 | 1505 | +1501 (+37525.0%) | No |
+
+Retry attribution:
+- prompt_pack_ids: `step_plan_normalizer.v1`
+- prefix_hash: `657eb55c3207eee9`
+- skills_loaded: `core,actions,download`
+- skill_levels: `skill_summary`
+- cached_tokens: `21888`
+- purposes: `step_plan_normalizer`
+- model_classes: `main`
+
+Retry interpretation:
+- What this proves: the live path is no longer failing on raw-response plumbing, model routing, or tool-call payload validity.
+- What remains: the ambiguous planning flow is still not converging to `plan_ready` or clarification and instead loops on `llm_thinking`, so the paid acceptance is still blocked by a distinct runtime/product issue.
