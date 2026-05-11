@@ -6,8 +6,16 @@ import inspect
 import time
 from typing import Any
 
+from runtime.skill_selector import build_skill_prompt, select_skills_for_purpose
 from runtime.telemetry import estimate_messages_tokens, estimate_tools_tokens
 from runtime.tool_registry import PLANNING_SAFE_TOOL_NAMES
+from runtime.tool_schema_policy import (
+    PLAN_REVIEW_ONLY_TOOL_NAMES,
+    RECOVERY_ONLY_TOOL_NAMES,
+    STEP_PLAN_TOOL_NAMES,
+    planning_tools_for_purpose,
+    recovery_tools_for_purpose,
+)
 
 
 ALLOWED_PURPOSES = (
@@ -68,17 +76,6 @@ LOCATOR_TOOL_NAMES = (
     "locator_validate",
     "ask_user",
 )
-
-PLAN_REVIEW_TOOL_NAMES = (
-    "send_to_overlay",
-    "ask_user",
-)
-
-RECOVERY_TOOL_NAMES = (
-    "browser_get_state",
-    "ask_user",
-)
-
 
 def _normalize_names(values: Any) -> list[str]:
     if values is None:
@@ -145,13 +142,13 @@ def _tool_policy(
     completed_tools: Sequence[str] | None = None,
     deny_reason: str = "deny_by_default",
 ) -> dict[str, Any]:
-    plan_review_phase_tools = PLAN_REVIEW_TOOL_NAMES if plan_review_tools is None else plan_review_tools
+    plan_review_phase_tools = PLAN_REVIEW_ONLY_TOOL_NAMES if plan_review_tools is None else plan_review_tools
     allowed_tools_by_phase = {
         "planning": _normalize_names(planning_tools),
         "plan_review": _normalize_names(plan_review_phase_tools),
         "awaiting_confirmation": _normalize_names(plan_review_phase_tools),
         "executing": _normalize_names(executing_tools or ()),
-        "recovery": _normalize_names(recovery_tools or RECOVERY_TOOL_NAMES),
+        "recovery": _normalize_names(recovery_tools or RECOVERY_ONLY_TOOL_NAMES),
         "completed": _normalize_names(completed_tools or ()),
     }
     return {
@@ -238,55 +235,56 @@ def _build_purpose_policy_map() -> dict[str, dict[str, Any]]:
     planner_skill = (PERSONA_SKILL,)
     locator_skill = (LOCATOR_SKILL,)
     mixed_skill = (PERSONA_SKILL, LOCATOR_SKILL)
+    debug_skill = (PERSONA_SKILL,)
 
     return {
         "intent_classifier": _purpose_policy(
             purpose="intent_classifier",
             model_class="cheap",
             skill_names=planner_skill,
-            planning_tools=(),
+            planning_tools=planning_tools_for_purpose("intent_classifier"),
             token_budget=1000,
         ),
         "clarification_generator": _purpose_policy(
             purpose="clarification_generator",
             model_class="cheap",
             skill_names=planner_skill,
-            planning_tools=("ask_user", "send_to_overlay"),
+            planning_tools=planning_tools_for_purpose("clarification_generator"),
             token_budget=1000,
         ),
         "page_intelligence_summarizer": _purpose_policy(
             purpose="page_intelligence_summarizer",
             model_class="cheap",
             skill_names=locator_skill,
-            planning_tools=LOCATOR_TOOL_NAMES,
+            planning_tools=planning_tools_for_purpose("page_intelligence_summarizer"),
             token_budget=1400,
         ),
         "page_validation_recommender": _purpose_policy(
             purpose="page_validation_recommender",
             model_class="main",
             skill_names=locator_skill,
-            planning_tools=LOCATOR_TOOL_NAMES,
+            planning_tools=planning_tools_for_purpose("page_validation_recommender"),
             token_budget=1800,
         ),
         "journey_planner": _purpose_policy(
             purpose="journey_planner",
             model_class="main",
             skill_names=planner_skill,
-            planning_tools=PLANNING_TOOL_NAMES,
+            planning_tools=planning_tools_for_purpose("journey_planner"),
             token_budget=2400,
         ),
         "step_plan_normalizer": _purpose_policy(
             purpose="step_plan_normalizer",
             model_class="main",
             skill_names=planner_skill,
-            planning_tools=PLAN_REVIEW_TOOL_NAMES,
+            planning_tools=planning_tools_for_purpose("step_plan_normalizer"),
             token_budget=2000,
         ),
         "plan_diff_editor": _purpose_policy(
             purpose="plan_diff_editor",
             model_class="main",
             skill_names=planner_skill,
-            planning_tools=(),
+            planning_tools=planning_tools_for_purpose("plan_diff_editor"),
             plan_review_tools=(),
             token_budget=2200,
         ),
@@ -294,50 +292,50 @@ def _build_purpose_policy_map() -> dict[str, dict[str, Any]]:
             purpose="locator_specialist",
             model_class="main",
             skill_names=locator_skill,
-            planning_tools=LOCATOR_TOOL_NAMES,
+            planning_tools=planning_tools_for_purpose("locator_specialist"),
             token_budget=2200,
         ),
         "custom_assertion_planner": _purpose_policy(
             purpose="custom_assertion_planner",
             model_class="main",
             skill_names=mixed_skill,
-            planning_tools=LOCATOR_TOOL_NAMES,
+            planning_tools=planning_tools_for_purpose("custom_assertion_planner"),
             token_budget=2200,
         ),
         "execution_driver": _purpose_policy(
             purpose="execution_driver",
             model_class="main",
             skill_names=planner_skill,
-            planning_tools=("ask_user",),
+            planning_tools=planning_tools_for_purpose("execution_driver"),
             executing_tools=("action_assert", "action_click", "action_fill"),
             token_budget=1800,
         ),
         "recovery_diagnoser": _purpose_policy(
             purpose="recovery_diagnoser",
             model_class="main",
-            skill_names=planner_skill,
-            planning_tools=RECOVERY_TOOL_NAMES,
+            skill_names=debug_skill,
+            planning_tools=planning_tools_for_purpose("recovery_diagnoser"),
             token_budget=1800,
         ),
         "replay_repair_specialist": _purpose_policy(
             purpose="replay_repair_specialist",
             model_class="main",
-            skill_names=planner_skill,
-            planning_tools=RECOVERY_TOOL_NAMES,
+            skill_names=debug_skill,
+            planning_tools=planning_tools_for_purpose("replay_repair_specialist"),
             token_budget=1800,
         ),
         "user_response_writer": _purpose_policy(
             purpose="user_response_writer",
             model_class="cheap",
             skill_names=planner_skill,
-            planning_tools=("ask_user",),
+            planning_tools=planning_tools_for_purpose("user_response_writer"),
             token_budget=1000,
         ),
         "trace_summarizer": _purpose_policy(
             purpose="trace_summarizer",
             model_class="cheap",
             skill_names=planner_skill,
-            planning_tools=(),
+            planning_tools=planning_tools_for_purpose("trace_summarizer"),
             token_budget=1000,
         ),
     }
@@ -471,6 +469,7 @@ class ControllerTelemetry:
     model: str
     skill_count: int
     skills_loaded: list[str]
+    skill_levels: list[str]
     tool_count: int
     tools_exposed_count: int
     context_mode: str
@@ -575,17 +574,37 @@ class LLMRuntimeController:
     def _select_telemetry_sink(self, telemetry_sink: Any | None) -> Any | None:
         return telemetry_sink if telemetry_sink is not None else self.telemetry_sink
 
-    def _skill_names_for_policy(self, policy: Mapping[str, Any]) -> list[str]:
-        skill_policy = _value(policy, "skill_policy", "skills_policy", default={})
-        if not isinstance(skill_policy, Mapping):
-            return []
-        core_skills = _normalize_names(
-            _value(skill_policy, "required_core_skills", "core_skills", "required_skills", "skills", default=[])
+    def _apply_skill_selection(
+        self,
+        *,
+        messages: list[dict[str, Any]],
+        purpose: str,
+        policy: Mapping[str, Any],
+        escalation_reason: str | None = None,
+    ) -> tuple[list[dict[str, Any]], Any]:
+        selected = select_skills_for_purpose(
+            purpose,
+            policy=policy,
+            escalation_reason=escalation_reason,
         )
-        purpose_skills = _normalize_names(
-            _value(skill_policy, "purpose_skills", "task_skills", "additional_skills", default=[])
-        )
-        return list(dict.fromkeys(core_skills + purpose_skills))
+        updated_messages = [
+            dict(message) if isinstance(message, Mapping) else message
+            for message in (messages or [])
+        ]
+        if selected.preserve_full_prompt:
+            return updated_messages, selected
+
+        compact_prompt = build_skill_prompt(selected).strip()
+        if not compact_prompt:
+            return updated_messages, selected
+
+        for message in updated_messages:
+            if isinstance(message, dict) and str(message.get("role") or "") == "system":
+                message["content"] = compact_prompt
+                return updated_messages, selected
+
+        updated_messages.insert(0, {"role": "system", "content": compact_prompt})
+        return updated_messages, selected
 
     def _tool_names_for_phase(self, policy: Mapping[str, Any], phase: str | None) -> list[str]:
         tool_policy = _value(policy, "tool_policy", "tools_policy", default={})
@@ -672,26 +691,26 @@ class LLMRuntimeController:
         self,
         *,
         skill_manager: Any | None,
-        policy: Mapping[str, Any],
+        skill_entries: list[tuple[str, str]],
+        loaded_skill_names: list[str],
     ) -> tuple[list[str], int]:
-        skill_names = self._skill_names_for_policy(policy)
-        if skill_manager is None or not skill_names:
-            return skill_names, len(skill_names)
+        if skill_manager is None or not loaded_skill_names:
+            return list(loaded_skill_names), len(loaded_skill_names)
 
-        skill_descriptors = [{"name": name, "content": ""} for name in skill_names]
+        skill_descriptors = [{"name": name, "content": content} for name, content in (skill_entries or [])]
         analyze = _call_if_available(
             skill_manager,
             "analyze",
             skills=skill_descriptors,
-            loaded_skill_names=skill_names,
+            loaded_skill_names=loaded_skill_names,
         )
         if inspect.isawaitable(analyze):
             raise TypeError("skill manager returned awaitable from synchronous helper")
 
         if analyze is None:
-            return skill_names, len(skill_names)
+            return list(loaded_skill_names), len(loaded_skill_names)
 
-        loaded_names = _value(analyze, "loaded_skill_names", default=skill_names)
+        loaded_names = _value(analyze, "loaded_skill_names", default=loaded_skill_names)
         if not isinstance(loaded_names, list):
             loaded_names = _normalize_names(loaded_names)
         skill_count = int(_value(analyze, "skill_count", default=len(loaded_names)))
@@ -736,6 +755,7 @@ class LLMRuntimeController:
             "model": telemetry_record.model,
             "skill_count": telemetry_record.skill_count,
             "skills_loaded": list(telemetry_record.skills_loaded),
+            "skill_levels": list(telemetry_record.skill_levels),
             "tool_count": telemetry_record.tool_count,
             "tools_exposed_count": telemetry_record.tools_exposed_count,
             "context_mode": telemetry_record.context_mode,
@@ -773,6 +793,7 @@ class LLMRuntimeController:
         tool_count: int = 0,
         tools_exposed_count: int | None = None,
         skills_loaded: list[str] | None = None,
+        skill_levels: list[str] | None = None,
         context_mode: str = "compact",
         context_level: str = "compact",
         token_budget: int = 0,
@@ -785,6 +806,7 @@ class LLMRuntimeController:
         error_code: str | None = None,
     ) -> dict[str, Any]:
         normalized_skills_loaded = list(skills_loaded or [])
+        normalized_skill_levels = list(skill_levels or [])
         normalized_tools_exposed_count = int(
             tool_count if tools_exposed_count is None else tools_exposed_count
         )
@@ -821,6 +843,7 @@ class LLMRuntimeController:
             "tool_count": tool_count,
             "tools_exposed_count": normalized_tools_exposed_count,
             "skills_loaded": normalized_skills_loaded,
+            "skill_levels": normalized_skill_levels,
             "context_mode": context_mode,
             "context_level": context_level,
             "token_budget": token_budget,
@@ -833,6 +856,7 @@ class LLMRuntimeController:
                 "model": model,
                 "skill_count": skill_count,
                 "skills_loaded": normalized_skills_loaded,
+                "skill_levels": normalized_skill_levels,
                 "tool_count": tool_count,
                 "tools_exposed_count": normalized_tools_exposed_count,
                 "context_mode": context_mode,
@@ -1033,6 +1057,7 @@ class LLMRuntimeController:
                 tool_count=0,
                 tools_exposed_count=0,
                 skills_loaded=[],
+                skill_levels=[],
                 context_mode=str(context_mode or _value(context_policy_value, "context_mode", default="compact")),
                 context_level=context_level,
                 token_budget=token_budget,
@@ -1052,6 +1077,7 @@ class LLMRuntimeController:
                     model=resolved_model,
                     skill_count=0,
                     skills_loaded=[],
+                    skill_levels=[],
                     tool_count=0,
                     tools_exposed_count=0,
                     context_mode=str(context_mode or _value(context_policy_value, "context_mode", default="compact")),
@@ -1079,10 +1105,22 @@ class LLMRuntimeController:
             run_id=run_id,
             step_id=step_id,
         )
-        loaded_skill_names, skill_count = self._analyze_skills(
-            skill_manager=resolved_skill_manager,
+        original_prepared_messages = [
+            dict(message) if isinstance(message, Mapping) else message
+            for message in prepared_messages
+        ]
+        prepared_messages, skill_selection = self._apply_skill_selection(
+            messages=original_prepared_messages,
+            purpose=normalized_purpose,
             policy=resolved_policy,
         )
+        estimated_message_tokens = estimate_messages_tokens(prepared_messages)
+        loaded_skill_names, skill_count = self._analyze_skills(
+            skill_manager=resolved_skill_manager,
+            skill_entries=list(getattr(skill_selection, "skill_entries", [])),
+            loaded_skill_names=list(getattr(skill_selection, "loaded_skill_names", [])),
+        )
+        skill_levels = list(getattr(skill_selection, "skill_levels", []))
         effective_context_mode = str(
             prepared_metadata.get("context_mode") or effective_context_mode or context_mode or "compact"
         )
@@ -1136,6 +1174,7 @@ class LLMRuntimeController:
                 tool_count=tool_count,
                 tools_exposed_count=tool_count,
                 skills_loaded=loaded_skill_names,
+                skill_levels=skill_levels,
                 context_mode=effective_context_mode,
                 context_level=context_level,
                 token_budget=token_budget,
@@ -1155,6 +1194,7 @@ class LLMRuntimeController:
                     model=resolved_model,
                     skill_count=failure_result["skill_count"],
                     skills_loaded=list(loaded_skill_names),
+                    skill_levels=list(skill_levels),
                     tool_count=tool_count,
                     tools_exposed_count=tool_count,
                     context_mode=effective_context_mode,
@@ -1174,6 +1214,13 @@ class LLMRuntimeController:
 
         for attempt_index in range(max_attempts):
             if attempt_index > 0:
+                attempt_base_messages, retry_skill_selection = self._apply_skill_selection(
+                    messages=original_prepared_messages,
+                    purpose=normalized_purpose,
+                    policy=resolved_policy,
+                    escalation_reason="schema_retry",
+                )
+                attempt_skill_levels = list(getattr(retry_skill_selection, "skill_levels", []))
                 retry_note = {
                     "role": "system",
                     "content": (
@@ -1181,9 +1228,10 @@ class LLMRuntimeController:
                         "Return only the structured response for the declared schema."
                     ),
                 }
-                attempt_messages = list(prepared_messages) + [retry_note]
+                attempt_messages = list(attempt_base_messages) + [retry_note]
             else:
                 attempt_messages = list(prepared_messages)
+                attempt_skill_levels = list(skill_levels)
 
             response = await self._call_model(
                 purpose=normalized_purpose,
@@ -1229,6 +1277,7 @@ class LLMRuntimeController:
                     tool_count=tool_count,
                     tools_exposed_count=tool_count,
                     skills_loaded=loaded_skill_names,
+                    skill_levels=attempt_skill_levels,
                     context_mode=effective_context_mode,
                     context_level=context_level,
                     token_budget=token_budget,
@@ -1248,6 +1297,7 @@ class LLMRuntimeController:
                         model=resolved_model,
                         skill_count=result["skill_count"],
                         skills_loaded=list(loaded_skill_names),
+                        skill_levels=list(attempt_skill_levels),
                         tool_count=tool_count,
                         tools_exposed_count=tool_count,
                         context_mode=effective_context_mode,
@@ -1283,6 +1333,7 @@ class LLMRuntimeController:
             tool_count=tool_count,
             tools_exposed_count=tool_count,
             skills_loaded=loaded_skill_names,
+            skill_levels=skill_levels,
             context_mode=effective_context_mode,
             context_level=context_level,
             token_budget=token_budget,
@@ -1302,6 +1353,7 @@ class LLMRuntimeController:
                 model=resolved_model,
                 skill_count=failure_result["skill_count"],
                 skills_loaded=list(loaded_skill_names),
+                skill_levels=list(skill_levels),
                 tool_count=tool_count,
                 tools_exposed_count=tool_count,
                 context_mode=effective_context_mode,
@@ -1420,6 +1472,7 @@ class LLMRuntimeController:
                 tool_count=0,
                 tools_exposed_count=0,
                 skills_loaded=[],
+                skill_levels=[],
                 context_mode=str(context_mode or _value(context_policy_value, "context_mode", default="compact")),
                 context_level=context_level,
                 token_budget=token_budget,
@@ -1443,6 +1496,7 @@ class LLMRuntimeController:
                     model=resolved_model,
                     skill_count=0,
                     skills_loaded=[],
+                    skill_levels=[],
                     tool_count=0,
                     tools_exposed_count=0,
                     context_mode=str(context_mode or _value(context_policy_value, "context_mode", default="compact")),
@@ -1470,10 +1524,18 @@ class LLMRuntimeController:
             run_id=run_id,
             step_id=step_id,
         )
-        loaded_skill_names, skill_count = self._analyze_skills(
-            skill_manager=resolved_skill_manager,
+        prepared_messages, skill_selection = self._apply_skill_selection(
+            messages=prepared_messages,
+            purpose=normalized_purpose,
             policy=resolved_policy,
         )
+        estimated_message_tokens = estimate_messages_tokens(prepared_messages)
+        loaded_skill_names, skill_count = self._analyze_skills(
+            skill_manager=resolved_skill_manager,
+            skill_entries=list(getattr(skill_selection, "skill_entries", [])),
+            loaded_skill_names=list(getattr(skill_selection, "loaded_skill_names", [])),
+        )
+        skill_levels = list(getattr(skill_selection, "skill_levels", []))
         effective_context_mode = str(
             prepared_metadata.get("context_mode") or effective_context_mode or context_mode or "compact"
         )
@@ -1505,6 +1567,7 @@ class LLMRuntimeController:
                 tool_count=tool_count,
                 tools_exposed_count=tool_count,
                 skills_loaded=loaded_skill_names,
+                skill_levels=skill_levels,
                 context_mode=effective_context_mode,
                 context_level=context_level,
                 token_budget=token_budget,
@@ -1528,6 +1591,7 @@ class LLMRuntimeController:
                     model=resolved_model,
                     skill_count=failure_result["skill_count"],
                     skills_loaded=list(loaded_skill_names),
+                    skill_levels=list(skill_levels),
                     tool_count=tool_count,
                     tools_exposed_count=tool_count,
                     context_mode=effective_context_mode,
@@ -1580,6 +1644,7 @@ class LLMRuntimeController:
             tool_count=tool_count,
             tools_exposed_count=tool_count,
             skills_loaded=loaded_skill_names,
+            skill_levels=skill_levels,
             context_mode=effective_context_mode,
             context_level=context_level,
             token_budget=token_budget,
@@ -1603,6 +1668,7 @@ class LLMRuntimeController:
                 model=resolved_model,
                 skill_count=result["skill_count"],
                 skills_loaded=list(loaded_skill_names),
+                skill_levels=list(skill_levels),
                 tool_count=tool_count,
                 tools_exposed_count=tool_count,
                 context_mode=effective_context_mode,

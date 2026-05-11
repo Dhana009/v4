@@ -25,6 +25,25 @@ SKILL_LEVEL_MAP: dict[str, str] = {
     "memory_human_feedback": "debug_skill",
 }
 
+MINIMAL_CORE_SKILLS: tuple[str, ...] = ("llm_runtime_controller",)
+PURPOSE_DEBUG_SKILLS: tuple[str, ...] = ("observability_trace", "memory_human_feedback")
+FULL_SKILL_ESCALATION_PURPOSES: frozenset[str] = frozenset({
+    "journey_planner",
+    "step_plan_normalizer",
+    "locator_specialist",
+    "custom_assertion_planner",
+    "page_validation_recommender",
+    "recovery_diagnoser",
+    "replay_repair_specialist",
+})
+FULL_SKILL_ESCALATION_REASONS: frozenset[str] = frozenset({
+    "schema_retry",
+    "validation_failure",
+    "invalid_output",
+    "developer_override",
+    "user_override",
+})
+
 # Purposes that must NEVER load full action/browser/locator skills by default.
 # plan_diff_editor only needs persona — no DOM/browser skill content.
 COMPACT_ONLY_PURPOSES: frozenset[str] = frozenset({
@@ -63,3 +82,39 @@ def should_load_full_skill(skill_name: str, *, escalation: bool = False) -> bool
     if level == "full_skill":
         return escalation
     return False
+
+
+def get_default_skill_names(
+    purpose: str,
+    configured_skill_names: list[str] | tuple[str, ...] | None = None,
+) -> list[str]:
+    normalized_purpose = str(purpose or "").strip()
+    configured = [str(name).strip() for name in (configured_skill_names or ()) if str(name).strip()]
+    if not configured:
+        configured = list(MINIMAL_CORE_SKILLS)
+
+    skill_names = list(dict.fromkeys(list(MINIMAL_CORE_SKILLS) + configured))
+    if normalized_purpose in DEBUG_SKILL_PURPOSES:
+        skill_names.extend(PURPOSE_DEBUG_SKILLS)
+    return list(dict.fromkeys(skill_names))
+
+
+def get_skill_levels_for_names(skill_names: list[str] | tuple[str, ...]) -> list[str]:
+    return [get_skill_level(name) for name in (skill_names or ())]
+
+
+def can_escalate_to_full_skills(
+    purpose: str,
+    *,
+    escalation_reason: str | None = None,
+    override_full: bool = False,
+) -> bool:
+    normalized_purpose = str(purpose or "").strip()
+    if normalized_purpose in COMPACT_ONLY_PURPOSES:
+        return False
+    if override_full:
+        return normalized_purpose in FULL_SKILL_ESCALATION_PURPOSES
+    normalized_reason = str(escalation_reason or "").strip()
+    if normalized_reason not in FULL_SKILL_ESCALATION_REASONS:
+        return False
+    return normalized_purpose in FULL_SKILL_ESCALATION_PURPOSES
