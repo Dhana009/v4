@@ -30,6 +30,7 @@ RESULTS_ROOT = REPO_ROOT / "test-results" / "autoworkbench-e2e"
 E2E_LLM_MARKERS = ["[MODEL_ROUTER]", "[LLM_TELEMETRY]", "[CONTEXT_MANAGER]"]
 E2E_LIFECYCLE_MARKERS = [
     "[PHASE]",
+    "[RUNTIME_REJECTED]",
     "[CONFIRMED_PLAN]",
     "[EXECUTION_CONTRACT]",
     "[RECORDING_TARGET]",
@@ -134,6 +135,18 @@ _LOCAL_SOCKET_BIND_FAILURE_MARKERS = (
     "Errno 98",
 )
 T = TypeVar("T")
+RUNTIME_REJECTED_MARKER = "[RUNTIME_REJECTED]"
+
+
+class BackendTerminalRuntimeRejectionError(RuntimeError):
+    def __init__(self, marker_line: str) -> None:
+        super().__init__(marker_line)
+        self.marker_line = marker_line
+        self.observed_event_types = ["runtime_rejected"]
+        self.event_evidence = {
+            "observed_event_types": ["runtime_rejected"],
+            "runtime_rejected_marker": marker_line,
+        }
 
 
 class E2EStartupBlockedError(RuntimeError):
@@ -1289,6 +1302,15 @@ class E2ESession:
         marker_line = _detect_marker_line(lines, E2E_LLM_MARKERS)
         return marker_line is not None, marker_line
 
+    async def _wait_for_terminal_runtime_rejection_marker(self) -> str:
+        while True:
+            marker_line = _detect_marker_line(self._backend_log_lines(), [RUNTIME_REJECTED_MARKER])
+            if marker_line is not None:
+                return marker_line
+            if self.backend.poll() is not None:
+                raise RuntimeError("backend exited before terminal runtime rejection was observed")
+            await asyncio.sleep(0.25)
+
     def record_picker_arm_evidence(self, evidence: Mapping[str, Any] | None = None, **fields: Any) -> None:
         if evidence is None and not fields:
             return
@@ -1434,8 +1456,46 @@ class E2ESession:
 
     async def run_stage(self, stage: str, timeout_s: float, action: Callable[[], Awaitable[T]]) -> T:
         self.current_stage = stage
+        async def _run_with_terminal_rejection_watch() -> T:
+            action_task = asyncio.create_task(action())
+            rejection_task = asyncio.create_task(self._wait_for_terminal_runtime_rejection_marker())
+            try:
+                done, _pending = await asyncio.wait(
+                    {action_task, rejection_task},
+                    return_when=asyncio.FIRST_COMPLETED,
+                )
+                if rejection_task in done:
+                    marker_line = await rejection_task
+                    action_task.cancel()
+                    await asyncio.gather(action_task, return_exceptions=True)
+                    raise BackendTerminalRuntimeRejectionError(marker_line)
+                result = await action_task
+                rejection_task.cancel()
+                await asyncio.gather(rejection_task, return_exceptions=True)
+                return result
+            finally:
+                if not action_task.done():
+                    action_task.cancel()
+                if not rejection_task.done():
+                    rejection_task.cancel()
+                await asyncio.gather(action_task, rejection_task, return_exceptions=True)
+
         try:
-            result = await asyncio.wait_for(action(), timeout=timeout_s)
+            result = await asyncio.wait_for(_run_with_terminal_rejection_watch(), timeout=timeout_s)
+        except BackendTerminalRuntimeRejectionError as exc:
+            context = await self.save_failure_artifacts(
+                _compact_reason(exc),
+                stage=stage,
+                observed_event_types=exc.observed_event_types,
+                event_evidence=exc.event_evidence,
+            )
+            llm_triggered = str(context.get("llm_triggered", False)).lower()
+            last_llm_marker = context.get("last_llm_marker") or "none"
+            print(
+                f"[E2E_STAGE] {stage} failed reason={_compact_reason(exc)} "
+                f"llm_triggered={llm_triggered} last_llm_marker={last_llm_marker} artifact_dir={self.artifact_dir}"
+            )
+            raise
         except Exception as exc:  # noqa: BLE001
             context = await self.save_failure_artifacts(_compact_reason(exc), stage=stage)
             llm_triggered = str(context.get("llm_triggered", False)).lower()

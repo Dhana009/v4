@@ -492,6 +492,37 @@ def test_save_failure_artifacts_persists_picker_arm_evidence_and_stage_history(t
     assert persisted["picker_arm_evidence"] == context["picker_arm_evidence"]
 
 
+def test_run_stage_stops_when_backend_reports_terminal_runtime_rejected(tmp_path: Path) -> None:
+    rejection_marker = (
+        "[RUNTIME_REJECTED] "
+        "rejection_code=PLANNING_NO_PROGRESS phase=failed purpose=step_plan_normalizer "
+        "recoverable=false terminal=true"
+    )
+    backend_stdout_text = (
+        "[PHASE] from=planning to=failed reason=planning_no_progress step_id=none\n"
+        f"{rejection_marker}\n"
+    )
+    session = _make_failure_session(tmp_path, backend_stdout_text=backend_stdout_text)
+    action_started = False
+
+    async def wait_for_plan_review() -> str:
+        nonlocal action_started
+        action_started = True
+        await asyncio.sleep(1.0)
+        return "plan_ready"
+
+    with pytest.raises(harness.BackendTerminalRuntimeRejectionError, match="PLANNING_NO_PROGRESS"):
+        asyncio.run(session.run_stage("llm_response_seen", 5.0, wait_for_plan_review))
+
+    failure_context = json.loads((tmp_path / "failure-context.json").read_text(encoding="utf-8"))
+    assert failure_context["reason"].startswith(rejection_marker)
+    assert failure_context["observed_event_types"] == ["runtime_rejected"]
+    assert failure_context["event_evidence"]["observed_event_types"] == ["runtime_rejected"]
+    assert failure_context["event_evidence"]["runtime_rejected_marker"] == rejection_marker
+    assert failure_context["backend_lifecycle_markers"]["[RUNTIME_REJECTED]"] == rejection_marker
+    assert failure_context["backend_lifecycle_markers"]["[PHASE]"] == "[PHASE] from=planning to=failed reason=planning_no_progress step_id=none"
+
+
 class _ChangingTextLocator:
     def __init__(self, texts: list[str], *, visible: bool = True) -> None:
         self.texts = texts

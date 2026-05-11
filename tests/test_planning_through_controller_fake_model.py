@@ -723,6 +723,9 @@ def test_repeated_llm_thinking_stops_before_harness_timeout(monkeypatch) -> None
         payload for message_type, payload in sent_messages if message_type == "runtime_rejected"
     )
     assert rejection_payload["rejection_code"] == "PLANNING_NO_PROGRESS"
+    assert rejection_payload["recoverable"] is False
+    assert rejection_payload["current_state"]["phase"] == "failed"
+    assert rejection_payload["current_state"]["purpose"] == "step_plan_normalizer"
     assert "thinking_only_turns=3" in str(rejection_payload.get("detail") or "")
     assert "planning_turns_without_terminal_output=3" in str(rejection_payload.get("detail") or "")
     assert all(

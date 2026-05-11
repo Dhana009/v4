@@ -311,6 +311,31 @@ class AgentLoop:
 
         payload = {"type": msg_type}
         payload.update(kwargs)
+        if msg_type == "runtime_rejected":
+            current_state = kwargs.get("current_state")
+            current_state_data = current_state if isinstance(current_state, dict) else {}
+            rejection_code = str(kwargs.get("rejection_code") or "").strip() or "unknown"
+            phase = (
+                str(current_state_data.get("phase") or self._current_phase() or self.phase or "").strip()
+                or "unknown"
+            )
+            purpose = str(current_state_data.get("purpose") or "").strip() or "unknown"
+            recoverable_value = kwargs.get("recoverable")
+            recoverable = (
+                str(recoverable_value).lower()
+                if recoverable_value is not None
+                else "unknown"
+            )
+            terminal = "true" if recoverable_value is False else "false"
+            print(
+                "[RUNTIME_REJECTED] "
+                f"rejection_code={rejection_code} "
+                f"phase={phase} "
+                f"purpose={purpose} "
+                f"recoverable={recoverable} "
+                f"terminal={terminal}",
+                flush=True,
+            )
         try:
             await self.ws.send_json(payload)
         except WebSocketDisconnect:
@@ -1777,7 +1802,7 @@ class AgentLoop:
                                     "max_planning_turns_without_terminal_output": 3,
                                 },
                                 run_id=self._current_run_session_id(),
-                                recoverable=True,
+                                recoverable=False,
                                 source="agent",
                             ),
                         )
