@@ -601,6 +601,54 @@ def test_controller_call_with_raw_response_preserves_tool_calls() -> None:
     assert recorder.calls[0]["kind"] == "client"
 
 
+def test_controller_call_with_raw_response_applies_prompt_pack_for_step_plan_normalizer() -> None:
+    contract = _load_controller_contract()
+    recorder = FakeCallRecorder(
+        responses=[_tool_call_response("send_to_overlay", "ask_user", "dom_extract")]
+    )
+    dependencies = _controller_dependencies(recorder, contract.registry)
+    controller = _resolve_controller_target(contract.target, dependencies)
+    call = getattr(controller, "call_with_raw_response", None)
+    assert callable(call)
+
+    result = asyncio.run(
+        call(
+            purpose="step_plan_normalizer",
+            messages=[
+                {"role": "system", "content": "Legacy planning guidance"},
+                {"role": "user", "content": "Plan the next step"},
+            ],
+            phase="planning",
+            context_mode="compact",
+            tools=[
+                {"type": "function", "function": {"name": "send_to_overlay"}},
+                {"type": "function", "function": {"name": "ask_user"}},
+                {"type": "function", "function": {"name": "dom_extract"}},
+            ],
+            tool_choice="auto",
+            client=dependencies["client"],
+        )
+    )
+
+    assert result["prompt_pack_applied"] is True
+    assert result["prompt_pack_id"] == "step_plan_normalizer.v1"
+    assert result["prompt_pack_version"] == 1
+    assert result["prefix_hash"]
+    assert result["estimated_message_tokens"] > 0
+    assert result["system_prompt_tokens"] is not None
+    assert result["system_prompt_tokens"] < 3000
+
+    first_call = recorder.calls[0]["payload"]
+    first_system_message = next(
+        message for message in first_call["messages"] if message.get("role") == "system"
+    )
+    first_system_content = str(first_system_message.get("content") or "")
+    assert first_system_content.startswith("PROMPT_PACK_ID: step_plan_normalizer.v1")
+    assert "NON_NEGOTIABLE_RUNTIME_RULES:" in first_system_content
+    assert "ROLE:" in first_system_content
+    assert "OUTPUT_EXPECTATION:" in first_system_content
+
+
 def test_purpose_registry_accepts_only_known_llm_purposes() -> None:
     contract = _load_controller_contract()
     purpose_names = _registry_names(contract.registry)

@@ -6,6 +6,11 @@ import inspect
 import time
 from typing import Any
 
+from runtime.prompt_pack_builder import (
+    build_prompt_pack,
+    build_step_plan_normalizer_dynamic_context,
+)
+from runtime.prompt_packs import apply_prompt_pack_to_messages
 from runtime.skill_selector import build_skill_prompt, select_skills_for_purpose
 from runtime.telemetry import estimate_messages_tokens, estimate_tools_tokens
 from runtime.tool_registry import PLANNING_SAFE_TOOL_NAMES
@@ -606,6 +611,77 @@ class LLMRuntimeController:
         updated_messages.insert(0, {"role": "system", "content": compact_prompt})
         return updated_messages, selected
 
+    def _apply_prompt_pack(
+        self,
+        *,
+        messages: list[dict[str, Any]],
+        purpose: str,
+        metadata: Mapping[str, Any],
+        skills_loaded: list[str],
+        skill_levels: list[str],
+        output_schema: Any,
+    ) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+        if purpose != "step_plan_normalizer":
+            return messages, None
+
+        prompt_context = build_step_plan_normalizer_dynamic_context(
+            messages=messages,
+            metadata=metadata,
+            skills_loaded=skills_loaded,
+            skill_levels=skill_levels,
+            output_schema=output_schema if isinstance(output_schema, Mapping) else {},
+        )
+        prompt_pack = build_prompt_pack(
+            purpose,
+            dynamic_context=prompt_context,
+            skills_loaded=skills_loaded,
+            skill_levels=skill_levels,
+        )
+        updated_messages, prompt_pack_metadata = apply_prompt_pack_to_messages(
+            messages,
+            prompt_pack,
+            dynamic_context=prompt_context,
+        )
+        prompt_pack_metadata.update(
+            {
+                "prompt_pack_id": prompt_pack.prompt_pack_id,
+                "prompt_pack_version": prompt_pack.prompt_pack_version,
+                "prefix_hash": prompt_pack.prefix_hash,
+                "estimated_stable_tokens": prompt_pack.estimated_stable_tokens,
+            }
+        )
+        return updated_messages, prompt_pack_metadata
+
+    def _apply_prompt_pack_result_metadata(
+        self,
+        result: dict[str, Any],
+        prompt_pack_metadata: Mapping[str, Any] | None,
+        *,
+        estimated_total_input_tokens: int | None = None,
+    ) -> dict[str, Any]:
+        if not prompt_pack_metadata:
+            return result
+
+        prompt_pack_fields = {
+            "prompt_pack_id": prompt_pack_metadata.get("prompt_pack_id"),
+            "prompt_pack_version": prompt_pack_metadata.get("prompt_pack_version"),
+            "prefix_hash": prompt_pack_metadata.get("prefix_hash"),
+            "system_prompt_tokens": prompt_pack_metadata.get("system_prompt_tokens"),
+            "estimated_message_tokens": prompt_pack_metadata.get("estimated_message_tokens"),
+            "estimated_total_input_tokens": (
+                estimated_total_input_tokens
+                if estimated_total_input_tokens is not None
+                else result.get("estimated_input_tokens")
+            ),
+            "prompt_pack_applied": bool(prompt_pack_metadata.get("prompt_pack_applied")),
+            "estimated_stable_tokens": prompt_pack_metadata.get("estimated_stable_tokens"),
+        }
+        result.update({key: value for key, value in prompt_pack_fields.items() if value is not None})
+        telemetry_fields = dict(result.get("telemetry_fields") or {})
+        telemetry_fields.update({key: value for key, value in prompt_pack_fields.items() if value is not None})
+        result["telemetry_fields"] = telemetry_fields
+        return result
+
     def _tool_names_for_phase(self, policy: Mapping[str, Any], phase: str | None) -> list[str]:
         tool_policy = _value(policy, "tool_policy", "tools_policy", default={})
         if not isinstance(tool_policy, Mapping):
@@ -1114,6 +1190,17 @@ class LLMRuntimeController:
             purpose=normalized_purpose,
             policy=resolved_policy,
         )
+        prepared_messages, prompt_pack_metadata = self._apply_prompt_pack(
+            messages=prepared_messages,
+            purpose=normalized_purpose,
+            metadata=prepared_metadata,
+            skills_loaded=list(getattr(skill_selection, "loaded_skill_names", [])),
+            skill_levels=list(getattr(skill_selection, "skill_levels", [])),
+            output_schema=output_schema_value,
+        )
+        if prompt_pack_metadata is not None:
+            prepared_metadata = dict(prepared_metadata)
+            prepared_metadata.update(prompt_pack_metadata)
         estimated_message_tokens = estimate_messages_tokens(prepared_messages)
         loaded_skill_names, skill_count = self._analyze_skills(
             skill_manager=resolved_skill_manager,
@@ -1185,6 +1272,11 @@ class LLMRuntimeController:
                 schema_id=schema_id,
                 schema_version=schema_version,
                 error_code="TOKEN_BUDGET_EXCEEDED",
+            )
+            failure_result = self._apply_prompt_pack_result_metadata(
+                failure_result,
+                prompt_pack_metadata,
+                estimated_total_input_tokens=estimated_input_tokens,
             )
             self._emit_telemetry(
                 resolved_telemetry_sink,
@@ -1289,6 +1381,11 @@ class LLMRuntimeController:
                     schema_version=schema_version,
                     error_code=None,
                 )
+                result = self._apply_prompt_pack_result_metadata(
+                    result,
+                    prompt_pack_metadata,
+                    estimated_total_input_tokens=estimated_input_tokens,
+                )
                 self._emit_telemetry(
                     resolved_telemetry_sink,
                     ControllerTelemetry(
@@ -1344,6 +1441,11 @@ class LLMRuntimeController:
             schema_id=schema_id,
             schema_version=schema_version,
             error_code="SCHEMA_RETRY_FAILED",
+        )
+        failure_result = self._apply_prompt_pack_result_metadata(
+            failure_result,
+            prompt_pack_metadata,
+            estimated_total_input_tokens=estimated_input_tokens,
         )
         self._emit_telemetry(
             resolved_telemetry_sink,
@@ -1529,6 +1631,17 @@ class LLMRuntimeController:
             purpose=normalized_purpose,
             policy=resolved_policy,
         )
+        prepared_messages, prompt_pack_metadata = self._apply_prompt_pack(
+            messages=prepared_messages,
+            purpose=normalized_purpose,
+            metadata=prepared_metadata,
+            skills_loaded=list(getattr(skill_selection, "loaded_skill_names", [])),
+            skill_levels=list(getattr(skill_selection, "skill_levels", [])),
+            output_schema=output_schema_value,
+        )
+        if prompt_pack_metadata is not None:
+            prepared_metadata = dict(prepared_metadata)
+            prepared_metadata.update(prompt_pack_metadata)
         estimated_message_tokens = estimate_messages_tokens(prepared_messages)
         loaded_skill_names, skill_count = self._analyze_skills(
             skill_manager=resolved_skill_manager,
@@ -1578,6 +1691,11 @@ class LLMRuntimeController:
                 schema_id=schema_id,
                 schema_version=schema_version,
                 error_code="TOKEN_BUDGET_EXCEEDED",
+            )
+            failure_result = self._apply_prompt_pack_result_metadata(
+                failure_result,
+                prompt_pack_metadata,
+                estimated_total_input_tokens=estimated_input_tokens,
             )
             failure_result["raw_response"] = None
             failure_result["raw_message"] = None
@@ -1655,6 +1773,11 @@ class LLMRuntimeController:
             schema_id=schema_id,
             schema_version=schema_version,
             error_code=None,
+        )
+        result = self._apply_prompt_pack_result_metadata(
+            result,
+            prompt_pack_metadata,
+            estimated_total_input_tokens=estimated_input_tokens,
         )
         result["raw_response"] = response
         result["raw_message"] = message

@@ -1663,6 +1663,7 @@ class AgentLoop:
                             tool_choice="auto",
                         )
                     if isinstance(controller_result, dict) and controller_result.get("used_controller"):
+                        self._sync_controller_prompt_pack_telemetry(telemetry, controller_result)
                         response = controller_result.get("raw_response")
                         if response is None:
                             raise RuntimeError(
@@ -3645,6 +3646,30 @@ class AgentLoop:
         result = dict(result)
         result["used_controller"] = True
         return result
+
+    def _sync_controller_prompt_pack_telemetry(
+        self,
+        telemetry: Any,
+        controller_result: dict[str, Any] | None,
+    ) -> None:
+        if telemetry is None or not isinstance(controller_result, dict):
+            return
+
+        field_map = (
+            ("prompt_pack_id", "prompt_pack_id"),
+            ("prompt_pack_version", "prompt_pack_version"),
+            ("prefix_hash", "prefix_hash"),
+            ("system_prompt_tokens", "system_prompt_tokens"),
+            ("estimated_message_tokens", "estimated_message_tokens"),
+            ("estimated_total_input_tokens", "estimated_input_tokens"),
+        )
+        for telemetry_field, result_field in field_map:
+            value = controller_result.get(result_field)
+            if value is not None:
+                try:
+                    setattr(telemetry, telemetry_field, value)
+                except Exception:  # noqa: BLE001
+                    continue
 
     async def _run_plan_diff_editor_correction(
         self,

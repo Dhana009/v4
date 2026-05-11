@@ -279,7 +279,7 @@ def test_record_model_call_start_accepts_s5_attribution_for_planning() -> None:
     assert record.skills_loaded == ["llm_runtime_controller", "prompt_persona_skill_loading"]
     assert record.skill_levels == ["core_compact", "core_compact"]
     assert record.context_bucket == "planning"
-    assert record.prompt_pack_id is None  # not yet set in S5-001
+    assert record.prompt_pack_id is None  # bare telemetry start still defaults to None
 
 
 def test_record_model_call_start_model_class_from_registry_is_main() -> None:
@@ -547,6 +547,81 @@ def test_step_plan_normalizer_run_uses_controller_and_not_model_router(monkeypat
         message_type not in {"step_recorded", "code_update", "run_completed"}
         for message_type, _payload in sent_messages
     )
+
+
+def test_step_plan_normalizer_prompt_pack_metadata_reaches_telemetry_line(capsys) -> None:
+    loop = _make_agent_loop()
+    sent_messages: list[tuple[str, dict[str, Any]]] = []
+    controller_calls: list[dict[str, Any]] = []
+    loop.current_steps = [_make_current_step()]
+    _install_common_run_stubs(loop, sent_messages)
+
+    async def fake_execute_confirmed_plan() -> None:
+        loop.plan_confirmed = False
+        loop._run_completion_requested = True
+        await loop._send("llm_result", success=True, message="executed")
+
+    async def fake_wait_for_plan_confirmation() -> dict[str, Any]:
+        loop.run_stop_requested = True
+        return {"confirmed": True, "answer": "confirmed"}
+
+    async def fake_controller_call(**kwargs: Any) -> dict[str, Any]:
+        controller_calls.append(dict(kwargs))
+        response = _make_response_with_tool_calls(
+            _make_overlay_tool_call(
+                "call-1",
+                {
+                    "summary": "I will click Get started",
+                    "steps": [
+                        {
+                            "number": 1,
+                            "action": "click",
+                            "element_name": "Get started",
+                            "code": "await getStarted.click();",
+                        }
+                    ],
+                    "instruction": "Confirm to proceed",
+                },
+            )
+        )
+        return {
+            "validation_status": "tool_calls_preserved",
+            "raw_response": response,
+            "raw_message": response.choices[0].message,
+            "content": "",
+            "tool_calls": list(response.choices[0].message.tool_calls),
+            "prompt_pack_applied": True,
+            "prompt_pack_id": "step_plan_normalizer.v1",
+            "prompt_pack_version": 1,
+            "prefix_hash": "deadbeefdeadbeef",
+            "system_prompt_tokens": 321,
+            "estimated_message_tokens": 654,
+            "estimated_input_tokens": 789,
+        }
+
+    async def fake_router_call(**kwargs: Any) -> Any:
+        assert kwargs.get("purpose") != "step_plan_normalizer"
+        loop.run_stop_requested = True
+        return _make_content_only_response("executed")
+
+    loop._execute_deterministic_fast_path_confirmed_plan = fake_execute_confirmed_plan
+    loop._wait_for_plan_confirmation = fake_wait_for_plan_confirmation
+    loop._llm_runtime_controller = SimpleNamespace(call_with_raw_response=fake_controller_call)
+    loop.model_router = SimpleNamespace(call=fake_router_call)
+
+    asyncio.run(loop.run([_make_current_step()]))
+
+    telemetry_lines = [
+        line for line in capsys.readouterr().out.splitlines() if "[LLM_TELEMETRY]" in line
+    ]
+    assert telemetry_lines
+    telemetry_line = next(
+        line for line in telemetry_lines if "purpose=step_plan_normalizer" in line
+    )
+    assert "prompt_pack_id=step_plan_normalizer.v1" in telemetry_line
+    assert "prompt_pack_version=1" in telemetry_line
+    assert "prefix_hash=deadbeefdeadbeef" in telemetry_line
+    assert "system_prompt_tokens=321" in telemetry_line
 
 
 def test_malformed_controller_response_fails_closed_without_plan_ready_or_execution(monkeypatch) -> None:
