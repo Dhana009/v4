@@ -205,3 +205,54 @@ Retry attribution:
 Retry interpretation:
 - What this proves: the paid retry still reaches the real LLM and still exposes the same raw-response blocker, so the previous bugfix did not clear S5-013.
 - What remains: the controller raw-response contract still needs a live-path fix before another paid retry; token-report attribution is still incomplete on the failing path.
+
+## Latest live retry evidence
+
+Retry status: Blocked
+
+Retry paid E2E scope:
+- `tests/e2e/test_llm_required_ambiguous_action_flow.py`
+- One live-LLM retry only; no second paid flow and no rerun after failure
+
+Retry command:
+- `python -m pytest tests/e2e/test_llm_required_ambiguous_action_flow.py -q`
+
+Retry artifact path:
+- `test-results/autoworkbench-e2e/llm_required_ambiguous_action_flow-20260511-134142-28864/`
+
+Retry results:
+- The live flow reached the model once and then failed.
+- Pytest failure: `TimeoutError: Timed out waiting for plan review or clarification`.
+- Backend telemetry now exposes the provider/model error clearly:
+  - `The model \`main\` does not exist or you do not have access to it.`
+  - `NotFoundError`
+  - `Error code: 404`
+- The live flow is still blocked before plan review or clarification.
+- No second paid flow was run because the first live LLM call already failed and the stop condition was hit.
+
+Retry token comparison:
+
+| Metric | Baseline | Retry result | Delta | Pass? |
+|---|---:|---:|---:|---|
+| Input tokens | 4442 | 2636 | -1806 (-40.7%) | Yes |
+| Output tokens | 62 | 0 | -62 | No |
+| System bucket | ~3496 | 840 | -2656 (-76.0%) | Yes |
+| Skill bucket | ~3398 | 1699 | -1699 (-50.0%) | Yes |
+| Tool schema bucket | ~410 | 584 | +174 (+42.4%) | No |
+| History bucket | ~495 | 238 | -257 (-51.9%) | Yes |
+| DOM/tool bucket | ~4 | 0 | -4 (-100.0%) | Yes |
+
+Retry attribution:
+- prompt_pack_id: `step_plan_normalizer.v1`
+- prefix_hash: `657eb55c3207eee9`
+- skills_loaded: `core,actions,download`
+- skill_levels: `skill_summary,skill_summary,skill_summary`
+- cached_tokens: `0`
+- purpose: `step_plan_normalizer`
+- model_class: `main`
+- model: `gpt-4o-mini`
+- tool_schema explanation: current six-tool planning-safe set still accounts for the larger schema bucket on this path
+
+Retry interpretation:
+- What this proves: BUG-S5-013-002 fixed the generic raw-response masking, because the live failure now surfaces the provider `model_not_found` error instead of only the old generic missing-raw-response message.
+- What remains: the live provider/model routing still needs correction before another paid retry; token-report attribution is present on this retry, but the flow is still blocked by the provider 404.
