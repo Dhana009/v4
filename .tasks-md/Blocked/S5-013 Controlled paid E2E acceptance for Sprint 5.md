@@ -1,0 +1,158 @@
+# S5-013 Controlled paid E2E acceptance for Sprint 5
+
+Status: Blocked
+Sprint: Sprint 5
+Type: Story
+Owner:
+Priority: P0
+Source docs: PRD v2.3 01_PRODUCT_WORKFLOWS.md, AGENTS.md token baseline
+
+## Problem / Goal
+
+**Problem:** Fake-model suite proves architecture works; real LLM behavior needs verification. Must balance token efficiency (S5 goal) with correctness (non-negotiable).
+
+**Goal:** Run controlled paid E2E on 2–3 representative flows. Measure tokens vs baseline. Verify correctness unchanged. Gate Sprint 5 acceptance on token reduction + correctness.
+
+## Scope
+
+- Run E2E on: ambiguous planning flow, plan correction flow, one DOM-heavy page flow (if page intelligence implemented)
+- Measure: input tokens, output tokens, call count, cost
+- Compare vs Sprint 3 baseline (AGENTS.md)
+- Verify: correctness (all steps pass), no quality loss
+- Document: which flows tested, token results, cost
+
+Out of scope:
+- Repeated paid runs during development (only S5 acceptance)
+- All 5 flows (2–3 representative flows sufficient)
+- Real nano model testing (fake model sufficient for this sprint)
+
+## Required unit tests
+
+None (purely E2E).
+
+## Required contract tests
+
+- `test_e2e_token_baseline_comparison.py`:
+  - Baseline tokens from AGENTS.md
+  - S5 tokens are <=110% of baseline (allow 10% variance)
+  - Token reduction is measurable
+
+## Required integration tests
+
+- `test_e2e_ambiguous_planning.py`:
+  - Ambiguous user intent -> planning -> correction -> confirmation
+  - All steps execute correctly
+  - Token count recorded
+- `test_e2e_plan_correction.py`:
+  - Valid plan -> user correction -> corrected plan -> confirmation
+  - Correction applied correctly
+  - Token count recorded
+- `test_e2e_dom_heavy_page_intelligence.py` (if S5-010 done):
+  - Weak DOM page -> page intelligence -> planning -> validation
+  - All steps correct
+  - Token count recorded
+
+## Fixture/page needs
+
+- Fixture pages from S5-011
+- Public test pages (e.g., playwright-docs, Airbnb signup)
+
+## Paid E2E requirement
+
+**Yes. This story requires real LLM calls.**
+
+- Ambiguous planning: ~1–2 runs, ~5–10k tokens
+- Correction: ~1–2 runs, ~5–10k tokens
+- DOM-heavy (if done): ~1 run, ~8–12k tokens
+- **Total estimate: 2–3 runs, ~15–30k tokens, cost ~$0.30–$0.60**
+
+## Acceptance criteria
+
+- [ ] 2–3 E2E flows run with real LLM
+- [ ] Token count measured and compared vs baseline
+- [ ] All flows pass without correctness loss
+- [ ] Token reduction is achievable (<=110% of baseline)
+- [ ] Cost estimate is reasonable (commit approved before run)
+- [ ] Results documented in token_report.json
+- [ ] Baseline comparison shows S5 changes are working
+
+## Evidence
+
+Status: Blocked
+
+Paid E2E scope:
+- `tests/e2e/test_llm_required_ambiguous_action_flow.py` only
+- One live-LLM run only; no retries and no second paid flow
+
+Commands run:
+- `git status --short --branch`
+- `git log --oneline -20`
+- `git rev-parse HEAD`
+- `find tests/e2e -type f -name "test_*.py" | sort`
+- `find tests/e2e -type f | sort | sed -n '1,240p'`
+- `rg -n "llm_required\\|ambiguous\\|token-report\\|token_report\\|S5-013\\|paid\\|OPENAI\\|LLM" -n tests/e2e tests runtime .tasks-md | sed -n '1,500p'`
+- `find test-results -name "token-report.json" -o -name "*token*" | sort | sed -n '1,240p'`
+- `python -m pytest tests/test_prompt_cache_strategy.py tests/test_sprint5_llm_runtime_guardrails.py -q`
+- `python -m pytest tests/test_prompt_pack_builder.py tests/test_prompt_pack_safety_rules.py tests/test_correction_context.py tests/test_recovery_context.py tests/test_skill_selector.py tests/test_skill_escalation_contract.py tests/test_tool_schema_filter.py tests/test_tool_policy_contract.py tests/test_llm_runtime_controller_contract.py tests/test_planning_through_controller_fake_model.py tests/test_recovery_through_fake_model.py tests/test_fake_llm_factory.py -q`
+- `python -c "from dotenv import dotenv_values; v=dotenv_values('.env'); k=str(v.get('OPENAI_API_KEY','')).strip(); print('OPENAI_API_KEY=present' if k.startswith('sk-') else 'OPENAI_API_KEY=missing')"`
+- `python -m pytest tests/e2e/test_llm_required_ambiguous_action_flow.py -q`
+
+Artifact paths:
+- `test-results/autoworkbench-e2e/llm_required_ambiguous_action_flow-20260511-115107-87351/token-report.json`
+- `test-results/autoworkbench-e2e/llm_required_ambiguous_action_flow-20260511-115107-87351/backend.stdout.log`
+- `test-results/autoworkbench-e2e/llm_required_ambiguous_action_flow-20260511-115107-87351/backend.tail.log`
+- `test-results/autoworkbench-e2e/llm_required_ambiguous_action_flow-20260511-115107-87351/failure.txt`
+- `test-results/autoworkbench-e2e/llm_required_ambiguous_action_flow-20260511-115107-87351/failure-context.json`
+- `test-results/autoworkbench-e2e/llm_required_ambiguous_action_flow-20260511-115107-87351/summary.md`
+
+Results:
+- The live flow reached the model once and then failed.
+- Pytest failure: `TimeoutError: Timed out waiting for plan review or clarification`.
+- The underlying runtime error in backend telemetry was `step_plan_normalizer controller did not return raw_response`.
+- The flow is not a startup-only environment issue because the telemetry line shows `llm_triggered=true`.
+- No second paid flow was run because the first live LLM call already failed and the stop condition was hit.
+
+Token comparison:
+
+| Metric | Baseline | Sprint 5 result | Delta | Pass? |
+|---|---:|---:|---:|---|
+| Input tokens | 4442 | 2636 | -1806 (-40.7%) | Yes |
+| Output tokens | 62 | 0 | -62 | No |
+| System bucket | ~3496 | 840 | -2656 (-76.0%) | Yes |
+| Skill bucket | ~3398 | 1699 | -1699 (-50.0%) | Yes |
+| Tool schema bucket | ~410 | 584 | +174 (+42.4%) | No |
+| History bucket | ~495 | 238 | -257 (-51.9%) | Yes |
+| DOM/tool bucket | ~4 | 0 | -4 (-100.0%) | Yes |
+
+Attribution:
+- prompt_pack_id: `step_plan_normalizer.v1`
+- prefix_hash: `657eb55c3207eee9` in backend telemetry; `token-report.json` truncated this to `657`
+- skills_loaded: `core,actions,download`
+- skill_levels: absent on this failed live run
+- cached_tokens: `0`
+- purposes: `step_plan_normalizer`
+- model_class: `main`
+
+Correctness:
+- Failed.
+- The live run never reached plan review or clarification.
+- Backend telemetry showed `error_type=RuntimeError` and `error_message="step_plan_normalizer controller did not return raw_response"`.
+- The `step_plan_normalizer` live path is therefore still blocked before Sprint 5 acceptance can be approved.
+
+Interpretation:
+- What this proves: real-LLM planning is still reachable, token reduction on input/system/skill/history is measurable, and Sprint 5 prompt-pack attribution is present in the live telemetry.
+- What remains: the controller raw-response contract must be fixed before another paid run, `tool_schema` did not shrink on this failed path, `skill_levels` was not emitted, and the `token-report.json` prefix hash truncation needs follow-up.
+
+Remaining gaps:
+- No successful real-LLM confirmation/clarification path yet.
+- No passing paid E2E result for S5-013.
+- `tool_schema_tokens` remained above the pre-Sprint-5 baseline.
+- `skill_levels` is absent from the token report on this failure path.
+- `prefix_hash` is truncated in the JSON token report even though backend telemetry had the full 16-char hash.
+
+Changed files:
+- `.tasks-md/Blocked/S5-013 Controlled paid E2E acceptance for Sprint 5.md`
+- `.tasks-md/Board/SPRINT-005-PLAN.md`
+
+Commit:
+- pending

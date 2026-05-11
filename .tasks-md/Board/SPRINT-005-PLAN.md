@@ -35,7 +35,7 @@ Sprint 5 wires purpose-specific LLM policies into the live call path, implements
 | S5-010 | Page Intelligence first fake-model integration | 4 | Planning | S5-012 | S5-009 |
 | S5-011 | DOM-heavy fixture pages for LLM-runtime testing | 4 | Planning | S5-012 | — |
 | S5-012 | Fake-model integration suite for planning/correction/recovery | 4 | Planning | S5-013 | S5-010 |
-| S5-013 | Controlled paid E2E acceptance for Sprint 5 | 5 | Planning | — | S5-001, S5-007, S5-012 |
+| S5-013 | Controlled paid E2E acceptance for Sprint 5 | 5 | Blocked | — | S5-001, S5-007, S5-012 |
 | S5-014 | Prompt/cache-friendly stable prefix strategy | 5 | Done | — | S5-002 |
 | S5-015 | Sprint 5 regression guardrails | 5 | Done | — | S5-001, S5-002, S5-003, S5-004 |
 
