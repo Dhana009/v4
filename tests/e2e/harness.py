@@ -122,6 +122,7 @@ _REDACTION_EXACT_TEXT_RULES: list[tuple[str, str, str]] = [
 ]
 _REDACTION_REGEX_RULES: list[tuple[str, re.Pattern[str], str]] = [
     ("token", re.compile(r"\bsk-[A-Za-z0-9-]+\b"), "[REDACTED_TOKEN]"),
+    ("bearer", re.compile(r"\bBearer\s+[A-Za-z0-9._-]+\b"), "[REDACTED_BEARER]"),
     ("otp", re.compile(r"\b\d{6}\b"), "[REDACTED_OTP]"),
     ("email", re.compile(r"\b[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}\b"), "[REDACTED_EMAIL]"),
     ("phone", re.compile(r"\+?\d[\d\s().-]{7,}\d"), "[REDACTED_PHONE]"),
@@ -768,6 +769,49 @@ def write_json_artifact(path: Path, payload: dict[str, Any]) -> dict[str, Any]:
     ensure_directory(path.parent)
     path.write_text(json.dumps(payload, indent=2, sort_keys=True), encoding="utf-8")
     return payload
+
+
+def build_llm_calls_artifact(
+    calls: Sequence[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    """Build a redacted list of per-LLM-call records for artifact storage.
+
+    Each record contains:
+    - call_id: sequential identifier
+    - purpose: the prompt-pack purpose (e.g. step_plan_normalizer)
+    - tool_names: list of tool names exposed to the model for this call
+    - assistant_text: raw assistant text for content-only turns (None for tool-call turns)
+    - tool_calls: list of {name, args_summary} for tool-call turns
+    - finish_reason: finish reason string if available (e.g. 'stop', 'tool_calls')
+    - token_usage: dict with prompt_tokens, completion_tokens if available
+
+    assistant_text is redacted to remove secret-looking values (sk-, Bearer).
+    """
+    records: list[dict[str, Any]] = []
+    for call in calls:
+        raw_text: str | None = call.get("assistant_text")
+        redacted_text: str | None = None
+        if raw_text is not None:
+            redacted_text, _ = _redact_text_value(str(raw_text), location="llm_call_assistant_text")
+        records.append({
+            "call_id": call.get("call_id"),
+            "purpose": call.get("purpose"),
+            "tool_names": list(call.get("tool_names") or []),
+            "assistant_text": redacted_text,
+            "tool_calls": list(call.get("tool_calls") or []),
+            "finish_reason": call.get("finish_reason"),
+            "token_usage": dict(call.get("token_usage") or {}),
+        })
+    return records
+
+
+def write_llm_calls_artifact(artifact_dir: Path, calls: Sequence[dict[str, Any]]) -> Path:
+    """Write redacted LLM call records to llm-calls.json in artifact_dir."""
+    ensure_directory(artifact_dir)
+    records = build_llm_calls_artifact(calls)
+    path = artifact_dir / "llm-calls.json"
+    path.write_text(json.dumps(records, indent=2, sort_keys=True), encoding="utf-8")
+    return path
 
 
 def build_artifact_manifest(

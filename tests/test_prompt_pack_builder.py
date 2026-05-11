@@ -174,3 +174,60 @@ def test_registered_prompt_pack_purposes_include_step_plan_normalizer() -> None:
     assert {"step_plan_normalizer", "plan_diff_editor", "recovery_diagnoser"}.issubset(
         set(REGISTERED_PROMPT_PACK_PURPOSES)
     )
+
+
+# ---------------------------------------------------------------------------
+# BUG-S5-013-007: Convergence contract — stable prefix must contain required sections
+# ---------------------------------------------------------------------------
+
+def test_prompt_pack_has_terminal_output_requirement() -> None:
+    """Stable prefix must contain TERMINAL_OUTPUT_REQUIREMENT section."""
+    pack = build_step_plan_normalizer_pack()
+    assert "TERMINAL_OUTPUT_REQUIREMENT" in pack.stable_prefix, (
+        "stable prefix must contain TERMINAL_OUTPUT_REQUIREMENT section"
+    )
+
+
+def test_prompt_pack_has_ambiguity_rule() -> None:
+    """Stable prefix must contain AMBIGUITY_RULE section that tells the model
+    to call ask_user when multiple plausible targets exist on the page.
+    """
+    pack = build_step_plan_normalizer_pack()
+    assert "AMBIGUITY_RULE" in pack.stable_prefix, (
+        "stable prefix must contain AMBIGUITY_RULE section"
+    )
+    # Must mention asking the user when ambiguous
+    assert "ask_user" in pack.stable_prefix, (
+        "AMBIGUITY_RULE must reference ask_user as the required action under ambiguity"
+    )
+
+
+def test_prompt_pack_forbids_plain_text_planning_response() -> None:
+    """Stable prefix must discourage plain-text responses instead of tool calls."""
+    pack = build_step_plan_normalizer_pack()
+    prefix = pack.stable_prefix
+    # Must say something about not using plain text / must use a tool call
+    assert any(phrase in prefix for phrase in (
+        "Do not respond with plain text",
+        "plain text instead of a tool call",
+        "Do NOT respond with plain text",
+        "must not respond with plain text",
+    )), (
+        "stable prefix must explicitly forbid plain-text planning responses"
+    )
+
+
+def test_prompt_pack_limits_llm_thinking_repetition() -> None:
+    """Stable prefix must state that llm_thinking must not be repeated."""
+    pack = build_step_plan_normalizer_pack()
+    prefix = pack.stable_prefix
+    # Must say llm_thinking is limited
+    assert any(phrase in prefix for phrase in (
+        "at most once",
+        "Do not call send_to_overlay with message_type=\"llm_thinking\" more than once",
+        "Do NOT emit repeated llm_thinking",
+        "Repeated thinking without a terminal call",
+        "Do not send another llm_thinking",
+    )), (
+        "stable prefix must state llm_thinking must not be repeated"
+    )

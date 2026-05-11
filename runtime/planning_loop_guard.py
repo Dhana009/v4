@@ -137,9 +137,7 @@ def inspect_planning_response(message: Any) -> PlanningLoopInspection:
         if message_type in PLANNING_TERMINAL_MESSAGE_TYPES:
             terminal_reason = terminal_reason or message_type
 
-    if not raw_tool_calls and content:
-        terminal_reason = "final_text"
-    elif not raw_tool_calls and not content:
+    if not raw_tool_calls and not content:
         thinking_only = False
 
     return PlanningLoopInspection(

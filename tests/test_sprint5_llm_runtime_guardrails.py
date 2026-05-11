@@ -556,3 +556,77 @@ def test_malformed_response_cannot_look_like_success() -> None:
     assert result["validation_status"] == "invalid"
     assert result["tool_calls"] == []
     assert result["content"] is None
+
+
+# ---------------------------------------------------------------------------
+# BUG-S5-013-007: Convergence contract guardrail regression tests
+# ---------------------------------------------------------------------------
+
+def test_prompt_pack_includes_terminal_output_requirement() -> None:
+    """Stable prefix must contain TERMINAL_OUTPUT_REQUIREMENT section."""
+    pack = build_step_plan_normalizer_pack()
+    assert "TERMINAL_OUTPUT_REQUIREMENT" in pack.stable_prefix, (
+        "TERMINAL_OUTPUT_REQUIREMENT section missing from step_plan_normalizer stable prefix"
+    )
+
+
+def test_prompt_pack_includes_ambiguity_rule() -> None:
+    """Stable prefix must contain AMBIGUITY_RULE to guide the model on ambiguous pages."""
+    pack = build_step_plan_normalizer_pack()
+    assert "AMBIGUITY_RULE" in pack.stable_prefix, (
+        "AMBIGUITY_RULE section missing from step_plan_normalizer stable prefix"
+    )
+
+
+def test_ask_user_and_plan_ready_terminal_clarity_present() -> None:
+    """Tool schema text must make ask_user clearly terminal for ambiguous cases."""
+    from llm.tool_definitions import ToolDefinitions
+    stub_loop = SimpleNamespace()
+    td = ToolDefinitions(loop=stub_loop)
+    tools = td.build()
+
+    ask_user_tool = next(
+        (t for t in tools if t.get("function", {}).get("name") == "ask_user"),
+        None,
+    )
+    assert ask_user_tool is not None, "ask_user tool must be defined"
+    description = ask_user_tool["function"]["description"]
+    assert any(word in description.lower() for word in ("ambiguous", "unclear", "multiple", "clarif")), (
+        "ask_user description must reference ambiguous/unclear intent as its trigger"
+    )
+
+
+def test_llm_thinking_non_terminal_limited() -> None:
+    """send_to_overlay description must state llm_thinking is non-terminal and limited."""
+    from llm.tool_definitions import ToolDefinitions
+    stub_loop = SimpleNamespace()
+    td = ToolDefinitions(loop=stub_loop)
+    tools = td.build()
+
+    overlay_tool = next(
+        (t for t in tools if t.get("function", {}).get("name") == "send_to_overlay"),
+        None,
+    )
+    assert overlay_tool is not None, "send_to_overlay tool must be defined"
+    description = overlay_tool["function"]["description"]
+    assert any(phrase in description.lower() for phrase in ("at most once", "must follow", "once")), (
+        "send_to_overlay description must state llm_thinking is limited/non-terminal"
+    )
+
+
+def test_content_only_not_accepted_as_planning_success() -> None:
+    """A content-only LLM response (no tool calls) must NOT set terminal_reason
+    in the planning loop guard — it is non-terminal and must count toward no-progress.
+    """
+    from runtime.planning_loop_guard import inspect_planning_response
+
+    content_only = SimpleNamespace(
+        content="The page shows three profile sections; it is ambiguous which to use.",
+        tool_calls=[],
+        role="assistant",
+    )
+    inspection = inspect_planning_response(content_only)
+    assert inspection.terminal_reason is None, (
+        f"Content-only planning response must not be terminal; "
+        f"got terminal_reason={inspection.terminal_reason!r}"
+    )

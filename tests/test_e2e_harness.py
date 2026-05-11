@@ -2060,3 +2060,120 @@ def test_failure_summary_mentions_expected_and_observed_event_types(tmp_path: Pa
     assert "expected_event_type=plan_ready" in failure_text
     assert "observed_event_types=['run_started']" in failure_text
     assert "missing plan_ready event" in failure_text
+
+
+# ---------------------------------------------------------------------------
+# BUG-S5-013-007: LLM call payload capture tests
+# ---------------------------------------------------------------------------
+
+def test_paid_artifact_captures_assistant_text_for_content_only_turns(tmp_path: Path) -> None:
+    """build_llm_calls_artifact must record assistant_text for content-only turns."""
+    calls = [
+        {
+            "call_id": "llm_001",
+            "purpose": "step_plan_normalizer",
+            "tool_names": ["send_to_overlay", "ask_user", "dom_extract"],
+            "assistant_text": None,
+            "tool_calls": [{"name": "send_to_overlay", "args_summary": "message_type=llm_thinking"}],
+            "finish_reason": "tool_calls",
+            "token_usage": {"prompt_tokens": 100, "completion_tokens": 14},
+        },
+        {
+            "call_id": "llm_002",
+            "purpose": "step_plan_normalizer",
+            "tool_names": ["send_to_overlay", "ask_user", "dom_extract"],
+            "assistant_text": (
+                "The page has Profile Settings, Billing Profile, and Shipping Profile. "
+                "It is ambiguous which one to save."
+            ),
+            "tool_calls": [],
+            "finish_reason": "stop",
+            "token_usage": {"prompt_tokens": 150, "completion_tokens": 75},
+        },
+    ]
+    artifact = harness.build_llm_calls_artifact(calls)
+
+    assert len(artifact) == 2
+
+    # Tool-call turn: assistant_text is None
+    assert artifact[0]["call_id"] == "llm_001"
+    assert artifact[0]["assistant_text"] is None
+    assert artifact[0]["tool_calls"]
+
+    # Content-only turn: assistant_text captured
+    assert artifact[1]["call_id"] == "llm_002"
+    assert artifact[1]["assistant_text"] is not None
+    assert "ambiguous" in artifact[1]["assistant_text"]
+    assert artifact[1]["tool_calls"] == []
+    assert artifact[1]["finish_reason"] == "stop"
+    assert artifact[1]["token_usage"]["completion_tokens"] == 75
+
+
+def test_paid_artifact_captures_tool_schema_names_exposed(tmp_path: Path) -> None:
+    """Each LLM call record must include the tool_names exposed to the model."""
+    calls = [
+        {
+            "call_id": "llm_001",
+            "purpose": "step_plan_normalizer",
+            "tool_names": ["send_to_overlay", "ask_user", "dom_extract", "browser_get_state",
+                           "locator_find", "locator_validate"],
+            "assistant_text": None,
+            "tool_calls": [],
+            "finish_reason": "stop",
+            "token_usage": {"prompt_tokens": 100, "completion_tokens": 10},
+        },
+    ]
+    artifact = harness.build_llm_calls_artifact(calls)
+
+    assert artifact[0]["tool_names"] == [
+        "send_to_overlay", "ask_user", "dom_extract", "browser_get_state",
+        "locator_find", "locator_validate",
+    ]
+
+
+def test_payload_capture_does_not_expose_raw_secrets(tmp_path: Path) -> None:
+    """build_llm_calls_artifact must redact secret-looking values from assistant text."""
+    calls = [
+        {
+            "call_id": "llm_001",
+            "purpose": "step_plan_normalizer",
+            "tool_names": ["send_to_overlay"],
+            "assistant_text": "The API key is sk-test-secret-1234567890 and token Bearer abc123xyz",
+            "tool_calls": [],
+            "finish_reason": "stop",
+            "token_usage": {"prompt_tokens": 50, "completion_tokens": 20},
+        },
+    ]
+    artifact = harness.build_llm_calls_artifact(calls)
+
+    captured_text = artifact[0]["assistant_text"] or ""
+    assert "sk-test-secret-1234567890" not in captured_text, (
+        "Raw sk- API key must be redacted from captured assistant text"
+    )
+    assert "Bearer abc123xyz" not in captured_text, (
+        "Bearer token must be redacted from captured assistant text"
+    )
+
+
+def test_write_llm_calls_artifact_produces_json_file(tmp_path: Path) -> None:
+    """write_llm_calls_artifact must write llm-calls.json to the artifact dir."""
+    calls = [
+        {
+            "call_id": "llm_001",
+            "purpose": "step_plan_normalizer",
+            "tool_names": ["send_to_overlay"],
+            "assistant_text": "Some reasoning text",
+            "tool_calls": [],
+            "finish_reason": "stop",
+            "token_usage": {"prompt_tokens": 80, "completion_tokens": 25},
+        },
+    ]
+    harness.write_llm_calls_artifact(tmp_path, calls)
+
+    artifact_path = tmp_path / "llm-calls.json"
+    assert artifact_path.exists(), "llm-calls.json must be written to artifact_dir"
+
+    records = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert isinstance(records, list)
+    assert len(records) == 1
+    assert records[0]["call_id"] == "llm_001"

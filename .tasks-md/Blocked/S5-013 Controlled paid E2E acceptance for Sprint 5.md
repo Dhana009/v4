@@ -348,3 +348,57 @@ Retry attribution:
 Retry interpretation:
 - What this proves: BUG-S5-013-004 bounded the planning loop, because the backend now exits with `planning_no_progress` instead of running until a longer timeout.
 - What remains: the no-progress stop is not yet surfacing as a terminal runtime event the harness accepts, so the paid acceptance is still blocked by a surface-contract issue rather than an infinite loop.
+
+---
+
+## BUG-S5-013-007 Fixed — Convergence Contract Defined
+
+**Commit:** (see commit after this section)
+**Status:** Done (fake-model proven)
+
+### What was fixed
+
+1. **Content-only response was counted as terminal** — `planning_loop_guard.py` treated any
+   assistant message with text but no tool calls as `terminal_reason="final_text"`, bypassing the
+   no-progress guard entirely. Fixed: content-only turns now increment
+   `planning_turns_without_terminal_output` and never set terminal_reason.
+
+2. **ask_user tool description was generic** — gave no guidance that it is the required terminal
+   call when targets are ambiguous. Fixed: description now explicitly states when to use it
+   ("multiple plausible targets", "Do not continue DOM exploration after ambiguity is established").
+
+3. **Prompt pack missing AMBIGUITY_RULE** — no instruction said to call ask_user when multiple
+   plausible targets exist. Fixed: added AMBIGUITY_RULE and plain-text prohibition to stable prefix.
+
+4. **Broken test assertion fixed** — `test_repeated_llm_thinking_stops_before_harness_timeout`
+   asserted `llm_thinking count == 2` but actual is 0 (guard fires before dispatch). Corrected.
+
+5. **Payload capture added** — `harness.build_llm_calls_artifact()` and
+   `harness.write_llm_calls_artifact()` added for redacted per-call LLM artifact storage.
+
+### Tests added (all passing)
+
+- `tests/test_planning_convergence_contract.py` (4 tests) — adversarial DOM sequence, content-only guard
+- `tests/test_tool_contract_clarity.py` (3 tests) — tool schema clarity for plan_ready, ask_user, llm_thinking
+- `tests/test_prompt_pack_builder.py` (4 new tests) — AMBIGUITY_RULE, TERMINAL_OUTPUT_REQUIREMENT, plain-text prohibition
+- `tests/test_sprint5_llm_runtime_guardrails.py` (5 new tests) — convergence guardrail regressions
+- `tests/test_e2e_harness.py` (4 new tests) — payload capture, secrets redaction
+
+### Suite result after fix
+
+```
+771 passed, 12 failed (12 pre-existing failures in test_llm_planning_contracts,
+test_llm_policy_gateway, test_llm_specialist_contracts — all unrelated to S5-013)
+```
+
+### Retry readiness
+
+The next paid retry is now justified. The model will see:
+- Explicit AMBIGUITY_RULE: "call ask_user when multiple plausible targets exist"
+- ask_user schema: "required terminal call when ambiguous"
+- Plain-text prohibition in prompt pack
+- Content-only responses counted as non-terminal (guard fires if model keeps producing text)
+
+If the model calls ask_user → E2E test passes (clarification counts as valid terminal).
+If the model still produces content-only text → guard fires PLANNING_NO_PROGRESS (deterministic, observable).
+No infinite loops, no timeouts, no lost debugging data.

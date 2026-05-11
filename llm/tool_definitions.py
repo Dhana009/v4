@@ -247,7 +247,13 @@ class ToolDefinitions:
                 "type": "function",
                 "function": {
                     "name": "send_to_overlay",
-                    "description": "Send message to user in the browser overlay panel",
+                    "description": (
+                        "Send a structured message to the browser overlay panel. "
+                        "Use message_type='plan_ready' to submit your final plan proposal and exit planning — "
+                        "this is the required terminal call for step_plan_normalizer. "
+                        "Use message_type='llm_thinking' at most once to narrate intermediate reasoning, "
+                        "but you MUST follow it with plan_ready or ask_user."
+                    ),
                     "parameters": {
                         "type": "object",
                         "properties": {
@@ -275,7 +281,14 @@ class ToolDefinitions:
                 "type": "function",
                 "function": {
                     "name": "ask_user",
-                    "description": "Ask user a question and wait for their response",
+                    "description": (
+                        "Ask the user a clarification question and wait for their response. "
+                        "This is the required terminal call when the target element, page section, "
+                        "or required data is ambiguous — for example, when multiple plausible targets "
+                        "exist on the page and you cannot safely choose one. "
+                        "Do not continue DOM exploration after ambiguity is established. "
+                        "Call ask_user immediately with one precise question listing the options."
+                    ),
                     "parameters": {
                         "type": "object",
                         "properties": {

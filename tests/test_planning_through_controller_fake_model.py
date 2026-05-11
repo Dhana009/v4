@@ -717,7 +717,10 @@ def test_repeated_llm_thinking_stops_before_harness_timeout(monkeypatch) -> None
 
     assert len(controller_calls) == 3
     message_types = [message_type for message_type, _payload in sent_messages]
-    assert message_types.count("llm_thinking") == 2
+    # Guard fires BEFORE tool dispatch: llm_thinking tool calls are never dispatched to _send,
+    # so zero "llm_thinking" messages appear in sent_messages. The guard short-circuits and
+    # emits runtime_rejected directly.
+    assert message_types.count("llm_thinking") == 0
     assert "runtime_rejected" in message_types
     rejection_payload = next(
         payload for message_type, payload in sent_messages if message_type == "runtime_rejected"

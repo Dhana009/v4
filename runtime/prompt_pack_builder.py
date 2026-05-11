@@ -99,6 +99,21 @@ OUTPUT_EXPECTATION:
 - Use tools only according to the provided tool schema.
 - Keep the plan concise and structured.
 
+TERMINAL_OUTPUT_REQUIREMENT:
+- You MUST terminate planning in this turn by calling one of:
+  (a) send_to_overlay(message_type="plan_ready", payload={...}) — when you have a complete plan proposal.
+  (b) ask_user(question="...") — when intent is ambiguous and you cannot produce a safe plan without clarification.
+- You MAY call send_to_overlay(message_type="llm_thinking", ...) at most once before your terminal call.
+- After one llm_thinking call, you MUST produce plan_ready or ask_user in the same response or the very next response.
+- Do NOT emit repeated llm_thinking calls. Repeated thinking without a terminal call is a protocol violation.
+- Do not respond with plain text instead of a tool call. Every planning turn must end with a tool call.
+
+AMBIGUITY_RULE:
+- If DOM or page evidence shows multiple plausible targets, do not guess and do not keep exploring.
+- Call ask_user immediately with one precise clarification question listing the distinguishing options.
+- Example: if there are Profile Settings, Billing Profile, and Shipping Profile sections, ask which one.
+- Do not call dom_extract or browser_get_state repeatedly when the page content is already known.
+
 PLANNING_RULES:
 - Represent broad user intent as parent steps with ordered child operations.
 - Do not claim a locator, action, assertion, or result is validated.
