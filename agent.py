@@ -146,7 +146,7 @@ class AgentLoop:
             log=self._record_plan_diff_editor_telemetry,
             record_call=self._record_plan_diff_editor_telemetry,
         )
-        self._plan_diff_editor_controller = LLMRuntimeController(
+        self._llm_runtime_controller = LLMRuntimeController(
             purpose_registry=PURPOSE_REGISTRY,
             schema_validator=self._validate_plan_diff_editor_output,
             context_manager=self.context_manager,
@@ -154,6 +154,7 @@ class AgentLoop:
             telemetry_sink=self._plan_diff_editor_telemetry_sink,
             model_client=self.llm.client,
         )
+        self._plan_diff_editor_controller = self._llm_runtime_controller
         self.llm_policy_gateway = LLMPolicyGateway(PURPOSE_REGISTRY)
         self._last_policy_decision: dict[str, Any] | None = None
         self.phase_tracker = PhaseTracker()
@@ -1652,14 +1653,30 @@ class AgentLoop:
                     skills_loaded=_s5_skills_loaded,
                 )
                 try:
-                    response = await self.model_router.call(
-                        purpose=effective_purpose,
-                        client=self.llm.client,
-                        model=model,
-                        messages=context_bundle.messages,
-                        tools=filtered_tools,
-                        tool_choice="auto",
-                    )
+                    controller_result: dict[str, Any] | None = None
+                    if effective_purpose == "step_plan_normalizer":
+                        controller_result = await self._call_step_plan_normalizer_controller(
+                            messages=context_bundle.messages,
+                            phase=current_phase,
+                            context_mode=execution_context,
+                            tools=filtered_tools,
+                            tool_choice="auto",
+                        )
+                    if isinstance(controller_result, dict) and controller_result.get("used_controller"):
+                        response = controller_result.get("raw_response")
+                        if response is None:
+                            raise RuntimeError(
+                                "step_plan_normalizer controller did not return raw_response"
+                            )
+                    else:
+                        response = await self.model_router.call(
+                            purpose=effective_purpose,
+                            client=self.llm.client,
+                            model=model,
+                            messages=context_bundle.messages,
+                            tools=filtered_tools,
+                            tool_choice="auto",
+                        )
                 except Exception as exc:  # noqa: BLE001
                     record_model_call_end(
                         telemetry,
@@ -3577,6 +3594,53 @@ class AgentLoop:
                 "validation_status": "retry_failed",
                 "parsed_output": None,
                 "errors": ["invalid_controller_result"],
+            }
+        result = dict(result)
+        result["used_controller"] = True
+        return result
+
+    async def _call_step_plan_normalizer_controller(
+        self,
+        *,
+        messages: list[dict[str, Any]],
+        phase: str | None,
+        context_mode: str,
+        tools: list[dict[str, Any]],
+        tool_choice: Any,
+    ) -> dict[str, Any]:
+        controller = getattr(self, "_llm_runtime_controller", None)
+        if controller is None:
+            controller = getattr(self, "_plan_diff_editor_controller", None)
+        call = getattr(controller, "call_with_raw_response", None) if controller is not None else None
+        if not callable(call):
+            return {"used_controller": False}
+
+        try:
+            result = await call(
+                purpose="step_plan_normalizer",
+                messages=messages,
+                phase=phase,
+                context_mode=context_mode,
+                client=self.llm.client,
+                tools=tools,
+                tool_choice=tool_choice,
+            )
+        except Exception as exc:  # noqa: BLE001
+            return {
+                "used_controller": True,
+                "validation_status": "retry_failed",
+                "parsed_output": None,
+                "errors": [type(exc).__name__],
+                "message": str(exc),
+                "raw_response": None,
+            }
+        if not isinstance(result, dict):
+            return {
+                "used_controller": True,
+                "validation_status": "retry_failed",
+                "parsed_output": None,
+                "errors": ["invalid_controller_result"],
+                "raw_response": None,
             }
         result = dict(result)
         result["used_controller"] = True

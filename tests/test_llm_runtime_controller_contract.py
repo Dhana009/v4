@@ -151,6 +151,27 @@ def _response(content: str) -> SimpleNamespace:
     )
 
 
+def _tool_call_response(*tool_names: str) -> SimpleNamespace:
+    tool_calls = [
+        SimpleNamespace(
+            id=f"call-{index + 1}",
+            type="function",
+            function=SimpleNamespace(name=name, arguments='{"ok":true}'),
+        )
+        for index, name in enumerate(tool_names)
+    ]
+    return SimpleNamespace(
+        choices=[
+            SimpleNamespace(
+                message=SimpleNamespace(
+                    content="",
+                    tool_calls=tool_calls,
+                )
+            )
+        ]
+    )
+
+
 def _fake_invalid_json_response() -> SimpleNamespace:
     return _response("{ not-json }")
 
@@ -539,6 +560,45 @@ def _policy_payload(policy: Any) -> dict[str, Any]:
     if hasattr(policy, "__dict__"):
         return dict(vars(policy))
     return {}
+
+
+def test_controller_call_with_raw_response_preserves_tool_calls() -> None:
+    contract = _load_controller_contract()
+    recorder = FakeCallRecorder(
+        responses=[_tool_call_response("send_to_overlay", "ask_user", "dom_extract")]
+    )
+    dependencies = _controller_dependencies(recorder, contract.registry)
+    controller = _resolve_controller_target(contract.target, dependencies)
+    call = getattr(controller, "call_with_raw_response", None)
+    assert callable(call), "LLMRuntimeController must expose call_with_raw_response for planning"
+
+    result = asyncio.run(
+        call(
+            purpose="step_plan_normalizer",
+            messages=[{"role": "user", "content": "Plan the next step"}],
+            phase="planning",
+            context_mode="compact",
+            tools=[
+                {"type": "function", "function": {"name": "send_to_overlay"}},
+                {"type": "function", "function": {"name": "ask_user"}},
+                {"type": "function", "function": {"name": "dom_extract"}},
+            ],
+            tool_choice="auto",
+            client=dependencies["client"],
+        )
+    )
+
+    assert result["validation_status"] == "tool_calls_preserved"
+    assert result["raw_response"] is not None
+    assert result["raw_message"] is not None
+    assert result["content"] == ""
+    assert [tool_call.function.name for tool_call in result["tool_calls"]] == [
+        "send_to_overlay",
+        "ask_user",
+        "dom_extract",
+    ]
+    assert recorder.calls
+    assert recorder.calls[0]["kind"] == "client"
 
 
 def test_purpose_registry_accepts_only_known_llm_purposes() -> None:

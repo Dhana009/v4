@@ -21,6 +21,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+import agent as agent_module
+from agent import AgentLoop
+from runtime.phase_tracker import PhaseTracker
 from runtime.llm_runtime_controller import PURPOSE_REGISTRY
 from runtime.telemetry import ModelCallTelemetry, record_model_call_start
 from tests.fake_llm_factory import FakeLLMClient, MALFORMED_RESPONSE
@@ -32,6 +35,198 @@ from tests.fake_llm_factory import FakeLLMClient, MALFORMED_RESPONSE
 
 def _run(coro: Any) -> Any:
     return asyncio.run(coro)
+
+
+def _make_overlay_tool_call(call_id: str, payload: dict[str, Any]) -> SimpleNamespace:
+    return SimpleNamespace(
+        id=call_id,
+        type="function",
+        function=SimpleNamespace(
+            name="send_to_overlay",
+            arguments=json.dumps(
+                {
+                    "message_type": "plan_ready",
+                    "payload": payload,
+                }
+            ),
+        ),
+    )
+
+
+def _make_response_with_tool_calls(*tool_calls: SimpleNamespace) -> SimpleNamespace:
+    return SimpleNamespace(
+        choices=[
+            SimpleNamespace(
+                message=SimpleNamespace(
+                    content="",
+                    tool_calls=list(tool_calls),
+                    role="assistant",
+                )
+            )
+        ],
+        usage=SimpleNamespace(
+            prompt_tokens=100,
+            completion_tokens=20,
+            total_tokens=120,
+            prompt_tokens_details=SimpleNamespace(cached_tokens=0),
+        ),
+    )
+
+
+def _make_content_only_response(content: str) -> SimpleNamespace:
+    return SimpleNamespace(
+        choices=[
+            SimpleNamespace(
+                message=SimpleNamespace(
+                    content=content,
+                    tool_calls=[],
+                    role="assistant",
+                )
+            )
+        ],
+        usage=SimpleNamespace(
+            prompt_tokens=100,
+            completion_tokens=20,
+            total_tokens=120,
+            prompt_tokens_details=SimpleNamespace(cached_tokens=0),
+        ),
+    )
+
+
+def _make_agent_loop() -> AgentLoop:
+    loop = AgentLoop.__new__(AgentLoop)
+    loop.ws = object()
+    loop.control_queue = object()
+    loop.phase_tracker = PhaseTracker()
+    loop.phase_tracker.current_phase = "idle"
+    loop.phase = "planning"
+    loop.plan_confirmed = False
+    loop.current_steps = []
+    loop.step_state_by_id = {}
+    loop.step_context_by_id = {}
+    loop.active_step_id = None
+    loop.active_failed_step_id = None
+    loop.pending_recovery = False
+    loop.completed_step_ids = set()
+    loop.skipped_step_ids = set()
+    loop.current_step_index = 0
+    loop.last_successful_action = None
+    loop.successful_action_by_step_id = {}
+    loop.successful_actions_by_step_id = {}
+    loop._loaded_skill_names = []
+    loop._loaded_skill_entries = []
+    loop._missing_skill_names = set()
+    loop._last_skill_load_phase = None
+    loop._recording_steps = []
+    loop._recording_step_index = 0
+    loop._recorded_step_ids = set()
+    loop._last_action_context = None
+    loop._awaiting_step_record = False
+    loop._pending_failure_followup = False
+    loop.last_plan_ready_payload = None
+    loop.last_plan_step_ids = []
+    loop.last_plan_summary = None
+    loop.last_plan_original_user_intent = None
+    loop._active_plan_state = None
+    loop._active_plan_correction_state = None
+    loop._run_completion_requested = False
+    loop.run_stop_requested = False
+    loop._llm_call_counter = 0
+    loop.confirmed_plan_by_step_id = {}
+    loop.confirmed_plan_step_ids = []
+    loop.confirmed_child_results_by_step_id = {}
+    loop.confirmed_execution_mismatch_count_by_step_id = {}
+    loop.tools = []
+    loop.llm = SimpleNamespace(
+        messages=[],
+        system_prompt="",
+        client=object(),
+        reset=lambda: None,
+    )
+    loop.context_manager = SimpleNamespace(
+        prepare_messages=lambda messages, purpose, context_mode, metadata: SimpleNamespace(
+            messages=list(messages)
+        ),
+    )
+    loop.skill_manager = SimpleNamespace(
+        analyze=lambda loaded_skills, loaded_skill_names=None: SimpleNamespace(
+            skill_count=len(loaded_skill_names or []),
+            loaded_skill_names=list(loaded_skill_names or []),
+            estimated_total_skill_tokens=0,
+            largest_skill_name="none",
+            largest_skill_tokens=0,
+            suggested_future_policy="ok_current",
+        )
+    )
+    loop._format_steps = lambda steps: "steps"
+    loop._llm_runtime_controller = None
+    return loop
+
+
+def _install_common_run_stubs(
+    loop: AgentLoop,
+    sent_messages: list[tuple[str, dict[str, Any]]],
+) -> None:
+    def fake_reset_lifecycle_state(steps=None):
+        loop.phase = "planning"
+        loop.plan_confirmed = False
+        loop.current_steps = list(steps or [])
+        loop.phase_tracker.current_phase = "idle"
+        loop.step_state_by_id = {}
+        loop.step_context_by_id = {}
+        loop.active_step_id = None
+        loop.active_failed_step_id = None
+        loop.pending_recovery = False
+        loop.completed_step_ids = set()
+        loop.skipped_step_ids = set()
+        loop.current_step_index = 0
+        loop.last_successful_action = None
+        loop.successful_action_by_step_id = {}
+        loop.successful_actions_by_step_id = {}
+        loop._recording_steps = []
+        loop._recording_step_index = 0
+        loop._recorded_step_ids = set()
+        loop._last_action_context = None
+        loop._awaiting_step_record = False
+        loop._pending_failure_followup = False
+        loop._run_completion_requested = False
+        loop.run_stop_requested = False
+        loop._llm_call_counter = 0
+        loop.confirmed_plan_by_step_id = {}
+        loop.confirmed_plan_step_ids = []
+        loop.confirmed_child_results_by_step_id = {}
+        loop.confirmed_execution_mismatch_count_by_step_id = {}
+
+    async def fake_send(message_type: str, **kwargs: Any) -> None:
+        sent_messages.append((message_type, kwargs))
+
+    loop._reset_lifecycle_state = fake_reset_lifecycle_state
+    loop._prepare_recording_steps = lambda steps: None
+    loop._validate_recording_steps = lambda steps: None
+    loop._load_skills_for_steps = lambda steps: (["core"], "", [{"name": "core"}])
+    loop._load_phase_skill_expansion = lambda phase: []
+    loop._send = fake_send
+    loop._all_steps_done = lambda: True
+    loop._has_unresolved_failure = lambda: False
+    loop._should_request_user_followup = lambda final_text, pending: False
+    loop._current_confirmed_execution_cursor = lambda: None
+
+
+def _make_current_step() -> dict[str, Any]:
+    return {
+        "id": "step-1",
+        "intent": "Click the Get started button",
+        "element_info": {
+            "text": "Get started",
+            "attributes": {"aria-label": "Get started"},
+        },
+        "expected_outcome": {
+            "type": "navigation",
+            "description": "goes to docs intro page",
+            "source": "user",
+            "required": True,
+        },
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -284,3 +479,108 @@ def test_context_bucket_mapping_is_deterministic() -> None:
         # This is the mapping the agent should apply when calling record_model_call_start
         assert isinstance(expected_bucket, str)
         assert len(expected_bucket) > 0
+
+
+def test_step_plan_normalizer_run_uses_controller_and_not_model_router(monkeypatch) -> None:
+    loop = _make_agent_loop()
+    sent_messages: list[tuple[str, dict[str, Any]]] = []
+    controller_calls: list[dict[str, Any]] = []
+    loop.current_steps = [_make_current_step()]
+    _install_common_run_stubs(loop, sent_messages)
+
+    async def fake_execute_confirmed_plan() -> None:
+        loop.plan_confirmed = False
+        loop._run_completion_requested = True
+        await loop._send("llm_result", success=True, message="executed")
+
+    async def fake_wait_for_plan_confirmation() -> dict[str, Any]:
+        loop.run_stop_requested = True
+        return {"confirmed": True, "answer": "confirmed"}
+
+    async def fake_controller_call(**kwargs: Any) -> dict[str, Any]:
+        controller_calls.append(dict(kwargs))
+        response = _make_response_with_tool_calls(
+            _make_overlay_tool_call(
+                "call-1",
+                {
+                    "summary": "I will click Get started",
+                    "steps": [
+                        {
+                            "number": 1,
+                            "action": "click",
+                            "element_name": "Get started",
+                            "code": "await getStarted.click();",
+                        }
+                    ],
+                    "instruction": "Confirm to proceed",
+                },
+            )
+        )
+        return {
+            "validation_status": "tool_calls_preserved",
+            "raw_response": response,
+            "raw_message": response.choices[0].message,
+            "content": "",
+            "tool_calls": list(response.choices[0].message.tool_calls),
+        }
+
+    async def fake_router_call(**kwargs: Any) -> Any:
+        assert kwargs.get("purpose") != "step_plan_normalizer"
+        loop.run_stop_requested = True
+        return _make_content_only_response("executed")
+
+    loop._execute_deterministic_fast_path_confirmed_plan = fake_execute_confirmed_plan
+    loop._wait_for_plan_confirmation = fake_wait_for_plan_confirmation
+    loop._llm_runtime_controller = SimpleNamespace(call_with_raw_response=fake_controller_call)
+    loop.model_router = SimpleNamespace(call=fake_router_call)
+
+    monkeypatch.setattr(agent_module, "record_model_call_start", lambda **kwargs: object())
+    monkeypatch.setattr(agent_module, "record_model_call_end", lambda *args, **kwargs: None)
+
+    asyncio.run(loop.run([_make_current_step()]))
+
+    assert controller_calls
+    assert controller_calls[0]["purpose"] == "step_plan_normalizer"
+    assert sent_messages[0][0] == "plan_ready"
+    assert sent_messages[1][0] == "llm_result"
+    assert all(
+        message_type not in {"step_recorded", "code_update", "run_completed"}
+        for message_type, _payload in sent_messages
+    )
+
+
+def test_malformed_controller_response_fails_closed_without_plan_ready_or_execution(monkeypatch) -> None:
+    loop = _make_agent_loop()
+    sent_messages: list[tuple[str, dict[str, Any]]] = []
+    loop.current_steps = [_make_current_step()]
+    _install_common_run_stubs(loop, sent_messages)
+    loop.run_stop_requested = True
+
+    async def fake_wait_for_plan_confirmation() -> dict[str, Any]:
+        raise AssertionError("confirmation should not be requested for malformed content-only response")
+
+    async def fake_controller_call(**kwargs: Any) -> dict[str, Any]:
+        response = _make_content_only_response(json.dumps(MALFORMED_RESPONSE))
+        return {
+            "validation_status": "raw_response_preserved",
+            "raw_response": response,
+            "raw_message": response.choices[0].message,
+            "content": response.choices[0].message.content,
+            "tool_calls": [],
+        }
+
+    async def fake_router_call(**kwargs: Any) -> Any:
+        raise AssertionError("model_router.call should not be used for step_plan_normalizer")
+
+    loop._wait_for_plan_confirmation = fake_wait_for_plan_confirmation
+    loop._llm_runtime_controller = SimpleNamespace(call_with_raw_response=fake_controller_call)
+    loop.model_router = SimpleNamespace(call=fake_router_call)
+
+    monkeypatch.setattr(agent_module, "record_model_call_start", lambda **kwargs: object())
+    monkeypatch.setattr(agent_module, "record_model_call_end", lambda *args, **kwargs: None)
+
+    asyncio.run(loop.run([_make_current_step()]))
+
+    assert sent_messages == [
+        ("llm_result", {"success": True, "message": json.dumps(MALFORMED_RESPONSE)})
+    ]

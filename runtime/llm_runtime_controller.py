@@ -414,6 +414,39 @@ def _content_from_response(response: Any) -> Any:
     return response
 
 
+def _message_from_response(response: Any) -> Any:
+    if isinstance(response, Mapping):
+        choices = response.get("choices")
+    else:
+        choices = getattr(response, "choices", None)
+
+    if isinstance(choices, Sequence) and choices:
+        first_choice = choices[0]
+        if isinstance(first_choice, Mapping):
+            return first_choice.get("message")
+        return getattr(first_choice, "message", None)
+
+    return None
+
+
+def _tool_calls_from_message(message: Any) -> list[Any]:
+    if isinstance(message, Mapping):
+        tool_calls = message.get("tool_calls")
+    else:
+        tool_calls = getattr(message, "tool_calls", None)
+    if isinstance(tool_calls, Sequence) and not isinstance(tool_calls, (str, bytes)):
+        return list(tool_calls)
+    return []
+
+
+def _content_from_message(message: Any) -> Any:
+    if isinstance(message, Mapping):
+        return message.get("content")
+    if message is None:
+        return None
+    return getattr(message, "content", None)
+
+
 def _call_if_available(target: Any, *candidate_names: str, **payload: Any) -> Any:
     for name in candidate_names:
         callable_obj = getattr(target, name, None)
@@ -1285,6 +1318,307 @@ class LLMRuntimeController:
             ),
         )
         return failure_result
+
+    async def call_with_raw_response(
+        self,
+        *,
+        purpose: str,
+        messages: list[dict[str, Any]] | None = None,
+        model: str | None = None,
+        phase: str | None = None,
+        context_mode: str | None = None,
+        deterministic_safe: bool = False,
+        deterministic_reason: str | None = None,
+        runtime_state: Any = None,
+        client: Any | None = None,
+        model_client: Any | None = None,
+        llm_client: Any | None = None,
+        openai_client: Any | None = None,
+        model_router: Any | None = None,
+        context_manager: Any | None = None,
+        skill_manager: Any | None = None,
+        tool_registry: Any | None = None,
+        telemetry: Any | None = None,
+        telemetry_sink: Any | None = None,
+        schema_validator: Any | None = None,
+        validator: Any | None = None,
+        policy: Any | None = None,
+        purpose_policy: Any | None = None,
+        output_schema: Any | None = None,
+        retry_policy: Any | None = None,
+        tool_policy: Any | None = None,
+        skill_policy: Any | None = None,
+        context_policy: Any | None = None,
+        tools: Any | None = None,
+        tool_choice: Any | None = None,
+        run_id: str | None = None,
+        step_id: str | None = None,
+        **kwargs: Any,
+    ) -> dict[str, Any]:
+        del kwargs
+        del telemetry
+        del schema_validator
+        del validator
+        del output_schema
+        del retry_policy
+        del tool_policy
+        del skill_policy
+        del context_policy
+        del runtime_state
+
+        resolved_policy = self.resolve_purpose_policy(
+            purpose,
+            policy=policy,
+            purpose_policy=purpose_policy,
+        )
+        normalized_purpose = str(_value(resolved_policy, "purpose_id", "purpose", default=purpose))
+        if normalized_purpose not in self.purpose_registry:
+            raise ValueError(f"Unknown LLM purpose: {normalized_purpose!r}")
+
+        resolved_context_manager = self._select_context_manager(context_manager)
+        resolved_skill_manager = self._select_skill_manager(skill_manager)
+        resolved_tool_registry = self._select_tool_registry(tool_registry)
+        resolved_telemetry_sink = self._select_telemetry_sink(telemetry_sink)
+        resolved_client = self._select_model_client(client, model_client, llm_client, openai_client)
+        if resolved_client is None and model_router is not None:
+            self.model_router = model_router
+            if normalized_purpose == "main_orchestrator":
+                resolved_client = None
+
+        resolved_model = str(model or _value(resolved_policy, "model", "model_class", default="unknown"))
+        token_budget = int(_value(resolved_policy, "token_budget", "budget", default=0) or 0)
+        context_policy_value = _value(resolved_policy, "context_policy", "context", default={})
+        context_level = str(_value(context_policy_value, "context_level", "level", "mode", "context_mode", default="compact"))
+        output_schema_value = _value(resolved_policy, "output_schema", default={})
+        schema_id = str(
+            _value(
+                output_schema_value,
+                "schema_id",
+                default=output_schema_value if isinstance(output_schema_value, str) else f"{normalized_purpose}.v1",
+            )
+        )
+        schema_version = int(_value(output_schema_value, "schema_version", default=1) or 1)
+        call_id = f"{normalized_purpose}-{time.time_ns()}"
+
+        started_at = time.perf_counter()
+        if deterministic_safe:
+            deterministic_input_tokens = estimate_messages_tokens(messages or [])
+            result = self._build_result(
+                purpose=normalized_purpose,
+                policy=resolved_policy,
+                model=resolved_model,
+                model_called=False,
+                validation_status="deterministic",
+                retry_count=0,
+                parsed_output={
+                    "purpose": normalized_purpose,
+                    "deterministic_reason": deterministic_reason,
+                    "deterministic_safe": True,
+                },
+                backend_applied=False,
+                skill_count=0,
+                tool_count=0,
+                tools_exposed_count=0,
+                skills_loaded=[],
+                context_mode=str(context_mode or _value(context_policy_value, "context_mode", default="compact")),
+                context_level=context_level,
+                token_budget=token_budget,
+                call_id=call_id,
+                estimated_input_tokens=deterministic_input_tokens,
+                estimated_output_tokens=None,
+                latency_ms=max(0, int((time.perf_counter() - started_at) * 1000)),
+                schema_id=schema_id,
+                schema_version=schema_version,
+                error_code=None,
+            )
+            result["raw_response"] = None
+            result["raw_message"] = None
+            result["content"] = None
+            result["tool_calls"] = []
+            self._emit_telemetry(
+                resolved_telemetry_sink,
+                ControllerTelemetry(
+                    call_id=call_id,
+                    purpose=normalized_purpose,
+                    model=resolved_model,
+                    skill_count=0,
+                    skills_loaded=[],
+                    tool_count=0,
+                    tools_exposed_count=0,
+                    context_mode=str(context_mode or _value(context_policy_value, "context_mode", default="compact")),
+                    context_level=context_level,
+                    token_budget=token_budget,
+                    estimated_input_tokens=deterministic_input_tokens,
+                    estimated_output_tokens=None,
+                    retry_count=0,
+                    validation_status="deterministic",
+                    latency_ms=max(0, int((time.perf_counter() - started_at) * 1000)),
+                    schema_id=schema_id,
+                    schema_version=schema_version,
+                    error_code=None,
+                ),
+            )
+            return result
+
+        prepared_messages, prepared_metadata, effective_context_mode, estimated_message_tokens = self._prepare_messages(
+            context_manager=resolved_context_manager,
+            messages=messages,
+            purpose=normalized_purpose,
+            phase=phase,
+            context_mode=context_mode,
+            policy=resolved_policy,
+            run_id=run_id,
+            step_id=step_id,
+        )
+        loaded_skill_names, skill_count = self._analyze_skills(
+            skill_manager=resolved_skill_manager,
+            policy=resolved_policy,
+        )
+        effective_context_mode = str(
+            prepared_metadata.get("context_mode") or effective_context_mode or context_mode or "compact"
+        )
+        exposed_tools = self._filter_tools_for_phase(
+            tool_registry=resolved_tool_registry,
+            tools=tools,
+            phase=phase,
+            policy=resolved_policy,
+        )
+        tool_count = len(exposed_tools)
+        estimated_input_tokens = int(
+            _value(prepared_metadata, "final_estimated_tokens", "estimated_message_tokens", default=estimated_message_tokens)
+            or estimated_message_tokens
+            or 0
+        ) + estimate_tools_tokens(exposed_tools)
+
+        if token_budget and estimated_input_tokens > token_budget:
+            failure_result = self._build_result(
+                purpose=normalized_purpose,
+                policy=resolved_policy,
+                model=resolved_model,
+                model_called=False,
+                validation_status="budget_exceeded",
+                retry_count=0,
+                parsed_output=None,
+                errors=["TOKEN_BUDGET_EXCEEDED"],
+                backend_applied=False,
+                skill_count=skill_count if skill_count else len(loaded_skill_names),
+                tool_count=tool_count,
+                tools_exposed_count=tool_count,
+                skills_loaded=loaded_skill_names,
+                context_mode=effective_context_mode,
+                context_level=context_level,
+                token_budget=token_budget,
+                call_id=call_id,
+                estimated_input_tokens=estimated_input_tokens,
+                estimated_output_tokens=None,
+                latency_ms=max(0, int((time.perf_counter() - started_at) * 1000)),
+                schema_id=schema_id,
+                schema_version=schema_version,
+                error_code="TOKEN_BUDGET_EXCEEDED",
+            )
+            failure_result["raw_response"] = None
+            failure_result["raw_message"] = None
+            failure_result["content"] = None
+            failure_result["tool_calls"] = []
+            self._emit_telemetry(
+                resolved_telemetry_sink,
+                ControllerTelemetry(
+                    call_id=call_id,
+                    purpose=normalized_purpose,
+                    model=resolved_model,
+                    skill_count=failure_result["skill_count"],
+                    skills_loaded=list(loaded_skill_names),
+                    tool_count=tool_count,
+                    tools_exposed_count=tool_count,
+                    context_mode=effective_context_mode,
+                    context_level=context_level,
+                    token_budget=token_budget,
+                    estimated_input_tokens=estimated_input_tokens,
+                    estimated_output_tokens=None,
+                    retry_count=0,
+                    validation_status="budget_exceeded",
+                    latency_ms=failure_result["telemetry_fields"]["latency_ms"],
+                    schema_id=schema_id,
+                    schema_version=schema_version,
+                    error_code="TOKEN_BUDGET_EXCEEDED",
+                ),
+            )
+            return failure_result
+
+        response = await self._call_model(
+            purpose=normalized_purpose,
+            model=resolved_model,
+            messages=list(prepared_messages),
+            tools=exposed_tools or None,
+            tool_choice=tool_choice,
+            client=resolved_client,
+        )
+        message = _message_from_response(response)
+        content = _content_from_message(message)
+        tool_calls = _tool_calls_from_message(message)
+        if tool_calls:
+            validation_status = "tool_calls_preserved"
+            errors: list[Any] = []
+        elif content is None:
+            validation_status = "invalid"
+            errors = ["missing_message_content"]
+        else:
+            validation_status = "raw_response_preserved"
+            errors = []
+
+        result = self._build_result(
+            purpose=normalized_purpose,
+            policy=resolved_policy,
+            model=resolved_model,
+            model_called=True,
+            validation_status=validation_status,
+            retry_count=0,
+            parsed_output=None,
+            errors=errors,
+            backend_applied=False,
+            skill_count=skill_count if skill_count else len(loaded_skill_names),
+            tool_count=tool_count,
+            tools_exposed_count=tool_count,
+            skills_loaded=loaded_skill_names,
+            context_mode=effective_context_mode,
+            context_level=context_level,
+            token_budget=token_budget,
+            call_id=call_id,
+            estimated_input_tokens=estimated_input_tokens,
+            estimated_output_tokens=None,
+            latency_ms=max(0, int((time.perf_counter() - started_at) * 1000)),
+            schema_id=schema_id,
+            schema_version=schema_version,
+            error_code=None,
+        )
+        result["raw_response"] = response
+        result["raw_message"] = message
+        result["content"] = content
+        result["tool_calls"] = tool_calls
+        self._emit_telemetry(
+            resolved_telemetry_sink,
+            ControllerTelemetry(
+                call_id=call_id,
+                purpose=normalized_purpose,
+                model=resolved_model,
+                skill_count=result["skill_count"],
+                skills_loaded=list(loaded_skill_names),
+                tool_count=tool_count,
+                tools_exposed_count=tool_count,
+                context_mode=effective_context_mode,
+                context_level=context_level,
+                token_budget=token_budget,
+                estimated_input_tokens=estimated_input_tokens,
+                estimated_output_tokens=None,
+                retry_count=0,
+                validation_status=validation_status,
+                latency_ms=result["telemetry_fields"]["latency_ms"],
+                schema_id=schema_id,
+                schema_version=schema_version,
+                error_code=None,
+            ),
+        )
+        return result
 
 
 def _tool_name(tool: Any, index: int = 0) -> str:
