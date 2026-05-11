@@ -43,6 +43,7 @@ DEFAULT_E2E_REMOTE_DEBUGGING_PORT = 9222
 DEFAULT_E2E_ARTIFACT_PATHS: dict[str, str] = {
     "manifest": "manifest.json",
     "test_result": "test-result.json",
+    "llm_calls": "llm-calls.json",
     "events": "events.ndjson",
     "commands": "commands.json",
     "rejections": "rejections.json",
@@ -793,14 +794,60 @@ def build_llm_calls_artifact(
         redacted_text: str | None = None
         if raw_text is not None:
             redacted_text, _ = _redact_text_value(str(raw_text), location="llm_call_assistant_text")
+        tool_calls: list[dict[str, Any]] = []
+        for raw_tool_call in call.get("tool_calls") or []:
+            if not isinstance(raw_tool_call, Mapping):
+                continue
+            args_summary = raw_tool_call.get("args_summary")
+            redacted_args_summary: str | None = None
+            if args_summary is not None:
+                redacted_args_summary, _ = _redact_text_value(
+                    str(args_summary),
+                    location="llm_call_tool_args_summary",
+                )
+            tool_calls.append({
+                "name": raw_tool_call.get("name"),
+                "args_summary": redacted_args_summary,
+            })
+        tool_schema = call.get("tool_schema")
+        normalized_tool_schema: dict[str, Any] = {}
+        if isinstance(tool_schema, Mapping):
+            normalized_tool_schema = {
+                "tool_count": int(tool_schema.get("tool_count") or 0),
+                "tools": [],
+            }
+            raw_tools = tool_schema.get("tools")
+            if isinstance(raw_tools, Sequence) and not isinstance(raw_tools, (str, bytes, bytearray)):
+                for raw_tool in raw_tools:
+                    if not isinstance(raw_tool, Mapping):
+                        continue
+                    description = raw_tool.get("description")
+                    redacted_description: str | None = None
+                    if description is not None:
+                        redacted_description, _ = _redact_text_value(
+                            str(description),
+                            location="llm_call_tool_description",
+                        )
+                    params = raw_tool.get("params")
+                    normalized_tool_schema["tools"].append({
+                        "name": raw_tool.get("name"),
+                        "description": redacted_description,
+                        "params": list(params) if isinstance(params, list) else [],
+                    })
         records.append({
             "call_id": call.get("call_id"),
             "purpose": call.get("purpose"),
+            "model": call.get("model"),
+            "model_class": call.get("model_class"),
+            "prompt_pack_id": call.get("prompt_pack_id"),
+            "prefix_hash": call.get("prefix_hash"),
             "tool_names": list(call.get("tool_names") or []),
+            "tool_schema": normalized_tool_schema,
             "assistant_text": redacted_text,
-            "tool_calls": list(call.get("tool_calls") or []),
+            "tool_calls": tool_calls,
             "finish_reason": call.get("finish_reason"),
             "token_usage": dict(call.get("token_usage") or {}),
+            "error": dict(call.get("error") or {}),
         })
     return records
 
@@ -812,6 +859,24 @@ def write_llm_calls_artifact(artifact_dir: Path, calls: Sequence[dict[str, Any]]
     path = artifact_dir / "llm-calls.json"
     path.write_text(json.dumps(records, indent=2, sort_keys=True), encoding="utf-8")
     return path
+
+
+def parse_llm_call_lines(log_text: str) -> list[dict[str, Any]]:
+    records: list[dict[str, Any]] = []
+    for line in log_text.splitlines():
+        if "[LLM_CALL]" not in line:
+            continue
+        _, _, payload = line.partition("[LLM_CALL]")
+        raw_payload = payload.strip()
+        if not raw_payload:
+            continue
+        try:
+            record = json.loads(raw_payload)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(record, Mapping):
+            records.append(dict(record))
+    return records
 
 
 def build_artifact_manifest(
@@ -1592,15 +1657,21 @@ class E2ESession:
             "browser-console.log": "\n".join(self.console_entries),
             "summary.md": self._build_summary_markdown(),
         }
+        backend_stdout = self.backend.stdout_path.read_text(encoding="utf-8", errors="replace")
         # Sprint 3 INT-E2E-002: write token-report.json from backend stdout telemetry
         try:
-            backend_stdout = self.backend.stdout_path.read_text(encoding="utf-8", errors="replace")
             _telemetry_records = parse_telemetry_lines(backend_stdout)
             _token_report = build_token_report(_telemetry_records, test_name=self.test_name)
             write_token_report(self.artifact_dir, _token_report)
             print_token_summary(_token_report)
         except Exception as _exc:
             print(f"[TOKEN_REPORT] warning: could not write token report: {_exc}")
+        try:
+            _llm_call_records = parse_llm_call_lines(backend_stdout)
+            write_llm_calls_artifact(self.artifact_dir, _llm_call_records)
+        except Exception as _exc:
+            print(f"[LLM_CALLS] warning: could not write llm-calls artifact: {_exc}")
+            write_llm_calls_artifact(self.artifact_dir, [])
         finalize_test_result(
             artifact_dir=self.artifact_dir,
             test_name=self.test_name,

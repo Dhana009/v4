@@ -402,3 +402,32 @@ The next paid retry is now justified. The model will see:
 If the model calls ask_user → E2E test passes (clarification counts as valid terminal).
 If the model still produces content-only text → guard fires PLANNING_NO_PROGRESS (deterministic, observable).
 No infinite loops, no timeouts, no lost debugging data.
+
+## Development follow-up after latest paid retry
+
+Status: Blocked pending next controlled paid retry approval
+
+New blockers fixed:
+- `BUG-S5-013-008` done: `llm-calls.json` is now always written into the paid E2E artifact directory on success and failure paths, with safe/redacted per-call capture.
+- `BUG-S5-013-009` done: obvious ambiguous DOM evidence now injects runtime-owned `ask_user` pressure and forces clarification instead of allowing content-only drift toward another `PLANNING_NO_PROGRESS` loop.
+
+Cheap verification after the fixes:
+- `python -m py_compile agent.py tests/e2e/harness.py tests/test_e2e_harness.py tests/test_planning_convergence_contract.py tests/test_tool_contract_clarity.py tests/test_planning_loop_guard.py tests/test_planning_through_controller_fake_model.py tests/test_prompt_pack_builder.py tests/test_prompt_pack_safety_rules.py tests/test_sprint5_llm_runtime_guardrails.py`
+  - pass
+- `python -m pytest tests/test_e2e_harness.py -q`
+  - `68 passed`
+- `python -m pytest tests/test_planning_convergence_contract.py tests/test_tool_contract_clarity.py -q`
+  - `8 passed`
+- `python -m pytest tests/test_planning_loop_guard.py tests/test_planning_through_controller_fake_model.py -q`
+  - `28 passed`
+- `python -m pytest tests/test_prompt_pack_builder.py tests/test_prompt_pack_safety_rules.py tests/test_sprint5_llm_runtime_guardrails.py -q`
+  - `53 passed`
+- `python -m pytest tests/test_sprint5_paid_retry_blocker_regression.py tests/test_sprint5_paid_blocker_regression.py -q`
+  - `7 passed`
+- `python -m pytest tests/test_context_manager.py tests/test_llm_runtime_controller_contract.py tests/test_backend_event_sequences.py tests/test_event_sequence_contract.py tests/test_event_contract.py -q`
+  - `46 passed`
+- `python -m pytest tests/test_correction_context.py tests/test_recovery_context.py tests/test_skill_selector.py tests/test_skill_escalation_contract.py tests/test_tool_schema_filter.py tests/test_tool_policy_contract.py tests/test_fake_llm_factory.py tests/test_telemetry_breakdown.py tests/test_token_report.py tests/test_recording_codegen_truth_contract.py -q`
+  - `94 passed`
+
+Next step:
+- One controlled paid retry of `tests/e2e/test_llm_required_ambiguous_action_flow.py` only, after user approval.

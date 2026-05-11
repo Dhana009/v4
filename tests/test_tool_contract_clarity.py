@@ -74,6 +74,9 @@ def test_ask_user_schema_makes_clarification_terminal() -> None:
     assert any(phrase in description.lower() for phrase in ("terminal", "required", "must call", "cannot")), (
         "ask_user description must indicate it is required/terminal when clarification is needed"
     )
+    assert "plain text" in description.lower(), (
+        "ask_user description must forbid answering clarification as plain text"
+    )
 
 
 # ---------------------------------------------------------------------------

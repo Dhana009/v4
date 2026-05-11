@@ -2035,6 +2035,8 @@ def test_session_close_writes_empty_token_report_when_telemetry_is_missing(tmp_p
     assert report["total_estimated_input_tokens"] == 0
     assert report["largest_call_id"] is None
     assert report["top_token_source"] == "none"
+    llm_calls = json.loads((tmp_path / "llm-calls.json").read_text(encoding="utf-8"))
+    assert llm_calls == []
 
 
 def test_failure_summary_mentions_expected_and_observed_event_types(tmp_path: Path) -> None:
@@ -2153,6 +2155,84 @@ def test_payload_capture_does_not_expose_raw_secrets(tmp_path: Path) -> None:
     assert "Bearer abc123xyz" not in captured_text, (
         "Bearer token must be redacted from captured assistant text"
     )
+
+
+def test_payload_capture_redacts_tool_call_args_summary() -> None:
+    calls = [
+        {
+            "call_id": "llm_001",
+            "purpose": "step_plan_normalizer",
+            "tool_names": ["ask_user"],
+            "assistant_text": None,
+            "tool_calls": [
+                {
+                    "name": "ask_user",
+                    "args_summary": '{"question":"Use Bearer abc123xyz?","token":"sk-test-secret-1234567890"}',
+                }
+            ],
+            "finish_reason": "tool_calls",
+            "token_usage": {"prompt_tokens": 50, "completion_tokens": 20},
+        },
+    ]
+    artifact = harness.build_llm_calls_artifact(calls)
+
+    args_summary = artifact[0]["tool_calls"][0]["args_summary"] or ""
+    assert "Bearer abc123xyz" not in args_summary
+    assert "sk-test-secret-1234567890" not in args_summary
+
+
+def test_paid_artifact_captures_tool_schema_summary_fields() -> None:
+    calls = [
+        {
+            "call_id": "llm_001",
+            "purpose": "step_plan_normalizer",
+            "model": "gpt-4o-mini",
+            "model_class": "main",
+            "prompt_pack_id": "step_plan_normalizer.v1",
+            "prefix_hash": "deadbeefdeadbeef",
+            "tool_names": ["ask_user", "dom_extract"],
+            "tool_schema": {
+                "tool_count": 2,
+                "tools": [
+                    {"name": "ask_user", "description": "Ask the user", "params": ["question", "options"]},
+                    {"name": "dom_extract", "description": "Read page DOM", "params": ["scope"]},
+                ],
+            },
+            "assistant_text": None,
+            "tool_calls": [],
+            "finish_reason": "stop",
+            "token_usage": {"prompt_tokens": 80, "completion_tokens": 25},
+        },
+    ]
+    artifact = harness.build_llm_calls_artifact(calls)
+
+    assert artifact[0]["model"] == "gpt-4o-mini"
+    assert artifact[0]["model_class"] == "main"
+    assert artifact[0]["prompt_pack_id"] == "step_plan_normalizer.v1"
+    assert artifact[0]["prefix_hash"] == "deadbeefdeadbeef"
+    assert artifact[0]["tool_schema"]["tool_count"] == 2
+    assert artifact[0]["tool_schema"]["tools"][0]["name"] == "ask_user"
+
+
+def test_session_close_writes_llm_calls_artifact_on_failure_before_plan_ready(tmp_path: Path) -> None:
+    backend_stdout = "\n".join([
+        '[LLM_CALL] {"assistant_text":"The token is sk-test-secret-1234567890","call_id":"llm_001","error":{},"finish_reason":"stop","model":"gpt-4o-mini","model_class":"main","prefix_hash":"deadbeefdeadbeef","prompt_pack_id":"step_plan_normalizer.v1","purpose":"step_plan_normalizer","token_usage":{"completion_tokens":12,"prompt_tokens":34},"tool_calls":[{"args_summary":"{\\"auth\\": \\"Bearer abc123xyz\\"}","name":"ask_user"}],"tool_names":["ask_user"],"tool_schema":{"tool_count":1,"tools":[{"description":"Ask the user","name":"ask_user","params":["question","options"]}]}}',
+        "[PHASE] from=planning to=failed reason=planning_no_progress step_id=none",
+        "",
+    ])
+    session = _make_failure_session(tmp_path, backend_stdout_text=backend_stdout)
+
+    asyncio.run(session.close())
+
+    artifact_path = tmp_path / "llm-calls.json"
+    assert artifact_path.exists()
+    records = json.loads(artifact_path.read_text(encoding="utf-8"))
+    assert len(records) == 1
+    assert records[0]["call_id"] == "llm_001"
+    assert "sk-test-secret-1234567890" not in (records[0]["assistant_text"] or "")
+    assert "[REDACTED_TOKEN]" in (records[0]["assistant_text"] or "")
+    assert records[0]["tool_calls"][0]["name"] == "ask_user"
+    assert "Bearer abc123xyz" not in (records[0]["tool_calls"][0]["args_summary"] or "")
 
 
 def test_write_llm_calls_artifact_produces_json_file(tmp_path: Path) -> None:

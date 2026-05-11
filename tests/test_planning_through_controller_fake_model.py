@@ -664,9 +664,9 @@ def test_malformed_controller_response_fails_closed_without_plan_ready_or_execut
 
     asyncio.run(loop.run([_make_current_step()]))
 
-    assert sent_messages == [
-        ("llm_result", {"success": True, "message": json.dumps(MALFORMED_RESPONSE)})
-    ]
+    assert sent_messages, "malformed content-only planning output must produce a terminal failure"
+    assert sent_messages[0][0] == "runtime_rejected"
+    assert sent_messages[0][1]["rejection_code"] == "PLANNING_NO_PROGRESS"
 
 
 def test_repeated_llm_thinking_stops_before_harness_timeout(monkeypatch) -> None:

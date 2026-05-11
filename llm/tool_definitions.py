@@ -287,7 +287,8 @@ class ToolDefinitions:
                         "or required data is ambiguous — for example, when multiple plausible targets "
                         "exist on the page and you cannot safely choose one. "
                         "Do not continue DOM exploration after ambiguity is established. "
-                        "Call ask_user immediately with one precise question listing the options."
+                        "Call ask_user immediately with one precise question listing the options. "
+                        "Do not answer clarification as plain text."
                     ),
                     "parameters": {
                         "type": "object",

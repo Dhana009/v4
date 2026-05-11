@@ -28,6 +28,7 @@ from runtime.skill_selector import select_skills_for_purpose
 from runtime.telemetry import _format_telemetry_line, record_model_call_end, record_model_call_start
 from runtime.token_report import build_token_report, parse_telemetry_line
 from runtime.tool_schema_policy import planning_tools_for_purpose, recovery_tools_for_purpose
+from tests.e2e import harness as e2e_harness
 
 
 class FakeTelemetrySink:
@@ -594,6 +595,15 @@ def test_ask_user_and_plan_ready_terminal_clarity_present() -> None:
     assert any(word in description.lower() for word in ("ambiguous", "unclear", "multiple", "clarif")), (
         "ask_user description must reference ambiguous/unclear intent as its trigger"
     )
+    assert "plain text" in description.lower(), (
+        "ask_user description must forbid plain-text clarification replies"
+    )
+
+
+def test_llm_calls_artifact_requirement_writes_even_empty_file(tmp_path) -> None:
+    e2e_harness.write_llm_calls_artifact(tmp_path, [])
+    payload = json.loads((tmp_path / "llm-calls.json").read_text(encoding="utf-8"))
+    assert payload == []
 
 
 def test_llm_thinking_non_terminal_limited() -> None:

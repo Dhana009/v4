@@ -155,6 +155,7 @@ def _make_agent_loop() -> AgentLoop:
     loop.last_plan_summary = None
     loop.last_plan_original_user_intent = None
     loop._planning_loop_guard_state = PlanningLoopGuardState()
+    loop._pending_planning_ambiguity = None
     loop._active_plan_state = None
     loop._active_plan_correction_state = None
     loop._run_completion_requested = False
@@ -235,11 +236,24 @@ def _install_common_run_stubs(
             return {"url": "http://example.test/ambiguous.html", "title": "Ambiguous Actions Fixture"}
         if tool_name == "dom_extract":
             return {
-                "page": "Ambiguous Actions Fixture",
-                "headings": ["Profile Settings", "Billing Profile", "Shipping Profile"],
-                "ctas": [],
+                "elements": "Profile Settings Billing Profile Shipping Profile",
+                "page_intelligence": {
+                    "headings": ["Profile Settings", "Billing Profile", "Shipping Profile"],
+                    "sections": ["Billing Profile", "Shipping Profile"],
+                    "ambiguities": ["Multiple profile sections are present"],
+                },
             }
         return {"success": True, "result": f"stub:{tool_name}"}
+
+    async def fake_tool_ask_user(args: dict[str, Any]) -> dict[str, Any]:
+        sent_messages.append((
+            "clarification_needed",
+            {
+                "question": str(args.get("question") or ""),
+                "options": list(args.get("options") or []),
+            },
+        ))
+        return {"answer": "Billing Profile", "event_type": "option_selected", "success": True}
 
     loop._reset_lifecycle_state = fake_reset_lifecycle_state
     loop._prepare_recording_steps = lambda steps: None
@@ -252,6 +266,7 @@ def _install_common_run_stubs(
     loop._should_request_user_followup = lambda final_text, pending: False
     loop._current_confirmed_execution_cursor = lambda: None
     loop._dispatch_tool = fake_dispatch_tool
+    loop._tool_ask_user = fake_tool_ask_user
 
 
 def _make_current_step() -> dict[str, Any]:
@@ -280,10 +295,8 @@ def test_adversarial_dom_exploration_sequence_terminates_without_timeout(monkeyp
       turn 4: plain text assistant message, no tool call
 
     Expected:
-    - backend terminates deterministically (no hang, no timeout)
-    - result is runtime_rejected PLANNING_NO_PROGRESS (guard fires on turn 4 which is
-      non-terminal after the guard is fixed to treat content-only as non-terminal)
-      OR ask_user triggered
+    - ambiguity evidence routes to clarification before any success lifecycle
+    - content-only planning stays non-terminal
     - no step_recorded, no code_update, no run_completed emitted
     - no pre-confirm browser action dispatched
     """
@@ -347,22 +360,46 @@ def test_adversarial_dom_exploration_sequence_terminates_without_timeout(monkeyp
 
     message_types = [mt for mt, _ in sent_messages]
 
-    # Must terminate with runtime_rejected PLANNING_NO_PROGRESS
-    # (content-only turn 4 must be non-terminal so guard fires)
-    assert "runtime_rejected" in message_types, (
-        f"Expected runtime_rejected but got: {message_types}"
+    assert "clarification_needed" in message_types, (
+        f"Expected clarification_needed but got: {message_types}"
     )
-    rejection_payload = next(
-        payload for mt, payload in sent_messages if mt == "runtime_rejected"
+    clarification_payload = next(
+        payload for mt, payload in sent_messages if mt == "clarification_needed"
     )
-    assert rejection_payload["rejection_code"] == "PLANNING_NO_PROGRESS"
-    assert rejection_payload["recoverable"] is False
+    assert "Multiple plausible targets were found" in clarification_payload["question"]
+    assert clarification_payload["options"] == [
+        "Profile Settings",
+        "Billing Profile",
+        "Shipping Profile",
+    ]
 
     # No execution events
     assert "step_recorded" not in message_types
     assert "code_update" not in message_types
     assert "run_completed" not in message_types
     assert "plan_ready" not in message_types
+
+
+def test_ambiguous_dom_extract_builds_explicit_ask_user_instruction() -> None:
+    loop = _make_agent_loop()
+
+    loop._update_planning_ambiguity_from_tool_result(
+        "dom_extract",
+        {
+            "page_intelligence": {
+                "headings": ["Profile Settings", "Billing Profile", "Shipping Profile"],
+                "sections": ["Billing Profile", "Shipping Profile"],
+            }
+        },
+    )
+
+    instruction = loop._build_pending_ambiguity_instruction()
+
+    assert instruction is not None
+    assert "Multiple plausible targets were found" in instruction
+    assert "Call ask_user with options" in instruction
+    assert "Do not continue DOM exploration" in instruction
+    assert "Do not answer in plain text" in instruction
 
 
 # ---------------------------------------------------------------------------

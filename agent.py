@@ -209,6 +209,7 @@ class AgentLoop:
         self.last_plan_summary: str | None = None
         self.last_plan_original_user_intent: str | None = None
         self._planning_loop_guard_state: PlanningLoopGuardState = PlanningLoopGuardState()
+        self._pending_planning_ambiguity: dict[str, Any] | None = None
         self._active_plan_state: dict[str, Any] | None = None
         self._active_plan_correction_state: dict[str, Any] | None = None
         self._plan_correction_pending = False
@@ -287,6 +288,7 @@ class AgentLoop:
         self._active_plan_correction_state = None
         self._plan_correction_pending = False
         self._planning_loop_guard_state = PlanningLoopGuardState()
+        self._pending_planning_ambiguity = None
         self._clear_confirmed_execution_contract_state()
         self.capability_gaps = []
         self.recorded_step_payloads = []
@@ -1763,6 +1765,19 @@ class AgentLoop:
                         error_type=type(exc).__name__,
                         error_message=str(exc),
                     )
+                    self._emit_llm_call_record(
+                        call_id=call_id,
+                        purpose=effective_purpose,
+                        model=model,
+                        model_class=_s5_model_class,
+                        filtered_tools=filtered_tools,
+                        telemetry=telemetry,
+                        response=None,
+                        error={
+                            "type": type(exc).__name__,
+                            "message": str(exc),
+                        },
+                    )
                     raise
                 record_model_call_end(
                     telemetry,
@@ -1770,6 +1785,15 @@ class AgentLoop:
                     response_usage=getattr(response, "usage", None),
                 )
                 message = response.choices[0].message
+                self._emit_llm_call_record(
+                    call_id=call_id,
+                    purpose=effective_purpose,
+                    model=model,
+                    model_class=_s5_model_class,
+                    filtered_tools=filtered_tools,
+                    telemetry=telemetry,
+                    response=response,
+                )
                 if effective_purpose == "step_plan_normalizer":
                     guard_state = getattr(self, "_planning_loop_guard_state", None)
                     guard_result = advance_planning_loop_guard(
@@ -1778,6 +1802,40 @@ class AgentLoop:
                         purpose=effective_purpose,
                     )
                     self._planning_loop_guard_state = guard_result.state
+                    ambiguity_context = getattr(self, "_pending_planning_ambiguity", None)
+                    if (
+                        isinstance(ambiguity_context, dict)
+                        and self._should_force_ambiguity_clarification(message)
+                    ):
+                        self.llm.messages.append(self._assistant_message_entry(message))
+                        answer = await self._tool_ask_user({
+                            "question": str(ambiguity_context.get("question") or "").strip(),
+                            "options": list(ambiguity_context.get("options") or []),
+                        })
+                        answer_text = str(answer.get("answer") or "").strip()
+                        self.llm.messages.append({
+                            "role": "user",
+                            "content": self._build_ambiguity_followup_message(ambiguity_context, answer_text),
+                        })
+                        self._pending_planning_ambiguity = None
+                        print("[AGENT] ambiguity clarification forced from DOM evidence")
+                        continue
+                    if not guard_result.should_stop and guard_result.inspection.thinking_only:
+                        self.llm.messages.append(self._assistant_message_entry(message))
+                        self.llm.messages.append({
+                            "role": "user",
+                            "content": (
+                                "You have sent a thinking message. Now you MUST call either:\n"
+                                "  send_to_overlay(message_type='plan_ready', payload={...}) — to submit your plan, or\n"
+                                "  ask_user(question='...') — if intent is still ambiguous.\n"
+                                "Do not send another llm_thinking. Produce your terminal planning output now."
+                            ),
+                        })
+                        ambiguity_instruction = self._build_pending_ambiguity_instruction()
+                        if ambiguity_instruction:
+                            self.llm.messages.append({"role": "user", "content": ambiguity_instruction})
+                        print("[AGENT] planning convergence pressure: injected after llm_thinking turn")
+                        continue
                     if guard_result.should_stop:
                         self.phase_tracker.set_phase(
                             "failed",
@@ -1812,6 +1870,18 @@ class AgentLoop:
 
                 if not message.tool_calls:
                     final_text = (message.content or "").strip()
+                    if effective_purpose == "step_plan_normalizer":
+                        retry_message = (
+                            "Do not answer planning in plain text. "
+                            "Call send_to_overlay(message_type='plan_ready', payload={...}) when the plan is complete, "
+                            "or call ask_user(question='...') when the target or required data is still ambiguous."
+                        )
+                        self.llm.messages.append({"role": "user", "content": retry_message})
+                        ambiguity_instruction = self._build_pending_ambiguity_instruction()
+                        if ambiguity_instruction:
+                            self.llm.messages.append({"role": "user", "content": ambiguity_instruction})
+                        print("[AGENT] planning schema retry: plain-text response is non-terminal")
+                        continue
                     if isinstance(correction_mode, dict) and not correction_mode.get("correction_failed"):
                         correction_mode["no_progress_count"] = int(correction_mode.get("no_progress_count") or 0) + 1
                         schema_retry_count = int(correction_mode.get("schema_retry_count") or 0) + 1
@@ -2121,6 +2191,7 @@ class AgentLoop:
 
                     result = await self._dispatch_tool(tool_name, args)
                     print(f"[TOOL RESULT] {self._summarize(result, limit=100)}")
+                    self._update_planning_ambiguity_from_tool_result(tool_name, result)
                     step_context = self._resolve_step_context(tool_name, args, result)
                     tool_failed = result.get("success") is False and not result.get("skipped") and (
                         self._is_browser_state_tool(tool_name) or tool_name == "ask_user"
@@ -8233,6 +8304,201 @@ class AgentLoop:
                 for tool_call in message.tool_calls
             ]
         return entry
+
+    def _safe_llm_artifact_text(self, value: Any) -> str:
+        text = str(value or "")
+        text = re.sub(r"\bsk-[A-Za-z0-9-]+\b", "[REDACTED_TOKEN]", text)
+        text = re.sub(r"\bBearer\s+[A-Za-z0-9._-]+\b", "[REDACTED_BEARER]", text)
+        return text
+
+    def _llm_tool_names(self, tools: list[dict[str, Any]]) -> list[str]:
+        names: list[str] = []
+        for tool in tools:
+            function = tool.get("function") if isinstance(tool, dict) else {}
+            if not isinstance(function, dict):
+                continue
+            name = str(function.get("name") or "").strip()
+            if name:
+                names.append(name)
+        return names
+
+    def _llm_tool_schema_summary(self, tools: list[dict[str, Any]]) -> dict[str, Any]:
+        normalized_tools: list[dict[str, Any]] = []
+        for tool in tools:
+            function = tool.get("function") if isinstance(tool, dict) else {}
+            if not isinstance(function, dict):
+                continue
+            parameters = function.get("parameters")
+            properties = parameters.get("properties") if isinstance(parameters, dict) else {}
+            normalized_tools.append({
+                "name": str(function.get("name") or "").strip(),
+                "description": self._safe_llm_artifact_text(function.get("description") or ""),
+                "params": sorted(str(key) for key in properties.keys()) if isinstance(properties, dict) else [],
+            })
+        return {
+            "tool_count": len(normalized_tools),
+            "tools": normalized_tools,
+        }
+
+    def _llm_tool_call_summaries(self, message: Any) -> list[dict[str, Any]]:
+        summaries: list[dict[str, Any]] = []
+        for tool_call in list(getattr(message, "tool_calls", []) or []):
+            function = getattr(tool_call, "function", None)
+            name = str(getattr(function, "name", "") or "").strip()
+            arguments = getattr(function, "arguments", "") or ""
+            parsed_arguments = self._parse_tool_args(arguments) if isinstance(arguments, str) else {}
+            summaries.append({
+                "name": name,
+                "args_summary": self._safe_llm_artifact_text(json.dumps(parsed_arguments, sort_keys=True)),
+            })
+        return summaries
+
+    def _llm_token_usage_summary(self, response: Any) -> dict[str, Any]:
+        usage = getattr(response, "usage", None)
+        if usage is None:
+            return {}
+        prompt_tokens_details = getattr(usage, "prompt_tokens_details", None)
+        cached_tokens = getattr(prompt_tokens_details, "cached_tokens", None) if prompt_tokens_details is not None else None
+        return {
+            "prompt_tokens": getattr(usage, "prompt_tokens", None),
+            "completion_tokens": getattr(usage, "completion_tokens", None),
+            "total_tokens": getattr(usage, "total_tokens", None),
+            "cached_tokens": cached_tokens,
+        }
+
+    def _emit_llm_call_record(
+        self,
+        *,
+        call_id: str,
+        purpose: str,
+        model: str,
+        model_class: str | None,
+        filtered_tools: list[dict[str, Any]],
+        telemetry: Any,
+        response: Any,
+        error: dict[str, Any] | None = None,
+    ) -> None:
+        try:
+            choice = response.choices[0] if response is not None and getattr(response, "choices", None) else None
+            message = choice.message if choice is not None else None
+            assistant_text = None
+            if message is not None and not list(getattr(message, "tool_calls", []) or []):
+                assistant_text = self._safe_llm_artifact_text(getattr(message, "content", "") or "")
+            record = {
+                "call_id": call_id,
+                "purpose": purpose,
+                "model": model,
+                "model_class": model_class,
+                "prompt_pack_id": getattr(telemetry, "prompt_pack_id", None),
+                "prefix_hash": getattr(telemetry, "prefix_hash", None),
+                "tool_names": self._llm_tool_names(filtered_tools),
+                "tool_schema": self._llm_tool_schema_summary(filtered_tools),
+                "assistant_text": assistant_text,
+                "tool_calls": self._llm_tool_call_summaries(message) if message is not None else [],
+                "finish_reason": getattr(choice, "finish_reason", None),
+                "token_usage": self._llm_token_usage_summary(response),
+                "error": error or {},
+            }
+            print(f"[LLM_CALL] {json.dumps(record, sort_keys=True)}")
+        except Exception as exc:  # noqa: BLE001
+            fallback = {
+                "call_id": call_id,
+                "purpose": purpose,
+                "error": {
+                    "type": type(exc).__name__,
+                    "message": str(exc),
+                },
+            }
+            print(f"[LLM_CALL] {json.dumps(fallback, sort_keys=True)}")
+
+    def _profile_heading_options_from_result(self, result: dict[str, Any]) -> list[str]:
+        candidates: list[str] = []
+        headings = result.get("headings")
+        if isinstance(headings, list):
+            candidates.extend(str(item or "").strip() for item in headings)
+        page_intelligence = result.get("page_intelligence")
+        if isinstance(page_intelligence, dict):
+            for key in ("headings", "sections"):
+                values = page_intelligence.get(key)
+                if isinstance(values, list):
+                    candidates.extend(str(item or "").strip() for item in values)
+        normalized: list[str] = []
+        for candidate in candidates:
+            if not candidate or "profile" not in candidate.lower():
+                continue
+            if candidate not in normalized:
+                normalized.append(candidate)
+        return normalized
+
+    def _build_ambiguity_question(self, options: list[str]) -> str:
+        option_text = ", ".join(options[:4])
+        return (
+            "Multiple plausible targets were found. Which Profile section did you mean? "
+            f"Choose one of: {option_text}."
+        )
+
+    def _update_planning_ambiguity_from_tool_result(self, tool_name: str, result: dict[str, Any]) -> None:
+        current_phase = str(self._current_phase() or "").strip()
+        fallback_phase = str(getattr(self, "phase", "") or "").strip()
+        if tool_name != "dom_extract" or self.plan_confirmed:
+            return
+        if current_phase != "planning" and fallback_phase != "planning":
+            return
+        if not isinstance(result, dict):
+            return
+        options = self._profile_heading_options_from_result(result)
+        if len(options) < 2:
+            return
+        self._pending_planning_ambiguity = {
+            "options": options,
+            "question": self._build_ambiguity_question(options),
+        }
+
+    def _build_pending_ambiguity_instruction(self) -> str | None:
+        ambiguity = getattr(self, "_pending_planning_ambiguity", None)
+        if not isinstance(ambiguity, dict):
+            return None
+        options = [str(option).strip() for option in ambiguity.get("options") or [] if str(option).strip()]
+        if len(options) < 2:
+            return None
+        return (
+            "Multiple plausible targets were found. Call ask_user with options. "
+            "Do not continue DOM exploration. Do not answer in plain text. "
+            f"Options: {', '.join(options[:4])}."
+        )
+
+    def _should_force_ambiguity_clarification(self, message: Any) -> bool:
+        ambiguity = getattr(self, "_pending_planning_ambiguity", None)
+        if not isinstance(ambiguity, dict):
+            return False
+        raw_tool_calls = list(getattr(message, "tool_calls", []) or [])
+        if raw_tool_calls:
+            tool_names = {
+                str(getattr(getattr(tool_call, "function", None), "name", "") or "").strip()
+                for tool_call in raw_tool_calls
+            }
+            if "ask_user" in tool_names:
+                return False
+            if "send_to_overlay" in tool_names:
+                for tool_call in raw_tool_calls:
+                    function = getattr(tool_call, "function", None)
+                    if str(getattr(function, "name", "") or "").strip() != "send_to_overlay":
+                        continue
+                    arguments = getattr(function, "arguments", "") or ""
+                    payload = self._parse_tool_args(arguments) if isinstance(arguments, str) else {}
+                    message_type = str(payload.get("message_type") or "").strip()
+                    if message_type == "plan_ready":
+                        return False
+        return True
+
+    def _build_ambiguity_followup_message(self, ambiguity_context: dict[str, Any], answer_text: str) -> str:
+        options = [str(option).strip() for option in ambiguity_context.get("options") or [] if str(option).strip()]
+        selected = answer_text or "no selection provided"
+        return (
+            f"User clarification: {selected}. "
+            f"Available options were: {', '.join(options[:4])}. "
+            "Continue planning safely from this clarified target."
+        )
 
     def _parse_tool_args(self, raw_args: str) -> dict[str, Any]:
         parsed = json.loads(raw_args or "{}")
