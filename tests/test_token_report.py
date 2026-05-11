@@ -200,6 +200,15 @@ def test_token_report_includes_model_classes():
     assert "main" in report["model_classes"]
 
 
+def test_token_report_preserves_model_and_model_class_separately():
+    records = parse_telemetry_lines(_S5_LINE_WITH_ATTRIBUTION)
+    report = build_token_report(records, test_name="s5_attribution")
+    assert report["records"]
+    first_record = report["records"][0]
+    assert first_record["model"] == "gpt-4o-mini"
+    assert first_record["model_class"] == "main"
+
+
 def test_token_report_includes_context_buckets():
     records = parse_telemetry_lines(_S5_LINE_WITH_ATTRIBUTION)
     report = build_token_report(records, test_name="s5_attribution")

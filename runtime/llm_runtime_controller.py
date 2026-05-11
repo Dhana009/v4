@@ -12,6 +12,7 @@ from runtime.prompt_pack_builder import (
     build_recovery_diagnoser_dynamic_context,
     build_step_plan_normalizer_dynamic_context,
 )
+from runtime.model_router import resolve_model_name
 from runtime.prompt_packs import apply_prompt_pack_to_messages
 from runtime.skill_selector import build_skill_prompt, select_skills_for_purpose
 from runtime.telemetry import estimate_messages_tokens, estimate_tools_tokens
@@ -581,6 +582,39 @@ class LLMRuntimeController:
     def _select_telemetry_sink(self, telemetry_sink: Any | None) -> Any | None:
         return telemetry_sink if telemetry_sink is not None else self.telemetry_sink
 
+    def _resolve_provider_model(
+        self,
+        *,
+        model: str | None,
+        resolved_policy: Mapping[str, Any],
+    ) -> str:
+        configured_models = getattr(self.model_router, "configured_models", None)
+        default_model = getattr(self.model_router, "default_model", None)
+        configured_models_map = (
+            configured_models if isinstance(configured_models, Mapping) else None
+        )
+        default_model_name = default_model if isinstance(default_model, str) else None
+
+        explicit_model = str(model).strip() if model is not None else ""
+        if explicit_model and explicit_model not in {"main", "cheap", "debug"}:
+            return explicit_model
+
+        model_candidate = model
+        if model_candidate is None:
+            model_candidate = _value(
+                resolved_policy,
+                "model",
+                "model_class",
+                "model_route",
+                "model_tier",
+                default=None,
+            )
+        return resolve_model_name(
+            model_candidate,
+            configured_models=configured_models_map,
+            default_model=default_model_name,
+        )
+
     def _apply_skill_selection(
         self,
         *,
@@ -1141,7 +1175,7 @@ class LLMRuntimeController:
             if normalized_purpose == "main_orchestrator":
                 resolved_client = None
 
-        resolved_model = str(model or _value(resolved_policy, "model", "model_class", default="unknown"))
+        resolved_model = self._resolve_provider_model(model=model, resolved_policy=resolved_policy)
         token_budget = int(_value(resolved_policy, "token_budget", "budget", default=0) or 0)
         context_policy_value = _value(resolved_policy, "context_policy", "context", default={})
         context_level = str(_value(context_policy_value, "context_level", "level", "mode", "context_mode", default="compact"))
@@ -1586,7 +1620,7 @@ class LLMRuntimeController:
             if normalized_purpose == "main_orchestrator":
                 resolved_client = None
 
-        resolved_model = str(model or _value(resolved_policy, "model", "model_class", default="unknown"))
+        resolved_model = self._resolve_provider_model(model=model, resolved_policy=resolved_policy)
         token_budget = int(_value(resolved_policy, "token_budget", "budget", default=0) or 0)
         context_policy_value = _value(resolved_policy, "context_policy", "context", default={})
         context_level = str(_value(context_policy_value, "context_level", "level", "mode", "context_mode", default="compact"))

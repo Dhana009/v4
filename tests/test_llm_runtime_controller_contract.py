@@ -622,6 +622,41 @@ def test_controller_call_with_raw_response_preserves_tool_calls() -> None:
     assert recorder.calls[0]["kind"] == "client"
 
 
+def test_controller_call_with_raw_response_resolves_main_model_class_to_provider_model() -> None:
+    contract = _load_controller_contract()
+    recorder = FakeCallRecorder(responses=[_response("plan ready")])
+    dependencies = _controller_dependencies(recorder, contract.registry)
+    controller = _resolve_controller_target(contract.target, dependencies)
+    call = getattr(controller, "call_with_raw_response", None)
+    assert callable(call), "LLMRuntimeController must expose call_with_raw_response for planning"
+
+    result = asyncio.run(
+        call(
+            purpose="step_plan_normalizer",
+            messages=[{"role": "user", "content": "Plan the next step"}],
+            phase="planning",
+            context_mode="compact",
+            tools=[
+                {"type": "function", "function": {"name": "send_to_overlay"}},
+                {"type": "function", "function": {"name": "ask_user"}},
+                {"type": "function", "function": {"name": "dom_extract"}},
+            ],
+            tool_choice="auto",
+            client=dependencies["client"],
+        )
+    )
+
+    assert recorder.calls
+    assert recorder.calls[0]["kind"] == "client"
+    assert recorder.calls[0]["payload"]["model"] == "gpt-4o-mini"
+    assert result["model"] == "gpt-4o-mini"
+    assert result["validation_status"] == "raw_response_preserved"
+    assert dependencies["telemetry_sink"].records
+    telemetry_record = dependencies["telemetry_sink"].records[-1]
+    assert telemetry_record["model"] == "gpt-4o-mini"
+    assert telemetry_record["prompt_pack_id"] == "step_plan_normalizer.v1"
+
+
 def test_controller_call_with_raw_response_preserves_tool_calls_when_content_is_none() -> None:
     contract = _load_controller_contract()
     recorder = FakeCallRecorder(
