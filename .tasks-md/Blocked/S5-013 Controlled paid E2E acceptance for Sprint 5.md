@@ -302,3 +302,49 @@ Retry attribution:
 Retry interpretation:
 - What this proves: the live path is no longer failing on raw-response plumbing, model routing, or tool-call payload validity.
 - What remains: the ambiguous planning flow is still not converging to `plan_ready` or clarification and instead loops on `llm_thinking`, so the paid acceptance is still blocked by a distinct runtime/product issue.
+
+## Controlled retry after BUG-S5-013-004
+
+Retry status: Blocked
+
+Retry paid E2E scope:
+- `tests/e2e/test_llm_required_ambiguous_action_flow.py`
+- One live-LLM retry only; no second paid flow and no rerun after failure
+
+Retry command:
+- `python -m pytest tests/e2e/test_llm_required_ambiguous_action_flow.py -q`
+
+Retry artifact path:
+- `test-results/autoworkbench-e2e/llm_required_ambiguous_action_flow-20260511-152632-66463/`
+
+Retry results:
+- The live flow reached the model and then timed out waiting for plan review or clarification.
+- Backend logs show the planning loop stopped with `[PHASE] from=planning to=failed reason=planning_no_progress step_id=none`.
+- `failure-context.json` shows `stage=llm_response_seen`, `reason=Timed out waiting for plan review or clarification`, `llm_triggered=true`, and `observed_event_types=[]`.
+- The live run therefore bounded the loop, but the harness still did not receive a surfaced terminal signal it could treat as complete.
+- No second paid flow was run because the first live LLM call already failed and the stop condition was hit.
+
+Retry token comparison:
+
+| Metric | Baseline | Retry result | Delta | Pass? |
+|---|---:|---:|---:|---|
+| Input tokens | 4442 | 10817 | +6375 (+143.5%) | No |
+| Output tokens | 62 | 111 | +49 (+79.0%) | No |
+| System bucket | ~3496 | 3360 | -136 (-3.9%) | No |
+| Skill bucket | ~3398 | 6796 | +3398 (+100.0%) | No |
+| Tool schema bucket | ~410 | 2336 | +1926 (+469.8%) | No |
+| History bucket | ~495 | 997 | +502 (+101.4%) | No |
+| DOM/tool bucket | ~4 | 191 | +187 (+4675.0%) | No |
+
+Retry attribution:
+- prompt_pack_ids: `step_plan_normalizer.v1`
+- prefix_hash: `657eb55c3207eee9`
+- skills_loaded: `core,actions,download`
+- skill_levels: `skill_summary`
+- cached_tokens: `2304`
+- purposes: `step_plan_normalizer`
+- model_classes: `main`
+
+Retry interpretation:
+- What this proves: BUG-S5-013-004 bounded the planning loop, because the backend now exits with `planning_no_progress` instead of running until a longer timeout.
+- What remains: the no-progress stop is not yet surfacing as a terminal runtime event the harness accepts, so the paid acceptance is still blocked by a surface-contract issue rather than an infinite loop.
