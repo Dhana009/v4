@@ -1775,14 +1775,100 @@ class LLMRuntimeController:
             )
             return failure_result
 
-        response = await self._call_model(
-            purpose=normalized_purpose,
-            model=resolved_model,
-            messages=list(prepared_messages),
-            tools=exposed_tools or None,
-            tool_choice=tool_choice,
-            client=resolved_client,
-        )
+        def _build_call_failure_result(
+            *,
+            validation_status: str,
+            error_code: str,
+            error_message: str,
+            error_type: str | None = None,
+        ) -> dict[str, Any]:
+            failure_result = self._build_result(
+                purpose=normalized_purpose,
+                policy=resolved_policy,
+                model=resolved_model,
+                model_called=True,
+                validation_status=validation_status,
+                retry_count=0,
+                parsed_output=None,
+                errors=[error_type or error_code],
+                backend_applied=False,
+                skill_count=skill_count if skill_count else len(loaded_skill_names),
+                tool_count=tool_count,
+                tools_exposed_count=tool_count,
+                skills_loaded=loaded_skill_names,
+                skill_levels=skill_levels,
+                context_mode=effective_context_mode,
+                context_level=context_level,
+                token_budget=token_budget,
+                call_id=call_id,
+                estimated_input_tokens=estimated_input_tokens,
+                estimated_output_tokens=None,
+                latency_ms=max(0, int((time.perf_counter() - started_at) * 1000)),
+                schema_id=schema_id,
+                schema_version=schema_version,
+                error_code=error_code,
+            )
+            failure_result = self._apply_prompt_pack_result_metadata(
+                failure_result,
+                prompt_pack_metadata,
+                estimated_total_input_tokens=estimated_input_tokens,
+            )
+            failure_result["raw_response"] = None
+            failure_result["raw_message"] = None
+            failure_result["content"] = None
+            failure_result["tool_calls"] = []
+            failure_result["message"] = error_message
+            if error_type is not None:
+                failure_result["error_type"] = error_type
+            self._emit_telemetry(
+                resolved_telemetry_sink,
+                ControllerTelemetry(
+                    call_id=call_id,
+                    purpose=normalized_purpose,
+                    model=resolved_model,
+                    skill_count=failure_result["skill_count"],
+                    skills_loaded=list(loaded_skill_names),
+                    skill_levels=list(skill_levels),
+                    tool_count=tool_count,
+                    tools_exposed_count=tool_count,
+                    context_mode=effective_context_mode,
+                    context_level=context_level,
+                    token_budget=token_budget,
+                    estimated_input_tokens=estimated_input_tokens,
+                    estimated_output_tokens=None,
+                    retry_count=0,
+                    validation_status=validation_status,
+                    latency_ms=failure_result["telemetry_fields"]["latency_ms"],
+                    schema_id=schema_id,
+                    schema_version=schema_version,
+                    error_code=error_code,
+                ),
+                prompt_pack_metadata,
+            )
+            return failure_result
+
+        try:
+            response = await self._call_model(
+                purpose=normalized_purpose,
+                model=resolved_model,
+                messages=list(prepared_messages),
+                tools=exposed_tools or None,
+                tool_choice=tool_choice,
+                client=resolved_client,
+            )
+        except Exception as exc:  # noqa: BLE001
+            return _build_call_failure_result(
+                validation_status="retry_failed",
+                error_code="MODEL_CALL_FAILED",
+                error_message=str(exc),
+                error_type=type(exc).__name__,
+            )
+        if response is None:
+            return _build_call_failure_result(
+                validation_status="invalid",
+                error_code="EMPTY_MODEL_RESPONSE",
+                error_message="model client returned no response",
+            )
         message = _message_from_response(response)
         content = _content_from_message(message)
         tool_calls = _tool_calls_from_message(message)

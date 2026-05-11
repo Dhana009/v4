@@ -1693,6 +1693,29 @@ class AgentLoop:
                         self._sync_controller_prompt_pack_telemetry(telemetry, controller_result)
                         response = controller_result.get("raw_response")
                         if response is None:
+                            failure_detail_parts: list[str] = []
+                            for key in ("error_code", "message", "validation_status"):
+                                value = controller_result.get(key)
+                                if value not in (None, "", [], {}, ()):
+                                    text = str(value).strip()
+                                    if text and text not in failure_detail_parts:
+                                        failure_detail_parts.append(text)
+                            errors = controller_result.get("errors")
+                            if isinstance(errors, (list, tuple, set)):
+                                for item in errors:
+                                    text = str(item).strip()
+                                    if text and text not in failure_detail_parts:
+                                        failure_detail_parts.append(text)
+                            elif errors not in (None, "", [], {}, ()):
+                                text = str(errors).strip()
+                                if text and text not in failure_detail_parts:
+                                    failure_detail_parts.append(text)
+                            failure_detail = " | ".join(failure_detail_parts)
+                            if failure_detail:
+                                raise RuntimeError(
+                                    "step_plan_normalizer controller did not return raw_response: "
+                                    f"{failure_detail}"
+                                )
                             raise RuntimeError(
                                 "step_plan_normalizer controller did not return raw_response"
                             )
