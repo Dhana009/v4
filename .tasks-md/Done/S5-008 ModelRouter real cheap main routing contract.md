@@ -1,11 +1,52 @@
 # S5-008 ModelRouter real cheap/main routing contract
 
-Status: Planning
+Status: Done
 Sprint: Sprint 5
 Type: Story
-Owner:
+Owner: Dhanunjaya
+Closed: 2026-05-12
 Priority: P1
 Source docs: PRD v2.3 07_MULTI_MODEL_ORCHESTRATION.md, runtime/model_router.py
+
+## Resolution
+
+Extended `runtime/model_router.py`:
+- Added `ModelResolution` dataclass exposing `requested`, `resolved_model`, `fallback_used`, `fallback_chain`.
+- Added `resolve_model()` returning resolution metadata.
+- Added `ModelRouter.resolve()`, `.resolve_model_name()`, `.resolve_for_purpose()`, `.last_resolution`.
+- Added `strict=True` mode that fails closed for `cheap`/`debug` when not configured.
+- Added `purpose_model_classes` map to resolve by purpose.
+- Extended `[MODEL_ROUTER]` log line with `requested=`, `fallback_used=`, `chain=` fields for observability.
+
+Existing behavior preserved:
+- Default routing still resolves to `gpt-4o-mini` when nothing configured.
+- Internal `main` / `cheap` / `debug` classes still resolve to configured providers with deterministic fallback chain.
+- Explicit provider names (e.g. `gpt-4o-mini`) still pass through.
+- Unknown class names still raise `ValueError` (fail closed).
+
+## Tests
+
+`tests/test_model_router.py` — 19 tests, all passing:
+- `test_resolve_model_debug_falls_back_to_main_when_not_configured`
+- `test_resolve_model_cheap_uses_explicit_configured_cheap_model`
+- `test_resolve_model_strict_cheap_fails_when_unconfigured`
+- `test_resolve_model_strict_debug_fails_when_unconfigured`
+- `test_resolve_model_returns_resolution_metadata`
+- `test_model_router_records_last_resolution`
+- `test_model_router_resolve_for_purpose_uses_registered_class`
+- `test_model_router_resolve_for_purpose_rejects_unknown_purpose`
+- `test_model_router_strict_mode_fails_cheap_without_config`
+- `test_model_router_call_logs_resolution_metadata`
+- `test_model_router_call_resolves_cheap_to_configured_cheap_provider`
+- plus 8 pre-existing tests still passing
+
+Sprint 5 regression suite (`test_sprint5_llm_runtime_guardrails.py`, `test_tool_policy_contract.py`, `test_tool_schema_filter.py`, `test_llm_runtime_controller_contract.py`): 54 tests passing.
+
+## Evidence
+
+- `runtime/model_router.py` (extended)
+- `tests/test_model_router.py` (11 new tests)
+- No paid LLM, no live calls, no controller wiring change.
 
 ## Problem / Goal
 

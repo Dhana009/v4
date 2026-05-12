@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Nested Cards Fixture</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 32px; color: #1f2937; }
+      .card { border: 1px solid #cbd5e1; border-radius: 12px; padding: 20px; margin: 12px 0; }
+      .card .card { background: #f1f5f9; }
+      .card .card .card { background: #e2e8f0; }
+      button { padding: 6px 12px; margin-right: 6px; }
+      input { padding: 6px 8px; margin: 4px 0; }
+    </style>
+  </head>
+  <body>
+    <h1>Nested Cards Fixture</h1>
+    <article class="card" data-testid="outer-card" aria-label="Order">
+      <h2>Order #1024</h2>
+      <p>Top-level order card.</p>
+      <button data-testid="outer-edit" aria-label="Edit order">Edit</button>
+      <button data-testid="outer-cancel" aria-label="Cancel order">Cancel</button>
+      <section class="card" data-testid="inner-card-items" aria-label="Items">
+        <h3>Items</h3>
+        <form data-testid="inner-form-items" aria-label="Add item">
+          <label>SKU <input data-testid="item-sku" name="sku" /></label>
+          <label>Qty <input data-testid="item-qty" name="qty" type="number" /></label>
+          <button data-testid="inner-add" aria-label="Add item">Add</button>
+        </form>
+        <section class="card" data-testid="deep-card" aria-label="Deep item">
+          <h4>Discount</h4>
+          <form data-testid="deep-form-discount" aria-label="Apply discount">
+            <label>Code <input data-testid="discount-code" name="code" /></label>
+            <button data-testid="deep-apply" aria-label="Apply discount">Apply</button>
+          </form>
+        </section>
+      </section>
+      <section class="card" data-testid="inner-card-shipping" aria-label="Shipping">
+        <h3>Shipping</h3>
+        <button data-testid="shipping-edit" aria-label="Edit shipping">Edit</button>
+      </section>
+    </article>
+  </body>
+</html>

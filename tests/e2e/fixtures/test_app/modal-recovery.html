@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Modal Recovery Fixture</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 32px; color: #1f2937; }
+      .backdrop { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.5); display: none; align-items: center; justify-content: center; }
+      .backdrop.open { display: flex; }
+      .modal { background: #fff; border-radius: 12px; padding: 24px; min-width: 320px; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2); }
+      button { padding: 8px 14px; border-radius: 8px; border: 0; cursor: pointer; }
+      .primary { background: #0f172a; color: #fff; }
+      .danger { background: #b91c1c; color: #fff; }
+      .ghost { background: #e2e8f0; color: #1f2937; }
+    </style>
+  </head>
+  <body>
+    <h1>Modal Recovery Fixture</h1>
+    <p>Confirm deletion to trigger the modal. Recovery flows must handle modal overlay before retrying.</p>
+    <button data-testid="open-delete" aria-label="Delete account" class="danger" onclick="document.getElementById('delete-modal').classList.add('open')">Delete account</button>
+    <button data-testid="open-confirm" aria-label="Confirm purchase" class="primary" onclick="document.getElementById('confirm-modal').classList.add('open')">Confirm purchase</button>
+
+    <div id="delete-modal" class="backdrop" role="dialog" aria-label="Confirm deletion" data-testid="delete-modal">
+      <div class="modal">
+        <h2>Confirm deletion</h2>
+        <p>This action cannot be undone.</p>
+        <button data-testid="delete-confirm" class="danger" aria-label="Yes delete">Yes, delete</button>
+        <button data-testid="delete-cancel" class="ghost" aria-label="Cancel deletion" onclick="document.getElementById('delete-modal').classList.remove('open')">Cancel</button>
+      </div>
+    </div>
+
+    <div id="confirm-modal" class="backdrop" role="dialog" aria-label="Confirm purchase" data-testid="confirm-modal">
+      <div class="modal">
+        <h2>Confirm purchase</h2>
+        <p>Charge $42.00 to card ending 4242.</p>
+        <button data-testid="confirm-yes" class="primary" aria-label="Confirm">Confirm</button>
+        <button data-testid="confirm-cancel" class="ghost" aria-label="Cancel purchase" onclick="document.getElementById('confirm-modal').classList.remove('open')">Cancel</button>
+      </div>
+    </div>
+  </body>
+</html>

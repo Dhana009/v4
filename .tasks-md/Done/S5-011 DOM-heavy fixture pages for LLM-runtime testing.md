@@ -1,11 +1,36 @@
 # S5-011 DOM-heavy fixture pages for LLM-runtime testing
 
-Status: Planning
+Status: Done
 Sprint: Sprint 5
 Type: Story
-Owner:
+Owner: Dhanunjaya
+Closed: 2026-05-12
 Priority: P1
 Source docs: PRD v2.3 01_PRODUCT_WORKFLOWS.md
+
+## Resolution
+
+Added 5 local DOM-heavy fixture pages in `tests/e2e/fixtures/test_app/`:
+
+| File | Purpose |
+|------|---------|
+| `weak-divs.html` | Div-soup, no semantic anchors; repeated pseudo-button text |
+| `duplicate-profiles.html` | 4 sections with identical `<h2>Profile</h2>`; repeated buttons |
+| `nested-cards.html` | 3-level card nesting; nested forms with aria-labels and data-testids |
+| `data-table.html` | 5-row table + 5-item list; per-user disambiguated aria-labels |
+| `modal-recovery.html` | 2 modals with `role="dialog"`, JS-driven open/close toggle |
+
+All pages self-contained (no external assets, no network).
+
+## Tests
+
+`tests/test_dom_heavy_fixtures.py` — 25 tests, all passing.
+
+Asserts: existence, no external assets, doctype/title, weak-div pills have no role/aria/testid, repeated identical button text, ≥3 Profile h2s, nested card chain, table+list structure, per-user aria labels, dialog roles + hidden-by-default modals.
+
+## Additional gaps found
+
+None.
 
 ## Problem / Goal
 

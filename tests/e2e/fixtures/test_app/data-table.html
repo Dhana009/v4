@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Data Table Fixture</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 32px; color: #1f2937; }
+      table { border-collapse: collapse; width: 100%; }
+      th, td { border: 1px solid #cbd5e1; padding: 8px 12px; text-align: left; }
+      th { background: #f1f5f9; }
+      button { padding: 4px 10px; }
+      ul { padding-left: 20px; }
+    </style>
+  </head>
+  <body>
+    <h1>User Directory</h1>
+    <table aria-label="Users" data-testid="users-table">
+      <thead>
+        <tr><th>Name</th><th>Role</th><th>Status</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+        <tr data-testid="row-1"><td>Alice</td><td>Admin</td><td>Active</td><td><button aria-label="Edit Alice">Edit</button> <button aria-label="Delete Alice">Delete</button></td></tr>
+        <tr data-testid="row-2"><td>Bob</td><td>Editor</td><td>Active</td><td><button aria-label="Edit Bob">Edit</button> <button aria-label="Delete Bob">Delete</button></td></tr>
+        <tr data-testid="row-3"><td>Carol</td><td>Viewer</td><td>Inactive</td><td><button aria-label="Edit Carol">Edit</button> <button aria-label="Delete Carol">Delete</button></td></tr>
+        <tr data-testid="row-4"><td>Dan</td><td>Editor</td><td>Active</td><td><button aria-label="Edit Dan">Edit</button> <button aria-label="Delete Dan">Delete</button></td></tr>
+        <tr data-testid="row-5"><td>Eve</td><td>Admin</td><td>Active</td><td><button aria-label="Edit Eve">Edit</button> <button aria-label="Delete Eve">Delete</button></td></tr>
+      </tbody>
+    </table>
+    <h2>Recent Activity</h2>
+    <ul data-testid="activity-list" aria-label="Activity">
+      <li>Alice updated billing</li>
+      <li>Bob created invoice</li>
+      <li>Carol deactivated account</li>
+      <li>Dan exported report</li>
+      <li>Eve invited new user</li>
+    </ul>
+  </body>
+</html>

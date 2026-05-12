@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Weak Divs Fixture</title>
+    <style>
+      body { font-family: system-ui, sans-serif; margin: 32px; color: #1f2937; }
+      .card { border: 1px solid #cbd5e1; padding: 16px; margin: 12px 0; border-radius: 8px; }
+      .row { display: flex; gap: 12px; }
+      .pill { padding: 6px 14px; background: #0f172a; color: #fff; border-radius: 999px; cursor: pointer; }
+    </style>
+  </head>
+  <body>
+    <div>Weak Divs Fixture</div>
+    <div>This fixture intentionally uses no semantic HTML, no aria-label, no data-testid, no role.</div>
+    <div class="card">
+      <div>Section one</div>
+      <div>Some content with no semantic anchor.</div>
+      <div class="row">
+        <div class="pill">Action</div>
+        <div class="pill">Action</div>
+        <div class="pill">Action</div>
+      </div>
+    </div>
+    <div class="card">
+      <div>Section two</div>
+      <div>Another block with three identical pseudo-buttons below.</div>
+      <div class="row">
+        <div class="pill">Continue</div>
+        <div class="pill">Continue</div>
+        <div class="pill">Continue</div>
+      </div>
+    </div>
+    <div class="card">
+      <div>Section three</div>
+      <div class="row">
+        <div class="pill">Go</div>
+        <div class="pill">Go</div>
+      </div>
+    </div>
+  </body>
+</html>
