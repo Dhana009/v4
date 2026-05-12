@@ -31,7 +31,7 @@ Sprint 5 wires purpose-specific LLM policies into the live call path, implements
 | S5-006 | Recovery-specific prompt/context | 2 | Planning | — | S5-001 |
 | S5-007 | Token report attribution upgrade | 3 | Planning | S5-013 | S5-002 |
 | S5-008 | ModelRouter real cheap/main routing contract | 3 | Done | — | — |
-| S5-009 | Page Intelligence LLM route design and contract | 4 | Planning | S5-010 | S5-004 |
+| S5-009 | Page Intelligence LLM route design and contract | 4 | Done | S5-010 | S5-004 |
 | S5-010 | Page Intelligence first fake-model integration | 4 | Planning | S5-012 | S5-009 |
 | S5-011 | DOM-heavy fixture pages for LLM-runtime testing | 4 | Done | S5-012 | — |
 | S5-012 | Fake-model integration suite for planning/correction/recovery | 4 | Planning | S5-013 | S5-010 |

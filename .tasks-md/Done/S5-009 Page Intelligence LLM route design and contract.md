@@ -1,11 +1,62 @@
 # S5-009 Page Intelligence LLM route design and contract
 
-Status: Planning
+Status: Done
 Sprint: Sprint 5
 Type: Story
-Owner:
+Owner: Dhanunjaya
+Closed: 2026-05-12
 Priority: P1
 Source docs: PRD v2.3 07_MULTI_MODEL_ORCHESTRATION.md section 3.2, runtime/page_intelligence.py
+
+## Resolution
+
+Added `runtime/page_intelligence_schema.py` with LLM-facing schema built on top of the deterministic `PageIntelligencePacket`:
+
+| Field | Type | Purpose |
+|-------|------|---------|
+| `page_summary` | str (≤160 chars) | Title + leading heading |
+| `sections` | list[str] (≤12) | Heading-derived section names |
+| `candidate_targets` | list[CandidateTarget] (≤16) | label / role / section / locator_hint / confidence |
+| `ambiguity_groups` | list[AmbiguityGroup] (≤8) | intent → candidate indices |
+| `recommended_action` | `ask_user` \| `plan_ready_possible` \| `needs_more_context` | Planner exit hint |
+| `reason` | str | Short why-this-action label |
+| `source_stats` | SourceStats | elements_seen / candidates_found / ambiguous_groups / sections_seen |
+| `warnings` | list[str] (≤6) | risk flags + modal/dialog flag + repeated section |
+
+Behavior:
+- ambiguous duplicates (same normalized label, ≥2 candidates) → `ask_user`
+- weak/unknown semantic DOM or no candidates → `needs_more_context`
+- otherwise → `plan_ready_possible`
+- locator-hint confidence: data-testid/data-cy → 0.9, aria-label → 0.7, else 0.4, downgraded for weak DOM
+- modal/dialog presence is flagged as warning
+- raw HTML never embedded; JSON serialization confirmed tag-free
+
+## Tests
+
+`tests/test_page_intelligence_schema.py` — 12 tests, all passing:
+- JSON serialize round-trip
+- Bounded sizes (`MAX_CANDIDATE_TARGETS`, `MAX_AMBIGUITY_GROUPS`, token estimate via len/4)
+- No raw HTML/tags in serialized output
+- Duplicate Profiles → ambiguity groups for save/edit + `ask_user`
+- Weak Divs → `needs_more_context` + weak/no-candidate warnings
+- Nested Cards → section hierarchy + form candidates
+- Data Table → edit/delete candidates + ambiguity groups (per-row duplicates)
+- Modal Recovery → `modal_or_dialog_visible` warning
+- recommended_action enum decisions
+- Dataclass serialization
+- Empty HTML safe defaults
+
+Full Sprint 5 cheap suite: 110 tests passing (schema + fixtures + router + guardrails + tool policy + tool schema + existing page intelligence).
+
+## Evidence
+
+- `runtime/page_intelligence_schema.py` (new, ~210 LOC)
+- `tests/test_page_intelligence_schema.py` (new, 12 tests)
+- No paid LLM, no live calls, no agent.py changes, no full S5-010 integration.
+
+## Additional gaps found
+
+- Existing `page_intelligence.py` aria-label regex stops at whitespace; multi-word aria-labels in `data-table.html` get truncated. Did not fix — schema test uses label match instead. Note for S5-010.
 
 ## Problem / Goal
 
