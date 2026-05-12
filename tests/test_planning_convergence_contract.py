@@ -685,3 +685,141 @@ def _tool_name_from_def(tool_def: Any) -> str:
         if isinstance(fn, dict):
             return str(fn.get("name") or "")
     return ""
+
+
+# ---------------------------------------------------------------------------
+# BUG-S5-013-012: send_to_overlay enum must exclude llm_thinking after narrowing
+# ---------------------------------------------------------------------------
+
+def test_strip_llm_thinking_removes_from_enum() -> None:
+    """strip_llm_thinking_from_send_to_overlay must remove llm_thinking from enum."""
+    from runtime.tool_registry import strip_llm_thinking_from_send_to_overlay
+
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "send_to_overlay",
+                "description": "some description",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "message_type": {
+                            "type": "string",
+                            "enum": ["llm_thinking", "plan_ready", "error"],
+                        },
+                        "payload": {"type": "object"},
+                    },
+                    "required": ["message_type", "payload"],
+                },
+            },
+        },
+        {
+            "type": "function",
+            "function": {
+                "name": "ask_user",
+                "description": "ask user",
+                "parameters": {"type": "object", "properties": {}, "required": []},
+            },
+        },
+    ]
+    result = strip_llm_thinking_from_send_to_overlay(tools)
+
+    overlay = next(t for t in result if t["function"]["name"] == "send_to_overlay")
+    enum = overlay["function"]["parameters"]["properties"]["message_type"]["enum"]
+
+    assert "llm_thinking" not in enum, f"llm_thinking must be stripped from enum, got {enum}"
+    assert "plan_ready" in enum, "plan_ready must remain in narrowed enum"
+
+    # ask_user must be unchanged
+    ask = next(t for t in result if t["function"]["name"] == "ask_user")
+    assert ask["function"]["description"] == "ask user"
+
+
+def test_strip_llm_thinking_does_not_mutate_original() -> None:
+    """strip_llm_thinking_from_send_to_overlay must deep-copy; original schema unchanged."""
+    from runtime.tool_registry import strip_llm_thinking_from_send_to_overlay
+
+    original_enum = ["llm_thinking", "plan_ready"]
+    tools = [
+        {
+            "type": "function",
+            "function": {
+                "name": "send_to_overlay",
+                "description": "desc",
+                "parameters": {
+                    "type": "object",
+                    "properties": {
+                        "message_type": {"type": "string", "enum": list(original_enum)},
+                        "payload": {"type": "object"},
+                    },
+                    "required": ["message_type", "payload"],
+                },
+            },
+        }
+    ]
+    strip_llm_thinking_from_send_to_overlay(tools)
+
+    actual_enum = tools[0]["function"]["parameters"]["properties"]["message_type"]["enum"]
+    assert actual_enum == original_enum, "Original tool schema must not be mutated"
+
+
+def _make_full_enum_overlay_tool() -> dict:
+    """Inline send_to_overlay with the full real-world message_type enum."""
+    return {
+        "type": "function",
+        "function": {
+            "name": "send_to_overlay",
+            "description": "Send a structured message. Use plan_ready to exit planning. Use llm_thinking at most once.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "message_type": {
+                        "type": "string",
+                        "enum": [
+                            "llm_thinking",
+                            "plan_ready",
+                            "plan_correction_diff",
+                            "clarification_needed",
+                            "step_recorded",
+                            "code_update",
+                            "llm_result",
+                            "error",
+                        ],
+                    },
+                    "payload": {"type": "object", "additionalProperties": True},
+                },
+                "required": ["message_type", "payload"],
+            },
+        },
+    }
+
+
+def test_narrowed_tool_schema_excludes_llm_thinking_full_enum() -> None:
+    """After strip, send_to_overlay with full real enum has no llm_thinking."""
+    from runtime.tool_registry import strip_llm_thinking_from_send_to_overlay
+
+    tools = [_make_full_enum_overlay_tool()]
+    narrowed = strip_llm_thinking_from_send_to_overlay(tools)
+
+    overlay = next(t for t in narrowed if t.get("function", {}).get("name") == "send_to_overlay")
+    enum = overlay["function"]["parameters"]["properties"]["message_type"]["enum"]
+
+    assert "llm_thinking" not in enum, f"llm_thinking must not appear in narrowed enum, got {enum}"
+    assert "plan_ready" in enum, "plan_ready must remain after stripping"
+    assert len(enum) == 7, f"All 7 non-thinking message types must remain, got {enum}"
+
+
+def test_narrowed_description_forbids_llm_thinking() -> None:
+    """Narrowed send_to_overlay description must explicitly forbid llm_thinking."""
+    from runtime.tool_registry import strip_llm_thinking_from_send_to_overlay
+
+    tools = [_make_full_enum_overlay_tool()]
+    narrowed = strip_llm_thinking_from_send_to_overlay(tools)
+
+    overlay = next(t for t in narrowed if t.get("function", {}).get("name") == "send_to_overlay")
+    desc = overlay["function"]["description"]
+
+    assert "llm_thinking is not permitted" in desc, (
+        f"Narrowed description must forbid llm_thinking, got: {desc}"
+    )

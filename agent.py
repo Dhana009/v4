@@ -40,7 +40,7 @@ from runtime.recovery_context import (
 from runtime.phase_tracker import PhaseTracker
 from runtime.snapshot_archive import build_spec_snapshot
 from runtime.agent_locator_handlers import tool_dom_extract, tool_locator_find, tool_locator_validate
-from runtime.tool_registry import ToolRegistry, filter_tools_for_phase
+from runtime.tool_registry import ToolRegistry, filter_tools_for_phase, strip_llm_thinking_from_send_to_overlay
 from runtime.skill_manager import SkillManager
 from runtime.skill_policy import get_skill_levels_for_names
 from runtime.telemetry import record_model_call_end, record_model_call_start
@@ -1641,6 +1641,11 @@ class AgentLoop:
                     correction_mode=correction_mode if isinstance(correction_mode, dict) else None,
                     allowed_tool_names=purpose_allowed_tool_names,
                 )
+                if (
+                    getattr(self, "_step_plan_convergence_narrowing", False)
+                    and effective_purpose == "step_plan_normalizer"
+                ):
+                    filtered_tools = strip_llm_thinking_from_send_to_overlay(filtered_tools)
                 execution_context = self._build_confirmed_execution_context_message()
                 correction_context = ""
                 if isinstance(correction_mode, dict):

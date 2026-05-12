@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 from dataclasses import dataclass
 import json
 from typing import Any
@@ -48,6 +49,31 @@ def _tool_name(tool: Any, index: int) -> str:
             if name:
                 return str(name)
     return f"tool_{index + 1}"
+
+
+def strip_llm_thinking_from_send_to_overlay(tools: list[Any]) -> list[Any]:
+    """Return a copy of tools where send_to_overlay's message_type enum excludes llm_thinking.
+
+    Called after convergence narrowing so the schema itself forbids the model from
+    choosing llm_thinking again — natural language instructions alone are insufficient.
+    """
+    result = []
+    for tool in tools:
+        if not isinstance(tool, dict) or tool.get("function", {}).get("name") != "send_to_overlay":
+            result.append(tool)
+            continue
+        tool_copy = copy.deepcopy(tool)
+        fn = tool_copy["function"]
+        mt = fn.get("parameters", {}).get("properties", {}).get("message_type", {})
+        mt["enum"] = [v for v in mt.get("enum", []) if v != "llm_thinking"]
+        fn["description"] = (
+            "Send a structured message to the browser overlay panel. "
+            "Use message_type='plan_ready' to submit your final plan proposal and exit planning — "
+            "this is the required terminal call for step_plan_normalizer. "
+            "llm_thinking is not permitted at this stage. You MUST call plan_ready or ask_user now."
+        )
+        result.append(tool_copy)
+    return result
 
 
 def filter_tools_for_recording_wait(tools: Any) -> list[Any]:
