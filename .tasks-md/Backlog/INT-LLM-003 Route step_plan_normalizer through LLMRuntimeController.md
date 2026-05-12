@@ -1,7 +1,7 @@
 # INT-LLM-003 Route step_plan_normalizer through LLMRuntimeController
 
-Status: Backlog
-Sprint: Sprint 3 Stretch
+Status: Done
+Sprint: Sprint 5 (S5-001)
 Type: Story
 Owner: LLM Runtime
 Priority: P2
@@ -51,8 +51,8 @@ Route focused Steps Mode planning through LLMRuntimeController using purpose=ste
 
 ## Evidence
 
-To be filled during implementation.
+Superseded and completed by S5-001 (Sprint 5). `agent.py:3840 _call_step_plan_normalizer_controller` routes through `LLMRuntimeController` with `purpose=step_plan_normalizer`. Tool policy, schema validation, and telemetry attribution all wired. Tests: `test_planning_through_controller_fake_model.py`, `test_llm_runtime_controller_contract.py`, `test_tool_schema_filter.py`. Paid E2E artifact confirms live routing (`[MODEL_ROUTER] purpose=step_plan_normalizer`). HEAD at closure: `17c86ef`.
 
 ## Notes
 
-Stretch only. Do not start until Sprint 3 core token/call optimization stories are stable.
+Originally a Sprint 3 stretch backlog item. Promoted and fully implemented in Sprint 5 as S5-001.
