@@ -1832,6 +1832,35 @@ class AgentLoop:
                         print("[AGENT] ambiguity clarification forced from DOM evidence")
                         continue
                     if not guard_result.should_stop and guard_result.inspection.thinking_only:
+                        if getattr(self, "_step_plan_convergence_narrowing", False):
+                            print(
+                                "[AGENT] THINKING_NOT_ALLOWED_AFTER_CONVERGENCE_NARROWING: "
+                                "llm_thinking sent after tool surface already narrowed; terminating planning"
+                            )
+                            self.phase_tracker.set_phase(
+                                "failed",
+                                reason="planning_no_progress",
+                                step_id=None,
+                            )
+                            self.phase = "failed"
+                            await self._send(
+                                "runtime_rejected",
+                                **build_runtime_rejection_payload(
+                                    "THINKING_NOT_ALLOWED_AFTER_CONVERGENCE_NARROWING",
+                                    "Planning did not produce a terminal response after tool surface was narrowed.",
+                                    detail="send_to_overlay(llm_thinking) is not allowed when only ask_user and send_to_overlay(plan_ready) are permitted.",
+                                    current_state={
+                                        "run_id": self._current_run_session_id(),
+                                        "phase": self._current_phase(),
+                                        "purpose": effective_purpose,
+                                    },
+                                    run_id=self._current_run_session_id(),
+                                    recoverable=False,
+                                    source="agent",
+                                ),
+                            )
+                            self._pending_failure_followup = False
+                            return
                         self.llm.messages.append(self._assistant_message_entry(message))
                         self.llm.messages.append({
                             "role": "user",

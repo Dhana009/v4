@@ -715,22 +715,20 @@ def test_repeated_llm_thinking_stops_before_harness_timeout(monkeypatch) -> None
 
     asyncio.run(loop.run([_make_current_step()]))
 
-    assert len(controller_calls) == 3
+    # Turn 1: llm_thinking → convergence pressure injected, _step_plan_convergence_narrowing=True
+    # Turn 2: llm_thinking again → immediate termination, no third LLM call
+    assert len(controller_calls) == 2
     message_types = [message_type for message_type, _payload in sent_messages]
-    # Guard fires BEFORE tool dispatch: llm_thinking tool calls are never dispatched to _send,
-    # so zero "llm_thinking" messages appear in sent_messages. The guard short-circuits and
-    # emits runtime_rejected directly.
+    # Guard fires BEFORE tool dispatch: llm_thinking tool calls are never dispatched to _send
     assert message_types.count("llm_thinking") == 0
     assert "runtime_rejected" in message_types
     rejection_payload = next(
         payload for message_type, payload in sent_messages if message_type == "runtime_rejected"
     )
-    assert rejection_payload["rejection_code"] == "PLANNING_NO_PROGRESS"
+    assert rejection_payload["rejection_code"] == "THINKING_NOT_ALLOWED_AFTER_CONVERGENCE_NARROWING"
     assert rejection_payload["recoverable"] is False
     assert rejection_payload["current_state"]["phase"] == "failed"
     assert rejection_payload["current_state"]["purpose"] == "step_plan_normalizer"
-    assert "thinking_only_turns=3" in str(rejection_payload.get("detail") or "")
-    assert "planning_turns_without_terminal_output=3" in str(rejection_payload.get("detail") or "")
     assert all(
         message_type not in {"plan_ready", "step_recorded", "code_update", "run_completed"}
         for message_type in message_types

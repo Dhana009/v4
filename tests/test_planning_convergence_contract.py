@@ -611,6 +611,57 @@ def test_pending_ambiguity_narrows_tool_surface_without_prior_thinking_turn(monk
     )
 
 
+def test_llm_thinking_after_narrowing_terminates_immediately(monkeypatch) -> None:
+    """When _step_plan_convergence_narrowing is already True and model calls llm_thinking again,
+    planning must terminate immediately with THINKING_NOT_ALLOWED_AFTER_CONVERGENCE_NARROWING,
+    not inject another pressure message and make a third controller call."""
+    loop = _make_agent_loop()
+    sent_messages: list[tuple[str, dict[str, Any]]] = []
+    controller_calls: list[dict[str, Any]] = []
+
+    loop.tools = [_make_stub_tool(n) for n in sorted(NARROWED_TOOL_NAMES)]
+    loop.current_steps = [_make_current_step()]
+    _install_common_run_stubs(loop, sent_messages)
+
+    # Pre-arm narrowing flag as if turn 1 already happened
+    loop._step_plan_convergence_narrowing = True
+
+    responses = [
+        # Turn 2 (first call in this test): model still calls llm_thinking → must terminate
+        _make_response_with_tool_calls(
+            _make_overlay_tool_call("call-1", {"text": "still thinking..."}, message_type="llm_thinking")
+        ),
+    ]
+
+    loop._llm_runtime_controller = SimpleNamespace(
+        call_with_raw_response=_make_fake_controller(responses, controller_calls)
+    )
+    monkeypatch.setattr(agent_module, "record_model_call_start", lambda **kwargs: object())
+    monkeypatch.setattr(agent_module, "record_model_call_end", lambda *args, **kwargs: None)
+
+    _run(loop.run([_make_current_step()]))
+
+    # Must terminate after exactly 1 controller call — no second LLM call
+    assert len(controller_calls) == 1, (
+        f"Must terminate after 1 call when llm_thinking sent after narrowing, got {len(controller_calls)}"
+    )
+
+    # Must emit runtime_rejected with the specific reason code
+    message_types = [mt for mt, _ in sent_messages]
+    assert "runtime_rejected" in message_types, "Must emit runtime_rejected"
+
+    rejected_payload = next(p for mt, p in sent_messages if mt == "runtime_rejected")
+    reason = str(rejected_payload.get("rejection_code") or "")
+    assert "THINKING_NOT_ALLOWED" in reason, (
+        f"runtime_rejected must carry THINKING_NOT_ALLOWED_AFTER_CONVERGENCE_NARROWING rejection_code, got {reason!r}"
+    )
+
+    # No execution events
+    assert "step_recorded" not in message_types
+    assert "code_update" not in message_types
+    assert "run_completed" not in message_types
+
+
 def test_convergence_narrowing_flag_cleared_on_lifecycle_reset() -> None:
     """_step_plan_convergence_narrowing must reset to False on lifecycle reset."""
     loop = _make_agent_loop()
