@@ -4,7 +4,7 @@
 **Cluster:** 1 (LLM Runtime Purpose Coverage)  
 **Tier:** 2 (supporting)  
 **Type:** Discovery / Documentation  
-**Status:** Planning  
+**Status:** Done  
 **Owner:** Runtime Policy  
 **Blocks:** (none, closes Cluster 1)  
 **Blocked by:** S6-0106  

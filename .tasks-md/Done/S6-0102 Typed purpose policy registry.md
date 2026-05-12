@@ -4,7 +4,7 @@
 **Cluster:** 1 (LLM Runtime Purpose Coverage)  
 **Tier:** 1 (core)  
 **Type:** Feature  
-**Status:** Planning  
+**Status:** Done  
 **Owner:** Runtime Policy  
 **Blocks:** S6-0103, S6-0104, S6-0105, S6-0106, S6-0107, S6-0201, S6-0202, S6-0203, S6-0204  
 **Blocked by:** S6-0101  
