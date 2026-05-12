@@ -17,7 +17,7 @@ _CTA_PATTERN = re.compile(
 )
 _TESTID_RE = re.compile(r'data-testid=["\']([^"\'>\s]+)["\']', re.IGNORECASE)
 _DATA_CY_RE = re.compile(r'data-cy=["\']([^"\'>\s]+)["\']', re.IGNORECASE)
-_ARIA_LABEL_RE = re.compile(r'aria-label=["\']([^"\'>\s]+)["\']', re.IGNORECASE)
+_ARIA_LABEL_RE = re.compile(r'aria-label=["\']([^"\']+)["\']', re.IGNORECASE)
 _INPUT_TYPE_RE = re.compile(r'type=["\']?(\w+)["\']?', re.IGNORECASE)
 _INPUT_NAME_RE = re.compile(r'name=["\']?([^"\'>\s]+)["\']?', re.IGNORECASE)
 _INPUT_TAG_RE = re.compile(r'<input([^>]*)>', re.IGNORECASE)

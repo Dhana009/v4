@@ -1,11 +1,73 @@
 # S5-010 Page Intelligence first fake-model integration
 
-Status: Planning
+Status: Done
 Sprint: Sprint 5
 Type: Story
-Owner:
+Owner: Dhanunjaya
+Closed: 2026-05-12
 Priority: P1
 Source docs: PRD v2.3 07_MULTI_MODEL_ORCHESTRATION.md, S5-009 Page Intelligence contract
+
+## Resolution
+
+Fake-model integration wired without paid LLM and without broad agent.py changes:
+
+1. **Aria-label regex fix** in `runtime/page_intelligence.py`:
+   `_ARIA_LABEL_RE` now allows whitespace inside quoted values, so multi-word
+   labels like `aria-label="Edit Alice"` are preserved end-to-end in candidate
+   `locator_hint` values.
+
+2. **Planner context bridge** in `runtime/page_intelligence_schema.py`:
+   New `schema_to_planner_context_message(schema)` returns a system message
+   with body `PAGE_INTELLIGENCE_PACKET={json}` — compact, JSON-only,
+   never embeds raw HTML.
+
+3. **FakeCheapPlanner test consumer** in `tests/test_page_intelligence_fake_integration.py`:
+   Async OpenAI-shape fake that reads the packet from messages and emits
+   terminal output (`ask_user` | `plan_ready` | `needs_more_context`) driven
+   by `schema.recommended_action`.
+
+Behavior verified per fixture:
+
+| Fixture | recommended_action | Planner terminal |
+|---------|--------------------|------------------|
+| duplicate-profiles.html | ask_user | ask_user |
+| weak-divs.html | needs_more_context | needs_more_context |
+| nested-cards.html | (case-dependent) | ask_user / plan_ready / needs_more_context |
+| data-table.html | ask_user | ask_user |
+| modal-recovery.html | * (warnings include modal_or_dialog_visible) | * |
+
+No live LLM, no paid E2E, no agent.py wiring, no controller contract change.
+
+## Tests
+
+`tests/test_page_intelligence_fake_integration.py` — 9 tests, all passing:
+- `test_aria_label_multi_word_preserved_in_locator_hint`
+- `test_duplicate_profiles_drives_planner_to_ask_user`
+- `test_weak_divs_drives_planner_to_needs_more_context`
+- `test_nested_cards_provides_section_and_candidate_hierarchy`
+- `test_data_table_exposes_row_action_candidates`
+- `test_modal_fixture_flags_dialog_and_keeps_candidates`
+- `test_planner_message_contains_no_raw_html`
+- `test_planner_message_is_token_bounded`
+- `test_fake_planner_records_call_without_paid_llm`
+
+Broader Sprint 5 cheap suite: 73 (router + guardrails + tool policy + tool schema + controller contract) all passing.
+
+## Evidence
+
+- `runtime/page_intelligence.py` (1-line aria regex fix)
+- `runtime/page_intelligence_schema.py` (+`schema_to_planner_context_message`)
+- `tests/test_page_intelligence_fake_integration.py` (new, 9 tests)
+
+## Additional gaps found
+
+- Page Intelligence is not yet auto-invoked by agent.py before planning;
+  the schema and helper exist but agent.py wiring is deferred. This keeps
+  S5-013 paid path unchanged and avoids touching convergence narrowing.
+- Cheap-model real provider routing relies on S5-008's `purpose_model_classes`
+  map but no live consumer yet calls `resolve_for_purpose`. Wiring deferred
+  until a real cheap model is configured in production.
 
 ## Problem / Goal
 

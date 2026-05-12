@@ -233,3 +233,17 @@ def build_page_intelligence_schema(
         warnings=warnings[:MAX_WARNINGS],
     )
     return schema
+
+
+def schema_to_planner_context_message(schema: PageIntelligenceSchema) -> dict[str, Any]:
+    """Render a compact, token-safe context message for the planner LLM.
+
+    The message body is a JSON serialization of the schema dict. No raw HTML.
+    """
+    body = schema.to_json()
+    return {
+        "role": "system",
+        "name": "page_intelligence",
+        "content": f"PAGE_INTELLIGENCE_PACKET={body}",
+    }
+
