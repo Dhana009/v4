@@ -628,7 +628,7 @@ def test_llm_009_recovery_diagnoser_contract_and_runtime_truth_boundary() -> Non
         result["telemetry_fields"],
         purpose="recovery_diagnoser",
         model="main",
-        skill_names=["llm_runtime_controller", "prompt_persona_skill_loading"],
+        skill_names=["llm_runtime_controller", "prompt_persona_skill_loading", "observability_trace", "memory_human_feedback"],
         tool_count=2,
         token_budget=1800,
         validation_status="valid",
@@ -641,7 +641,7 @@ def test_llm_009_recovery_diagnoser_contract_and_runtime_truth_boundary() -> Non
         telemetry_sink.records[0],
         purpose="recovery_diagnoser",
         model="main",
-        skill_names=["llm_runtime_controller", "prompt_persona_skill_loading"],
+        skill_names=["llm_runtime_controller", "prompt_persona_skill_loading", "observability_trace", "memory_human_feedback"],
         tool_count=2,
         token_budget=1800,
         validation_status="valid",
@@ -649,6 +649,8 @@ def test_llm_009_recovery_diagnoser_contract_and_runtime_truth_boundary() -> Non
     assert skill_manager.calls[0]["loaded_skill_names"] == [
         "llm_runtime_controller",
         "prompt_persona_skill_loading",
+        "observability_trace",
+        "memory_human_feedback",
     ]
 
 
@@ -751,7 +753,7 @@ def test_llm_010_budget_guard_rejects_over_budget_calls_without_model_call() -> 
         result["telemetry_fields"],
         purpose="recovery_diagnoser",
         model="main",
-        skill_names=["llm_runtime_controller", "prompt_persona_skill_loading"],
+        skill_names=["llm_runtime_controller", "prompt_persona_skill_loading", "observability_trace", "memory_human_feedback"],
         tool_count=2,
         token_budget=1800,
         validation_status="budget_exceeded",
@@ -765,7 +767,7 @@ def test_llm_010_budget_guard_rejects_over_budget_calls_without_model_call() -> 
         telemetry_sink.records[0],
         purpose="recovery_diagnoser",
         model="main",
-        skill_names=["llm_runtime_controller", "prompt_persona_skill_loading"],
+        skill_names=["llm_runtime_controller", "prompt_persona_skill_loading", "observability_trace", "memory_human_feedback"],
         tool_count=2,
         token_budget=1800,
         validation_status="budget_exceeded",
@@ -912,7 +914,7 @@ def test_llm_008_009_invalid_specialist_outputs_fail_closed(
         telemetry_sink.records[0],
         purpose=purpose,
         model="main" if purpose == "journey_planner" else "cheap" if purpose == "intent_classifier" or purpose == "clarification_generator" else "main",
-        skill_names=["llm_runtime_controller", "locator_strategy"] if purpose == "locator_specialist" else ["llm_runtime_controller", "prompt_persona_skill_loading"],
+        skill_names=["llm_runtime_controller", "locator_strategy"] if purpose == "locator_specialist" else ["llm_runtime_controller", "prompt_persona_skill_loading", "observability_trace", "memory_human_feedback"],
         tool_count=expected_tool_count,
         token_budget=2200 if purpose == "locator_specialist" else 1800,
         validation_status="retry_failed",

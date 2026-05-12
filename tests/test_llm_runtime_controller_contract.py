@@ -648,12 +648,16 @@ def test_controller_call_with_raw_response_resolves_main_model_class_to_provider
 
     assert recorder.calls
     assert recorder.calls[0]["kind"] == "client"
+    # Provider model string must be sent to the API
     assert recorder.calls[0]["payload"]["model"] == "gpt-4o-mini"
-    assert result["model"] == "gpt-4o-mini"
+    # result["model"] exposes internal model_class abstraction, not the provider name
+    assert result["model"] == "main"
+    assert result["model_class"] == "main"
     assert result["validation_status"] == "raw_response_preserved"
     assert dependencies["telemetry_sink"].records
     telemetry_record = dependencies["telemetry_sink"].records[-1]
-    assert telemetry_record["model"] == "gpt-4o-mini"
+    # Telemetry also carries model_class, not provider name
+    assert telemetry_record["model"] == "main"
     assert telemetry_record["prompt_pack_id"] == "step_plan_normalizer.v1"
 
 

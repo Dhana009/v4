@@ -582,12 +582,19 @@ class LLMRuntimeController:
     def _select_telemetry_sink(self, telemetry_sink: Any | None) -> Any | None:
         return telemetry_sink if telemetry_sink is not None else self.telemetry_sink
 
-    def _resolve_provider_model(
+    def _resolve_model_class_and_provider(
         self,
         *,
         model: str | None,
         resolved_policy: Mapping[str, Any],
-    ) -> str:
+    ) -> tuple[str, str]:
+        """Return (model_class, provider_model_name).
+
+        model_class is the internal routing abstraction ("cheap", "main", "debug").
+        provider_model_name is the concrete API model string (e.g. "gpt-4o-mini").
+        Callers should use model_class in result/telemetry fields and
+        provider_model_name when making the actual API call.
+        """
         configured_models = getattr(self.model_router, "configured_models", None)
         default_model = getattr(self.model_router, "default_model", None)
         configured_models_map = (
@@ -597,7 +604,8 @@ class LLMRuntimeController:
 
         explicit_model = str(model).strip() if model is not None else ""
         if explicit_model and explicit_model not in {"main", "cheap", "debug"}:
-            return explicit_model
+            # Explicit provider model string passed directly — use as-is for both
+            return explicit_model, explicit_model
 
         model_candidate = model
         if model_candidate is None:
@@ -609,11 +617,30 @@ class LLMRuntimeController:
                 "model_tier",
                 default=None,
             )
-        return resolve_model_name(
+
+        # model_candidate is now a model_class string ("cheap", "main", "debug") or None
+        model_class_str = str(model_candidate or "main").strip()
+        if model_class_str not in {"cheap", "main", "debug"}:
+            model_class_str = "main"
+
+        provider_model = resolve_model_name(
             model_candidate,
             configured_models=configured_models_map,
             default_model=default_model_name,
         )
+        return model_class_str, provider_model
+
+    def _resolve_provider_model(
+        self,
+        *,
+        model: str | None,
+        resolved_policy: Mapping[str, Any],
+    ) -> str:
+        """Backwards-compat shim — returns provider model name only."""
+        _model_class, provider_model = self._resolve_model_class_and_provider(
+            model=model, resolved_policy=resolved_policy
+        )
+        return provider_model
 
     def _apply_skill_selection(
         self,
@@ -978,7 +1005,8 @@ class LLMRuntimeController:
             "purpose_id": _value(policy, "purpose_id", "purpose", default=purpose),
             "schema_id": normalized_schema_id,
             "schema_version": normalized_schema_version,
-            "model": model,
+            "model": model,           # internal model_class: "cheap" | "main" | "debug"
+            "model_class": model,     # alias — explicit internal abstraction field
             "used_model": model,
             "model_called": model_called,
             "llm_called": model_called,
@@ -1179,7 +1207,9 @@ class LLMRuntimeController:
             if normalized_purpose == "main_orchestrator":
                 resolved_client = None
 
-        resolved_model = self._resolve_provider_model(model=model, resolved_policy=resolved_policy)
+        resolved_model_class, resolved_provider_model = self._resolve_model_class_and_provider(
+            model=model, resolved_policy=resolved_policy
+        )
         token_budget = int(_value(resolved_policy, "token_budget", "budget", default=0) or 0)
         context_policy_value = _value(resolved_policy, "context_policy", "context", default={})
         context_level = str(_value(context_policy_value, "context_level", "level", "mode", "context_mode", default="compact"))
@@ -1200,7 +1230,7 @@ class LLMRuntimeController:
             result = self._build_result(
                 purpose=normalized_purpose,
                 policy=resolved_policy,
-                model=resolved_model,
+                model=resolved_model_class,
                 model_called=False,
                 validation_status="deterministic",
                 retry_count=0,
@@ -1231,7 +1261,7 @@ class LLMRuntimeController:
                 ControllerTelemetry(
                     call_id=call_id,
                     purpose=normalized_purpose,
-                    model=resolved_model,
+                    model=resolved_model_class,
                     skill_count=0,
                     skills_loaded=[],
                     skill_levels=[],
@@ -1332,7 +1362,7 @@ class LLMRuntimeController:
             failure_result = self._build_result(
                 purpose=normalized_purpose,
                 policy=resolved_policy,
-                model=resolved_model,
+                model=resolved_model_class,
                 model_called=False,
                 validation_status="budget_exceeded",
                 retry_count=0,
@@ -1365,7 +1395,7 @@ class LLMRuntimeController:
                 ControllerTelemetry(
                     call_id=call_id,
                     purpose=normalized_purpose,
-                    model=resolved_model,
+                    model=resolved_model_class,
                     skill_count=failure_result["skill_count"],
                     skills_loaded=list(loaded_skill_names),
                     skill_levels=list(skill_levels),
@@ -1410,7 +1440,7 @@ class LLMRuntimeController:
 
             response = await self._call_model(
                 purpose=normalized_purpose,
-                model=resolved_model,
+                model=resolved_provider_model,
                 messages=attempt_messages,
                 tools=exposed_tools or None,
                 tool_choice=tool_choice,
@@ -1441,7 +1471,7 @@ class LLMRuntimeController:
                 result = self._build_result(
                     purpose=normalized_purpose,
                     policy=resolved_policy,
-                    model=resolved_model,
+                    model=resolved_model_class,
                     model_called=True,
                     validation_status="valid",
                     retry_count=attempt_index,
@@ -1474,7 +1504,7 @@ class LLMRuntimeController:
                     ControllerTelemetry(
                         call_id=call_id,
                         purpose=normalized_purpose,
-                        model=resolved_model,
+                        model=resolved_model_class,
                         skill_count=result["skill_count"],
                         skills_loaded=list(loaded_skill_names),
                         skill_levels=list(attempt_skill_levels),
@@ -1503,7 +1533,7 @@ class LLMRuntimeController:
         failure_result = self._build_result(
             purpose=normalized_purpose,
             policy=resolved_policy,
-            model=resolved_model,
+            model=resolved_model_class,
             model_called=model_called,
             validation_status="retry_failed",
             retry_count=max_attempts - 1,
@@ -1536,7 +1566,7 @@ class LLMRuntimeController:
             ControllerTelemetry(
                 call_id=call_id,
                 purpose=normalized_purpose,
-                model=resolved_model,
+                model=resolved_model_class,
                 skill_count=failure_result["skill_count"],
                 skills_loaded=list(loaded_skill_names),
                 skill_levels=list(skill_levels),
@@ -1624,7 +1654,9 @@ class LLMRuntimeController:
             if normalized_purpose == "main_orchestrator":
                 resolved_client = None
 
-        resolved_model = self._resolve_provider_model(model=model, resolved_policy=resolved_policy)
+        resolved_model_class, resolved_provider_model = self._resolve_model_class_and_provider(
+            model=model, resolved_policy=resolved_policy
+        )
         token_budget = int(_value(resolved_policy, "token_budget", "budget", default=0) or 0)
         context_policy_value = _value(resolved_policy, "context_policy", "context", default={})
         context_level = str(_value(context_policy_value, "context_level", "level", "mode", "context_mode", default="compact"))
@@ -1645,7 +1677,7 @@ class LLMRuntimeController:
             result = self._build_result(
                 purpose=normalized_purpose,
                 policy=resolved_policy,
-                model=resolved_model,
+                model=resolved_model_class,
                 model_called=False,
                 validation_status="deterministic",
                 retry_count=0,
@@ -1680,7 +1712,7 @@ class LLMRuntimeController:
                 ControllerTelemetry(
                     call_id=call_id,
                     purpose=normalized_purpose,
-                    model=resolved_model,
+                    model=resolved_model_class,
                     skill_count=0,
                     skills_loaded=[],
                     skill_levels=[],
@@ -1754,7 +1786,7 @@ class LLMRuntimeController:
             failure_result = self._build_result(
                 purpose=normalized_purpose,
                 policy=resolved_policy,
-                model=resolved_model,
+                model=resolved_model_class,
                 model_called=False,
                 validation_status="budget_exceeded",
                 retry_count=0,
@@ -1791,7 +1823,7 @@ class LLMRuntimeController:
                 ControllerTelemetry(
                     call_id=call_id,
                     purpose=normalized_purpose,
-                    model=resolved_model,
+                    model=resolved_model_class,
                     skill_count=failure_result["skill_count"],
                     skills_loaded=list(loaded_skill_names),
                     skill_levels=list(skill_levels),
@@ -1823,7 +1855,7 @@ class LLMRuntimeController:
             failure_result = self._build_result(
                 purpose=normalized_purpose,
                 policy=resolved_policy,
-                model=resolved_model,
+                model=resolved_model_class,
                 model_called=True,
                 validation_status=validation_status,
                 retry_count=0,
@@ -1863,7 +1895,7 @@ class LLMRuntimeController:
                 ControllerTelemetry(
                     call_id=call_id,
                     purpose=normalized_purpose,
-                    model=resolved_model,
+                    model=resolved_model_class,
                     skill_count=failure_result["skill_count"],
                     skills_loaded=list(loaded_skill_names),
                     skill_levels=list(skill_levels),
@@ -1888,7 +1920,7 @@ class LLMRuntimeController:
         try:
             response = await self._call_model(
                 purpose=normalized_purpose,
-                model=resolved_model,
+                model=resolved_provider_model,
                 messages=list(prepared_messages),
                 tools=exposed_tools or None,
                 tool_choice=tool_choice,
@@ -1923,7 +1955,7 @@ class LLMRuntimeController:
         result = self._build_result(
             purpose=normalized_purpose,
             policy=resolved_policy,
-            model=resolved_model,
+            model=resolved_model_class,
             model_called=True,
             validation_status=validation_status,
             retry_count=0,
@@ -1960,7 +1992,7 @@ class LLMRuntimeController:
             ControllerTelemetry(
                 call_id=call_id,
                 purpose=normalized_purpose,
-                model=resolved_model,
+                model=resolved_model_class,
                 skill_count=result["skill_count"],
                 skills_loaded=list(loaded_skill_names),
                 skill_levels=list(skill_levels),

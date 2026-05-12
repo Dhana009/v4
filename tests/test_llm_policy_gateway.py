@@ -37,7 +37,7 @@ def test_gateway_returns_purpose_specific_decision_for_planning() -> None:
     assert decision.purpose == "step_plan_normalizer"
     assert decision.context_level == "compact"
     assert decision.schema_id == "step_plan_normalizer.v1"
-    assert decision.budget == 2000
+    assert decision.budget == 3000
 
 
 def test_gateway_restricts_tools_by_purpose() -> None:
@@ -46,7 +46,7 @@ def test_gateway_restricts_tools_by_purpose() -> None:
     planning = gateway.decide(phase="planning")
     correction = gateway.decide(phase="planning", correction_mode={"category": "rewrite"})
 
-    assert planning.allowed_tools == ("send_to_overlay", "ask_user")
+    assert set(planning.allowed_tools) == {"send_to_overlay", "ask_user", "browser_get_state", "dom_extract", "locator_find", "locator_validate"}
     assert correction.purpose == "plan_diff_editor"
     assert correction.allowed_tools == ()
 
