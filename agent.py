@@ -210,6 +210,7 @@ class AgentLoop:
         self.last_plan_original_user_intent: str | None = None
         self._planning_loop_guard_state: PlanningLoopGuardState = PlanningLoopGuardState()
         self._pending_planning_ambiguity: dict[str, Any] | None = None
+        self._step_plan_convergence_narrowing: bool = False
         self._active_plan_state: dict[str, Any] | None = None
         self._active_plan_correction_state: dict[str, Any] | None = None
         self._plan_correction_pending = False
@@ -289,6 +290,7 @@ class AgentLoop:
         self._plan_correction_pending = False
         self._planning_loop_guard_state = PlanningLoopGuardState()
         self._pending_planning_ambiguity = None
+        self._step_plan_convergence_narrowing = False
         self._clear_confirmed_execution_contract_state()
         self.capability_gaps = []
         self.recorded_step_payloads = []
@@ -1623,6 +1625,15 @@ class AgentLoop:
                 purpose_allowed_tool_names = None
                 if policy_decision.model_needed and policy_decision.purpose != "main_orchestrator":
                     purpose_allowed_tool_names = set(policy_decision.allowed_tools)
+                if (
+                    effective_purpose == "step_plan_normalizer"
+                    and (
+                        getattr(self, "_step_plan_convergence_narrowing", False)
+                        or isinstance(getattr(self, "_pending_planning_ambiguity", None), dict)
+                    )
+                ):
+                    purpose_allowed_tool_names = {"ask_user", "send_to_overlay"}
+                    print("[AGENT] step_plan_normalizer: tool surface narrowed to ask_user+send_to_overlay after convergence pressure")
                 filtered_tools = filter_tools_for_phase(
                     self.tools,
                     current_phase,
@@ -1834,6 +1845,7 @@ class AgentLoop:
                         ambiguity_instruction = self._build_pending_ambiguity_instruction()
                         if ambiguity_instruction:
                             self.llm.messages.append({"role": "user", "content": ambiguity_instruction})
+                        self._step_plan_convergence_narrowing = True
                         print("[AGENT] planning convergence pressure: injected after llm_thinking turn")
                         continue
                     if guard_result.should_stop:

@@ -156,6 +156,7 @@ def _make_agent_loop() -> AgentLoop:
     loop.last_plan_original_user_intent = None
     loop._planning_loop_guard_state = PlanningLoopGuardState()
     loop._pending_planning_ambiguity = None
+    loop._step_plan_convergence_narrowing = False
     loop._active_plan_state = None
     loop._active_plan_correction_state = None
     loop._run_completion_requested = False
@@ -466,3 +467,170 @@ def test_repeated_content_only_responses_eventually_trigger_no_progress() -> Non
     final = advance_planning_loop_guard(state, content_only_message)
     assert final.should_stop is True
     assert final.reason_code == "PLANNING_NO_PROGRESS"
+
+
+# ---------------------------------------------------------------------------
+# BUG-S5-013-011: Browser path tool-narrowing after thinking-only turn
+# ---------------------------------------------------------------------------
+
+def _make_stub_tool(name: str) -> dict:
+    return {"type": "function", "function": {"name": name, "description": f"stub {name}", "parameters": {"type": "object", "properties": {}, "additionalProperties": False}}}
+
+
+BROWSER_PATH_TOOL_NAMES = {"ask_user", "browser_get_state", "dom_extract", "locator_find", "locator_validate", "send_to_overlay"}
+NARROWED_TOOL_NAMES = {"ask_user", "send_to_overlay"}
+
+
+def _make_fake_controller(
+    responses: list[Any],
+    controller_calls: list[dict[str, Any]],
+    *,
+    fallback: Any = None,
+) -> Any:
+    """Return fake controller that records tool_names per call and replays responses."""
+    if fallback is None:
+        fallback = _make_content_only_response("done thinking")
+
+    async def fake_controller_call(**kwargs: Any) -> dict[str, Any]:
+        call_index = len(controller_calls)
+        controller_calls.append({
+            "tool_names": sorted(_tool_name_from_def(t) for t in (kwargs.get("tools") or [])),
+        })
+        response = responses[call_index] if call_index < len(responses) else fallback
+        msg = response.choices[0].message
+        return {
+            "validation_status": "tool_calls_preserved",
+            "raw_response": response,
+            "raw_message": msg,
+            "content": msg.content or "",
+            "tool_calls": list(msg.tool_calls or []),
+            "prompt_pack_applied": True,
+            "prompt_pack_id": "step_plan_normalizer.v1",
+            "prompt_pack_version": 1,
+            "prefix_hash": "deadbeefdeadbeef",
+            "skills_loaded": [],
+            "skill_levels": [],
+        }
+    return fake_controller_call
+
+
+def test_browser_path_tool_surface_narrows_after_first_thinking_only_turn(monkeypatch) -> None:
+    """After a llm_thinking turn the next controller call must receive only ask_user+send_to_overlay.
+
+    Root cause of BUG-S5-013-011: browser path exposed all 6 planning tools on every iteration,
+    model kept calling llm_thinking, PLANNING_NO_PROGRESS before ask_user was reached.
+    Fix: set _step_plan_convergence_narrowing=True after thinking-only, narrow tools on next iter.
+    """
+    loop = _make_agent_loop()
+    sent_messages: list[tuple[str, dict[str, Any]]] = []
+    controller_calls: list[dict[str, Any]] = []
+
+    loop.tools = [_make_stub_tool(n) for n in sorted(BROWSER_PATH_TOOL_NAMES)]
+    loop.current_steps = [_make_current_step()]
+    _install_common_run_stubs(loop, sent_messages)
+
+    responses = [
+        # Turn 1: llm_thinking — browser E2E failure mode (6 tools exposed)
+        _make_response_with_tool_calls(
+            _make_overlay_tool_call("call-1", {"text": "thinking..."}, message_type="llm_thinking")
+        ),
+        # Turn 2: ask_user — model commits after tool surface narrowed to 2
+        _make_response_with_tool_calls(
+            _make_ask_user_tool_call("call-2", "Which Profile section did you mean?")
+        ),
+        # Turn 3+: content_only — allows guard to fire PLANNING_NO_PROGRESS → terminates test
+    ]
+
+    loop._llm_runtime_controller = SimpleNamespace(
+        call_with_raw_response=_make_fake_controller(responses, controller_calls)
+    )
+    monkeypatch.setattr(agent_module, "record_model_call_start", lambda **kwargs: object())
+    monkeypatch.setattr(agent_module, "record_model_call_end", lambda *args, **kwargs: None)
+
+    _run(loop.run([_make_current_step()]))
+
+    assert len(controller_calls) >= 2, f"Expected at least 2 controller calls, got {len(controller_calls)}"
+
+    # Turn 1: all 6 tools exposed (first planning turn)
+    call1_tools = set(controller_calls[0]["tool_names"])
+    assert call1_tools == BROWSER_PATH_TOOL_NAMES, (
+        f"Turn 1 should expose all 6 browser-path tools, got {call1_tools}"
+    )
+
+    # Turn 2: narrowed to ask_user + send_to_overlay only after thinking-only turn
+    call2_tools = set(controller_calls[1]["tool_names"])
+    assert call2_tools == NARROWED_TOOL_NAMES, (
+        f"Turn 2 must narrow to ask_user+send_to_overlay after thinking-only, got {call2_tools}"
+    )
+
+    # No execution events before PLANNING_NO_PROGRESS
+    message_types = [mt for mt, _ in sent_messages]
+    assert "step_recorded" not in message_types
+    assert "code_update" not in message_types
+    assert "run_completed" not in message_types
+
+
+def test_pending_ambiguity_narrows_tool_surface_without_prior_thinking_turn(monkeypatch) -> None:
+    """When _pending_planning_ambiguity is set (from dom_extract), the NEXT controller call
+    narrows to ask_user+send_to_overlay even without a prior thinking-only turn."""
+    loop = _make_agent_loop()
+    sent_messages: list[tuple[str, dict[str, Any]]] = []
+    controller_calls: list[dict[str, Any]] = []
+
+    loop.tools = [_make_stub_tool(n) for n in sorted(BROWSER_PATH_TOOL_NAMES)]
+    loop.current_steps = [_make_current_step()]
+    _install_common_run_stubs(loop, sent_messages)
+
+    # Pre-arm ambiguity as if dom_extract already ran and found multiple profiles
+    loop._pending_planning_ambiguity = {
+        "options": ["Profile Settings", "Billing Profile", "Shipping Profile"],
+        "question": "Which Profile section?",
+    }
+
+    responses = [
+        # Turn 1: ask_user immediately (must be narrowed due to pending ambiguity)
+        _make_response_with_tool_calls(
+            _make_ask_user_tool_call("call-1", "Which Profile section did you mean?")
+        ),
+        # Turn 2+: content_only — guard fires PLANNING_NO_PROGRESS → terminates test
+    ]
+
+    loop._llm_runtime_controller = SimpleNamespace(
+        call_with_raw_response=_make_fake_controller(responses, controller_calls)
+    )
+    monkeypatch.setattr(agent_module, "record_model_call_start", lambda **kwargs: object())
+    monkeypatch.setattr(agent_module, "record_model_call_end", lambda *args, **kwargs: None)
+
+    _run(loop.run([_make_current_step()]))
+
+    assert len(controller_calls) >= 1
+    # Turn 1 must already be narrowed because pending_ambiguity was set before first LLM call
+    call1_tools = set(controller_calls[0]["tool_names"])
+    assert call1_tools == NARROWED_TOOL_NAMES, (
+        f"Pending ambiguity should narrow tools to ask_user+send_to_overlay, got {call1_tools}"
+    )
+
+
+def test_convergence_narrowing_flag_cleared_on_lifecycle_reset() -> None:
+    """_step_plan_convergence_narrowing must reset to False on lifecycle reset."""
+    loop = _make_agent_loop()
+    loop._step_plan_convergence_narrowing = True
+    loop._reset_lifecycle_state = AgentLoop._reset_lifecycle_state.__get__(loop, AgentLoop)
+    # Minimal stubs needed for _reset_lifecycle_state
+    loop._clear_confirmed_execution_contract_state = lambda: None
+    loop.phase_tracker = PhaseTracker()
+    loop.phase_tracker.current_phase = "planning"
+
+    loop._reset_lifecycle_state()
+
+    assert loop._step_plan_convergence_narrowing is False, (
+        "_step_plan_convergence_narrowing must be False after lifecycle reset"
+    )
+
+
+def _tool_name_from_def(tool_def: Any) -> str:
+    if isinstance(tool_def, dict):
+        fn = tool_def.get("function")
+        if isinstance(fn, dict):
+            return str(fn.get("name") or "")
+    return ""
