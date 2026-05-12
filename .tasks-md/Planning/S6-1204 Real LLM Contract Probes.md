@@ -29,3 +29,10 @@ intent_classifier, page_intelligence_summarizer, page_validation_recommender, jo
 ## Notes
 
 Contract probes are cheap and deterministic. Results inform whether paid E2E can proceed.
+
+
+---
+
+## Audit note (2026-05-13)
+
+Evidence missing; not moved to Done. Real LLM contract probes require paid/live LLM calls. Per sprint policy (S6-0007), paid calls are explicitly deferred. Status: Pending paid E2E gate.

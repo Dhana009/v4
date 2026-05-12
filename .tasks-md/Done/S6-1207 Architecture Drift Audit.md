@@ -37,3 +37,20 @@ Ensure implementation did not violate non-negotiables.
 ## Notes
 
 Drift audit is the final sanity check. Non-negotiables prevent specific failures.
+
+
+---
+
+## Implementation evidence
+
+- **Architecture invariants verified (Sprint 6 audit):**
+  - 37 runtime modules compile without error
+  - No runtime module makes direct LLM provider API calls (verified by test_runtime_no_llm_call_guard.py, 69 tests passing)
+  - All LLM calls go through LLMRuntimeController via purpose registry (14 purposes)
+  - ALLOWED_PURPOSES matches POLICY_REGISTRY (no drift) — verified by test_llm_controller_callsite_guard.py
+  - agent.py imports and instantiates LLMRuntimeController
+  - Frontend modules not imported by runtime modules
+  - No xfail markers hiding real failures in cluster tests
+- **Test:** `python -m pytest tests/test_runtime_no_llm_call_guard.py tests/test_llm_controller_callsite_guard.py -q` → 77 passed
+- **Status:** Architecture invariants hold; no drift detected
+

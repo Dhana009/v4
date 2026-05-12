@@ -38,3 +38,10 @@ Contents:
 ## Notes
 
 This is the record of what we built. Must be honest (no fake Done) and clear.
+
+
+---
+
+## Audit note (2026-05-13)
+
+Partial evidence: Cluster 1 stories moved to Done (in repo). Cluster 2 stories moved to Done in this task. S6-1202 and S6-1207 moved to Done. Other Cluster 12 stories remain in Planning/Testing as appropriate. SPRINT-006-HANDOFF.md created. Not fully Done until all intended story moves are verified.

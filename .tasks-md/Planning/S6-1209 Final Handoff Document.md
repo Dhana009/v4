@@ -37,3 +37,10 @@ Create final Complete LLM Mode handoff so next developer can continue without re
 ## Notes
 
 Handoff captures not just what was built, but how to use it, extend it, debug it, and what's next.
+
+
+---
+
+## Audit note (2026-05-13)
+
+Evidence: SPRINT-006-HANDOFF.md created at .tasks-md/Sprints/SPRINT-006-HANDOFF.md in this task. Story moved to Done once handoff document is committed.

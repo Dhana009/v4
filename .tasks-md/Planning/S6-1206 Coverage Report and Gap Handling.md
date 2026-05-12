@@ -36,3 +36,10 @@ runtime/redaction_policy.py: 98%+ required (security-critical)
 ## Notes
 
 Coverage is a quality gate. Exceptions OK if documented.
+
+
+---
+
+## Audit note (2026-05-13)
+
+Partial evidence: coverage tooling (coverage, pytest-cov) installed. New Sprint 6 modules (steps_mode.py, human_in_loop.py) at 100% coverage. Full runtime/ coverage report not run across all 72 modules. Not moved to Done; gaps remain for broader coverage sweep.

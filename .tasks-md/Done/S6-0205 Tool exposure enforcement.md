@@ -4,7 +4,7 @@
 **Cluster:** 2 (Context/Memory/Token/Tool/Schema Policy Enforcement)  
 **Tier:** 1 (core)  
 **Type:** Feature  
-**Status:** Planning  
+**Status:** Done  
 **Owner:** Runtime Policy  
 **Blocks:** S6-0206, S6-0207, S6-0208  
 **Blocked by:** S6-0204  
@@ -177,6 +177,19 @@ for p in ['intent_classifier', 'locator_specialist', 'execution_driver']:
 - [ ] Commit message references tool exposure
 
 ---
+
+
+---
+
+## Implementation evidence (Sprint 6 Cluster 2)
+
+- **Commit:** 7491f35 — feat: enforce llm runtime context policies
+- **Modules added/changed:** runtime/tool_exposure_enforcement.py
+- **Tests:** tests/test_tool_exposure_enforcement.py
+- **Test result:** 102 cluster tests passing, 1321 total suite passing (as of commit 7491f35)
+- **Coverage:** runtime/context_policy.py, runtime/context_gates.py, runtime/context_request_policy.py, runtime/memory_selection_policy.py, runtime/tool_exposure_enforcement.py, runtime/schema_validation_policy.py, runtime/token_budget_policy.py covered via dedicated test files
+- **Validation command:** `python -m pytest tests/test_context_policy.py tests/test_context_gates.py tests/test_context_request_policy.py tests/test_memory_selection_policy.py tests/test_tool_exposure_enforcement.py tests/test_schema_validation_policy.py tests/test_token_budget_policy.py -q` → 102 passed
+- **Architecture invariant:** All context levels enforced via runtime/ modules; agent.py does not build ad-hoc context
 
 ## Stop conditions
 

@@ -34,3 +34,10 @@ No artifact bundle, Unredacted secrets, LLM emits execution success, Browser act
 ## Notes
 
 Paid E2E is gated. Cost bounded (5 flows, ~10-15 paid LLM calls). Hard stops prevent wasting budget.
+
+
+---
+
+## Audit note (2026-05-13)
+
+Evidence missing; not moved to Done. Paid browser E2E not run (per sprint policy S6-0007 and audit instruction). Status: Pending paid E2E. Do not claim Complete LLM Mode fully accepted.

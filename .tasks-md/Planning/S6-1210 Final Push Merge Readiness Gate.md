@@ -39,3 +39,10 @@ Option B: Force Push (Only if necessary, explicitly approved)
 ## Notes
 
 Final gate. No product code changes, just ensuring repo state is clean and consistent.
+
+
+---
+
+## Audit note (2026-05-13)
+
+Evidence missing; not moved to Done. Push not executed (per audit instruction). 12 pre-existing failures tracked in BUG-S6-FINAL-001. Frontend limitation documented in BUG-S6-FINAL-002. Repo is NOT push-ready until: (a) 12 failures resolved or explicitly accepted, (b) paid E2E gate run, (c) frontend status confirmed.

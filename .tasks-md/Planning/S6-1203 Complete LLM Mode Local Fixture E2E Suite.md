@@ -41,3 +41,10 @@ Run local deterministic fixture E2E flows to verify Complete LLM Mode works end-
 ## Notes
 
 This is the local gating story. All 15 flows must pass before Cluster 12 paid work can proceed.
+
+
+---
+
+## Audit note (2026-05-13)
+
+Partial evidence: tests/e2e/ → 6 fixture E2E tests passed. Full Complete LLM Mode local fixture suite requires additional scenario coverage. Not moved to Done; leave in Testing until full suite is defined and validated.
