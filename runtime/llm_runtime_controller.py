@@ -1037,7 +1037,7 @@ class LLMRuntimeController:
         client: Any | None,
     ) -> Any:
         if client is None:
-            if purpose == "main_orchestrator" and self.model_router is not None:
+            if self.model_router is not None:
                 router_call = getattr(self.model_router, "call", None)
                 if callable(router_call):
                     response = router_call(
@@ -1050,6 +1050,10 @@ class LLMRuntimeController:
                     )
                     return await _maybe_await(response)
             raise ValueError(f"No model client available for purpose {purpose!r}")
+
+        print(
+            f"[MODEL_ROUTER] purpose={purpose} agent={purpose} model={model}"
+        )
 
         chat = getattr(client, "chat", None)
         completions = getattr(chat, "completions", None)

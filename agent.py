@@ -1720,12 +1720,16 @@ class AgentLoop:
                 try:
                     controller_result: dict[str, Any] | None = None
                     if effective_purpose == "step_plan_normalizer":
+                        _plan_tool_choice: Any = "auto"
+                        if getattr(self, "_step_plan_convergence_narrowing", False):
+                            _plan_tool_choice = {"type": "function", "function": {"name": "ask_user"}}
+                            print("[AGENT] step_plan_normalizer: forcing tool_choice=ask_user after convergence narrowing")
                         controller_result = await self._call_step_plan_normalizer_controller(
                             messages=context_bundle.messages,
                             phase=current_phase,
                             context_mode=execution_context,
                             tools=filtered_tools,
-                            tool_choice="auto",
+                            tool_choice=_plan_tool_choice,
                         )
                     elif effective_purpose == "recovery_diagnoser":
                         controller_result = await self._call_recovery_diagnoser_controller(

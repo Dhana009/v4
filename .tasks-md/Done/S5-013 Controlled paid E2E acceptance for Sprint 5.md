@@ -1,6 +1,7 @@
 # S5-013 Controlled paid E2E acceptance for Sprint 5
 
-Status: Blocked
+Status: Done
+Closed: 2026-05-12
 Sprint: Sprint 5
 Type: Story
 Owner:

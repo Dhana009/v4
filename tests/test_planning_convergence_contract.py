@@ -662,6 +662,88 @@ def test_llm_thinking_after_narrowing_terminates_immediately(monkeypatch) -> Non
     assert "run_completed" not in message_types
 
 
+def _make_fake_controller_recording_tool_choice(
+    responses: list[Any],
+    controller_calls: list[dict[str, Any]],
+    *,
+    fallback: Any = None,
+) -> Any:
+    """Like _make_fake_controller but also records tool_choice per call."""
+    if fallback is None:
+        fallback = _make_content_only_response("done thinking")
+
+    async def fake_controller_call(**kwargs: Any) -> dict[str, Any]:
+        call_index = len(controller_calls)
+        controller_calls.append({
+            "tool_names": sorted(_tool_name_from_def(t) for t in (kwargs.get("tools") or [])),
+            "tool_choice": kwargs.get("tool_choice"),
+        })
+        response = responses[call_index] if call_index < len(responses) else fallback
+        msg = response.choices[0].message
+        return {
+            "validation_status": "tool_calls_preserved",
+            "raw_response": response,
+            "raw_message": msg,
+            "content": msg.content or "",
+            "tool_calls": list(msg.tool_calls or []),
+            "prompt_pack_applied": True,
+            "prompt_pack_id": "step_plan_normalizer.v1",
+            "prompt_pack_version": 1,
+            "prefix_hash": "deadbeefdeadbeef",
+            "skills_loaded": [],
+            "skill_levels": [],
+        }
+    return fake_controller_call
+
+
+def test_forced_ask_user_tool_choice_after_convergence_narrowing(monkeypatch) -> None:
+    """After convergence narrowing, controller must be called with tool_choice=ask_user (forced).
+
+    gpt-4o-mini ignores natural language + enum stripping and still outputs llm_thinking.
+    The only reliable fix is forcing tool_choice at the API level so the model is
+    constrained to emit ask_user (the terminal output for ambiguity per PRD §5).
+    """
+    loop = _make_agent_loop()
+    sent_messages: list[tuple[str, dict[str, Any]]] = []
+    controller_calls: list[dict[str, Any]] = []
+
+    loop.tools = [_make_stub_tool(n) for n in sorted(BROWSER_PATH_TOOL_NAMES)]
+    loop.current_steps = [_make_current_step()]
+    _install_common_run_stubs(loop, sent_messages)
+
+    responses = [
+        # Turn 1: llm_thinking → triggers convergence narrowing
+        _make_response_with_tool_calls(
+            _make_overlay_tool_call("call-1", {"text": "thinking..."}, message_type="llm_thinking")
+        ),
+        # Turn 2: ask_user — model commits under forced tool_choice
+        _make_response_with_tool_calls(
+            _make_ask_user_tool_call("call-2", "Which save button?")
+        ),
+    ]
+
+    loop._llm_runtime_controller = SimpleNamespace(
+        call_with_raw_response=_make_fake_controller_recording_tool_choice(responses, controller_calls)
+    )
+    monkeypatch.setattr(agent_module, "record_model_call_start", lambda **kwargs: object())
+    monkeypatch.setattr(agent_module, "record_model_call_end", lambda *args, **kwargs: None)
+
+    _run(loop.run([_make_current_step()]))
+
+    assert len(controller_calls) >= 2, f"Expected at least 2 controller calls, got {len(controller_calls)}"
+
+    call1_choice = controller_calls[0].get("tool_choice")
+    assert call1_choice == "auto", f"First call must use tool_choice='auto', got {call1_choice!r}"
+
+    call2_choice = controller_calls[1].get("tool_choice")
+    assert isinstance(call2_choice, dict), (
+        f"Second call must use forced tool_choice dict after convergence narrowing, got {call2_choice!r}"
+    )
+    assert call2_choice.get("type") == "function", f"Forced tool_choice must be type=function, got {call2_choice}"
+    forced_name = call2_choice.get("function", {}).get("name")
+    assert forced_name == "ask_user", f"Forced tool must be ask_user, got {forced_name!r}"
+
+
 def test_convergence_narrowing_flag_cleared_on_lifecycle_reset() -> None:
     """_step_plan_convergence_narrowing must reset to False on lifecycle reset."""
     loop = _make_agent_loop()
