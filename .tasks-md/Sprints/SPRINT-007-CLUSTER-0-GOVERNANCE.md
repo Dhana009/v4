@@ -25,18 +25,35 @@ Sprint 9 will focus on real-world/live-site testing.
 
 ## Scope
 
-**In Scope — Sprint 7:**
-- Backend event and command seam completion (Cluster 1)
-- Frontend transport, state, and interaction mode completion (Cluster 2)
-- Real frontend component wiring to live backend events (Cluster 3)
-- Local browser E2E smoke proof with fake-LLM (Cluster 4)
+**In Scope — Sprint 7 (Clusters 0–11):**
+- C0: Governance, source mapping, test architecture, execution protocol
+- C1: Backend event and command seam completion
+- C2: LLM/runtime live integration gaps (Page Intelligence, recommendation, plan diff, locator, recovery, telemetry, capability, fail-closed)
+- C3: Frontend architecture and design prototype extraction
+- C4: Docked Shadow DOM host and page compensation
+- C5: Typed frontend event store and command dispatcher
+- C6: LLM tab complete live workflow
+- C7: Steps tab, Manual Mode foundation, picker/locator workflows
+- C8: Recorded + Code + Replay + Save/Load UI
+- C9: Trace + Artifacts + Agent visibility
+- C10: Integrated local browser E2E smoke gate (fake-LLM only)
+- C11: Sprint 7 final acceptance, handoff, push readiness
+
+**Manual Mode — Sprint 7 in-scope (foundation):**
+- Mode toggle inside Steps tab (LLM Mode / Manual Mode)
+- Manual Mode workspace layout
+- Manual action builder (baseline)
+- Manual assertion builder (baseline)
+- Expected value / test data handling
+- Wrong-page / missing-data / weak-locator states
 
 **Out of Scope — Sprint 7:**
 - Paid LLM browser E2E (Sprint 8)
-- Real-world/live-site testing (Sprint 9)
-- Manual Mode (Phase 4)
+- Real-world / live-site testing (Sprint 9)
+- Advanced Manual Mode hardening (Sprint 8): expanded action/assertion vocabulary beyond Sprint 7 baseline, multi-step manual authoring polish, advanced special-case handling
+- Manual exploratory hardening on realistic fixture pages (Sprint 8)
 - Advanced Playwright vocabulary hardening (Phase 5)
-- Agent Control Center multi-model UI (stabilized architecture)
+- Agent Control Center full multi-model UI (only limited live view in C9)
 - Page Maps, persistent locator library, session memory
 - Multi-model orchestration specialist agents beyond Page Intelligence
 
@@ -59,7 +76,7 @@ These rules carry forward from Sprint 6 unchanged. Any story that violates them 
 11. **No bug fix without bug ticket.** All bugs tracked under `.tasks-md/Bugs/`.
 12. **Code must remain modular.** No expanding monoliths: `agent.py`, `server.py`, `browser.py`, `frontend/src/main.jsx`, `aw-ide-panel.jsx`.
 13. **No paid LLM calls in Sprint 7.** Fake-LLM / fixture-based only until Sprint 8 explicit acceptance gate.
-14. **No browser E2E in Clusters 0–3.** Browser E2E is Cluster 4 only, after backend and frontend clusters are complete.
+14. **No browser E2E in Clusters 0–9.** Browser E2E is Cluster 10 only, after backend, LLM/runtime integration, frontend extraction, Shadow DOM host, event store, and all tab UIs are complete.
 
 ---
 
@@ -101,7 +118,7 @@ For every Sprint 7 story:
 | Command dispatcher | Frontend → backend command routing and validation | `tests/test_command_*.py` |
 | Integration | Multi-module interaction without full browser/LLM | `tests/test_*_integration*.py` |
 | Frontend component | Component render against typed backend event data | frontend test suite |
-| Shadow DOM / browser | Component behavior inside Shadow DOM container | Cluster 4 only |
+| Shadow DOM / browser | Component behavior inside Shadow DOM container | Cluster 10 only |
 | Local fake-LLM E2E | Full backend flow with fixture LLM responses | `tests/e2e/` |
 | Regression guard | Run suite that must stay green across all clusters | `tests/test_sprint7_regression_guard.py` |
 | Paid LLM E2E | Real model, real browser — gated to Sprint 8 only | Not in Sprint 7 |
@@ -201,10 +218,10 @@ Every story marked Done must provide:
 
 ## Local Browser E2E Policy
 
-- Browser E2E is Cluster 4 only.
+- Browser E2E is Cluster 10 only.
 - Uses fake-LLM fixture responses — no real model calls.
 - No paid LLM in E2E during Sprint 7.
-- E2E must pass locally before any merge of Cluster 4.
+- E2E must pass locally before any merge of Cluster 10.
 - E2E target: smoke test the main LLM Mode flow end-to-end through the real frontend.
 
 ---
@@ -236,13 +253,20 @@ Stop implementation and escalate if any of the following occur:
 
 | Cluster | Focus | Prerequisite |
 |---------|-------|-------------|
-| 0 | Governance, source mapping, test architecture | None |
-| 1 | Backend event and command seam completion | Cluster 0 approved |
-| 2 | Frontend transport, state, interaction mode completion | Cluster 1 Done |
-| 3 | Real frontend component wiring to live backend events | Cluster 2 Done |
-| 4 | Local browser E2E smoke proof | Cluster 3 Done |
+| C0 | Governance, source mapping, test architecture, execution protocol | None |
+| C1 | Backend event and command seam completion | C0 approved |
+| C2 | LLM/runtime live integration gaps | C1 Done |
+| C3 | Frontend architecture and design prototype extraction | C0 approved (UI work blocked on C5) |
+| C4 | Docked Shadow DOM host and page compensation | C3 Done |
+| C5 | Typed frontend event store and command dispatcher | C1 Done, C2 Done |
+| C6 | LLM tab complete live workflow | C5 Done |
+| C7 | Steps tab, Manual Mode foundation, picker/locator workflows | C5 Done |
+| C8 | Recorded + Code + Replay + Save/Load UI | C5 Done, C1 save/load seams Done |
+| C9 | Trace + Artifacts + Agent visibility | C5 Done, C2 telemetry payloads Done |
+| C10 | Integrated local browser E2E smoke gate (fake-LLM only) | C3–C9 Done |
+| C11 | Sprint 7 final acceptance, handoff, push readiness | C10 Done |
 
-One cluster at a time. Do not begin Cluster 2 until Cluster 1 is Done with evidence. Do not begin Cluster 3 until Cluster 2 is Done with evidence. Do not begin E2E (Cluster 4) until Cluster 3 is Done.
+One cluster at a time within a dependency chain. Do not begin a cluster until its prerequisites are Done with evidence. Browser E2E is **Cluster 10 only**; no browser E2E in Clusters 0–9. Final acceptance (C11) runs only after C10 passes.
 
 ---
 
@@ -260,3 +284,102 @@ One cluster at a time. Do not begin Cluster 2 until Cluster 1 is Done with evide
 | S7-0008 | Cluster execution protocol and stop conditions |
 
 All Cluster 0 stories are planning/documentation only. No product code is written in Cluster 0.
+
+---
+
+## Anchored Rule ID Index (GOV-S7-C0-NNN)
+
+Stories cite synthetic governance rule IDs. The full anchored set is:
+
+### Architecture invariants (GOV-S7-C0-001 … GOV-S7-C0-014)
+
+Each ID maps 1:1 to the numbered rule in the "Non-Negotiable Architecture Rules" section above:
+
+| ID | Rule |
+|----|------|
+| GOV-S7-C0-001 | Backend owns runtime truth. |
+| GOV-S7-C0-002 | LLM proposes and reasons only. |
+| GOV-S7-C0-003 | Frontend renders typed backend events and sends typed backend commands only. |
+| GOV-S7-C0-004 | DOM/Page Intelligence provides candidates and context only. |
+| GOV-S7-C0-005 | Trace and artifacts are evidence only. |
+| GOV-S7-C0-006 | Frontend must not infer lifecycle truth. |
+| GOV-S7-C0-007 | No source rule → no test. |
+| GOV-S7-C0-008 | No test → no implementation. |
+| GOV-S7-C0-009 | No negative tests → no merge. |
+| GOV-S7-C0-010 | No Done without evidence. |
+| GOV-S7-C0-011 | No bug fix without bug ticket. |
+| GOV-S7-C0-012 | Code must remain modular (no monolith growth). |
+| GOV-S7-C0-013 | No paid LLM calls in Sprint 7. |
+| GOV-S7-C0-014 | No browser E2E in Clusters 0–9 (E2E is C10 only). |
+
+### Test architecture invariants (GOV-S7-C0-015 … GOV-S7-C0-029)
+
+| ID | Rule |
+|----|------|
+| GOV-S7-C0-015 | Test taxonomy: Unit, Contract, Reducer/store, Command dispatcher, Integration, Frontend component, Shadow DOM/browser, Local fake-LLM E2E, Regression guard, Paid LLM E2E (deferred). |
+| GOV-S7-C0-016 | Test-first protocol: write all listed tests before any implementation. |
+| GOV-S7-C0-017 | Tests must fail (red) before implementation. |
+| GOV-S7-C0-018 | Implement minimum code to make tests pass (green). |
+| GOV-S7-C0-019 | Refactor without breaking tests. |
+| GOV-S7-C0-020 | Confirm no regression in existing cheap suite. |
+| GOV-S7-C0-021 | Commit implementation + tests together. |
+| GOV-S7-C0-022 | Regression gate: Sprint 6 cheap suite baseline must stay stable. |
+| GOV-S7-C0-023 | Test file naming follows taxonomy (`tests/test_*.py`, `*_contract*`, `*_integration*`). |
+| GOV-S7-C0-024 | Contract tests assert envelope shape and required fields. |
+| GOV-S7-C0-025 | Integration tests assert multi-module behavior without browser/LLM. |
+| GOV-S7-C0-026 | Frontend component tests render against typed backend event data. |
+| GOV-S7-C0-027 | Negative tests cover stale command, missing id, unknown event, malformed payload. |
+| GOV-S7-C0-028 | Regression tests guard prior-cluster work after each new cluster. |
+| GOV-S7-C0-029 | Test fixtures must be deterministic; no random delays, no network. |
+
+### Evidence and story lifecycle invariants (GOV-S7-C0-030 … GOV-S7-C0-044)
+
+| ID | Rule |
+|----|------|
+| GOV-S7-C0-030 | Story Planning state requires: title, source rules, objective, current context, tests-first plan. |
+| GOV-S7-C0-031 | Story In-Progress state requires failing tests committed first. |
+| GOV-S7-C0-032 | Story Done state requires implementation + tests committed and evidence linked. |
+| GOV-S7-C0-033 | Story Done state forbids placeholders or pending items. |
+| GOV-S7-C0-034 | Story Blocked state requires linked blocking ticket. |
+| GOV-S7-C0-035 | Story Cancelled state requires documented reason. |
+| GOV-S7-C0-036 | Evidence must include implementation files committed. |
+| GOV-S7-C0-037 | Evidence must include test files committed with all tests passing. |
+| GOV-S7-C0-038 | Evidence must include regression suite pass (no new failures). |
+| GOV-S7-C0-039 | Evidence must include coverage ≥ 95% for new modules. |
+| GOV-S7-C0-040 | Evidence must include story file updated with Done status. |
+| GOV-S7-C0-041 | Commit message references story ID and test count. |
+| GOV-S7-C0-042 | No module exceeds 300 lines without documented split boundary. |
+| GOV-S7-C0-043 | Each new module must have its own test file. |
+| GOV-S7-C0-044 | Pre-existing Sprint 6 bugs tracked separately; do not close without explicit task. |
+
+### Coverage, bug-policy, and E2E invariants (GOV-S7-C0-045 … GOV-S7-C0-059)
+
+| ID | Rule |
+|----|------|
+| GOV-S7-C0-045 | Coverage threshold: ≥ 95% line coverage on new backend modules; do not lower threshold. |
+| GOV-S7-C0-046 | Coverage runs per story via `pytest --cov=<module_path> --cov-fail-under=95`. |
+| GOV-S7-C0-047 | Frontend new modules covered by contract + component tests. |
+| GOV-S7-C0-048 | No new module merged without a coverage run. |
+| GOV-S7-C0-049 | Bug ticket path: `.tasks-md/Bugs/Backlog/BUG-S7-<NNN>-<description>.md`. |
+| GOV-S7-C0-050 | Bug ticket must include severity, source rule violated, repro, failing test, fix plan. |
+| GOV-S7-C0-051 | No fix committed without referenced bug ticket. |
+| GOV-S7-C0-052 | Local E2E uses fake-LLM only; no paid APIs. |
+| GOV-S7-C0-053 | Local E2E uses local fixture sites only; no live external sites. |
+| GOV-S7-C0-054 | Local E2E captures screenshots, event log, command log, error log, manifest. |
+| GOV-S7-C0-055 | Local E2E flakiness < 5% across 3 consecutive runs. |
+| GOV-S7-C0-056 | Paid E2E gated to Sprint 8 only; explicit acceptance ticket required. |
+| GOV-S7-C0-057 | Live-site testing gated to Sprint 9 only. |
+| GOV-S7-C0-058 | E2E harness must locate `aw-shadow-host` and interact through docked layout. |
+| GOV-S7-C0-059 | Forbidden staging: AGENTS.md, .DS_Store, .tasks-md/.DS_Store, .playwright-cli, frontend_new_design_prototype. |
+
+### Stop conditions and architecture-drift invariants (GOV-S7-C0-060 … GOV-S7-C0-063)
+
+| ID | Rule |
+|----|------|
+| GOV-S7-C0-060 | Stop if any forbidden file is touched outside its story's allowed list. |
+| GOV-S7-C0-061 | Stop if new regression failure appears outside tracked pre-existing list. |
+| GOV-S7-C0-062 | Stop if architecture invariant is violated (any of GOV-S7-C0-001 … GOV-S7-C0-006). |
+| GOV-S7-C0-063 | Stop if static/demo runtime truth appears in live mode (no demo fallback). |
+
+The range `GOV-S7-C0-001 … GOV-S7-C0-063` defines the complete Sprint 7 governance ID space. Stories that reference an ID outside this range must update this index before merge.
+

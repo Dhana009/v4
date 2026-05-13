@@ -60,6 +60,91 @@ Examples:
 - `GOV-S7-C0-001` = Sprint 7 Cluster 0 Governance, rule 001
 - `S6-HANDOFF-001` = Sprint 6 HANDOFF, finding 001
 
+The full `GOV-S7-C0-NNN` range (001–063) is anchored in `SPRINT-007-CLUSTER-0-GOVERNANCE.md` § "Anchored Rule ID Index". Any story citing a `GOV-S7-C0-NNN` ID must resolve to a row in that index.
+
+---
+
+## Synthetic ID Index — Source Document Anchors
+
+This index resolves every `PRD-<doc>-<area>-<NNN>` ID cited across Sprint 7 stories to a real source-document section and rule summary. Stories cite the synthetic ID; reviewers verify the row exists here.
+
+### PRD-02 (LLM Runtime, Workflows)
+
+| Synthetic ID | Source document | Section / rule | Rule summary |
+|--------------|-----------------|----------------|--------------|
+| PRD-02-WORKFLOWS-001 | `01_PRODUCT_WORKFLOWS.md` | LLM Mode primary flow | Intent → clarification → plan → confirm → execute → record → code → complete |
+| PRD-02-WORKFLOWS-002 | `01_PRODUCT_WORKFLOWS.md` | Plan correction | User correction triggers re-plan; old plan invalid until new plan_ready |
+| PRD-02-WORKFLOWS-003 | `01_PRODUCT_WORKFLOWS.md` | Confirmation gate | No execution before user confirm of plan |
+| PRD-02-WORKFLOWS-004 | `01_PRODUCT_WORKFLOWS.md` | Recording flow | Each step produces backend-emitted step_recorded evidence |
+| PRD-02-WORKFLOWS-005 | `01_PRODUCT_WORKFLOWS.md` | Locator ambiguity flow | Backend emits locator_ambiguous with candidates; UI awaits user choice |
+| PRD-02-WORKFLOWS-006 | `01_PRODUCT_WORKFLOWS.md` | Recovery flow | Backend emits recovery_needed; user chooses retry/skip/stop |
+| PRD-02-WORKFLOWS-007 | `01_PRODUCT_WORKFLOWS.md` | Completion summary | run_completed payload includes recorded/skipped counts |
+| PRD-02-LLM-001 | `02_LLM_RUNTIME.md` | LLM proposer/reasoner only | LLM never decides finality, recording, or failure resolution |
+| PRD-02-LLM-005 | `02_LLM_RUNTIME.md` | Fail-closed schema | Malformed/missing LLM output rejected; no silent fallback |
+
+### PRD-03 (Frontend Runtime)
+
+| Synthetic ID | Source document | Section / rule | Rule summary |
+|--------------|-----------------|----------------|--------------|
+| PRD-03-FE-001 | `03_FRONTEND_RUNTIME.md` | Live WS transport | Frontend connects via typed WS transport; IDEPanel receives live state |
+| PRD-03-FE-002 | `03_FRONTEND_RUNTIME.md` | Manual Mode is deterministic first | Manual Mode is deterministic/manual-control-first; LLM help is explicit and optional |
+| PRD-03-FE-003 | `03_FRONTEND_RUNTIME.md` | Same Recorder/Code/Trace systems serve both modes | LLM Mode and Manual Mode share backend recording/code/replay infrastructure |
+| PRD-03-FE-004 | `03_FRONTEND_RUNTIME.md` | plan_review interaction mode | Triggered by plan_ready event only |
+| PRD-03-FE-005 | `03_FRONTEND_RUNTIME.md` | clarification interaction mode | Triggered by clarification_needed event only |
+| PRD-03-FE-006 | `03_FRONTEND_RUNTIME.md` | executing interaction mode | Triggered by step lifecycle events only |
+| PRD-03-FE-007 | `03_FRONTEND_RUNTIME.md` | Typed commands only | Frontend sends only typed, schema-validated commands |
+| PRD-03-FE-008 | `03_FRONTEND_RUNTIME.md` | completed interaction mode | Triggered by run_completed event only |
+| PRD-03-FE-009 | `03_FRONTEND_RUNTIME.md` | No inference from LLM text | UI never derives lifecycle state from LLM prose |
+| PRD-03-FE-010 | `03_FRONTEND_RUNTIME.md` | session_state reconnect restore | UI restores from session_state snapshot on reconnect |
+| PRD-03-FE-011 | `03_FRONTEND_RUNTIME.md` | No static/demo fallback in live mode | Live mode never renders demo/static content |
+| PRD-03-FE-012 | `03_FRONTEND_RUNTIME.md` | Shadow DOM host wiring | Frontend mounts inside `aw-shadow-host` with isolated styles |
+| PRD-03-FE-013 | `03_FRONTEND_RUNTIME.md` | Design tokens externalized | Tokens extracted from prototype; no inline magic values |
+| PRD-03-FE-014 | `03_FRONTEND_RUNTIME.md` | Docked panel layout | Panel docks right/left/top/bottom; non-overlay |
+| PRD-03-FE-015 | `03_FRONTEND_RUNTIME.md` | Page compensation | Host page content shifts; not hidden behind panel |
+| PRD-03-FE-016 | `03_FRONTEND_RUNTIME.md` | data-testid baseline | Critical UI elements expose stable data-testid attributes |
+
+### PRD-04 (Backend Event and Command Contract)
+
+`PRD-04-BE-000` through `PRD-04-BE-017` map to `04_BACKEND_EVENT_CONTRACT.md` event sections (run_started, plan_ready, step_validating, step_executing, step_failed, step_skipped, step_recorded, permission_required, ready, run_completed, session_state, code_update, recommendation_ready, page_analysis_started, page_summary_ready, plan_diff_ready, locator_ambiguous, recovery_needed). `PRD-04-BACKEND-001..010` are legacy aliases retained for stories that pre-date the `BE` rename; reviewers may treat `BACKEND-NNN` as identical to `BE-NNN`.
+
+`PRD-04-CMD-000` through `PRD-04-CMD-012` map to `04_BACKEND_EVENT_CONTRACT.md` command-envelope section (confirmed, correction, option_selected, stop_run, skip_step, save_session, load_session, permission_decision, replay_one, replay_all, choose_candidate, validate_locator, improve_locator).
+
+### PRD-05 (Codegen / Replay / Persistence)
+
+| Synthetic ID | Source document | Rule summary |
+|--------------|-----------------|--------------|
+| PRD-05-REC-001..005 | `05_CODEGEN_REPLAY_PERSISTENCE.md` | step_recorded payload, evidence fields, repaired/skipped/unresolved states |
+| PRD-05-CODEGEN-001..004 | `05_CODEGEN_REPLAY_PERSISTENCE.md` | code_update payload, line-to-step mapping, warnings, capability placeholders |
+| PRD-05-REPLAY-001 | `05_CODEGEN_REPLAY_PERSISTENCE.md` | replay_one and replay_all command payloads |
+| PRD-05-RECOVERY-001..002 | `05_CODEGEN_REPLAY_PERSISTENCE.md` | recovery_needed payload, retry/skip/stop options |
+| PRD-05-SESSION-001 | `05_CODEGEN_REPLAY_PERSISTENCE.md` | save_session / load_session payload and version field |
+| PRD-05-CAPGAP-001..002 | `05_CODEGEN_REPLAY_PERSISTENCE.md` | capability_gap notice payload and UI handling |
+
+### PRD-06 (Build Roadmap / Acceptance / Trace)
+
+| Synthetic ID | Source document | Rule summary |
+|--------------|-----------------|--------------|
+| PRD-06-ACC-001 | `06_BUILD_ROADMAP_AND_ACCEPTANCE.md` | Local E2E smoke acceptance gate |
+| PRD-06-ACC-002 | `06_BUILD_ROADMAP_AND_ACCEPTANCE.md` | Cheap regression suite must stay green |
+| PRD-06-ACC-003 | `06_BUILD_ROADMAP_AND_ACCEPTANCE.md` | Frontend build/test must pass before push readiness |
+| PRD-06-TRACE-001..004 | `06_BUILD_ROADMAP_AND_ACCEPTANCE.md` | Trace timeline, filters, failure detail, artifact link contracts |
+| PRD-06-REDACTION-001 | `06_BUILD_ROADMAP_AND_ACCEPTANCE.md` | Artifacts must redact secrets before display |
+
+### PRD-07 (Multi-Model Orchestration)
+
+| Synthetic ID | Source document | Rule summary |
+|--------------|-----------------|--------------|
+| PRD-07-AGENT-001 | `07_MULTI_MODEL_ORCHESTRATION.md` | Agent Control Center limited visibility in Sprint 7 |
+| PRD-07-AGENT-004 | `07_MULTI_MODEL_ORCHESTRATION.md` | Specialist agents (Page Intelligence) emit context only, not decisions |
+
+### GOV-S7-C0 (Sprint 7 Cluster 0 Governance)
+
+`GOV-S7-C0-001` … `GOV-S7-C0-063` are anchored in `SPRINT-007-CLUSTER-0-GOVERNANCE.md` § "Anchored Rule ID Index". See that document for the canonical list.
+
+### Unresolvable IDs
+
+If any story cites an ID not in this index or in the C0 anchored rule index, the story must be corrected before merge. No `_UNRESOLVED` IDs remain.
+
 ---
 
 ## Source-Rule-to-Test Mapping

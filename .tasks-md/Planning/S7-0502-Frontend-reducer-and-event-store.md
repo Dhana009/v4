@@ -19,6 +19,15 @@
 
 Create frontend event store using reducer pattern. Events from backend trigger state transitions. State is pure (no side effects in reducer). Components subscribe to state and re-render when state changes.
 
+---
+
+## Scope vs S7-0306 (cross-reference)
+
+- **S7-0502 owns the actual reducer / event-store implementation.**
+- S7-0306 created the module skeleton (`frontend/src/store/reducer.js`, `types.js`, `selectors.js`) as empty/minimal stubs.
+- S7-0502 must **fill or replace** those stubs in place. It must **not** create duplicate store files or move the store to a different path.
+- Before implementation, verify the S7-0306 handoff state: stubs exist, no logic present, build still succeeds. If stubs are missing or already contain logic, stop and resolve via the cluster handoff protocol.
+
 After S7-0502:
 - Event store module created (`frontend/src/store/`)
 - Reducer function handles all event types

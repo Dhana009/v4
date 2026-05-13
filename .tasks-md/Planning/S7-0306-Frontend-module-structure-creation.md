@@ -14,6 +14,16 @@ Create modular frontend architecture with clear boundaries: host, transport, sto
 
 ---
 
+## Scope vs S7-0502 (cross-reference)
+
+- **S7-0306 owns module/folder structure and empty/minimal stubs only.**
+- S7-0306 must **not** implement reducer/store behavior. Stubs may declare exported names and types only.
+- S7-0306 must **not** duplicate S7-0502 implementation work.
+- If imports break or build fails after stub creation, **stop and roll back** the module skeleton changes; do not patch logic into stubs to compensate.
+- S7-0502 fills/replaces the `frontend/src/store/` stubs created here with the real reducer, selectors, and event-store implementation.
+
+---
+
 ## Module Structure (Target)
 
 ```

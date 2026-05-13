@@ -66,6 +66,31 @@ test_mode_toggle_updates_ui()
 test_manual_mode_does_not_auto_invoke_llm()
 ```
 
+### Negative Tests (required by GOV-S7-C0-009 and GOV-S7-C0-027)
+
+```
+test_invalid_mode_value_rejected()                        # GOV-S7-C0-027 — only "llm"|"manual" accepted
+test_mode_switch_mid_run_blocked_or_requires_confirm()    # GOV-S7-C0-001 — backend truth not disrupted
+test_mode_toggle_disabled_while_recovery_card_open()      # PRD-03-FE-007 — recovery owns interaction
+test_mode_toggle_disabled_while_save_or_load_in_flight()  # PRD-04-CMD-003/004 — no command race
+test_mode_switch_does_not_discard_backend_state()         # GOV-S7-C0-001 — run_id, recorded steps preserved
+test_manual_mode_does_not_auto_call_llm()                 # PRD-03-FE-002 — Manual Mode deterministic first
+test_manual_mode_does_not_locally_mark_step_recorded()    # GOV-S7-C0-001 — recording is backend-owned
+test_manual_mode_does_not_locally_mark_code_update()      # GOV-S7-C0-001 — code_update is backend-owned
+test_manual_mode_does_not_locally_mark_run_completed()    # GOV-S7-C0-001 — completion is backend-owned
+test_mode_state_change_emits_no_backend_command_unless_required()  # PRD-03-FE-007 — frontend mode is UI state only
+```
+
+---
+
+## Architectural Invariants (must hold)
+
+- Tests are written first; no implementation commit precedes a failing test commit (GOV-S7-C0-008, GOV-S7-C0-017).
+- Backend truth remains authoritative — mode switch never mutates run_id, recorded steps, code_update, or run lifecycle state (GOV-S7-C0-001).
+- Frontend mode switch is UI state only. It must not synthesize backend lifecycle truth. A backend command/event is required before any deeper state transition (PRD-03-FE-007, GOV-S7-C0-006).
+- Manual Mode never auto-invokes the LLM. LLM help in Manual Mode is explicit, user-initiated, and optional (PRD-03-FE-002).
+- Same Recorder/Code/Trace systems serve both modes (PRD-03-FE-003); no Manual Mode-specific recording path.
+
 ---
 
 ## Implementation Boundaries
