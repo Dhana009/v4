@@ -1,11 +1,6 @@
-// store/types.js — Frontend state type definitions (stub)
-// Full implementation: S7-0501 (Typed frontend event model)
+// store/types.js — Frontend state type definitions
+// S7-0501: Typed frontend event model
 
-/**
- * @stub S7-0306
- * Declares the shape of frontend state. S7-0501 fills type definitions.
- * S7-0502 implements the reducer that uses these types.
- */
 export const RUN_STATES = /** @type {const} */ ([
   "idle",
   "planning",
@@ -24,3 +19,35 @@ export const INTERACTION_MODES = /** @type {const} */ ([
   "executing",
   "completed",
 ]);
+
+export const EVENT_TYPES = /** @type {const} */ ({
+  session_state: "session_state",
+  run_started: "run_started",
+  plan_ready: "plan_ready",
+  clarification_needed: "clarification_needed",
+  run_completed: "run_completed",
+  runtime_rejected: "runtime_rejected",
+  step_validating: "step_validating",
+  step_executing: "step_executing",
+  step_failed: "step_failed",
+  step_skipped: "step_skipped",
+  step_recorded: "step_recorded",
+  permission_required: "permission_required",
+  recommendation_ready: "recommendation_ready",
+  recovery_needed: "recovery_needed",
+  code_update: "code_update",
+  llm_thinking: "llm_thinking",
+  llm_result: "llm_result",
+  status: "status",
+  error: "error",
+});
+
+export const COMMAND_TYPES = /** @type {const} */ ({
+  confirm_plan: "confirm_plan",
+  permission_decision: "permission_decision",
+  skip_step: "skip_step",
+  stop_run: "stop_run",
+  correction: "correction",
+  option_selected: "option_selected",
+  confirmed: "confirmed",
+});

@@ -14,6 +14,9 @@ import { getPanelMode, applyMode } from "./layout/panel-modes.js";
 import { applyCompensation, removeCompensation } from "./layout/compensation.js";
 import { getStoredSize } from "./layout/resize-controller.js";
 
+// Cluster 5 store — thin wiring (reducer used by useFrontendEventStore)
+import { reducer, createInitialState } from "./store/reducer.js";
+
 const VALID_TABS = new Set(["workbench", "steps", "code", "debug"]);
 
 const DEFAULT_CONFIG = {
@@ -3041,7 +3044,9 @@ function AutoWorkbenchRuntime({ config }) {
 }
 
 function useFrontendEventStore(config) {
-  return useAutoWorkbenchTransport(config);
+  const [storeState, storeDispatch] = React.useReducer(reducer, null, createInitialState);
+  const transport = useAutoWorkbenchTransport(config);
+  return { ...transport, storeState, storeDispatch };
 }
 
 let currentRoot = null;

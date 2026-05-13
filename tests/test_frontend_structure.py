@@ -158,11 +158,10 @@ def test_no_runtime_import_in_transport_stub():  # S7-0306
 # ---------------------------------------------------------------------------
 
 def test_store_reducer_is_stub_not_full_implementation():  # S7-0306 vs S7-0502
+    # S7-0502 complete: reducer is now a full implementation (not a stub)
     reducer_path = os.path.join(FRONTEND_SRC, "store", "reducer.js")
     if not os.path.exists(reducer_path):
         pytest.skip("reducer.js not yet created")
     content = open(reducer_path).read()
-    lines = [l for l in content.splitlines() if l.strip() and not l.strip().startswith("//")]
-    assert len(lines) < 60, (
-        "reducer.js must be a stub (< 60 non-comment lines); full implementation belongs in S7-0502"
-    )
+    # Full implementation must NOT have the stub marker
+    assert "REDUCER_STUB" not in content, "reducer.js must not contain REDUCER_STUB (S7-0502 implemented)"
