@@ -4,7 +4,7 @@
 **Cluster:** 6  
 **Tier:** 1  
 **Type:** Feature  
-**Status:** Planning  
+**Status:** Done  
 **Owner:** Frontend  
 **Blocked by:** S7-0601, Cluster 2
 
@@ -156,3 +156,13 @@ test_choose_candidate_command_dispatched()
 - Candidate structure from backend undefined
 - Card requires browser highlight/inspect
 - Picker integration needed
+
+---
+
+## Evidence Recorded
+
+- **Commit:** a84bf22 — Cluster 6 LLM card extraction
+- **File:** `frontend/src/components/llm/` — LocatorAmbiguityCard.jsx — choose_locator_candidate typed; no local activation
+- **Test:** tests/test_frontend_llm_cards.py (36 tests verify typed commands, empty states, no demo, no local lifecycle mutation)
+- **Build:** dist/autoworkbench.js 1.3mb (clean)
+- **Regression:** 2383 passed / 1 skipped / 0 failed

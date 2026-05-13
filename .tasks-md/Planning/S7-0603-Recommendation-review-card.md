@@ -4,7 +4,7 @@
 **Cluster:** 6  
 **Tier:** 1  
 **Type:** Feature  
-**Status:** Planning  
+**Status:** Done  
 **Owner:** Frontend  
 **Blocked by:** S7-0601, Cluster 2
 
@@ -169,3 +169,13 @@ test_accept_recommendations_command_dispatched_with_selected_ids()
 - Recommendations structure from backend undefined
 - Card requires backend execution logic
 - Selection state tracking becomes complex without clear reducer pattern
+
+---
+
+## Evidence Recorded
+
+- **Commit:** a84bf22 — Cluster 6 LLM card extraction
+- **File:** `frontend/src/components/llm/` — RecommendationCard.jsx — accept disabled w/o selection; accept_recommendations typed
+- **Test:** tests/test_frontend_llm_cards.py (36 tests verify typed commands, empty states, no demo, no local lifecycle mutation)
+- **Build:** dist/autoworkbench.js 1.3mb (clean)
+- **Regression:** 2383 passed / 1 skipped / 0 failed

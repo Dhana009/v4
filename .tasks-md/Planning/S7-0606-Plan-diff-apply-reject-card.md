@@ -4,7 +4,7 @@
 **Cluster:** 6  
 **Tier:** 1  
 **Type:** Feature  
-**Status:** Planning  
+**Status:** Done  
 **Owner:** Frontend  
 **Blocked by:** S7-0601, S7-0605, Cluster 2
 
@@ -150,3 +150,13 @@ test_new_plan_ready_shown_after_validation()
 
 - Diff operation structure from backend undefined
 - Card requires local plan application
+
+---
+
+## Evidence Recorded
+
+- **Commit:** a84bf22 — Cluster 6 LLM card extraction
+- **File:** `frontend/src/components/llm/` — PlanDiffCard.jsx — apply_plan_diff/reject_plan_diff typed; no local plan mutation
+- **Test:** tests/test_frontend_llm_cards.py (36 tests verify typed commands, empty states, no demo, no local lifecycle mutation)
+- **Build:** dist/autoworkbench.js 1.3mb (clean)
+- **Regression:** 2383 passed / 1 skipped / 0 failed

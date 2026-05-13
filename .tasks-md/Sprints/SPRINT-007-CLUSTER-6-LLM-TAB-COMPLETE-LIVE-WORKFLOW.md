@@ -2,9 +2,10 @@
 
 **Sprint:** Sprint 7  
 **Cluster:** 6  
-**Status:** Planning  
-**Date:** 2026-05-13  
+**Status:** Done  
+**Date:** 2026-05-14  
 **HEAD at planning:** 8bdd8def90b71fdaa24890943ec792b55397c66f
+**HEAD at closure:** a84bf22
 
 ---
 
@@ -318,3 +319,29 @@ Cluster 6 planning is complete when:
 ## Recommended Next Step
 
 After Cluster 6 planning: **Create Sprint 7 Cluster 7 and Cluster 8 planning tickets** (Steps tab, Manual Mode, Recorded/Code/Replay tabs).
+
+---
+
+## Cluster 6 Closure (2026-05-14)
+
+| Story | Status | File |
+|-------|--------|------|
+| S7-0601 Live chat/conversation | Done | ConversationView.jsx |
+| S7-0602 Clarification card | Done | ClarificationCard.jsx |
+| S7-0603 Recommendation card | Done | RecommendationCard.jsx |
+| S7-0604 Plan-ready card | Done | PlanCard.jsx |
+| S7-0605 Plan correction | Done | CorrectionCard.jsx |
+| S7-0606 Plan-diff apply/reject | Done | PlanDiffCard.jsx |
+| S7-0607 Permission card | Done | PermissionCard.jsx |
+| S7-0608 Locator ambiguity | Done | LocatorAmbiguityCard.jsx |
+| S7-0609 Recovery card | Done | RecoveryCard.jsx |
+| S7-0610 Completed/failed card | Done | CompletedCard.jsx |
+
+**Commit:** a84bf22 — single commit with cards + RED→GREEN tests (TDD discipline).
+**Tests:** tests/test_frontend_llm_cards.py — 36 tests confirming typed commands, empty states, no demo, no local lifecycle inference.
+**Regression:** 2383 passed / 1 skipped / 0 failed.
+**Build:** dist/autoworkbench.js 1.3mb (clean).
+
+**Integration note:** Card components are modular and store-prop-driven; the existing `aw-ide-panel.jsx` monolith continues to render live state via the C5 store→runtime prop bridge. Full migration of `aw-ide-panel.jsx` to these card modules is deferred — out of C6 scope ("aw-ide-panel.jsx as migration target only").
+
+**Forbidden-file audit:** no backend/runtime/agent/server/browser/LLM-prompt changes; no E2E run; no demo/mock/fake constants; no frontend_new_design_prototype runtime dependency.

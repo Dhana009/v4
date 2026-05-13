@@ -4,7 +4,7 @@
 **Cluster:** 6  
 **Tier:** 1  
 **Type:** Feature  
-**Status:** Planning  
+**Status:** Done  
 **Owner:** Frontend  
 **Blocks:** S7-0602, S7-0603, S7-0604, S7-0605, S7-0606, S7-0607, S7-0608, S7-0609, S7-0610  
 **Blocked by:** Cluster 2 (Cluster 2 must emit live events)
@@ -274,3 +274,13 @@ python -m pytest tests/test_frontend_message_*.py --cov=frontend/src/components/
 - Coverage falls below 95%
 - New regression test failures appear
 
+
+---
+
+## Evidence Recorded
+
+- **Commit:** a84bf22 — Cluster 6 LLM card extraction
+- **File:** `frontend/src/components/llm/` — ConversationView.jsx — renders messages from store; empty state; no demo
+- **Test:** tests/test_frontend_llm_cards.py (36 tests verify typed commands, empty states, no demo, no local lifecycle mutation)
+- **Build:** dist/autoworkbench.js 1.3mb (clean)
+- **Regression:** 2383 passed / 1 skipped / 0 failed

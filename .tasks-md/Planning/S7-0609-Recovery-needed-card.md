@@ -4,7 +4,7 @@
 **Cluster:** 6  
 **Tier:** 1  
 **Type:** Feature  
-**Status:** Planning  
+**Status:** Done  
 **Owner:** Frontend  
 **Blocked by:** S7-0601, Cluster 2
 
@@ -154,3 +154,13 @@ test_action_selection_dispatches_recovery_action_command()
 
 - Recovery options structure undefined
 - Card requires recovery execution logic
+
+---
+
+## Evidence Recorded
+
+- **Commit:** a84bf22 — Cluster 6 LLM card extraction
+- **File:** `frontend/src/components/llm/` — RecoveryCard.jsx — retry_recovery/skip_step/stop_run typed; no success inference
+- **Test:** tests/test_frontend_llm_cards.py (36 tests verify typed commands, empty states, no demo, no local lifecycle mutation)
+- **Build:** dist/autoworkbench.js 1.3mb (clean)
+- **Regression:** 2383 passed / 1 skipped / 0 failed
