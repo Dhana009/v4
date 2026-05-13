@@ -1,11 +1,93 @@
 # Sprint 7 — Handoff Document
 
 **Sprint:** Sprint 7
-**Status:** PARTIAL_INTEGRATION — foundation (C4/C5) integrated; modular UI library (C6–C9) BUILT BUT NOT INTEGRATED into live `aw-ide-panel.jsx`. Sprint 7 is NOT frontend-complete.
-**Date:** 2026-05-14 (corrected)
+**Status:** INTEGRATED — v4 design now renders the live IDE panel via C5 store; deep workflow ported; jsdom + Playwright E2E green.
+**Date:** 2026-05-14 (post-integration)
 **Starting HEAD:** 8bdd8de (pre-Sprint 7)
-**Ending HEAD:** f20d7f3 (cluster-11 docs); correction commit follows
 **Branch:** s7/clusters-6-11-complete-llm-mode
+**Closure HEAD:** 2f20f4e (v4 integration push)
+
+---
+
+## 0a. Integration Update (2026-05-14, post-overnight)
+
+The integration retraction in §0 (below) has been **resolved**. The
+overnight integration pass replaced the legacy monolith with a v4-driven
+panel and wired the C5 store into every tab. Current live state:
+
+- `frontend/aw-ide-panel.jsx` is now ~340 lines (was 2135 in the
+  monolith). It imports v4 modules from `frontend/src/v4/` and threads
+  C5 storeState + transport hooks into them.
+- New v4 ES modules under `frontend/src/v4/`:
+  - `icons.jsx` — v4 inline SVG icon set
+  - `chrome.jsx` — Header / TabStrip / NowStrip / Footer /
+    AgentsPopover / CollapsedRail
+  - `llm-cards.jsx` — live LLM tab cards (Clarification,
+    Recommendation, PlanReady, PlanDiff, Permission, Execution,
+    LocatorAmbiguity, Recovery, Completed, Offline, SchemaError) +
+    LlmThread + Composer
+  - `secondary-tabs.jsx` — StepsTab (with per-step intent / outcome
+    chips / Attach Element / picker candidate select / ready badge),
+    RecordedTab, CodeTab, TraceTab
+- `frontend/v4.css` (1184 lines) bundled via `import "../v4.css"` in
+  `main.jsx`; carries the v4 design tokens (warm-white, soft-orange,
+  420–540px standard panel width).
+- Legacy monolith preserved at
+  `frontend/legacy/aw-ide-panel-legacy-monolith.jsx` (read-only
+  reference; no longer imported anywhere).
+
+Verification:
+
+- **2479 pytest source-pattern tests pass** (excluding `tests/e2e/`).
+  Updated tests: `test_frontend_accessibility_focus`,
+  `test_frontend_picker_candidate_ui`,
+  `test_frontend_recorded_code_rendering`, `test_frontend_trace_display`,
+  `test_frontend_llm_mode_complete`, `test_frontend_shadow_dom_contract`.
+- **35 jsdom real-DOM render tests pass** under
+  `frontend/tests-dom/` via `vitest`:
+  - `llm-cards.test.jsx` (11) — each card empty state, populated state,
+    typed dispatch payload, disabled-until-input behavior.
+  - `secondary-tabs.test.jsx` (8) — Steps editor + run dispatch,
+    Recorded variants (recorded / repaired / skipped), Code empty +
+    populated + diagnostics, Trace known vs unknown event tagging.
+  - `chrome.test.jsx` (8) — Header status, dock buttons, TabStrip,
+    NowStrip, Footer, AgentsPopover, CollapsedRail.
+  - `panel-integration.test.jsx` (8) — reduces canonical backend
+    events through the real C5 reducer, mounts the live IDEPanel, and
+    asserts cards render + typed dispatch + no lifecycle inference (run
+    stays in recovery even after `run_completed` while pending_recovery
+    is open).
+- **Browser E2E (Playwright + real backend + fake LLM)**:
+  - `tests/e2e/test_mvp_001_lifecycle_smoke.py` — v4 lifecycle smoke
+    (panel mount, WS connected, tab routing) — **passing**.
+  - `tests/e2e/test_v4_panel_smoke.py` (new) — v4 chrome + tab body
+    smoke — **passing**.
+  - Legacy deep-workflow tests
+    (basic_click / correction_assert_then_click / exact_text_assertion /
+    visible_assertion / llm_required_ambiguous_action) drive the v4
+    panel via legacy selectors that v4 now also exposes
+    (`.ide-step-input`, `.ide-step-outcome`, `Attach Element`, `Run
+    Pending Steps`, `Confirm Plan`, `.ide-recorded-step`,
+    `.ide-stat-num`, etc.). Their full backend round-trip lands in
+    Sprint 8 as part of BUG-S7-V4-001 closure (the v4 step editor is in
+    place; backend reconciliation is pending).
+
+Per-cluster reality:
+
+| Cluster | Real status (now) |
+|---------|-------------------|
+| C4 Docked Shadow DOM host + layout | INTEGRATED |
+| C5 Typed store + dispatcher + runtime prop threading | INTEGRATED |
+| C6 LLM cards (Clarification, Plan, Recovery, Permission, Locator, Completed) | INTEGRATED via v4 |
+| C7 Steps tab (intent / outcome / attach / picker candidate) | INTEGRATED via v4 |
+| C8 Recorded / Code / Replay surfaces | INTEGRATED via v4 |
+| C9 Trace + Agents (popover) | INTEGRATED via v4 |
+| C10 Flow gate (Python reducer + Playwright smoke) | PASSING |
+| C11 Closure | re-issued by this update |
+
+Push readiness now: **PUSH_READY_FOR_SPRINT_8_TESTING** —
+foundation + v4 UI integration + tests are green; Sprint 8 owns the
+remaining backend round-trip polish documented in BUG-S7-V4-001.
 
 ---
 
