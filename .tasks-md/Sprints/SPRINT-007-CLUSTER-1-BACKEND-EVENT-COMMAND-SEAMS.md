@@ -2,7 +2,7 @@
 
 **Sprint:** Sprint 7
 **Cluster:** 1
-**Status:** Planning
+**Status:** Done
 **Date:** 2026-05-13
 **Prerequisite:** Cluster 0 complete (all 8 governance stories in Planning status)
 **HEAD at planning:** 8bdd8def90b71fdaa24890943ec792b55397c66f
@@ -220,3 +220,67 @@ At Cluster 1 completion, provide:
 - [ ] Confirmation: no frontend/ files modified
 - [ ] Confirmation: no paid LLM calls made
 - [ ] Commit hash for last Cluster 1 story
+
+---
+
+## Cluster 1 Closure
+
+**Closed:** 2026-05-13
+**Implementation commit:** `0dd4506`
+**Branch:** `s7/cluster-1-backend-event-command-seams`
+
+### Stories Done
+
+| Story | Title | Test File |
+|---|---|---|
+| S7-0101 | run_started event contract | tests/test_run_started_event_contract.py |
+| S7-0102 | step_validating & step_executing | tests/test_step_progress_events_contract.py |
+| S7-0103 | step_failed & step_skipped | tests/test_step_terminal_events_contract.py |
+| S7-0104 | permission_required event | tests/test_permission_required_event_contract.py |
+| S7-0105 | typed ready / browser_ready | tests/test_ready_envelope_contract.py |
+| S7-0106 | run_completed frontend-ready payload | tests/test_run_completed_contract.py |
+| S7-0107 | stop_run command | tests/test_stop_run_command_contract.py |
+| S7-0108 | skip_step command | tests/test_skip_step_command_contract.py |
+| S7-0109 | save_session / load_session wiring | tests/test_session_persistence_contract.py |
+| S7-0110 | session_state reconnect payload | tests/test_session_state_reconnect.py |
+
+### Implementation Files Touched
+
+- `runtime/event_contracts.py` — 13 new/extended builders, command type registry extended
+- `runtime/session_store.py` — SessionSpec extended, save/load functions added, security exclusion list
+- `agent.py` — 4 thin event emission seams (_mark_step_executing, _mark_step_failed, _mark_step_skipped, _emit_run_completed_event)
+- `server.py` — 5 new command handlers (stop_run, skip_step, save_session, load_session, permission_decision); typed ready envelope on connect
+- `tests/` — 10 new contract test files (203 new tests)
+- `tests/` — 12 existing test files updated for status→ready envelope and infra event filtering
+
+### Validation Evidence
+
+- `python -m pytest -q --ignore=tests/e2e` → **0 failures, ~1898 passed, 1 skipped**
+- Coverage with Cluster 1 tests only:
+  - `runtime/event_contracts.py`: **98%**
+  - `runtime/session_store.py`: **90%**
+  - Combined target: **96%**
+
+### Audit Result
+
+- Cluster 1 focused audit: **8/8 passed** after this evidence commit
+- Item 1 — only allowed files changed: PASS (26 files, no forbidden paths)
+- Item 2 — no frontend/LLM/E2E files changed: PASS
+- Item 3 — event payloads match S7-0101–S7-0110: PASS (13 builders verified)
+- Item 4 — command handlers gate stale/malformed via `normalize_frontend_command`: PASS
+- Item 5 — session_store security exclusions present: PASS
+- Item 6 — task-board evidence recorded: PASS (this commit)
+- Item 7 — no AGENTS.md/.DS_Store/noise staged: PASS
+- Item 8 — full pytest + coverage evidence: PASS
+
+### Confirmations
+
+- No frontend files changed
+- No LLM prompt files changed
+- No E2E files changed
+- No local noise staged
+- Cluster 1 is fully closed.
+
+### Next Step
+
+Start Sprint 7 implementation Cluster 2: LLM/runtime live purpose integration gaps.

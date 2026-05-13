@@ -26,7 +26,12 @@ from runtime.context_manager import ContextManager
 from runtime.event_contracts import (
     build_recovery_needed_payload,
     build_run_completed_payload,
+    build_run_started_payload,
     build_runtime_rejection_payload,
+    build_step_executing_payload,
+    build_step_failed_payload,
+    build_step_skipped_payload,
+    build_step_validating_payload,
 )
 from runtime.llm_policy_gateway import LLMPolicyGateway
 from runtime.llm_runtime_controller import LLMRuntimeController, PURPOSE_REGISTRY
@@ -300,6 +305,7 @@ class AgentLoop:
             self.replay_action_history_by_step_id = {}
         self._run_session_id = self._new_run_session_id()
         self._run_completed_emitted = False
+        self._run_started_emitted = False
         self._clear_plan_review_context()
         telemetry_sink = getattr(self, "_plan_diff_editor_telemetry", None)
         if isinstance(telemetry_sink, list):
@@ -452,11 +458,18 @@ class AgentLoop:
             or getattr(getattr(self, "last_plan_ready_payload", None), "get", lambda *_: "")("summary")
             or "Run completed"
         ).strip() or "Run completed"
+        failed_count = sum(
+            1 for step in self._recording_steps if str(step.get("status") or "").strip() in {"failed", "recovery_pending"}
+        )
+        code_preview = getattr(self, "last_code_preview", None) or getattr(self, "code_preview", None)
+        code_status = "generated" if code_preview else "not_generated"
         run_completed_payload = build_run_completed_payload(
             run_id=run_id,
             summary=summary,
             recorded_count=recorded_count,
             skipped_count=skipped_count,
+            failed_count=failed_count,
+            code_status=code_status,
         )
         self._run_completed_emitted = True
         await self._send(
@@ -1461,6 +1474,21 @@ class AgentLoop:
             self.phase_tracker.set_phase("planning", reason="run_started")
             self._prepare_recording_steps(steps)
             self._validate_recording_steps(self.current_steps)
+            # S7-0101: emit run_started before any planning events — PRD-04-BE-001
+            if not getattr(self, "_run_started_emitted", False):
+                try:
+                    run_started_payload = build_run_started_payload(
+                        run_id=self._current_run_session_id(),
+                        steps=list(self.current_steps or steps or []),
+                        phase="planning",
+                    )
+                    self._run_started_emitted = True
+                    self._emit_backend_event_now(
+                        run_started_payload["type"],
+                        **{k: v for k, v in run_started_payload.items() if k != "type"},
+                    )
+                except Exception:
+                    pass
             loaded_skill_names, _, loaded_skills = self._load_skills_for_steps(steps)
             self._loaded_skill_names = list(loaded_skill_names)
             self._loaded_skill_entries = self._skill_entries_from_loaded_skills(
@@ -3638,6 +3666,22 @@ class AgentLoop:
         self.skipped_step_ids.discard(step_id)
         self.active_step_id = step_id
         self.current_step_index = max(0, int(context.get("step_number") or 1) - 1)
+        # S7-0102: emit step_validating then step_executing — PRD-04-BE-002/003
+        try:
+            _run_id = self._current_run_session_id()
+            _action = str(context.get("action") or context.get("type") or "").strip()
+            _vp = build_step_validating_payload(step_id=step_id, run_id=_run_id)
+            self._emit_backend_event_now(
+                _vp["type"],
+                **{k: v for k, v in _vp.items() if k != "type"},
+            )
+            _ep = build_step_executing_payload(step_id=step_id, run_id=_run_id, action=_action or "execute")
+            self._emit_backend_event_now(
+                _ep["type"],
+                **{k: v for k, v in _ep.items() if k != "type"},
+            )
+        except Exception:
+            pass
         print(f"[AGENT] step executing: {step_id}")
         return context
 
@@ -3665,6 +3709,20 @@ class AgentLoop:
         self._recording_wait_guard_armed = False
         self.current_step_index = max(0, int(context.get("step_number") or 1) - 1)
         self._clear_failed_step_success_state(context)
+        # S7-0103: emit step_failed before recovery event — PRD-04-BE-004
+        try:
+            _fp = build_step_failed_payload(
+                step_id=step_id,
+                run_id=self._current_run_session_id(),
+                error=context["last_error"],
+                status="recovery_pending",
+            )
+            self._emit_backend_event_now(
+                _fp["type"],
+                **{k: v for k, v in _fp.items() if k != "type"},
+            )
+        except Exception:
+            pass
         self._emit_recovery_needed_event(context, context["last_error"])
         print(f"[AGENT] step recovery_pending: {step_id}")
         return context
@@ -6408,6 +6466,19 @@ class AgentLoop:
             self.phase = "executing"
         self._recording_wait_guard_armed = False
         self.current_step_index = max(0, int(context.get("step_number") or 1) - 1)
+        # S7-0103: emit step_skipped — PRD-04-BE-005
+        try:
+            _sp = build_step_skipped_payload(
+                step_id=step_id,
+                run_id=self._current_run_session_id(),
+                reason=str(reason or "").strip() or "skipped",
+            )
+            self._emit_backend_event_now(
+                _sp["type"],
+                **{k: v for k, v in _sp.items() if k != "type"},
+            )
+        except Exception:
+            pass
         print(f"[AGENT] step skipped: {step_id}")
         self._log_confirmed_execution_cursor("[CONFIRMED_CURSOR]")
         return context

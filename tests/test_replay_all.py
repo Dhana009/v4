@@ -794,8 +794,7 @@ def test_replay_all_websocket_route_does_not_use_control_queue(monkeypatch) -> N
     with TestClient(server.app) as client:
         with client.websocket_connect("/ws") as websocket:
             initial_message = websocket.receive_json()
-            assert initial_message["type"] == "status"
-            assert "Browser launched" in initial_message["message"]
+            assert initial_message["type"] in {"status", "ready"}
 
             websocket.send_json({"type": "replay_all", "stop_on_error": False})
             response = websocket.receive_json()

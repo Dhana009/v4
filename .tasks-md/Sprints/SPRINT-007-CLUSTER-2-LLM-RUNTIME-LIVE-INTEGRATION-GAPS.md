@@ -2,7 +2,7 @@
 
 **Sprint:** Sprint 7  
 **Cluster:** 2  
-**Status:** Planning  
+**Status:** Done  
 **Date:** 2026-05-13  
 **HEAD at planning:** 8bdd8de  
 
@@ -291,4 +291,50 @@ After all Cluster 2 stories are **Done**:
 
 After Cluster 2 is **Done**:
 → Create **Cluster 3 planning tickets** (frontend architecture, design extraction, modular structure)
+
+---
+
+## Cluster 2 Closure
+
+**Status:** Done  
+**Implementation commit:** `0f2198b`  
+**Evidence commit:** (this docs commit)  
+**Branch:** `s7/cluster-2-llm-runtime-live-integration-gaps`
+
+### Stories Completed
+
+| Story | Test File | Tests | Status |
+|---|---|---|---|
+| S7-0201 Page Intelligence live invocation boundary | test_page_intelligence_live_invocation.py | 20 | Done |
+| S7-0202 recommendation_ready backend event pipeline | test_recommendation_event_pipeline.py | 14 | Done |
+| S7-0203 page_analysis_started and page_summary_ready events | test_page_analysis_events.py | 24 | Done |
+| S7-0204 plan_diff event naming and payload alignment | test_plan_diff_events.py | 22 | Done |
+| S7-0205 locator_specialist frontend-facing payload alignment | test_locator_candidates_event.py | 14 | Done |
+| S7-0206 recovery_diagnoser frontend-facing payload alignment | test_recovery_needed_event.py | 16 | Done |
+| S7-0207 token/telemetry event payloads for UI | test_token_report_event.py | 18 | Done |
+| S7-0208 capability_gap frontend-facing contract | test_capability_gap_event.py | 21 | Done |
+| S7-0209 fail-closed schema and error events visible to frontend | test_error_events.py | 25 | Done |
+
+### Files Touched
+
+- `runtime/event_contracts.py` — 14 new builders, `_redact_api_keys()` helper, `import re`
+- `tests/test_page_intelligence_live_invocation.py` (new)
+- `tests/test_page_analysis_events.py` (new)
+- `tests/test_recommendation_event_pipeline.py` (new)
+- `tests/test_plan_diff_events.py` (new)
+- `tests/test_locator_candidates_event.py` (new)
+- `tests/test_recovery_needed_event.py` (new)
+- `tests/test_token_report_event.py` (new)
+- `tests/test_capability_gap_event.py` (new)
+- `tests/test_error_events.py` (new)
+
+### Validation Evidence
+
+- `python -m pytest -q` → **2078 passed, 0 failed, 1 skipped**
+- `runtime/event_contracts.py` coverage: **99%**
+- Audit result: **8/8 PASS** (PASS_READY_FOR_EVIDENCE_UPDATE)
+- No frontend files changed
+- No LLM prompt files changed
+- No E2E files changed
+- No secrets/raw HTML/raw DOM in any event payload
 

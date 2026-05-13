@@ -267,11 +267,13 @@ def test_single_click_action_can_still_be_recorded(monkeypatch) -> None:
     assert capture_calls == ["capture", "capture"]
     assert capture_index["count"] == 2
     assert blocked_results == []
-    assert len(sent_messages) == 3
-    assert sent_messages[0][0] == "step_recorded"
-    assert sent_messages[0][1]["action"] == "click"
-    assert sent_messages[0][1]["status"] == "success"
-    assert sent_messages[0][1]["observed_outcome"] == {
+    _INFRA = {"run_started", "step_validating", "step_executing", "step_failed", "step_skipped"}
+    msgs = [m for m in sent_messages if m[0] not in _INFRA]
+    assert len(msgs) == 3
+    assert msgs[0][0] == "step_recorded"
+    assert msgs[0][1]["action"] == "click"
+    assert msgs[0][1]["status"] == "success"
+    assert msgs[0][1]["observed_outcome"] == {
         "type": "navigation",
         "before_url": "https://playwright.dev/",
         "after_url": "https://playwright.dev/docs/intro",
@@ -279,10 +281,10 @@ def test_single_click_action_can_still_be_recorded(monkeypatch) -> None:
         "after_title": "Installation | Playwright",
         "matched_expected": True,
     }
-    assert sent_messages[0][1]["children"][0]["type"] == "click"
-    assert sent_messages[1][0] == "code_update"
-    assert sent_messages[1][1]["lines"] == [sent_messages[0][1]["generated_line"]]
-    assert sent_messages[2][0] == "run_completed"
+    assert msgs[0][1]["children"][0]["type"] == "click"
+    assert msgs[1][0] == "code_update"
+    assert msgs[1][1]["lines"] == [msgs[0][1]["generated_line"]]
+    assert msgs[2][0] == "run_completed"
 
 
 def test_assert_and_click_both_execute_and_record_in_order(monkeypatch) -> None:
@@ -325,16 +327,18 @@ def test_assert_and_click_both_execute_and_record_in_order(monkeypatch) -> None:
     assert call_counter["count"] == 1
     assert executed_actions == ["action_assert", "action_click"]
     assert blocked_results == []
-    assert len(sent_messages) == 3
-    assert sent_messages[0][0] == "step_recorded"
-    assert len(sent_messages[0][1]["children"]) == 2
-    assert sent_messages[0][1]["action"] == "click"
-    assert sent_messages[0][1]["status"] == "success"
-    assert sent_messages[0][1]["children"][0]["type"] == "assert"
-    assert sent_messages[0][1]["children"][1]["type"] == "click"
-    assert sent_messages[1][0] == "code_update"
-    assert len(sent_messages[1][1]["lines"]) == 2
-    assert sent_messages[2][0] == "run_completed"
+    _INFRA = {"run_started", "step_validating", "step_executing", "step_failed", "step_skipped"}
+    msgs = [m for m in sent_messages if m[0] not in _INFRA]
+    assert len(msgs) == 3
+    assert msgs[0][0] == "step_recorded"
+    assert len(msgs[0][1]["children"]) == 2
+    assert msgs[0][1]["action"] == "click"
+    assert msgs[0][1]["status"] == "success"
+    assert msgs[0][1]["children"][0]["type"] == "assert"
+    assert msgs[0][1]["children"][1]["type"] == "click"
+    assert msgs[1][0] == "code_update"
+    assert len(msgs[1][1]["lines"]) == 2
+    assert msgs[2][0] == "run_completed"
 
 
 def test_confirmed_execution_contract_blocks_wrong_assertion_and_allows_correct_sequence(monkeypatch) -> None:
@@ -461,14 +465,16 @@ def test_confirmed_execution_contract_blocks_wrong_assertion_and_allows_correct_
     assert [tool_call_id for tool_call_id, _ in blocked_results] == ["call-1"]
     assert blocked_results[0][1]["reason"] == "execution_contract_mismatch"
     assert blocked_results[0][1]["skipped"] is True
-    assert len(sent_messages) == 3
-    assert sent_messages[0][0] == "step_recorded"
-    assert [child["type"] for child in sent_messages[0][1]["children"]] == ["assert", "click"]
-    assert [child["operation_id"] for child in sent_messages[0][1]["children"]] == ["op_1", "op_2"]
-    assert len(sent_messages[1][1]["lines"]) == 2
-    assert sent_messages[1][1]["lines"][0].startswith("await expect(")
-    assert sent_messages[1][1]["lines"][1].endswith('.click();')
-    assert sent_messages[2][0] == "run_completed"
+    _INFRA = {"run_started", "step_validating", "step_executing", "step_failed", "step_skipped"}
+    msgs = [m for m in sent_messages if m[0] not in _INFRA]
+    assert len(msgs) == 3
+    assert msgs[0][0] == "step_recorded"
+    assert [child["type"] for child in msgs[0][1]["children"]] == ["assert", "click"]
+    assert [child["operation_id"] for child in msgs[0][1]["children"]] == ["op_1", "op_2"]
+    assert len(msgs[1][1]["lines"]) == 2
+    assert msgs[1][1]["lines"][0].startswith("await expect(")
+    assert msgs[1][1]["lines"][1].endswith('.click();')
+    assert msgs[2][0] == "run_completed"
 
 
 def test_confirmed_execution_guard_uses_strict_cursor_and_rejects_step1_click_leak(monkeypatch) -> None:
@@ -847,10 +853,12 @@ def test_failed_step_clears_stale_success_history_before_recording(monkeypatch) 
     assert loop.successful_action_by_step_id == {}
     assert loop.successful_actions_by_step_id == {}
     assert loop._last_action_context is None
-    assert len(sent_messages) == 1
-    assert sent_messages[0][0] == "recovery_needed"
-    assert sent_messages[0][1]["step_id"] == "step-1"
-    assert sent_messages[0][1]["error_summary"] == "assertion failed"
+    _INFRA = {"run_started", "step_validating", "step_executing", "step_failed", "step_skipped"}
+    msgs = [m for m in sent_messages if m[0] not in _INFRA]
+    assert len(msgs) == 1
+    assert msgs[0][0] == "recovery_needed"
+    assert msgs[0][1]["step_id"] == "step-1"
+    assert msgs[0][1]["error_summary"] == "assertion failed"
     assert blocked_results == []
     assert executed_actions == []
     assert call_counter["count"] == 0
@@ -914,10 +922,12 @@ def test_non_click_step_can_omit_expected_outcome(monkeypatch) -> None:
     assert call_counter["count"] == 1
     assert executed_actions == ["action_assert"]
     assert blocked_results == []
-    assert len(sent_messages) == 3
-    assert sent_messages[0][0] == "step_recorded"
-    assert sent_messages[0][1]["action"] == "assert"
-    assert sent_messages[0][1]["status"] == "success"
-    assert sent_messages[0][1]["children"][0]["type"] == "assert"
-    assert sent_messages[1][0] == "code_update"
-    assert sent_messages[2][0] == "run_completed"
+    _INFRA = {"run_started", "step_validating", "step_executing", "step_failed", "step_skipped"}
+    msgs = [m for m in sent_messages if m[0] not in _INFRA]
+    assert len(msgs) == 3
+    assert msgs[0][0] == "step_recorded"
+    assert msgs[0][1]["action"] == "assert"
+    assert msgs[0][1]["status"] == "success"
+    assert msgs[0][1]["children"][0]["type"] == "assert"
+    assert msgs[1][0] == "code_update"
+    assert msgs[2][0] == "run_completed"

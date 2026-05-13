@@ -97,8 +97,7 @@ def test_save_snapshot_ws_returns_snapshot_and_skips_control_queue(monkeypatch) 
     with TestClient(server.app) as client:
         with client.websocket_connect("/ws") as websocket:
             initial_message = websocket.receive_json()
-            assert initial_message["type"] == "status"
-            assert "Browser launched" in initial_message["message"]
+            assert initial_message["type"] in {"status", "ready"}
 
             websocket.send_json({"type": "save_snapshot"})
             response = websocket.receive_json()

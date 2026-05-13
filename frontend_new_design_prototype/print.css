@@ -1,0 +1,162 @@
+/* print.css — print-only layout: one PrintFrame per landscape page */
+
+@page {
+  size: 1400px 880px;
+  margin: 0;
+}
+
+html, body {
+  background: #EDE5D2;
+  margin: 0; padding: 0;
+}
+
+* { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+
+/* Hide tweaks panel + any chrome */
+.twk-panel, [id^="twk"] { display: none !important; }
+
+.pf-deck {
+  width: 1400px;
+  margin: 0 auto;
+  background: transparent;
+}
+
+/* One page = one frame */
+.pf-page {
+  width: 1400px;
+  height: 880px;
+  page-break-after: always;
+  break-after: page;
+  background: #FAF6EE;
+  position: relative;
+  overflow: hidden;
+  border-bottom: 1px solid #E8DFCB;
+}
+.pf-page:last-child {
+  page-break-after: auto;
+  break-after: auto;
+}
+
+/* Frame label bar */
+.pf-label {
+  height: 38px;
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 22px;
+  font-family: var(--ff);
+  font-size: 11px;
+  color: #5A5247;
+  background: #F5EFE4;
+  border-bottom: 1px solid #E8DFCB;
+  letter-spacing: 0.01em;
+}
+.pf-lab-i {
+  font-family: var(--ff-mono);
+  font-size: 10.5px; font-weight: 600;
+  color: #BE5F2D;
+  padding: 2px 7px; border-radius: 999px;
+  background: #FCEFE0; border: 1px solid #F0D8B8;
+  letter-spacing: 0.04em;
+}
+.pf-lab-t { font-weight: 600; color: #1a1814; font-size: 12px; }
+.pf-lab-c { color: #5A5247; flex: 1; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.pf-lab-tab {
+  font-family: var(--ff-mono); font-size: 10px;
+  color: #5A5247; letter-spacing: 0.08em;
+  padding: 2px 7px; border-radius: 4px;
+  background: #FFFFFF; border: 1px solid #E8DFCB;
+}
+
+/* Stage occupies remaining height */
+.pf-stage-wrap {
+  position: absolute;
+  top: 38px; left: 0; right: 0; bottom: 0;
+}
+.pf-stage-wrap .aw-stage {
+  position: absolute; inset: 0;
+}
+/* Disable animations in print */
+.pf-stage-wrap *,
+.pf-stage-wrap *::before,
+.pf-stage-wrap *::after {
+  animation: none !important;
+  transition: none !important;
+}
+.pf-stage-wrap .aw-prog::after { display: none !important; }
+.pf-stage-wrap .aw-bar i { height: 7px !important; }
+.pf-stage-wrap .aw-status-pill.busy .aw-dot { animation: none !important; opacity: 1 !important; }
+
+/* The website backdrop shouldn't scroll in print */
+.pf-stage-wrap .aw-website { overflow: hidden; }
+.pf-stage-wrap .aw-panel-body {
+  scrollbar-width: none;
+}
+.pf-stage-wrap .aw-panel-body::-webkit-scrollbar { display: none; }
+
+/* Cover page */
+.pf-cover { background: #F5EFE4; }
+.pf-cover-inner {
+  height: 100%; padding: 64px 72px 56px;
+  display: flex; flex-direction: column;
+  font-family: var(--ff);
+  color: #1a1814;
+}
+.pf-cover-logo { margin-bottom: 28px; }
+.pf-cover-eyebrow {
+  font-size: 12px; font-weight: 600; color: #BE5F2D;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  margin-bottom: 14px;
+}
+.pf-cover-title {
+  font-size: 56px; line-height: 1.04;
+  font-weight: 600; letter-spacing: -0.025em;
+  margin: 0 0 18px; max-width: 880px;
+}
+.pf-cover-sub {
+  font-size: 16px; line-height: 1.55; color: #5A5247;
+  max-width: 680px; margin: 0 0 38px;
+}
+.pf-toc {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 8px 32px;
+  max-width: 980px;
+}
+.pf-toc-row {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 14px;
+  background: #FFFFFF;
+  border: 1px solid #E8DFCB;
+  border-radius: 9px;
+  font-size: 13px;
+}
+.pf-toc-i {
+  font-family: var(--ff-mono);
+  font-size: 11px; font-weight: 600;
+  color: #BE5F2D;
+  width: 28px;
+}
+.pf-toc-t { flex: 1; color: #1a1814; font-weight: 500; }
+.pf-toc-tab {
+  font-family: var(--ff-mono); font-size: 10px;
+  color: #5A5247;
+  padding: 2px 7px; border-radius: 4px;
+  background: #F5EFE4;
+  letter-spacing: 0.06em;
+}
+.pf-cover-foot {
+  margin-top: auto;
+  display: flex; justify-content: space-between;
+  font-size: 11px; color: #8A8275;
+  border-top: 1px solid #E8DFCB;
+  padding-top: 18px;
+}
+
+/* Screen-only helper: lay out vertically with a faint frame */
+@media screen {
+  body { padding: 24px 0; }
+  .pf-page {
+    box-shadow: 0 1px 0 rgba(60,40,20,.06), 0 12px 32px -12px rgba(60,40,20,.18);
+    border: 1px solid #E8DFCB;
+    border-radius: 6px;
+    margin: 0 auto 22px;
+  }
+}

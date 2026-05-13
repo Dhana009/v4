@@ -163,8 +163,7 @@ def test_websocket_accepts_canonical_confirmation_command_envelope(monkeypatch) 
     with TestClient(server.app) as client:
         with client.websocket_connect("/ws") as websocket:
             initial_message = websocket.receive_json()
-            assert initial_message["type"] == "status"
-            assert "Browser launched" in initial_message["message"]
+            assert initial_message["type"] in {"status", "ready"}
 
             websocket.send_json(
                 {
@@ -198,7 +197,7 @@ def test_websocket_rejects_malformed_canonical_command_with_typed_rejection(monk
     with TestClient(server.app) as client:
         with client.websocket_connect("/ws") as websocket:
             initial_message = websocket.receive_json()
-            assert initial_message["type"] == "status"
+            assert initial_message["type"] in {"status", "ready"}
 
             websocket.send_json(
                 {

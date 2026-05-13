@@ -223,14 +223,16 @@ def test_simple_click_recording_emits_code_update_and_stops_cleanly(monkeypatch,
     captured = capsys.readouterr().out
 
     assert call_counter["count"] == 1
-    assert len(sent_messages) == 3
-    assert sent_messages[0][0] == "step_recorded"
-    assert sent_messages[1][0] == "code_update"
-    assert sent_messages[2][0] == "run_completed"
+    _INFRA = {"run_started", "step_validating", "step_executing", "step_failed", "step_skipped"}
+    msgs = [m for m in sent_messages if m[0] not in _INFRA]
+    assert len(msgs) == 3
+    assert msgs[0][0] == "step_recorded"
+    assert msgs[1][0] == "code_update"
+    assert msgs[2][0] == "run_completed"
 
-    recorded_payload = sent_messages[0][1]
-    code_update_payload = sent_messages[1][1]
-    run_completed_payload = sent_messages[2][1]
+    recorded_payload = msgs[0][1]
+    code_update_payload = msgs[1][1]
+    run_completed_payload = msgs[2][1]
 
     assert code_update_payload["step_id"] == recorded_payload["step_id"]
     assert code_update_payload["operation_id"] == "op_1"

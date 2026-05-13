@@ -13,10 +13,15 @@ from agent import AgentLoop
 from browser import arm_picker, launch_browser
 from runtime.event_contracts import (
     build_backend_event_envelope,
+    build_load_result_event,
     build_runtime_rejection_payload,
+    build_save_result_event,
     build_session_state_event,
+    build_stop_run_result_event,
+    build_typed_ready_envelope,
     normalize_frontend_command,
 )
+from runtime.session_store import SessionSpec, load_session_from_file, save_session_to_file
 
 PORT = int(os.getenv("PORT", "8765"))
 DISCONNECT_GRACE_SECONDS = 1.5
@@ -232,7 +237,18 @@ async def ws_endpoint(ws: WebSocket) -> None:
     if session_state_event is not None:
         await ws.send_json(session_state_event)
 
-    await ws.send_json({"type": "status", "message": "Browser launched. Ready."})
+    # S7-0105: emit typed ready envelope — PRD-04-BE-006
+    _session_id = str(getattr(session.agent, "_current_run_session_id", lambda: "")() or "").strip() or "session"
+    _workspace = os.getenv("AUTOWORKBENCH_WORKSPACE", os.getcwd())
+    _ready_event = build_typed_ready_envelope(
+        session_id=_session_id,
+        workspace=_workspace,
+        mode="complete",
+        url=str(getattr(session.agent, "page_url", None) or ""),
+        backend_ready=True,
+        browser_ready=True,
+    )
+    await ws.send_json(_ready_event)
 
     async def picker_send(msg: dict) -> None:
         await ws.send_json(msg)
@@ -376,6 +392,173 @@ async def ws_endpoint(ws: WebSocket) -> None:
                     await session.control_queue.put(dict(msg))
                 else:
                     await session.control_queue.put(_legacy_control_message(command, msg))
+                continue
+
+            # S7-0107: stop_run command handler — PRD-04-CMD-001
+            if msg_type == "stop_run":
+                current_state = _current_command_state(session)
+                command, rejection = normalize_frontend_command(msg, current_state=current_state)
+                if rejection is not None:
+                    await ws.send_json(rejection)
+                    continue
+                _cmd_run_id = str(msg.get("run_id") or "").strip()
+                _active_run_id = current_state.get("run_id") or ""
+                if _cmd_run_id and _cmd_run_id != _active_run_id:
+                    await ws.send_json(
+                        build_runtime_rejection_payload(
+                            "STALE_RUN_ID",
+                            f"run_id {_cmd_run_id!r} does not match active run.",
+                            current_state=current_state,
+                            run_id=_active_run_id or None,
+                            recoverable=False,
+                            source="server",
+                        )
+                    )
+                    continue
+                if session.run_task and not session.run_task.done():
+                    session.run_task.cancel()
+                _stop_event = build_stop_run_result_event(
+                    run_id=_active_run_id or _cmd_run_id or "unknown",
+                    status="stopped",
+                    reason="user_requested",
+                )
+                await ws.send_json(_stop_event)
+                continue
+
+            # S7-0108: skip_step command handler — PRD-04-CMD-002
+            if msg_type == "skip_step":
+                current_state = _current_command_state(session)
+                command, rejection = normalize_frontend_command(msg, current_state=current_state)
+                if rejection is not None:
+                    await ws.send_json(rejection)
+                    continue
+                _cmd_run_id = str(msg.get("run_id") or "").strip()
+                _active_run_id = current_state.get("run_id") or ""
+                if _cmd_run_id and _cmd_run_id != _active_run_id:
+                    await ws.send_json(
+                        build_runtime_rejection_payload(
+                            "STALE_RUN_ID",
+                            f"run_id {_cmd_run_id!r} does not match active run.",
+                            current_state=current_state,
+                            run_id=_active_run_id or None,
+                            recoverable=False,
+                            source="server",
+                        )
+                    )
+                    continue
+                await session.control_queue.put({"type": "skip_step", "run_id": _active_run_id, "step_id": str(msg.get("step_id") or "").strip()})
+                continue
+
+            # S7-0109: save_session command handler — PRD-04-CMD-003
+            if msg_type == "save_session":
+                current_state = _current_command_state(session)
+                command, rejection = normalize_frontend_command(msg, current_state=current_state)
+                if rejection is not None:
+                    await ws.send_json(rejection)
+                    continue
+                _run_id = current_state.get("run_id") or ""
+                try:
+                    _spec_builder = getattr(session.agent, "_build_spec_snapshot", None)
+                    _raw_spec = _spec_builder() if callable(_spec_builder) else {}
+                    _spec = SessionSpec(
+                        title=str(_raw_spec.get("title") or msg.get("name") or "session"),
+                        steps=list(_raw_spec.get("steps") or []),
+                        page_url=str(_raw_spec.get("page_url") or getattr(session.agent, "page_url", "") or ""),
+                        recorded_steps=list(_raw_spec.get("recorded_steps") or []),
+                        code_preview=_raw_spec.get("code_preview"),
+                        session_id=_run_id or None,
+                        metadata=dict(_raw_spec.get("metadata") or {}),
+                    )
+                    _save_path, _save_name = save_session_to_file(
+                        _spec,
+                        name=str(msg.get("name") or "").strip() or None,
+                    )
+                    _save_event = build_save_result_event(
+                        path=_save_path,
+                        name=_save_name,
+                        session_id=_run_id or _save_name,
+                        step_count=len(_spec.steps),
+                    )
+                    await ws.send_json(_save_event)
+                except Exception as exc:  # noqa: BLE001
+                    await ws.send_json(
+                        build_runtime_rejection_payload(
+                            "SAVE_FAILED",
+                            f"save_session failed: {type(exc).__name__}: {exc}",
+                            current_state=current_state,
+                            run_id=_run_id or None,
+                            recoverable=False,
+                            source="server",
+                        )
+                    )
+                continue
+
+            # S7-0109: load_session command handler — PRD-04-CMD-004
+            if msg_type == "load_session":
+                current_state = _current_command_state(session)
+                command, rejection = normalize_frontend_command(msg, current_state=current_state)
+                if rejection is not None:
+                    await ws.send_json(rejection)
+                    continue
+                _run_id = current_state.get("run_id") or ""
+                _load_path = str(msg.get("path") or "").strip()
+                if not _load_path:
+                    await ws.send_json(
+                        build_runtime_rejection_payload(
+                            "MISSING_PATH",
+                            "load_session requires 'path' field.",
+                            current_state=current_state,
+                            run_id=_run_id or None,
+                            recoverable=False,
+                            source="server",
+                        )
+                    )
+                    continue
+                try:
+                    _loaded_spec = load_session_from_file(_load_path)
+                    _load_event = build_load_result_event(
+                        path=_load_path,
+                        name=str(_loaded_spec.title or ""),
+                        session_id=str(_loaded_spec.session_id or _run_id or ""),
+                        step_count=len(_loaded_spec.steps),
+                        snapshot_valid=True,
+                    )
+                    await ws.send_json(_load_event)
+                except (FileNotFoundError, ValueError, TypeError) as exc:
+                    await ws.send_json(
+                        build_runtime_rejection_payload(
+                            "LOAD_FAILED",
+                            f"load_session failed: {type(exc).__name__}: {exc}",
+                            current_state=current_state,
+                            run_id=_run_id or None,
+                            recoverable=False,
+                            source="server",
+                        )
+                    )
+                continue
+
+            # S7-0104: permission_decision command handler — PRD-04-CMD-005
+            if msg_type == "permission_decision":
+                current_state = _current_command_state(session)
+                command, rejection = normalize_frontend_command(msg, current_state=current_state)
+                if rejection is not None:
+                    await ws.send_json(rejection)
+                    continue
+                _cmd_run_id = str(msg.get("run_id") or "").strip()
+                _active_run_id = current_state.get("run_id") or ""
+                if _cmd_run_id and _cmd_run_id != _active_run_id:
+                    await ws.send_json(
+                        build_runtime_rejection_payload(
+                            "STALE_RUN_ID",
+                            f"run_id {_cmd_run_id!r} does not match active run.",
+                            current_state=current_state,
+                            run_id=_active_run_id or None,
+                            recoverable=False,
+                            source="server",
+                        )
+                    )
+                    continue
+                await session.control_queue.put(dict(msg))
                 continue
 
             if msg_type == "arm_picker":

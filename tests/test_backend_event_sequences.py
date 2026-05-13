@@ -372,7 +372,7 @@ def test_runtime_rejection_golden_sequence_emits_only_runtime_rejected_without_s
     with TestClient(server.app) as client:
         with client.websocket_connect("/ws") as websocket:
             initial_message = websocket.receive_json()
-            assert initial_message["type"] == "status"
+            assert initial_message["type"] in {"status", "ready"}
 
             websocket.send_json(
                 {
