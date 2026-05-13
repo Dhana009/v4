@@ -4,7 +4,7 @@
 **Cluster:** 9
 **Tier:** 2 (supporting)
 **Type:** Feature
-**Status:** Planning
+**Status:** Done
 **Blocks:** []
 **Blocked by:** [S7-0500 (event store)]
 
@@ -100,3 +100,12 @@ Stop if:
 - Agent lifecycle events missing from backend
 - Coverage below 95%
 
+
+---
+
+## Evidence Recorded
+
+- **Commit:** 7e0ab27 — Cluster 9 trace/agents components
+- **Tests:** tests/test_frontend_trace_agent_cards.py (23 tests)
+- **Build:** dist/autoworkbench.js 1.3mb (clean)
+- **Regression:** 2467 passed / 1 skipped / 0 failed

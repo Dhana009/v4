@@ -2,8 +2,9 @@
 
 **Sprint:** Sprint 7
 **Cluster:** 9
-**Status:** Planning
-**Date:** 2026-05-13
+**Status:** Done
+**Date:** 2026-05-14
+**HEAD at closure:** 7e0ab27
 **Expected Commits:** ~6 (test files + implementation per story)
 
 ---
@@ -275,3 +276,28 @@ For cluster sign-off:
 - [ ] Browser smoke test for Trace/Agent flows (Cluster 10 deliverable)
 - [ ] Cluster 9 handoff summary (story count, files committed, coverage, gaps)
 
+
+---
+
+## Cluster 9 Closure (2026-05-14)
+
+| Story | Status | File |
+|-------|--------|------|
+| S7-0901 Trace timeline | Done | trace/TraceTimeline.jsx |
+| S7-0902 Trace filters/search | Done | trace/TraceFilters.jsx |
+| S7-0903 Failure detail panel | Done | trace/FailureDetailPanel.jsx |
+| S7-0904 Artifact links + redaction | Done | trace/ArtifactLinks.jsx |
+| S7-0905 LLM telemetry | Done | trace/LLMTelemetry.jsx |
+| S7-0906 Context level + tool policy | Done | trace/ContextPolicy.jsx |
+| S7-0907 Capability gap notices | Done | trace/CapabilityGapNotice.jsx |
+| S7-0908 Compact agent activity | Done | agents/AgentActivity.jsx |
+| S7-0909 Agent Control Center | Done | agents/AgentControlCenter.jsx |
+
+**Commit:** 7e0ab27 — single commit, RED→GREEN.
+**Tests:** tests/test_frontend_trace_agent_cards.py (23 tests).
+**Regression:** 2467 passed / 1 skipped / 0 failed.
+**Build:** dist/autoworkbench.js 1.3mb (clean).
+
+**Architecture invariants honored:** trace is evidence only (no runtime truth mutation); no raw prompts/keys leaked; honest agent activity (unavailable when missing); required agents cannot be disabled; unsupported controls disabled with reason.
+
+**Forbidden-file audit:** no backend/runtime/agent/server/LLM-prompt changes; no E2E run.
