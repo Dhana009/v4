@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import re
 from copy import deepcopy
 from datetime import datetime, timezone
 from typing import Any, Mapping
@@ -964,3 +965,488 @@ def normalize_frontend_command(
             command[key] = normalized_context[key]
     command["payload"] = _json_safe_copy(command_payload)
     return command, None
+
+
+# ---------------------------------------------------------------------------
+# Sprint 7 Cluster 2 — new event builders (S7-0201 through S7-0209)
+# ---------------------------------------------------------------------------
+
+def _redact_api_keys(text: str) -> str:
+    return re.sub(r"sk-[^\s\"']+", "[REDACTED]", text)
+
+
+def build_page_analysis_started_event(
+    request_id: str,
+    page_url: str,
+    *,
+    analysis_type: str = "fallback",
+    source: str | None = "agent",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    request_id_text = _coerce_text(request_id)
+    if not request_id_text:
+        raise ValueError("request_id is required")
+    page_url_text = _coerce_text(page_url)
+    if not page_url_text:
+        raise ValueError("page_url is required")
+
+    payload: dict[str, Any] = {
+        "request_id": request_id_text,
+        "page_url": page_url_text,
+        "analysis_type": _coerce_text(analysis_type) or "fallback",
+    }
+    return build_backend_event_envelope(
+        "page_analysis_started",
+        payload,
+        event_id=event_id,
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+def build_page_summary_ready_event(
+    request_id: str,
+    page_summary: dict[str, Any],
+    *,
+    source: str | None = None,
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    request_id_text = _coerce_text(request_id)
+    if not request_id_text:
+        raise ValueError("request_id is required")
+    if not isinstance(page_summary, Mapping):
+        raise TypeError("page_summary must be a dict")
+
+    safe_summary = {k: v for k, v in page_summary.items() if k != "raw_html"}
+
+    payload: dict[str, Any] = {
+        "request_id": request_id_text,
+        "page_summary": _json_safe_copy(safe_summary),
+    }
+    return build_backend_event_envelope(
+        "page_summary_ready",
+        payload,
+        event_id=event_id,
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+def build_page_analysis_failed_event(
+    request_id: str,
+    page_url: str,
+    reason: str,
+    *,
+    source: str | None = "agent",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    request_id_text = _coerce_text(request_id)
+    if not request_id_text:
+        raise ValueError("request_id is required")
+    reason_text = _coerce_text(reason)
+    if not reason_text:
+        raise ValueError("reason is required")
+
+    payload: dict[str, Any] = {
+        "request_id": request_id_text,
+        "page_url": _coerce_text(page_url),
+        "reason": reason_text,
+    }
+    return build_backend_event_envelope(
+        "page_analysis_failed",
+        payload,
+        event_id=event_id,
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+def build_recommendation_ready_event(
+    request_id: str,
+    recommendations: list[dict[str, Any]],
+    *,
+    min_confidence: float | None = None,
+    source: str | None = "agent",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    request_id_text = _coerce_text(request_id)
+    if not request_id_text:
+        raise ValueError("request_id is required")
+    if not isinstance(recommendations, list):
+        raise TypeError("recommendations must be a list")
+
+    copied = _json_safe_copy(list(recommendations))
+    if min_confidence is not None:
+        copied = [r for r in copied if r.get("confidence", 0) >= min_confidence]
+
+    payload: dict[str, Any] = {
+        "request_id": request_id_text,
+        "recommendations": copied,
+    }
+    return build_backend_event_envelope(
+        "recommendation_ready",
+        payload,
+        event_id=event_id,
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+def build_capability_gap_event(
+    action: str,
+    reason: str,
+    next_legal_action: str,
+    *,
+    severity: str = "error",
+    source: str | None = "agent",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    action_text = _coerce_text(action)
+    if not action_text:
+        raise ValueError("action is required")
+    reason_text = _coerce_text(reason)
+    if not reason_text:
+        raise ValueError("reason is required")
+    next_text = _coerce_text(next_legal_action)
+    if not next_text:
+        raise ValueError("next_legal_action is required")
+
+    payload: dict[str, Any] = {
+        "action": action_text,
+        "reason": reason_text,
+        "next_legal_action": next_text,
+        "severity": _coerce_text(severity) or "error",
+    }
+    return build_backend_event_envelope(
+        "capability_gap",
+        payload,
+        event_id=event_id,
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+def build_schema_error_event(
+    purpose: str,
+    error_type: str,
+    error_message: str,
+    retry_count: int,
+    max_retries: int,
+    *,
+    source: str | None = "agent",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    purpose_text = _coerce_text(purpose)
+    if not purpose_text:
+        raise ValueError("purpose is required")
+    error_type_text = _coerce_text(error_type)
+    if not error_type_text:
+        raise ValueError("error_type is required")
+    if int(retry_count) < 0:
+        raise ValueError("retry_count must be non-negative")
+
+    safe_message = _redact_api_keys(_coerce_text(error_message))
+
+    payload: dict[str, Any] = {
+        "purpose": purpose_text,
+        "error_type": error_type_text,
+        "error_message": safe_message,
+        "retry_count": int(retry_count),
+        "max_retries": int(max_retries),
+    }
+    return build_backend_event_envelope(
+        "schema_error",
+        payload,
+        event_id=event_id,
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+def build_provider_error_event(
+    purpose: str,
+    error_type: str,
+    error_message: str,
+    retryable: bool,
+    *,
+    source: str | None = "agent",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    purpose_text = _coerce_text(purpose)
+    if not purpose_text:
+        raise ValueError("purpose is required")
+    error_type_text = _coerce_text(error_type)
+    if not error_type_text:
+        raise ValueError("error_type is required")
+
+    safe_message = _redact_api_keys(_coerce_text(error_message))
+
+    payload: dict[str, Any] = {
+        "purpose": purpose_text,
+        "error_type": error_type_text,
+        "error_message": safe_message,
+        "retryable": bool(retryable),
+    }
+    return build_backend_event_envelope(
+        "provider_error",
+        payload,
+        event_id=event_id,
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+def build_malformed_output_error_event(
+    purpose: str,
+    error_message: str,
+    *,
+    safe_output_sample: str | None = None,
+    source: str | None = "agent",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    purpose_text = _coerce_text(purpose)
+    if not purpose_text:
+        raise ValueError("purpose is required")
+    error_message_text = _coerce_text(error_message)
+    if not error_message_text:
+        raise ValueError("error_message is required")
+
+    payload: dict[str, Any] = {
+        "purpose": purpose_text,
+        "error_message": error_message_text,
+    }
+    if safe_output_sample is not None:
+        payload["safe_output_sample"] = _coerce_text(safe_output_sample)[:2000]
+
+    return build_backend_event_envelope(
+        "malformed_output_error",
+        payload,
+        event_id=event_id,
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+def build_plan_diff_proposed_event(
+    plan_id: str,
+    old_version: int,
+    new_version: int,
+    operations: list[dict[str, Any]],
+    *,
+    source: str | None = "agent",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    plan_id_text = _coerce_text(plan_id)
+    if not plan_id_text:
+        raise ValueError("plan_id is required")
+    if not isinstance(operations, list):
+        raise TypeError("operations must be a list")
+
+    payload: dict[str, Any] = {
+        "plan_id": plan_id_text,
+        "old_version": int(old_version),
+        "new_version": int(new_version),
+        "operations": _json_safe_copy(operations),
+    }
+    return build_backend_event_envelope(
+        "plan_diff_proposed",
+        payload,
+        event_id=event_id,
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+def build_plan_diff_validated_event(
+    plan_id: str,
+    validation_status: str,
+    issues: list[str],
+    *,
+    source: str | None = "agent",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    plan_id_text = _coerce_text(plan_id)
+    if not plan_id_text:
+        raise ValueError("plan_id is required")
+    status_text = _coerce_text(validation_status)
+    if not status_text:
+        raise ValueError("validation_status is required")
+
+    payload: dict[str, Any] = {
+        "plan_id": plan_id_text,
+        "validation_status": status_text,
+        "issues": list(issues),
+    }
+    return build_backend_event_envelope(
+        "plan_diff_validated",
+        payload,
+        event_id=event_id,
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+def build_plan_diff_applied_event(
+    plan_id: str,
+    result: str,
+    *,
+    source: str | None = "agent",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    plan_id_text = _coerce_text(plan_id)
+    if not plan_id_text:
+        raise ValueError("plan_id is required")
+    result_text = _coerce_text(result)
+    if not result_text:
+        raise ValueError("result is required")
+
+    payload: dict[str, Any] = {
+        "plan_id": plan_id_text,
+        "result": result_text,
+    }
+    return build_backend_event_envelope(
+        "plan_diff_applied",
+        payload,
+        event_id=event_id,
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+def build_locator_candidates_ready_event(
+    ambiguity_id: str,
+    candidates: list[dict[str, Any]],
+    *,
+    source: str | None = "agent",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    ambiguity_id_text = _coerce_text(ambiguity_id)
+    if not ambiguity_id_text:
+        raise ValueError("ambiguity_id is required")
+    if not isinstance(candidates, list):
+        raise TypeError("candidates must be a list")
+
+    safe_candidates = [
+        {k: v for k, v in c.items() if k != "raw_dom"}
+        for c in candidates
+    ]
+
+    payload: dict[str, Any] = {
+        "ambiguity_id": ambiguity_id_text,
+        "candidates": _json_safe_copy(safe_candidates),
+    }
+    return build_backend_event_envelope(
+        "locator_candidates_ready",
+        payload,
+        event_id=event_id,
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+def build_recovery_needed_structured_event(
+    run_id: str,
+    step_id: str,
+    failure_reason: str,
+    options: list[dict[str, Any]],
+    *,
+    expected: str | None = None,
+    actual: str | None = None,
+    source: str | None = "agent",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    run_id_text = _coerce_text(run_id)
+    if not run_id_text:
+        raise ValueError("run_id is required")
+    step_id_text = _coerce_text(step_id)
+    if not step_id_text:
+        raise ValueError("step_id is required")
+    failure_reason_text = _coerce_text(failure_reason)
+    if not failure_reason_text:
+        raise ValueError("failure_reason is required")
+    if not isinstance(options, list):
+        raise TypeError("options must be a list")
+    if len(options) == 0:
+        raise ValueError("options must not be empty")
+
+    payload: dict[str, Any] = {
+        "run_id": run_id_text,
+        "step_id": step_id_text,
+        "failure_reason": failure_reason_text,
+        "options": _json_safe_copy(options),
+    }
+    if expected is not None:
+        payload["expected"] = _coerce_text(expected)
+    if actual is not None:
+        payload["actual"] = _coerce_text(actual)
+
+    return build_backend_event_envelope(
+        "recovery_needed",
+        payload,
+        run_id=run_id_text,
+        event_id=event_id,
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+def build_token_report_event(
+    purpose: str,
+    model_class: str,
+    input_tokens: int,
+    output_tokens: int,
+    *,
+    call_id: str | None = None,
+    cached_tokens: int | None = None,
+    latency_ms: int | None = None,
+    estimated_cost: float | None = None,
+    source: str | None = "agent",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    purpose_text = _coerce_text(purpose)
+    if not purpose_text:
+        raise ValueError("purpose is required")
+    model_class_text = _coerce_text(model_class)
+    if not model_class_text:
+        raise ValueError("model_class is required")
+    if int(input_tokens) < 0:
+        raise ValueError("input_tokens must be non-negative")
+    if int(output_tokens) < 0:
+        raise ValueError("output_tokens must be non-negative")
+
+    payload: dict[str, Any] = {
+        "purpose": purpose_text,
+        "model_class": model_class_text,
+        "input_tokens": int(input_tokens),
+        "output_tokens": int(output_tokens),
+    }
+    if call_id is not None:
+        payload["call_id"] = _coerce_text(call_id)
+    if cached_tokens is not None:
+        payload["cached_tokens"] = int(cached_tokens)
+    if latency_ms is not None:
+        payload["latency_ms"] = int(latency_ms)
+    if estimated_cost is not None:
+        payload["estimated_cost"] = float(estimated_cost)
+
+    return build_backend_event_envelope(
+        "token_report",
+        payload,
+        event_id=event_id,
+        emitted_at=emitted_at,
+        source=source,
+    )
