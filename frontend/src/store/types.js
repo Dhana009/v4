@@ -36,6 +36,8 @@ export const EVENT_TYPES = /** @type {const} */ ({
   recommendation_ready: "recommendation_ready",
   recovery_needed: "recovery_needed",
   code_update: "code_update",
+  recovery_resolved: "recovery_resolved",
+  schema_error: "schema_error",
   llm_thinking: "llm_thinking",
   llm_result: "llm_result",
   status: "status",

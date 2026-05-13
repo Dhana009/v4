@@ -16,6 +16,7 @@ import { getStoredSize } from "./layout/resize-controller.js";
 
 // Cluster 5 store — thin wiring (reducer used by useFrontendEventStore)
 import { reducer, createInitialState } from "./store/reducer.js";
+import { createDispatcher } from "./commands/dispatcher.js";
 
 const VALID_TABS = new Set(["workbench", "steps", "code", "debug"]);
 
@@ -3034,6 +3035,22 @@ function AutoWorkbenchRuntime({ config }) {
             runtime={{
               live: true,
               ...transport,
+              storeState: transport.storeState,
+              connected: transport.storeState?.connected ?? false,
+              run_id: transport.storeState?.run_id ?? null,
+              phase: transport.storeState?.phase ?? "idle",
+              storePlan: transport.storeState?.plan ?? null,
+              storePendingSteps: transport.storeState?.pending_steps ?? [],
+              storeRecordedSteps: transport.storeState?.recorded_steps ?? [],
+              storeCodePreview: transport.storeState?.code_preview ?? null,
+              storeTraceEntries: transport.storeState?.trace_entries ?? [],
+              storeErrors: transport.storeState?.errors ?? [],
+              storeLastError: transport.storeState?.last_error ?? null,
+              storeInteractionMode: transport.storeState?.interaction_mode ?? "idle",
+              storePendingClarification: transport.storeState?.pending_clarification ?? null,
+              storePendingPermission: transport.storeState?.pending_permission ?? null,
+              storePendingRecovery: transport.storeState?.pending_recovery ?? null,
+              storePendingRecommendations: transport.storeState?.pending_recommendations ?? [],
             }}
             onTabChange={setTab}
           />
