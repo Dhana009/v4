@@ -2,8 +2,8 @@
 
 **Sprint:** Sprint 7  
 **Cluster:** 4  
-**Status:** Planning  
-**Date:** 2026-05-13  
+**Status:** Done  
+**Date:** 2026-05-14  
 **HEAD at planning:** 8bdd8de  
 
 ---
@@ -297,3 +297,52 @@ After Cluster 4 is **Done**:
 - `autoworkbench_complete_llm_mode_frontend_ui_spec.md` — UI spec
 - `frontend_new_design_prototype/` — design reference
 - `.tasks-md/Bugs/Backlog/BUG-S6-FINAL-002-frontend-complete-llm-ui-contract-only.md` — context
+
+---
+
+## Cluster 4 Closure
+
+**Status:** Done  
+**Implementation commit:** `2a6eed4`  
+**Test commit:** `e8b98f7`  
+**Branch:** `s7/cluster-4-docked-shadow-dom-host`
+
+### Stories Completed
+
+| Story | Test File | Tests | Status |
+|---|---|---|---|
+| S7-0401 Shadow DOM host cleanup and mount lifecycle | test_shadow_dom_host.py | 17 | Done |
+| S7-0402 Dock right/left/bottom layout | test_layout_modes.py | 28 | Done |
+| S7-0403 Floating/collapsed/expanded panel modes | test_layout_modes.py | 28 | Done |
+| S7-0404 Resize controller and panel size persistence | test_layout_modes.py | 28 | Done |
+| S7-0405 Page content compensation | test_page_compensation.py | 17 | Done |
+| S7-0406 Unmount/restore/cleanup | test_host_cleanup.py | 9 | Done |
+| S7-0407 Shadow DOM style isolation | test_shadow_dom_isolation.py | 12 | Done |
+| S7-0408 Picker exclusion | test_picker_exclusion.py | 11 | Done |
+
+### Files Touched
+
+- `frontend/src/host/host.jsx` — full lifecycle (createHost, mountHost, unmountHost, getHostRoot, getHostContainer)
+- `frontend/src/layout/dock-controller.js` — dock modes with CSS class application and localStorage persistence
+- `frontend/src/layout/panel-modes.js` — collapsed/expanded/floating with compensation metadata
+- `frontend/src/layout/resize-controller.js` — drag resize, min 300px / max 80%, debounced persistence
+- `frontend/src/layout/compensation.js` — page width/height reduction with original style save/restore
+- `frontend/src/layout/picker-exclusion.js` — ancestor-aware isExcluded, PICKER_EXCLUSION_SELECTOR
+- `tests/test_shadow_dom_host.py` (new)
+- `tests/test_layout_modes.py` (new)
+- `tests/test_page_compensation.py` (new)
+- `tests/test_host_cleanup.py` (new)
+- `tests/test_shadow_dom_isolation.py` (new)
+- `tests/test_picker_exclusion.py` (new)
+
+### Validation Evidence
+
+- `python -m pytest -q` → **2247 passed, 0 failed, 1 skipped** ✅
+- `npm run build` → **1.2 MB bundle, 42.9 KB CSS** ✅
+- No backend imports in frontend/src/layout/ (verified by test)
+- No circular imports
+- No DEMO_/MOCK_ constants in any layout module
+- Shadow DOM uses `mode: "open"` for testability
+- Page compensation saves original styles before mutation (full restore on unmount)
+- Picker exclusion checks ancestors (not just direct element match)
+- CSS z-index: `--aw-z-panel: 10000` (above page content)

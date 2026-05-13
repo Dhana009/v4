@@ -3,7 +3,7 @@
 **Sprint:** Sprint 7  
 **Cluster:** 4  
 **Story:** S7-0402  
-**Status:** Planning  
+**Status:** Done  
 **Date:** 2026-05-13  
 
 ---
@@ -184,3 +184,25 @@ After S7-0402:
 ## Next Story
 
 → S7-0403: Floating, collapsed, and expanded panel modes
+
+---
+
+## Evidence Recorded
+
+**Status:** Done  
+**Implementation commit:** `2a6eed4`  
+**Test commit:** `e8b98f7`  
+**Branch:** `s7/cluster-4-docked-shadow-dom-host`
+
+### Tests
+
+| Test File | Tests | Result |
+|---|---|---|
+| test_layout_modes.py | partial — dock tests | ✅ Pass |
+
+### Validation
+
+- `python -m pytest -q` → **2247 passed, 1 skipped, 0 failed** ✅
+- `npm run build` → **1.2 MB bundle, 42.9 KB CSS** ✅
+- All module boundary checks: no backend imports ✅
+- No DEMO_/MOCK_ constants ✅

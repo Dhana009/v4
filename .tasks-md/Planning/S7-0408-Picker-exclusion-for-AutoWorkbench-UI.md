@@ -3,7 +3,7 @@
 **Sprint:** Sprint 7  
 **Cluster:** 4  
 **Story:** S7-0408  
-**Status:** Planning  
+**Status:** Done  
 **Date:** 2026-05-13  
 
 ---
@@ -150,3 +150,25 @@ After all Cluster 4 stories Done:
 - [ ] Design prototype: tokens extracted for Cluster 5
 - [ ] Main.jsx: wiring only, focused modules created
 - [ ] Regression: baseline maintained
+
+---
+
+## Evidence Recorded
+
+**Status:** Done  
+**Implementation commit:** `2a6eed4`  
+**Test commit:** `e8b98f7`  
+**Branch:** `s7/cluster-4-docked-shadow-dom-host`
+
+### Tests
+
+| Test File | Tests | Result |
+|---|---|---|
+| test_picker_exclusion.py | 11 | ✅ Pass |
+
+### Validation
+
+- `python -m pytest -q` → **2247 passed, 1 skipped, 0 failed** ✅
+- `npm run build` → **1.2 MB bundle, 42.9 KB CSS** ✅
+- All module boundary checks: no backend imports ✅
+- No DEMO_/MOCK_ constants ✅
