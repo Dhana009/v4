@@ -1,0 +1,91 @@
+/*
+ * tokens.css — AutoWorkbench design token system
+ * S7-0303: Design token extraction and style system
+ *
+ * Scope: :root and :host for Shadow DOM compatibility.
+ * Extracted from frontend_new_design_prototype/styles.css.
+ * All production components must use these tokens; no hardcoded hex values.
+ */
+
+:root,
+:host {
+  /* ── Backgrounds ─────────────────────────────────────────── */
+  --aw-bg:           #FDFAF5;
+  --aw-bg-card:      #FFFFFF;
+  --aw-bg-tray:      #F4F0EA;
+  --aw-bg-code:      #1C1A17;
+  --aw-bg-hover:     rgba(0, 0, 0, 0.04);
+  --aw-bg-active:    rgba(0, 0, 0, 0.07);
+
+  /* ── Text ────────────────────────────────────────────────── */
+  --aw-ink:          #2C2219;
+  --aw-tx-2:         #5C4B38;
+  --aw-tx-3:         #9A7B62;
+  --aw-tx-4:         #B8A696;
+  --aw-tx-inverse:   #FDFAF5;
+
+  /* ── Accent ──────────────────────────────────────────────── */
+  --aw-acc:          #C17A35;
+  --aw-acc-2:        #E09040;
+  --aw-acc-hover:    #A86628;
+
+  /* ── Status colors ───────────────────────────────────────── */
+  --aw-grn:          #4F8A5B;
+  --aw-grn-bg:       rgba(79, 138, 91, 0.10);
+  --aw-red:          #B84040;
+  --aw-red-bg:       rgba(184, 64, 64, 0.10);
+  --aw-yel:          #C89A30;
+  --aw-yel-bg:       rgba(200, 154, 48, 0.10);
+  --aw-blu:          #3A7AA8;
+  --aw-blu-bg:       rgba(58, 122, 168, 0.10);
+
+  /* ── Borders ─────────────────────────────────────────────── */
+  --aw-br:           rgba(0, 0, 0, 0.08);
+  --aw-br-strong:    rgba(0, 0, 0, 0.15);
+  --aw-br-focus:     #C17A35;
+
+  /* ── Border radius ───────────────────────────────────────── */
+  --aw-r:            8px;
+  --aw-r-sm:         4px;
+  --aw-r-lg:         12px;
+  --aw-r-full:       9999px;
+
+  /* ── Spacing ─────────────────────────────────────────────── */
+  --aw-space-1:      4px;
+  --aw-space-2:      8px;
+  --aw-space-3:      12px;
+  --aw-space-4:      16px;
+  --aw-space-5:      24px;
+  --aw-space-6:      32px;
+
+  /* ── Typography ──────────────────────────────────────────── */
+  --aw-font-sans:    -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --aw-font-mono:    "JetBrains Mono", "Fira Code", "Cascadia Code", monospace;
+
+  --aw-text-xs:      10.5px;
+  --aw-text-sm:      11.5px;
+  --aw-text-base:    13px;
+  --aw-text-md:      14px;
+  --aw-text-lg:      16px;
+
+  --aw-weight-regular: 400;
+  --aw-weight-medium:  500;
+  --aw-weight-bold:    600;
+
+  --aw-line-snug:    1.35;
+  --aw-line-base:    1.5;
+
+  /* ── Elevation / shadow ──────────────────────────────────── */
+  --aw-shadow-sm:    0 1px 3px rgba(0, 0, 0, 0.10);
+  --aw-shadow-md:    0 4px 12px rgba(0, 0, 0, 0.14);
+  --aw-shadow-lg:    -12px 0 36px rgba(0, 0, 0, 0.28);
+
+  /* ── Transition ──────────────────────────────────────────── */
+  --aw-transition:   120ms ease;
+  --aw-transition-slow: 240ms ease;
+
+  /* ── Z-index layers ──────────────────────────────────────── */
+  --aw-z-panel:      2147483647;
+  --aw-z-overlay:    calc(var(--aw-z-panel) - 10);
+  --aw-z-menu:       calc(var(--aw-z-panel) - 5);
+}
