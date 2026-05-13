@@ -2086,10 +2086,12 @@ async def wait_for_autoworkbench_ready(page: Any, timeout_ms: int = 10000) -> No
         if await panel.count() > 0:
             await panel.wait_for(state="visible", timeout=timeout_ms)
         else:
-            await page.locator("#autoworkbench-root .ide-panel").first.wait_for(state="visible", timeout=timeout_ms)
+            await page.locator(".ide-panel, .aw-panel").first.wait_for(state="visible", timeout=timeout_ms)
     except Exception:
-        await page.locator("#autoworkbench-root .ide-panel").first.wait_for(state="visible", timeout=timeout_ms)
-    await page.get_by_role("button", name="Run Pending Steps").first.wait_for(state="visible", timeout=timeout_ms)
+        await page.locator(".ide-panel, .aw-panel").first.wait_for(state="visible", timeout=timeout_ms)
+    # v4 + legacy: tab strip is the canonical "panel ready" signal.
+    tabs_locator = page.locator('[data-testid="aw-tabs"], .ide-tabs').first
+    await tabs_locator.wait_for(state="visible", timeout=timeout_ms)
 
 
 async def wait_for_agents_page(page: Any, timeout_ms: int = 15000) -> None:

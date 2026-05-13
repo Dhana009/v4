@@ -27176,7 +27176,7 @@
     return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: containerCls, "data-testid": "aw-stage", "data-state": state, "data-tab": activeTab, children: /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(
       "aside",
       {
-        className: "aw-panel",
+        className: "aw-panel ide-panel",
         "data-testid": "aw-panel",
         "data-wide": dock === "top" ? "1" : "0",
         style: { width: dock === "top" ? "100%" : 420 },

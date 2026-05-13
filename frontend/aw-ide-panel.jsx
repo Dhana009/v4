@@ -341,7 +341,7 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
   return (
     <div className={containerCls} data-testid="aw-stage" data-state={state} data-tab={activeTab}>
       <aside
-        className="aw-panel"
+        className="aw-panel ide-panel"
         data-testid="aw-panel"
         data-wide={dock === "top" ? "1" : "0"}
         style={{ width: dock === "top" ? "100%" : 420 }}
