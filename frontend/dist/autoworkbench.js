@@ -24919,7 +24919,7 @@
     ] });
   }
   function Footer({ phase, event, blocker, nextAction, busy }) {
-    return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("footer", { className: "aw-footer", "data-testid": "aw-footer", children: [
+    return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("footer", { className: "aw-footer ide-hd-state", "data-testid": "aw-footer", children: [
       /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "aw-footer-phase", children: [
         busy ? /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "aw-bar", children: [
           /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("i", {}),
@@ -25484,6 +25484,7 @@
             type: "button",
             className: "aw-btn primary",
             "data-testid": "plan-confirm",
+            "aria-label": "Confirm Plan",
             disabled: !plan_id,
             onClick: () => typeof onConfirm === "function" && onConfirm({
               type: "confirm_plan",
@@ -25492,7 +25493,7 @@
             }),
             children: [
               /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Play, {}),
-              "Confirm & run",
+              "Confirm Plan",
               /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-kbd", children: "\u2318\u21B5" })
             ]
           }
@@ -26610,6 +26611,10 @@
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Camera, {}),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: "Backend-emitted evidence only. Skipped or unresolved steps are not shown as recorded." }),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "aw-spacer" }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: "ide-stat", "data-testid": "recorded-count", children: [
+          "recorded: ",
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "ide-stat-num", children: list.filter((s) => (s.state ?? s.status) !== "skipped").length })
+        ] }),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
           "button",
           {
@@ -26641,7 +26646,7 @@
         return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
           "div",
           {
-            className: "aw-rec-item",
+            className: "aw-rec-item ide-recorded-step",
             "data-testid": `recorded-item-${id}`,
             "data-state": state,
             children: [
@@ -26658,7 +26663,7 @@
                   }
                 ),
                 /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { flex: 1 }, children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { fontSize: 13, fontWeight: 500 }, "data-testid": `recorded-title-${id}`, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "ide-recorded-step-title", style: { fontSize: 13, fontWeight: 500 }, "data-testid": `recorded-title-${id}`, children: [
                     title,
                     /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { fontFamily: "var(--ff-mono)", fontSize: 10, color: "var(--tx-4)", marginLeft: 6 }, children: id })
                   ] }),
@@ -26698,7 +26703,7 @@
                   "data-testid": `recorded-children-${id}`,
                   children: asArray2(s.children).map((child, j) => /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-step-op", children: [
                     /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "op-tag", children: child.operation ?? child.kind ?? "op" }),
-                    child.description ?? child.text ?? "",
+                    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "ide-plan-child-desc", children: child.description ?? child.text ?? "" }),
                     child.generated_line ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("code", { style: { marginLeft: 6, fontFamily: "var(--ff-mono)", fontSize: 11, color: "var(--tx-3)" }, children: child.generated_line }) : null
                   ] }, j))
                 }

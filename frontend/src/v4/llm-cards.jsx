@@ -390,13 +390,14 @@ export function CardPlanReady({ plan, onConfirm, onEdit, onPartialRun }) {
       <div className="aw-card-foot">
         <button type="button" className="aw-btn primary"
                 data-testid="plan-confirm"
+                aria-label="Confirm Plan"
                 disabled={!plan_id}
                 onClick={() => typeof onConfirm === "function" && onConfirm({
                   type: "confirm_plan",
                   plan_id,
                   plan_version,
                 })}>
-          <I.Play/>Confirm &amp; run<span className="aw-kbd">⌘↵</span>
+          <I.Play/>Confirm Plan<span className="aw-kbd">⌘↵</span>
         </button>
         {typeof onEdit === "function" ? (
           <button type="button" className="aw-btn" data-testid="plan-edit"

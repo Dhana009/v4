@@ -171,7 +171,7 @@ export function NowStrip({ kind = "idle", state, task, refLabel, primaryLabel, p
 
 export function Footer({ phase, event, blocker, nextAction, busy }) {
   return (
-    <footer className="aw-footer" data-testid="aw-footer">
+    <footer className="aw-footer ide-hd-state" data-testid="aw-footer">
       <span className="aw-footer-phase">
         {busy ? (
           <span className="aw-bar">

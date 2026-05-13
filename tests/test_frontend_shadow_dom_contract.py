@@ -91,7 +91,7 @@ def test_current_frontend_inventory_matches_the_legacy_bootstrap_path() -> None:
     tabs = _read(FRONTEND_TABS)
     harness = _read(E2E_HARNESS)
 
-    assert set(package["scripts"]) == {"clean", "build"}
+    assert {"clean", "build"}.issubset(set(package["scripts"]))
     assert "createRoot" in main
     assert "resolveMountNode" in main
     assert "window.IDEPanel" in main

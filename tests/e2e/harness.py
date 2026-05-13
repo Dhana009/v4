@@ -1842,16 +1842,20 @@ async def wait_for_overlay_ready(page: Any, timeout_ms: int = 10000) -> None:
 
 
 _AUTOWORKBENCH_TAB_TEST_IDS = {
-    "workbench": "llm-tab",
-    "steps": "steps-tab",
-    "code": "code-tab",
-    "debug": "trace-tab",
+    "workbench": "aw-tab-llm",
+    "steps": "aw-tab-steps",
+    "code": "aw-tab-code",
+    "debug": "aw-tab-trace",
+    "rec": "aw-tab-rec",
+    "recorded": "aw-tab-rec",
 }
 _AUTOWORKBENCH_TAB_ROLE_NAMES = {
     "workbench": re.compile(r"^(?:llm|workbench)$", re.IGNORECASE),
     "steps": re.compile(r"^steps$", re.IGNORECASE),
     "code": re.compile(r"^code$", re.IGNORECASE),
     "debug": re.compile(r"^(?:trace|debug)$", re.IGNORECASE),
+    "rec": re.compile(r"^recorded$", re.IGNORECASE),
+    "recorded": re.compile(r"^recorded$", re.IGNORECASE),
 }
 _AUTOWORKBENCH_TAB_ALIASES = {
     "llm": "workbench",

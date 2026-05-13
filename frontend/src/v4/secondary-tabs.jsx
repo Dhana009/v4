@@ -268,6 +268,9 @@ export function RecordedTab({ recordedSteps = [], onReplayOne, onReplayAll }) {
         <I.Camera/>
         <span>Backend-emitted evidence only. Skipped or unresolved steps are not shown as recorded.</span>
         <span className="aw-spacer"/>
+        <span className="ide-stat" data-testid="recorded-count">
+          recorded: <span className="ide-stat-num">{list.filter((s) => (s.state ?? s.status) !== "skipped").length}</span>
+        </span>
         <button type="button" className="aw-btn" style={{ padding: "4px 10px" }}
                 data-testid="recorded-replay-all"
                 disabled={list.length === 0 || typeof onReplayAll !== "function"}
@@ -291,7 +294,9 @@ export function RecordedTab({ recordedSteps = [], onReplayOne, onReplayAll }) {
           const title = s.description ?? s.title ?? id;
           const locator = s.locator ?? s.selector ?? "";
           return (
-            <div key={id} className="aw-rec-item" data-testid={`recorded-item-${id}`}
+            <div key={id}
+                 className="aw-rec-item ide-recorded-step"
+                 data-testid={`recorded-item-${id}`}
                  data-state={state}>
               <div className="aw-rec-head">
                 <span className="aw-step-idx ok"
@@ -304,7 +309,7 @@ export function RecordedTab({ recordedSteps = [], onReplayOne, onReplayAll }) {
                               <I.Check style={{ width: 11, height: 11 }}/>}
                 </span>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500 }} data-testid={`recorded-title-${id}`}>
+                  <div className="ide-recorded-step-title" style={{ fontSize: 13, fontWeight: 500 }} data-testid={`recorded-title-${id}`}>
                     {title}
                     <span style={{ fontFamily: "var(--ff-mono)", fontSize: 10, color: "var(--tx-4)", marginLeft: 6 }}>
                       {id}
@@ -333,7 +338,7 @@ export function RecordedTab({ recordedSteps = [], onReplayOne, onReplayAll }) {
                   {asArray(s.children).map((child, j) => (
                     <div key={j} className="aw-step-op">
                       <span className="op-tag">{child.operation ?? child.kind ?? "op"}</span>
-                      {child.description ?? child.text ?? ""}
+                      <span className="ide-plan-child-desc">{child.description ?? child.text ?? ""}</span>
                       {child.generated_line ? (
                         <code style={{ marginLeft: 6, fontFamily: "var(--ff-mono)", fontSize: 11, color: "var(--tx-3)" }}>
                           {child.generated_line}
