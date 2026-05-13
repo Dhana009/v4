@@ -108,4 +108,29 @@ Manual audit checklist:
 - **Final regression:** 2481 passed / 1 skipped / 0 failed (excl. tests/e2e)
 - **Frontend build:** clean (1.3mb js, 42.9kb css)
 - **Browser smoke baseline:** tests/e2e/test_mvp_001_lifecycle_smoke.py passed (7.22s)
-- **Push readiness decision:** PUSH_READY_WITH_DOCUMENTED_DEFERRED_BROWSER_GATE
+- **Push readiness decision:** NOT_PUSH_READY_AS_COMPLETE_UI_INTEGRATION
+
+---
+
+## Status Correction (2026-05-14)
+
+The Evidence Recorded section above was based on an audit-time assumption
+that the C6–C9 modular components were integrated into the live
+`frontend/aw-ide-panel.jsx`. Re-audit at HEAD `f20d7f3` shows this is
+**not** the case:
+
+- `frontend/aw-ide-panel.jsx` (2135 lines) has **0 imports** from
+  `frontend/src/components/{llm,steps,recorded,code,trace,agents,manual,picker,locator,replay,session}/`.
+- `frontend/src/main.jsx` does not import those components either.
+- The live browser path renders the monolith's internal `IDE*` functions.
+- C4 (docked Shadow DOM) and C5 (store/dispatcher/runtime prop threading)
+  are integrated; C6–C9 cards are dead code in the repo.
+
+Final Sprint 7 status: **PARTIAL_INTEGRATION**.
+Push readiness: **NOT_PUSH_READY_AS_COMPLETE_UI_INTEGRATION**.
+
+Sprint 8 Integration Pass owes the actual integration + real DOM and
+browser E2E gate before any Sprint 7 closure can be re-asserted as
+frontend-complete. C6–C9 stories remain Done as "component built and
+source-pattern tested," but the cluster-level frontend-complete claim is
+retracted.

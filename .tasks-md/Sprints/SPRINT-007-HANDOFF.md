@@ -1,11 +1,45 @@
 # Sprint 7 — Handoff Document
 
 **Sprint:** Sprint 7
-**Status:** Development-complete (modular UI + store + dispatcher + flow gate)
-**Date:** 2026-05-14
+**Status:** PARTIAL_INTEGRATION — foundation (C4/C5) integrated; modular UI library (C6–C9) BUILT BUT NOT INTEGRATED into live `aw-ide-panel.jsx`. Sprint 7 is NOT frontend-complete.
+**Date:** 2026-05-14 (corrected)
 **Starting HEAD:** 8bdd8de (pre-Sprint 7)
-**Ending HEAD:** abb56b5 (cluster-10 docs)
+**Ending HEAD:** f20d7f3 (cluster-11 docs); correction commit follows
 **Branch:** s7/clusters-6-11-complete-llm-mode
+
+---
+
+## 0. Status Correction (2026-05-14)
+
+The earlier closure (commit `f20d7f3`) overclaimed completion. Audit at
+HEAD `f20d7f3` shows:
+
+- `frontend/aw-ide-panel.jsx` (2135 lines) has **0 imports** from any of
+  `frontend/src/components/{llm,steps,recorded,code,trace,agents,manual,picker,locator,replay,session}/`.
+- The live browser path is `main.jsx → AutoWorkbenchRuntime → window.IDEPanel`,
+  and `IDEPanel` is the monolith with internal `IDE*` functions
+  (`IDEClarificationCard`, `IDERecordedStepCard`, `IDEPlanReview`,
+  `IDERecovery`, `IDETimeline`, `IDECodePreview`, `IDETraceRow`, etc.).
+- The C6–C9 modular cards are **dead code** in the repo — not bundled,
+  not rendered, not exercised by any browser DOM test.
+- C10 flow gate validates the reducer/state machine, not actual new-UI
+  rendering. mvp_001 E2E passes because it interacts with the monolith.
+
+Therefore:
+
+| Cluster | Real status |
+|---------|-------------|
+| C4 Docked Shadow DOM host + layout | INTEGRATED in live path |
+| C5 Typed store + dispatcher + runtime prop threading | INTEGRATED in live path |
+| C6 LLM cards | BUILT, NOT INTEGRATED |
+| C7 Steps/Manual/Picker/Locator | BUILT, NOT INTEGRATED |
+| C8 Recorded/Code/Replay/Session | BUILT, NOT INTEGRATED |
+| C9 Trace/Agents | BUILT, NOT INTEGRATED |
+| C10 Flow gate | REDUCER/STATE-MACHINE GATE (not new-UI browser gate) |
+| C11 Previous closure | OVERCLAIMED — corrected by this patch |
+
+Sprint 7 is **NOT** frontend-complete. Sprint 8 must perform the
+integration pass before any product-readiness claim is made.
 
 ---
 
@@ -19,12 +53,12 @@
 | C3 Frontend architecture / design extraction | — | Done | (pre-sprint) |
 | C4 Docked Shadow DOM host + layout | S7-0401..S7-0408 | Done | b350a18 / 63410fd |
 | C5 Typed frontend store + command dispatcher | S7-0501..S7-0509 | Done | 5185084 |
-| C6 LLM tab complete live workflow | S7-0601..S7-0610 | Done | 7c60471 |
-| C7 Steps tab / Manual Mode / Picker / Locator | S7-0701..S7-0712 | Done | 5567869 |
-| C8 Recorded / Code / Replay / Save-Load | S7-0801..S7-0810 | Done | 0a631db |
-| C9 Trace / Artifacts / Agent visibility | S7-0901..S7-0909 | Done | 68d0ad4 |
-| C10 Integrated local E2E flow gate | S7-1001..S7-1010 | Done (Python flow gate); browser E2E user-triggered | abb56b5 |
-| C11 Final acceptance / handoff / push readiness | S7-1101..S7-1107 | Done | this commit |
+| C6 LLM tab complete live workflow | S7-0601..S7-0610 | Components BUILT; NOT INTEGRATED into aw-ide-panel.jsx | 7c60471 |
+| C7 Steps tab / Manual Mode / Picker / Locator | S7-0701..S7-0712 | Components BUILT; NOT INTEGRATED | 5567869 |
+| C8 Recorded / Code / Replay / Save-Load | S7-0801..S7-0810 | Components BUILT; NOT INTEGRATED | 0a631db |
+| C9 Trace / Artifacts / Agent visibility | S7-0901..S7-0909 | Components BUILT; NOT INTEGRATED | 68d0ad4 |
+| C10 Integrated local E2E flow gate | S7-1001..S7-1010 | Reducer/state-machine gate only; real new-UI browser gate NOT in place | abb56b5 |
+| C11 Final acceptance / handoff / push readiness | S7-1101..S7-1107 | Previous closure OVERCLAIMED; corrected here | f20d7f3 + correction |
 
 ---
 
@@ -158,38 +192,82 @@ Clean. No new warnings caused by C6–C11 code.
 
 ---
 
-## 10. Push Readiness Decision
+## 10. Push Readiness Decision (CORRECTED)
 
-### Decision: **PUSH_READY_WITH_DOCUMENTED_DEFERRED_BROWSER_GATE**
+### Decision: **NOT_PUSH_READY_AS_COMPLETE_UI_INTEGRATION**
 
-Rationale:
-- 2481 unit/contract tests passing (no skip/xfail).
-- 1 baseline browser E2E (`mvp_001`) passing.
-- Frontend build clean.
-- No backend/runtime/LLM changes; architecture invariants held.
-- No paid LLM or live website calls made.
-- All modular UI ready for IDEPanel adoption.
+The previous decision (`PUSH_READY_WITH_DOCUMENTED_DEFERRED_BROWSER_GATE`)
+was incorrect because it described the gap as a browser-test gate when in
+reality the gap is **UI integration**: the C6–C9 modular cards are not
+imported, bundled, or rendered by the live application. Browser E2E
+against the new UI cannot be a gate while the new UI does not run.
 
-Deferred items (explicit, not hidden):
-- Full `tests/e2e/` browser smoke run remains a user-triggered gate per "do not run browser E2E in CI without confirmation."
-- aw-ide-panel.jsx ↔ new modular components integration is intentional Sprint 8 work.
+Conditional decision available only with explicit user acceptance:
 
-No force push. No bypassed hooks. Push remains under explicit user instruction.
+> **PUSH_READY_AS_FOUNDATION_AND_COMPONENT_LIBRARY** — only if the user
+> explicitly accepts pushing C4/C5 integration + C6–C9 modular component
+> library as a foundation milestone, with Sprint 8 owning the full
+> aw-ide-panel.jsx ↔ new-cards integration and the corresponding real
+> browser E2E gate.
+
+Until that acceptance is explicit and recorded, the default decision is
+**NOT_PUSH_READY_AS_COMPLETE_UI_INTEGRATION**.
+
+Evidence at correction time:
+- `frontend/aw-ide-panel.jsx` has 0 imports from
+  `frontend/src/components/{llm,steps,recorded,code,trace,agents,manual,picker,locator,replay,session}/`.
+- `frontend/src/main.jsx` has 0 imports of those modules either.
+- Live browser renders the monolith's internal `IDE*` functions
+  (`IDEClarificationCard`, `IDERecordedStepCard`, `IDEPlanReview`,
+  `IDERecovery`, `IDETimeline`, `IDECodePreview`, `IDETraceRow`, etc.).
+- `frontend_new_design_prototype/` remains reference-only (no runtime imports).
+- C4 docked Shadow DOM host + C5 store/dispatcher/runtime prop threading
+  ARE integrated and exercised by mvp_001 E2E.
+- C10 flow tests exercise the real reducer; they do not exercise the new
+  modular cards' rendering.
+
+No force push. No bypassed hooks. Push remains under explicit user
+instruction and only after the integration pass below is complete (or the
+foundation-library acceptance is given).
+
+### Sprint 8 Integration Pass — required scope
+
+1. Integrate C6–C9 modular cards into `aw-ide-panel.jsx` (or replace the
+   monolith rendering path) so each live tab (LLM / Steps / Recorded /
+   Code / Trace / Agents / Manual / Picker / Locator / Replay / Session)
+   renders the new components.
+2. Retire/remove old internal `IDE*` tab rendering where replaced.
+3. Add real DOM/component tests that render the new cards and assert
+   visible behavior (not source-pattern only).
+4. Add Playwright/browser E2E that drives the new UI end-to-end and
+   produces evidence artifacts (screenshots, event/command logs).
+5. Verify `frontend_new_design_prototype/` stays reference-only.
+6. Re-issue the Sprint 7 closure docs only after the integration pass
+   passes, or fold those into the Sprint 8 closure.
 
 ---
 
-## 11. Sprint 8 Boundary
+## 11. Sprint 8 Boundary (CORRECTED)
 
 Sprint 8 starts with:
-- All 51 C6–C10 stories Done with evidence.
-- Frontend modular component library in place.
+- C4 + C5 foundation INTEGRATED in the live path.
+- C6–C9 modular component library BUILT BUT NOT INTEGRATED (dead code at
+  Sprint 7 close).
+- C10 reducer/state-machine gate in place; new-UI browser gate NOT in
+  place.
+- C11 closure docs corrected to reflect partial integration.
 - Backend untouched.
-- Test baseline: 2481 + 1 e2e.
+- Test baseline: 2481 unit/contract + 1 e2e (mvp_001).
 
-Sprint 8 scope:
-- Integration pass: adopt modular cards inside `aw-ide-panel.jsx` (replace monolith block by block).
-- Full local browser-E2E smoke run across all 7 C10 flows.
-- Hardening, deterministic test fixtures, controlled realistic websites (still no paid LLM).
+Sprint 8 required scope (Integration Pass):
+- Wire C6–C9 cards into `aw-ide-panel.jsx` (or replace its rendering path)
+  so each live tab renders the new components.
+- Retire old internal `IDE*` rendering where replaced.
+- Add real DOM/component tests against the rendered cards (not just
+  source-pattern tests).
+- Add Playwright/browser E2E covering the 7 C10 flows against the new UI.
+- Hardening + controlled realistic fixtures (still no paid LLM, still no
+  live external sites).
 
 ---
 
@@ -208,4 +286,9 @@ Sprint 9 scope:
 - ✅ No paid LLM calls made or claimed.
 - ✅ No live external website calls made or claimed.
 - ✅ No skip/xfail introduced.
-- ✅ No fake acceptance: every story marked Done has a commit + test + evidence line.
+- ⚠️ Earlier closure (commit `f20d7f3`) marked C6–C9 stories Done as
+  if they were integrated into the live UI. They are not. Stories
+  remain Done as "component built and source-pattern tested," but the
+  cluster-level claim of "complete UI integration" is retracted by this
+  patch. Integration evidence is owed in Sprint 8 before any Sprint 7
+  closure can be re-asserted as frontend-complete.

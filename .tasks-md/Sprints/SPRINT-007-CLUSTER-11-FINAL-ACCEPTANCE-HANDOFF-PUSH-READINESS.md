@@ -2,9 +2,10 @@
 
 **Sprint:** Sprint 7
 **Cluster:** 11
-**Status:** Done
-**Date:** 2026-05-14
-**Push Readiness:** PUSH_READY_WITH_DOCUMENTED_DEFERRED_BROWSER_GATE
+**Status:** Done with correction — Sprint 7 = PARTIAL_INTEGRATION
+**Date:** 2026-05-14 (corrected)
+**Push Readiness:** NOT_PUSH_READY_AS_COMPLETE_UI_INTEGRATION
+(see correction note at end of file)
 **Expected Commits:** ~2 (handoff doc, status artifacts)
 
 ---
@@ -71,7 +72,7 @@ After Cluster 11:
 - Sprint 6 completed backend + LLM runtime (37 modules, 1689 tests)
 - Sprint 7 Clusters 1–9 complete backend seams, LLM integration, and frontend wiring
 - Cluster 10 E2E proves main flows locally
-- BUG-S6-FINAL-002 (frontend Complete LLM Mode UI contract-only) resolved by Cluster 3–9 implementation
+- BUG-S6-FINAL-002 (frontend Complete LLM Mode UI contract-only): foundation pieces (C3/C4/C5) integrated; modular UI library (C6–C9) built but not integrated into the live `aw-ide-panel.jsx`. Bug **NOT fully resolved** until Sprint 8 Integration Pass wires the cards into the live path.
 - No paid E2E expected until explicit decision
 - No live-site testing until Sprint 9 approval
 
@@ -281,6 +282,31 @@ Next Steps:
 | S7-1104 Frontend build + test | Done | dist/autoworkbench.js 1.3mb clean |
 | S7-1105 Browser E2E smoke evidence | Done | mvp_001 7.22s; full suite user-triggered |
 | S7-1106 Sprint 7 handoff doc | Done | SPRINT-007-HANDOFF.md |
-| S7-1107 Push readiness gate | Done | PUSH_READY_WITH_DOCUMENTED_DEFERRED_BROWSER_GATE |
+| S7-1107 Push readiness gate | Done with correction | Retracted `PUSH_READY_WITH_DOCUMENTED_DEFERRED_BROWSER_GATE` → corrected to `NOT_PUSH_READY_AS_COMPLETE_UI_INTEGRATION` (see correction note below) |
 
 **Forbidden-file audit:** no backend/runtime/agent/server/LLM-prompt changes during C6–C11; no paid LLM; no live websites; no force push; no skip/xfail.
+
+---
+
+## Cluster 11 Closure Correction (2026-05-14)
+
+The original Cluster 11 closure (HEAD `f20d7f3`) overclaimed Sprint 7
+completion. Re-audit confirmed:
+
+- C4 docked Shadow DOM host + C5 typed store/dispatcher/runtime prop
+  threading are **integrated** into the live application.
+- C6–C9 modular cards (`frontend/src/components/{llm,steps,recorded,code,
+  trace,agents,manual,picker,locator,replay,session}/`) are **built but
+  not integrated**. `frontend/aw-ide-panel.jsx` and `frontend/src/main.jsx`
+  have **0 imports** from those folders. The live browser renders the
+  monolith's internal `IDE*` functions.
+- C10 fake-flow tests gate the reducer/state machine, **not** the new
+  rendered UI.
+- C11 previous push-readiness decision
+  (`PUSH_READY_WITH_DOCUMENTED_DEFERRED_BROWSER_GATE`) is **retracted**.
+
+**Final Sprint 7 status:** PARTIAL_INTEGRATION.
+**Push readiness:** NOT_PUSH_READY_AS_COMPLETE_UI_INTEGRATION.
+
+Sprint 8 Integration Pass scope is recorded in
+`SPRINT-007-HANDOFF.md` §10 and §11.
