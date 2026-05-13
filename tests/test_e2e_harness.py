@@ -242,14 +242,14 @@ class _TrackedTabPage:
 
 
 def test_click_autoworkbench_tab_prefers_test_id_hooks_and_keeps_role_fallback() -> None:
-    testid_steps = _TrackedTabLocator("steps-tab")
-    testid_workbench = _TrackedTabLocator("llm-tab")
+    testid_steps = _TrackedTabLocator("aw-tab-steps")
+    testid_workbench = _TrackedTabLocator("aw-tab-llm")
     role_steps = _TrackedTabLocator("steps-role")
     role_workbench = _TrackedTabLocator("workbench-role")
     page = _TrackedTabPage(
         test_ids={
-            "steps-tab": testid_steps,
-            "llm-tab": testid_workbench,
+            "aw-tab-steps": testid_steps,
+            "aw-tab-llm": testid_workbench,
         },
         roles={
             "re.compile('^steps$', re.IGNORECASE)": role_steps,
@@ -260,7 +260,7 @@ def test_click_autoworkbench_tab_prefers_test_id_hooks_and_keeps_role_fallback()
     asyncio.run(harness.click_autoworkbench_tab(page, "steps"))
     asyncio.run(harness.click_autoworkbench_tab(page, "workbench"))
 
-    assert page.test_id_requests == ["steps-tab", "llm-tab"]
+    assert page.test_id_requests == ["aw-tab-steps", "aw-tab-llm"]
     assert testid_steps.wait_for_count == 1
     assert testid_steps.click_count == 1
     assert testid_workbench.wait_for_count == 1
@@ -440,10 +440,10 @@ def test_failure_artifacts_record_state_timeout_reason_backend_markers_and_artif
 
 def test_capture_picker_arm_evidence_reports_overlay_shadow_and_selector_source() -> None:
     shadow_root = _TrackedTabLocator("aw-root", visible=True, count_value=1)
-    steps_test_id = _TrackedTabLocator("steps-tab", visible=True, count_value=1)
+    steps_test_id = _TrackedTabLocator("aw-tab-steps", visible=True, count_value=1)
     steps_role = _TrackedTabLocator("steps-role", visible=True, count_value=1)
     page = _TrackedTabPage(
-        test_ids={"steps-tab": steps_test_id},
+        test_ids={"aw-tab-steps": steps_test_id},
         roles={
             "re.compile('^steps$', re.IGNORECASE)": steps_role,
         },
