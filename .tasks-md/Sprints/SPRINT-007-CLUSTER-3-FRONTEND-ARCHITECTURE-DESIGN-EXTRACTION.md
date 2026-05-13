@@ -2,7 +2,7 @@
 
 **Sprint:** Sprint 7  
 **Cluster:** 3  
-**Status:** Planning  
+**Status:** Done  
 **Date:** 2026-05-13  
 **HEAD at planning:** 8bdd8de  
 
@@ -264,4 +264,51 @@ After all Cluster 3 stories are **Done**:
 
 After Cluster 3 is **Done**:
 → Create **Cluster 4 + Cluster 5 planning tickets** (frontend wiring and state management)
+
+---
+
+## Cluster 3 Closure
+
+**Status:** Done  
+**Implementation commit:** `6486771`  
+**Evidence commit:** (this docs commit)  
+**Branch:** `s7/cluster-3-frontend-architecture-design-extraction`
+
+### Stories Completed
+
+| Story | Test File | Tests | Status |
+|---|---|---|---|
+| S7-0301 Current frontend architecture audit | test_frontend_build.py | 16 | Done |
+| S7-0302 Prototype extraction map | (documentation) | — | Done |
+| S7-0303 Design token extraction and style system | test_frontend_styles.py | 14 | Done |
+| S7-0304 Component inventory and production mapping | test_frontend_structure.py | 25 | Done |
+| S7-0305 Static demo fallback removal strategy | test_frontend_live_state.py | 10 | Done |
+| S7-0306 Frontend module structure creation | test_frontend_structure.py + test_frontend_imports.py | 36 | Done |
+| S7-0307 Shared UI primitives production baseline | test_frontend_a11y.py | 16 | Done |
+| S7-0308 Frontend data-testid and accessibility baseline | test_frontend_a11y.py | 16 | Done |
+
+### Files Touched
+
+- `frontend/src/host/host.jsx` (new stub)
+- `frontend/src/transport/websocket-client.js`, `event-receiver.js`, `command-sender.js` (new stubs)
+- `frontend/src/store/reducer.js`, `selectors.js`, `types.js` (new stubs)
+- `frontend/src/commands/command-builder.js`, `validation.js` (new stubs)
+- `frontend/src/components/shell/` — AppShell, Header, TabBar, DockController (new stubs)
+- `frontend/src/components/llm/` — 8 card stubs (new)
+- `frontend/src/components/steps/` — StepsPanel, StepBuilder (new stubs)
+- `frontend/src/components/primitives/` — 10 primitives (new)
+- `frontend/src/styles/tokens.css`, `globals.css` (new)
+- `frontend/src/test-utils/render.js` (new stub)
+- `tests/test_frontend_build.py`, `_structure.py`, `_styles.py`, `_live_state.py`, `_imports.py`, `_a11y.py` (new)
+- `.tasks-md/Planning/S7-0301-AUDIT-REPORT.md`, `S7-0302-EXTRACTION-MAP.md` (new)
+
+### Validation Evidence
+
+- `python -m pytest -q` → **2157 passed, 0 failed, 1 skipped**
+- `npm run build` → **1.2 MB bundle, 42.9 KB CSS** ✅
+- No backend imports in frontend/src/ (verified by test)
+- No circular imports detected
+- No DEMO_/MOCK_ constants in new module files
+- 10 shared primitives with data-testid and aria-label
+- Design tokens: 40+ CSS custom properties in tokens.css
 

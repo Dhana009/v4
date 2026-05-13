@@ -3,7 +3,7 @@
 **Sprint:** Sprint 7  
 **Cluster:** 3  
 **Story:** S7-0306  
-**Status:** Planning  
+**Status:** Done  
 **Date:** 2026-05-13  
 
 ---
@@ -123,10 +123,23 @@ frontend/src/
 
 ## Evidence Checklist
 
-- [ ] Module folders and stub files created
-- [ ] Circular import check run and passed
-- [ ] No backend imports detected
-- [ ] Build succeeds: `npm run build`
-- [ ] Tests pass: `tests/test_frontend_imports.py`
-- [ ] Story updated with evidence
+- [x] Module folders and stub files created
+- [x] Circular import check run and passed
+- [x] No backend imports detected
+- [x] Build succeeds: `npm run build`
+- [x] Tests pass: `tests/test_frontend_structure.py`, `tests/test_frontend_imports.py`
+- [x] Story updated with evidence
+
+---
+
+## Evidence Recorded
+
+**Implementation commit:** `6486771`  
+**Test files:** `tests/test_frontend_structure.py` (25 tests), `tests/test_frontend_imports.py` (11 tests) — all green  
+**Module folders:** host/, transport/, store/, commands/, components/{shell,llm,steps,manual,recorded,code,trace,agents,primitives}/, styles/, test-utils/  
+**Stub files:** host.jsx, websocket-client.js, event-receiver.js, command-sender.js, reducer.js (stub≤60 lines), selectors.js, types.js, command-builder.js, validation.js, render.js  
+**Reducer constraint:** reducer.js is stub (< 60 non-comment lines); S7-0502 owns full implementation  
+**Circular imports:** None detected  
+**No backend imports:** Verified by test  
+**Regression:** 2157 passed, 1 skipped
 

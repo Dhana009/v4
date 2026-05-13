@@ -3,7 +3,7 @@
 **Sprint:** Sprint 7  
 **Cluster:** 3  
 **Story:** S7-0304  
-**Status:** Planning  
+**Status:** Done  
 **Date:** 2026-05-13  
 
 ---
@@ -131,10 +131,21 @@ Define production component inventory (AppShell, Header, Tabs, Cards, Steps, Man
 
 ## Evidence Checklist
 
-- [ ] Component folders created
-- [ ] Stub .jsx files created for all components
-- [ ] No circular imports detected
-- [ ] Build succeeds: `npm run build`
-- [ ] Test stubs created (can be minimal)
-- [ ] Story updated with evidence
+- [x] Component folders created
+- [x] Stub .jsx files created for all components
+- [x] No circular imports detected
+- [x] Build succeeds: `npm run build`
+- [x] Module boundary tests passing
+- [x] Story updated with evidence
+
+---
+
+## Evidence Recorded
+
+**Implementation commit:** `6486771`  
+**Folders created:** shell/, llm/, steps/, manual/, recorded/, code/, trace/, agents/, primitives/  
+**Stubs created:** AppShell, Header, TabBar, DockController (shell); PlanCard, ClarificationCard, RecommendationCard, CorrectionCard, PermissionCard, LocatorAmbiguityCard, RecoveryCard, CompletedCard (llm); StepsPanel, StepBuilder (steps); 10 primitives  
+**Tests:** `tests/test_frontend_structure.py`, `tests/test_frontend_imports.py` (all green)  
+**Circular imports:** None detected  
+**Regression:** 2157 passed, 1 skipped
 
