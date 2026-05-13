@@ -167,7 +167,7 @@ def test_shadow_dom_runtime_bridge_exposes_plan_clarification_and_recovery_hooks
     main = _read(FRONTEND_MAIN)
 
     assert "function AutoWorkbenchRuntime({ config }) {" in main
-    assert "const shadowRoot = ensureShadowHost(node);" in main
+    assert "const hostResult = createHost(node);" in main  # Cluster 4: replaced ensureShadowHost
     assert "const mountNode = shadowRoot ? ensureShadowMount(shadowRoot) : node;" in main
     assert "const panelState = toPanelState(transport.runState || normalized.panelState);" in main
     assert "const IDEPanel = window.IDEPanel;" in main

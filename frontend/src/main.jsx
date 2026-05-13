@@ -7,6 +7,12 @@ import "../style-ide.css";
 import "../icons.jsx";
 import "../aw-ide-panel.jsx";
 
+// Cluster 4 layout modules — thin wiring
+import { createHost, unmountHost, SHADOW_HOST_ID, SHADOW_MOUNT_ID } from "./host/host.jsx";
+import { getDockMode, applyDock } from "./layout/dock-controller.js";
+import { getPanelMode, applyMode } from "./layout/panel-modes.js";
+import { applyCompensation, removeCompensation } from "./layout/compensation.js";
+
 const VALID_TABS = new Set(["workbench", "steps", "code", "debug"]);
 
 const DEFAULT_CONFIG = {
@@ -16,8 +22,7 @@ const DEFAULT_CONFIG = {
   density: "compact",
 };
 
-const SHADOW_HOST_ID = "aw-shadow-host";
-const SHADOW_MOUNT_ID = "aw-shadow-mount";
+// SHADOW_HOST_ID and SHADOW_MOUNT_ID imported from ./host/host.jsx
 const SHADOW_STYLE_ID = "aw-shadow-style";
 const SHADOW_STYLE_FLAG = "data-autoworkbench-shadow-style";
 const AUTOWORKBENCH_STYLE_ID = "autoworkbench-style";
@@ -3043,7 +3048,9 @@ let currentHostNode = null;
 let currentMountNode = null;
 
 function renderInto(node, config) {
-  const shadowRoot = ensureShadowHost(node);
+  // Use host module for Shadow DOM lifecycle (S7-0401)
+  const hostResult = createHost(node);
+  const shadowRoot = hostResult ? hostResult.shadowRoot : null;
   const mountNode = shadowRoot ? ensureShadowMount(shadowRoot) : node;
 
   if (shadowRoot) {
@@ -3068,17 +3075,28 @@ function renderInto(node, config) {
 
 function mount(root, config = {}) {
   const node = resolveMountNode(root);
+
+  // Wire layout modules — S7-0402, S7-0403, S7-0405
+  const dockMode = getDockMode();
+  const panelMode = getPanelMode();
+  applyDock(node, dockMode);
+  applyMode(node, panelMode);
+  applyCompensation(dockMode, { width: config.panelWidth ?? 460 });
+
   renderInto(node, config);
   return node;
 }
 
 function unmount() {
+  // Restore page styles and remove DOM nodes — S7-0405, S7-0406
+  removeCompensation();
   if (currentRoot) {
     currentRoot.unmount();
     currentRoot = null;
     currentHostNode = null;
     currentMountNode = null;
   }
+  unmountHost();
 }
 
 window.AutoWorkbench = {

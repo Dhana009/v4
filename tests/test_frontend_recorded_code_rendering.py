@@ -151,7 +151,7 @@ def test_shadow_dom_runtime_bridge_exposes_recorded_and_code_surfaces() -> None:
     main = _read(FRONTEND_MAIN)
 
     assert "function AutoWorkbenchRuntime({ config }) {" in main
-    assert "const shadowRoot = ensureShadowHost(node);" in main
+    assert "const hostResult = createHost(node);" in main  # Cluster 4: replaced ensureShadowHost
     assert "const mountNode = shadowRoot ? ensureShadowMount(shadowRoot) : node;" in main
     assert "runtime={{" in main
     assert "recordedSteps," in main
