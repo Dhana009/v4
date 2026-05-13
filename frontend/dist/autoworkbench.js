@@ -26338,9 +26338,131 @@
     for (const v of vals) if (v != null && v !== "") return v;
     return null;
   }
+  var EXPECTED_OUTCOME_TYPES = [
+    "navigation",
+    "modal",
+    "dropdown",
+    "new_tab",
+    "toast_or_message",
+    "content_change",
+    "download",
+    "file_picker",
+    "no_visible_change",
+    "not_sure"
+  ];
+  function isClickLikeIntent(value) {
+    const t = String(value ?? "").toLowerCase();
+    return /click|tap|press|select|choose|open|navigate|submit/.test(t);
+  }
+  function PendingStepEditor({
+    step,
+    index,
+    activePickerStepId,
+    onChangeIntent,
+    onChangeExpectedOutcome,
+    onChangeElementTarget,
+    onAttachElement,
+    onDelete
+  }) {
+    const stepId = step.id ?? step.step_id;
+    const intent = step.intent ?? step.text ?? step.description ?? "";
+    const elementInfo = step.element_info ?? step.elementInfo ?? null;
+    const candidates = Array.isArray(elementInfo?.candidates) ? elementInfo.candidates : [];
+    const selectedIdx = typeof elementInfo?.selected_candidate_index === "number" ? elementInfo.selected_candidate_index : null;
+    const expectedOutcome = step.expected_outcome ?? null;
+    const expectedType = (expectedOutcome?.type ?? "").toLowerCase().replace(/[\s-]+/g, "_");
+    const expectedDesc = expectedOutcome?.description ?? "";
+    const isPicking = activePickerStepId === stepId;
+    const needsOutcome = isClickLikeIntent(intent) && !expectedType;
+    const ready = !!intent.trim() && (!isClickLikeIntent(intent) || expectedType);
+    const status = isPicking ? "picking\u2026" : needsOutcome ? "needs outcome" : ready ? "ready" : "draft";
+    const targetSummary = elementInfo ? elementInfo.text ?? elementInfo.label ?? elementInfo.tag ?? "(element)" : intent.trim() ? "No element attached." : "Draft step.";
+    return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-step-row ide-step-card", "data-testid": `step-row-${stepId}`, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "aw-step-handle", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Drag, {}) }),
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+        "span",
+        {
+          className: "aw-step-idx pending",
+          style: { background: ready ? "var(--grn)" : "var(--bg-card)", color: ready ? "#fff" : "var(--tx-3)" },
+          children: String(index + 1).padStart(2, "0")
+        }
+      ),
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { flex: 1, minWidth: 0 }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "ide-step-topline", style: { display: "flex", gap: 6, alignItems: "center" }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+            "input",
+            {
+              className: "ide-input ide-step-input",
+              "data-testid": `step-input-${stepId}`,
+              value: intent,
+              onChange: (e) => onChangeIntent?.(stepId, e.target.value),
+              placeholder: "click Get started",
+              style: { flex: 1 }
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: `ide-badge ${ready ? "b-ready" : "b-await"}`, "data-testid": `step-status-${stepId}`, children: status })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "ide-step-target-summary", "data-testid": `step-target-${stepId}`, children: targetSummary }),
+        candidates.length > 1 ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+          "select",
+          {
+            className: "ide-input ide-step-target-select",
+            "data-testid": "picker-candidate-select",
+            "aria-label": "Choose locator candidate",
+            value: selectedIdx == null ? "" : String(selectedIdx),
+            onChange: (e) => onChangeElementTarget?.(stepId, Number(e.target.value)),
+            children: candidates.map((c, ci) => /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("option", { value: ci, children: c.label ?? c.text ?? c.tag ?? `candidate ${ci + 1}` }, ci))
+          }
+        ) : null,
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "ide-step-outcome", "data-testid": `step-outcome-${stepId}`, children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "ide-step-outcome-chips", style: { display: "flex", gap: 4, flexWrap: "wrap" }, children: EXPECTED_OUTCOME_TYPES.map((type) => {
+          const active = expectedType === type;
+          return /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+            "button",
+            {
+              type: "button",
+              className: `ide-outcome-chip aw-btn subtle ${active ? "active" : ""}`,
+              "data-testid": `step-outcome-chip-${type}-${stepId}`,
+              "aria-label": type,
+              onClick: () => onChangeExpectedOutcome?.(stepId, {
+                type,
+                description: expectedDesc,
+                source: "user",
+                required: isClickLikeIntent(intent)
+              }),
+              children: type
+            },
+            type
+          );
+        }) }) }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "ide-step-actions", style: { display: "flex", gap: 6, marginTop: 6 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+            "button",
+            {
+              type: "button",
+              className: "aw-btn ide-btn sm",
+              "data-testid": `step-attach-${stepId}`,
+              onClick: () => onAttachElement?.(stepId),
+              children: isPicking ? "Click page element\u2026" : "Attach Element"
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+            "button",
+            {
+              type: "button",
+              className: "aw-btn ide-btn sm danger",
+              "data-testid": `step-delete-${stepId}`,
+              onClick: () => onDelete?.(stepId),
+              children: "Delete"
+            }
+          )
+        ] })
+      ] })
+    ] });
+  }
   function StepsTab({
     pendingSteps = [],
     selectedStepIds = [],
+    activePickerStepId = "",
     onAdd,
     onPickElement,
     onToggleSelect,
@@ -26350,6 +26472,10 @@
     onDuplicate,
     onDelete,
     onEdit,
+    onChangeIntent,
+    onChangeExpectedOutcome,
+    onChangeElementTarget,
+    onAttachElement,
     blocked = false,
     blockedReason = ""
   }) {
@@ -26409,6 +26535,7 @@
           {
             type: "button",
             className: "aw-btn primary",
+            "aria-label": "Run Pending Steps",
             style: { padding: "4px 10px" },
             "data-testid": "steps-run-all",
             disabled: blocked || list.length === 0,
@@ -26419,7 +26546,7 @@
             }),
             children: [
               /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Play, {}),
-              "Run all"
+              "Run Pending Steps"
             ]
           }
         ),
@@ -26460,101 +26587,20 @@
       filtered.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-info-strip", "data-testid": "steps-empty", children: [
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Info, {}),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: "No pending steps. Use Add step or Pick element to start." })
-      ] }) : filtered.map((s, i) => {
-        const stepId = pickFirst2(s.step_id, s.id, `step-${i}`);
-        const title = s.description ?? s.title ?? s.action ?? stepId;
-        const weak = s.weak_locator || s.locator_kind === "warn";
-        const checked = selectedStepIds.includes(stepId);
-        const blockedReasonRow = s.blocked_reason ?? null;
-        return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-step-row", "data-testid": `step-row-${stepId}`, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "aw-step-handle", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Drag, {}) }),
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
-            "span",
-            {
-              className: "aw-step-idx " + (weak ? "warn" : "pending"),
-              style: weak ? { background: "var(--ylw)", color: "#fff" } : { background: "var(--bg-card)", border: "1px dashed var(--br-strong)", color: "var(--tx-3)" },
-              children: i + 1
-            }
-          ),
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { flex: 1, minWidth: 0 }, children: [
-            /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-step-title", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("label", { style: { display: "inline-flex", alignItems: "center", gap: 6 }, children: [
-                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
-                  "input",
-                  {
-                    type: "checkbox",
-                    checked,
-                    "data-testid": `step-select-${stepId}`,
-                    onChange: () => typeof onToggleSelect === "function" && onToggleSelect(stepId)
-                  }
-                ),
-                title
-              ] }),
-              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "id", children: stepId })
-            ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-step-meta", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: `aw-badge-i ${weak ? "warn" : "ok"}`, children: [
-                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "ldot" }),
-                weak ? "weak locator" : "strong locator"
-              ] }),
-              s.scope ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: "aw-badge-i outline", children: [
-                "scope: ",
-                s.scope
-              ] }) : null,
-              blockedReasonRow ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: "aw-badge-i err", "data-testid": `step-blocked-${stepId}`, children: [
-                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "ldot" }),
-                blockedReasonRow
-              ] }) : null
-            ] })
-          ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "actions", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
-              "button",
-              {
-                type: "button",
-                className: "aw-icon-btn",
-                title: "Duplicate",
-                "data-testid": `step-duplicate-${stepId}`,
-                onClick: () => typeof onDuplicate === "function" && onDuplicate({ type: "duplicate_step", step_id: stepId }),
-                children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Copy, {})
-              }
-            ),
-            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
-              "button",
-              {
-                type: "button",
-                className: "aw-icon-btn",
-                title: "Reorder up",
-                "data-testid": `step-up-${stepId}`,
-                onClick: () => typeof onReorder === "function" && onReorder({ type: "reorder_step", step_id: stepId, direction: -1 }),
-                children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Caret, { style: { transform: "rotate(180deg)" } })
-              }
-            ),
-            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
-              "button",
-              {
-                type: "button",
-                className: "aw-icon-btn",
-                title: "Reorder down",
-                "data-testid": `step-down-${stepId}`,
-                onClick: () => typeof onReorder === "function" && onReorder({ type: "reorder_step", step_id: stepId, direction: 1 }),
-                children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Caret, {})
-              }
-            ),
-            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
-              "button",
-              {
-                type: "button",
-                className: "aw-icon-btn",
-                title: "Delete",
-                "data-testid": `step-delete-${stepId}`,
-                onClick: () => typeof onDelete === "function" && onDelete({ type: "delete_step", step_id: stepId }),
-                children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.X, {})
-              }
-            )
-          ] })
-        ] }, stepId);
-      })
+      ] }) : filtered.map((s, i) => /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+        PendingStepEditor,
+        {
+          step: s,
+          index: i,
+          activePickerStepId,
+          onChangeIntent,
+          onChangeExpectedOutcome,
+          onChangeElementTarget,
+          onAttachElement: onAttachElement ?? onPickElement,
+          onDelete: (stepId) => typeof onDelete === "function" && onDelete({ type: "delete_step", step_id: stepId })
+        },
+        s.id ?? s.step_id ?? i
+      ))
     ] });
   }
   function RecordedTab({ recordedSteps = [], onReplayOne, onReplayAll }) {
@@ -27079,8 +27125,16 @@
         {
           pendingSteps,
           selectedStepIds,
+          activePickerStepId: runtime.activePickerStepId ?? "",
           onAdd: runtime.addPendingStep ?? runtime.onAddPendingStep,
           onPickElement: runtime.handleAttachElement ?? runtime.onAttachElement,
+          onAttachElement: (stepId) => {
+            const fn = runtime.handleAttachElement ?? runtime.onAttachElement;
+            if (typeof fn === "function") fn(stepId);
+          },
+          onChangeIntent: runtime.updatePendingStepIntent ?? runtime.onPendingStepIntentChange,
+          onChangeExpectedOutcome: runtime.updatePendingStepExpectedOutcome ?? runtime.onPendingStepExpectedOutcomeChange,
+          onChangeElementTarget: runtime.updatePendingStepElementTarget ?? runtime.onPendingStepElementTargetChange,
           onToggleSelect: handleToggleStepSelect,
           onRunSelected: dispatchers.onRunSelected,
           onRunAll: dispatchers.onRunSelected,
@@ -27916,7 +27970,7 @@
     }
     return diagnostics.map((entry) => entry && typeof entry === "object" ? { ...entry } : entry).filter((entry) => entry != null);
   }
-  var EXPECTED_OUTCOME_TYPES = [
+  var EXPECTED_OUTCOME_TYPES2 = [
     "navigation",
     "modal",
     "dropdown",
@@ -27928,7 +27982,7 @@
     "no_visible_change",
     "not_sure"
   ];
-  function isClickLikeIntent(value) {
+  function isClickLikeIntent2(value) {
     const text = firstNonEmptyText(value).toLowerCase();
     return /(^|\b)(click|tap|press|open)\b/.test(text);
   }
@@ -27937,7 +27991,7 @@
       return null;
     }
     const type = firstNonEmptyText(expectedOutcome.type).toLowerCase().replace(/[\s-]+/g, "_");
-    if (!type || !EXPECTED_OUTCOME_TYPES.includes(type)) {
+    if (!type || !EXPECTED_OUTCOME_TYPES2.includes(type)) {
       return null;
     }
     const description = firstRawText(expectedOutcome.description);
@@ -28015,8 +28069,8 @@
     if (!intent) {
       return "draft";
     }
-    const expectedOutcome = normalizeExpectedOutcome(step.expected_outcome ?? step.expectedOutcome, isClickLikeIntent(intent));
-    if (isClickLikeIntent(intent) && (!expectedOutcome || !expectedOutcome.type)) {
+    const expectedOutcome = normalizeExpectedOutcome(step.expected_outcome ?? step.expectedOutcome, isClickLikeIntent2(intent));
+    if (isClickLikeIntent2(intent) && (!expectedOutcome || !expectedOutcome.type)) {
       return "needs_outcome";
     }
     return "ready";
@@ -28481,7 +28535,7 @@
       intent: nextIntent,
       element_info: step.element_info ?? step.elementInfo ?? null,
       elementInfo: step.elementInfo ?? step.element_info ?? null,
-      expected_outcome: normalizeExpectedOutcome(step.expected_outcome ?? step.expectedOutcome, isClickLikeIntent(nextIntent)),
+      expected_outcome: normalizeExpectedOutcome(step.expected_outcome ?? step.expectedOutcome, isClickLikeIntent2(nextIntent)),
       recorded: step.recorded === true
     };
     const status = typeof step.status === "string" ? step.status.trim().toLowerCase() : "";
@@ -29167,7 +29221,7 @@
             ...nextStep,
             expected_outcome: normalizeExpectedOutcome(
               step.expected_outcome ?? step.expectedOutcome,
-              isClickLikeIntent(nextIntent)
+              isClickLikeIntent2(nextIntent)
             ),
             status: resolvePendingStepStatus(nextStep)
           };
@@ -29186,7 +29240,7 @@
             intent: nextIntent,
             recorded: false,
             element_info: step.element_info ?? step.elementInfo ?? null,
-            expected_outcome: normalizeExpectedOutcome(expectedOutcome, isClickLikeIntent(nextIntent))
+            expected_outcome: normalizeExpectedOutcome(expectedOutcome, isClickLikeIntent2(nextIntent))
           };
           return {
             ...nextStep,
@@ -29325,9 +29379,9 @@
         }
         const normalizedOutcome = normalizeExpectedOutcome(
           step.expected_outcome ?? step.expectedOutcome,
-          isClickLikeIntent(intent)
+          isClickLikeIntent2(intent)
         );
-        if (isClickLikeIntent(intent) && (!normalizedOutcome || !normalizedOutcome.type)) {
+        if (isClickLikeIntent2(intent) && (!normalizedOutcome || !normalizedOutcome.type)) {
           appendTimeline(`Select an expected outcome for "${intent}" before running.`, "warn");
           return;
         }
@@ -29903,7 +29957,7 @@
                     ...nextStep,
                     expected_outcome: normalizeExpectedOutcome(
                       step.expected_outcome ?? step.expectedOutcome,
-                      isClickLikeIntent(nextIntent)
+                      isClickLikeIntent2(nextIntent)
                     ),
                     status: resolvePendingStepStatus(nextStep)
                   };

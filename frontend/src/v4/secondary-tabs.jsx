@@ -14,9 +14,147 @@ function pickFirst(...vals) {
 
 // — Steps tab ———————————————————————————————————————————
 
+const EXPECTED_OUTCOME_TYPES = [
+  "navigation",
+  "modal",
+  "dropdown",
+  "new_tab",
+  "toast_or_message",
+  "content_change",
+  "download",
+  "file_picker",
+  "no_visible_change",
+  "not_sure",
+];
+
+function isClickLikeIntent(value) {
+  const t = String(value ?? "").toLowerCase();
+  return /click|tap|press|select|choose|open|navigate|submit/.test(t);
+}
+
+function PendingStepEditor({
+  step,
+  index,
+  activePickerStepId,
+  onChangeIntent,
+  onChangeExpectedOutcome,
+  onChangeElementTarget,
+  onAttachElement,
+  onDelete,
+}) {
+  const stepId = step.id ?? step.step_id;
+  const intent = step.intent ?? step.text ?? step.description ?? "";
+  const elementInfo = step.element_info ?? step.elementInfo ?? null;
+  const candidates = Array.isArray(elementInfo?.candidates) ? elementInfo.candidates : [];
+  const selectedIdx =
+    typeof elementInfo?.selected_candidate_index === "number"
+      ? elementInfo.selected_candidate_index
+      : null;
+  const expectedOutcome = step.expected_outcome ?? null;
+  const expectedType = (expectedOutcome?.type ?? "").toLowerCase().replace(/[\s-]+/g, "_");
+  const expectedDesc = expectedOutcome?.description ?? "";
+  const isPicking = activePickerStepId === stepId;
+  const needsOutcome = isClickLikeIntent(intent) && !expectedType;
+  const ready = !!intent.trim() && (!isClickLikeIntent(intent) || expectedType);
+  const status = isPicking ? "picking…" : needsOutcome ? "needs outcome" : ready ? "ready" : "draft";
+  const targetSummary = elementInfo
+    ? (elementInfo.text ?? elementInfo.label ?? elementInfo.tag ?? "(element)")
+    : intent.trim()
+    ? "No element attached."
+    : "Draft step.";
+
+  return (
+    <div className="aw-step-row ide-step-card" data-testid={`step-row-${stepId}`}>
+      <span className="aw-step-handle"><I.Drag/></span>
+      <span className="aw-step-idx pending"
+            style={{ background: ready ? "var(--grn)" : "var(--bg-card)", color: ready ? "#fff" : "var(--tx-3)" }}>
+        {String(index + 1).padStart(2, "0")}
+      </span>
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="ide-step-topline" style={{ display: "flex", gap: 6, alignItems: "center" }}>
+          <input
+            className="ide-input ide-step-input"
+            data-testid={`step-input-${stepId}`}
+            value={intent}
+            onChange={(e) => onChangeIntent?.(stepId, e.target.value)}
+            placeholder="click Get started"
+            style={{ flex: 1 }}
+          />
+          <span className={`ide-badge ${ready ? "b-ready" : "b-await"}`} data-testid={`step-status-${stepId}`}>
+            {status}
+          </span>
+        </div>
+        <div className="ide-step-target-summary" data-testid={`step-target-${stepId}`}>
+          {targetSummary}
+        </div>
+        {candidates.length > 1 ? (
+          <select
+            className="ide-input ide-step-target-select"
+            data-testid="picker-candidate-select"
+            aria-label="Choose locator candidate"
+            value={selectedIdx == null ? "" : String(selectedIdx)}
+            onChange={(e) => onChangeElementTarget?.(stepId, Number(e.target.value))}
+          >
+            {candidates.map((c, ci) => (
+              <option key={ci} value={ci}>
+                {c.label ?? c.text ?? c.tag ?? `candidate ${ci + 1}`}
+              </option>
+            ))}
+          </select>
+        ) : null}
+        <div className="ide-step-outcome" data-testid={`step-outcome-${stepId}`}>
+          <div className="ide-step-outcome-chips" style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+            {EXPECTED_OUTCOME_TYPES.map((type) => {
+              const active = expectedType === type;
+              return (
+                <button
+                  type="button"
+                  key={type}
+                  className={`ide-outcome-chip aw-btn subtle ${active ? "active" : ""}`}
+                  data-testid={`step-outcome-chip-${type}-${stepId}`}
+                  aria-label={type}
+                  onClick={() =>
+                    onChangeExpectedOutcome?.(stepId, {
+                      type,
+                      description: expectedDesc,
+                      source: "user",
+                      required: isClickLikeIntent(intent),
+                    })
+                  }
+                >
+                  {type}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+        <div className="ide-step-actions" style={{ display: "flex", gap: 6, marginTop: 6 }}>
+          <button
+            type="button"
+            className="aw-btn ide-btn sm"
+            data-testid={`step-attach-${stepId}`}
+            onClick={() => onAttachElement?.(stepId)}
+          >
+            {isPicking ? "Click page element…" : "Attach Element"}
+          </button>
+          <button
+            type="button"
+            className="aw-btn ide-btn sm danger"
+            data-testid={`step-delete-${stepId}`}
+            onClick={() => onDelete?.(stepId)}
+          >
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function StepsTab({
   pendingSteps = [],
   selectedStepIds = [],
+  activePickerStepId = "",
   onAdd,
   onPickElement,
   onToggleSelect,
@@ -26,6 +164,10 @@ export function StepsTab({
   onDuplicate,
   onDelete,
   onEdit,
+  onChangeIntent,
+  onChangeExpectedOutcome,
+  onChangeElementTarget,
+  onAttachElement,
   blocked = false,
   blockedReason = "",
 }) {
@@ -61,14 +203,16 @@ export function StepsTab({
         <I.Info/>
         <span>Step display order is for your convenience. Stable IDs persist across reorders.</span>
         <span className="aw-spacer"/>
-        <button type="button" className="aw-btn primary"
+        <button type="button"
+                className="aw-btn primary"
+                aria-label="Run Pending Steps"
                 style={{ padding: "4px 10px" }}
                 data-testid="steps-run-all"
                 disabled={blocked || list.length === 0}
                 onClick={() => typeof onRunAll === "function" && onRunAll({
                   type: "run_steps", step_ids: list.map((s) => s.step_id ?? s.id), mode: "all",
                 })}>
-          <I.Play/>Run all
+          <I.Play/>Run Pending Steps
         </button>
         <button type="button" className="aw-btn"
                 style={{ padding: "4px 10px" }}
@@ -94,70 +238,21 @@ export function StepsTab({
           <span>No pending steps. Use Add step or Pick element to start.</span>
         </div>
       ) : (
-        filtered.map((s, i) => {
-          const stepId = pickFirst(s.step_id, s.id, `step-${i}`);
-          const title = s.description ?? s.title ?? s.action ?? stepId;
-          const weak = s.weak_locator || s.locator_kind === "warn";
-          const checked = selectedStepIds.includes(stepId);
-          const blockedReasonRow = s.blocked_reason ?? null;
-          return (
-            <div key={stepId} className="aw-step-row" data-testid={`step-row-${stepId}`}>
-              <span className="aw-step-handle"><I.Drag/></span>
-              <span className={"aw-step-idx " + (weak ? "warn" : "pending")}
-                    style={weak
-                      ? { background: "var(--ylw)", color: "#fff" }
-                      : { background: "var(--bg-card)", border: "1px dashed var(--br-strong)", color: "var(--tx-3)" }}>
-                {i + 1}
-              </span>
-              <div style={{ flex: 1, minWidth: 0 }}>
-                <div className="aw-step-title">
-                  <label style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-                    <input type="checkbox" checked={checked}
-                           data-testid={`step-select-${stepId}`}
-                           onChange={() => typeof onToggleSelect === "function" && onToggleSelect(stepId)}/>
-                    {title}
-                  </label>
-                  <span className="id">{stepId}</span>
-                </div>
-                <div className="aw-step-meta">
-                  <span className={`aw-badge-i ${weak ? "warn" : "ok"}`}>
-                    <span className="ldot"/>{weak ? "weak locator" : "strong locator"}
-                  </span>
-                  {s.scope ? (
-                    <span className="aw-badge-i outline">scope: {s.scope}</span>
-                  ) : null}
-                  {blockedReasonRow ? (
-                    <span className="aw-badge-i err" data-testid={`step-blocked-${stepId}`}>
-                      <span className="ldot"/>{blockedReasonRow}
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-              <div className="actions">
-                <button type="button" className="aw-icon-btn" title="Duplicate"
-                        data-testid={`step-duplicate-${stepId}`}
-                        onClick={() => typeof onDuplicate === "function" && onDuplicate({ type: "duplicate_step", step_id: stepId })}>
-                  <I.Copy/>
-                </button>
-                <button type="button" className="aw-icon-btn" title="Reorder up"
-                        data-testid={`step-up-${stepId}`}
-                        onClick={() => typeof onReorder === "function" && onReorder({ type: "reorder_step", step_id: stepId, direction: -1 })}>
-                  <I.Caret style={{ transform: "rotate(180deg)" }}/>
-                </button>
-                <button type="button" className="aw-icon-btn" title="Reorder down"
-                        data-testid={`step-down-${stepId}`}
-                        onClick={() => typeof onReorder === "function" && onReorder({ type: "reorder_step", step_id: stepId, direction: 1 })}>
-                  <I.Caret/>
-                </button>
-                <button type="button" className="aw-icon-btn" title="Delete"
-                        data-testid={`step-delete-${stepId}`}
-                        onClick={() => typeof onDelete === "function" && onDelete({ type: "delete_step", step_id: stepId })}>
-                  <I.X/>
-                </button>
-              </div>
-            </div>
-          );
-        })
+        filtered.map((s, i) => (
+          <PendingStepEditor
+            key={s.id ?? s.step_id ?? i}
+            step={s}
+            index={i}
+            activePickerStepId={activePickerStepId}
+            onChangeIntent={onChangeIntent}
+            onChangeExpectedOutcome={onChangeExpectedOutcome}
+            onChangeElementTarget={onChangeElementTarget}
+            onAttachElement={onAttachElement ?? onPickElement}
+            onDelete={(stepId) =>
+              typeof onDelete === "function" && onDelete({ type: "delete_step", step_id: stepId })
+            }
+          />
+        ))
       )}
     </div>
   );

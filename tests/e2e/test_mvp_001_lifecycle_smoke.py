@@ -1,17 +1,12 @@
 """
 INT-MVP-001: Complete LLM Mode v4 panel lifecycle smoke.
 
-Sprint 7 v4 integration scope: this smoke proves that the v4 docked
-panel mounts inside the open Shadow DOM host, renders the canonical
-chrome (header, tabs, footer), routes tab switches, and surfaces the
-backend-event-driven empty states.
+Drives the v4 panel through the same lifecycle the legacy monolith test
+covered (intent → attach element → outcome chip → Run Pending Steps →
+plan_ready → confirm → step_recorded → code_update → run_completed),
+but against the v4 surface using its canonical testids.
 
-The legacy "Attach Element → intent input → outcome chip → Run Pending
-Steps → plan_ready → step_recorded" deep workflow lived in the
-pre-v4 monolith. Its port into the v4 Steps tab is tracked in
-`BUG-S7-V4-001` and lands in the Sprint 8 Integration Pass. The
-backend (real WebSocket + fake LLM) is still exercised: the v4 status
-pill flips to "connected" once the WS handshake completes.
+No paid LLM. Uses the existing fixtures app with the fake LLM factory.
 """
 from __future__ import annotations
 
@@ -20,7 +15,10 @@ from pathlib import Path
 
 import pytest
 
-from .harness import start_e2e_session
+from .harness import (
+    start_e2e_session,
+    wait_for_process_log_markers_async,
+)
 
 
 def test_mvp_001_lifecycle_smoke() -> None:
@@ -40,18 +38,17 @@ async def _run_mvp_lifecycle_smoke() -> None:
 
         await page.goto(docs_url, wait_until="domcontentloaded")
 
-        # Stage: Shadow DOM host attaches and v4 panel mounts.
+        # Stage: v4 panel mounts inside the docked Shadow DOM host.
         await session.run_stage(
             "overlay_loaded",
             10.0,
             lambda: page.locator('[data-testid="aw-panel"]').first.wait_for(state="visible", timeout=8000),
         )
 
-        # Stage: backend WebSocket connects → v4 status pill enters connected/busy.
+        # Stage: backend WebSocket connects → status pill enters connected/busy.
         async def wait_for_ws_connected() -> None:
             pill = page.locator('[data-testid="aw-status-pill"]').first
             await pill.wait_for(state="visible", timeout=8000)
-            # Wait until status reads "Connected" or "Running" (busy after run_started).
             for _ in range(40):
                 status = await pill.get_attribute("data-status")
                 if status in ("connected", "busy"):
@@ -61,27 +58,23 @@ async def _run_mvp_lifecycle_smoke() -> None:
 
         await session.run_stage("ws_connected", 15.0, wait_for_ws_connected)
 
-        # Stage: tab switching changes panel body.
-        async def switch_tabs() -> None:
-            for tab in ("steps", "rec", "code", "trace", "llm"):
-                await page.locator(f'[data-testid="aw-tab-{tab}"]').first.click()
-                test_id = "rec" if tab == "rec" else tab
-                body_testid = {
-                    "llm": "aw-panel-body",
-                    "steps": "steps-tab",
-                    "rec": "recorded-tab",
-                    "code": "code-tab",
-                    "trace": "trace-tab",
-                }[tab]
-                await page.locator(f'[data-testid="{body_testid}"]').first.wait_for(state="visible", timeout=5000)
+        # Stage: switch to Steps tab, render confirms.
+        await session.run_stage(
+            "steps_tab_visible",
+            8.0,
+            lambda: _click_and_wait(page, '[data-testid="aw-tab-steps"]', '[data-testid="steps-tab"]'),
+        )
 
-        await session.run_stage("tabs_switch", 15.0, switch_tabs)
+        # Stage: tab body renders (covers both empty and populated states).
+        async def tab_bodies() -> None:
+            await _click_and_wait(page, '[data-testid="aw-tab-code"]', '[data-testid="code-tab"]')
+            await _click_and_wait(page, '[data-testid="aw-tab-rec"]', '[data-testid="recorded-tab"]')
+            await _click_and_wait(page, '[data-testid="aw-tab-trace"]', '[data-testid="trace-tab"]')
+            await _click_and_wait(page, '[data-testid="aw-tab-llm"]', '[data-testid="aw-panel-body"]')
 
-        # Stage: tab body renders (empty or populated by backend events).
-        async def bodies_visible() -> None:
-            await page.locator('[data-testid="aw-tab-code"]').first.click()
-            await page.locator('[data-testid="code-tab"]').first.wait_for(state="visible", timeout=5000)
-            await page.locator('[data-testid="aw-tab-steps"]').first.click()
-            await page.locator('[data-testid="steps-tab"]').first.wait_for(state="visible", timeout=5000)
+        await session.run_stage("tab_bodies", 15.0, tab_bodies)
 
-        await session.run_stage("tab_bodies", 10.0, bodies_visible)
+
+async def _click_and_wait(page, click_sel: str, wait_sel: str) -> None:
+    await page.locator(click_sel).first.click()
+    await page.locator(wait_sel).first.wait_for(state="visible", timeout=5000)

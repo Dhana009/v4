@@ -285,8 +285,20 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
       <StepsTab
         pendingSteps={pendingSteps}
         selectedStepIds={selectedStepIds}
+        activePickerStepId={runtime.activePickerStepId ?? ""}
         onAdd={runtime.addPendingStep ?? runtime.onAddPendingStep}
         onPickElement={runtime.handleAttachElement ?? runtime.onAttachElement}
+        onAttachElement={(stepId) => {
+          const fn = runtime.handleAttachElement ?? runtime.onAttachElement;
+          if (typeof fn === "function") fn(stepId);
+        }}
+        onChangeIntent={runtime.updatePendingStepIntent ?? runtime.onPendingStepIntentChange}
+        onChangeExpectedOutcome={
+          runtime.updatePendingStepExpectedOutcome ?? runtime.onPendingStepExpectedOutcomeChange
+        }
+        onChangeElementTarget={
+          runtime.updatePendingStepElementTarget ?? runtime.onPendingStepElementTargetChange
+        }
         onToggleSelect={handleToggleStepSelect}
         onRunSelected={dispatchers.onRunSelected}
         onRunAll={dispatchers.onRunSelected}
