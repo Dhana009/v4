@@ -3,8 +3,8 @@
 **Sprint:** Sprint 7  
 **Cluster:** 5  
 **Story:** S7-0507  
-**Status:** Planning  
-**Date:** 2026-05-13  
+**Status:** Done  
+**Date:** 2026-05-14  
 
 ---
 
@@ -94,3 +94,14 @@ After S7-0507:
 ## Next Story
 
 → S7-0508: Stale, missing ID, and disabled command blocking
+
+---
+
+## Evidence Recorded
+
+- **Commit (RED):** 82bbeb1 — test_frontend_command_dispatcher.py (25 tests)
+- **Commit (GREEN):** c1084ac — command-builder.js buildCommand, dispatcher.js createDispatcher/dispatch
+- **Files:** `frontend/src/commands/command-builder.js`, `frontend/src/commands/dispatcher.js` (new, 32 lines)
+- **buildCommand:** includes run_id, command_id, FRONTEND_COMMAND_SCHEMA_VERSION, timestamp
+- **dispatcher:** validates before send, no store mutation, guards null transport
+- **Regression:** 2321 passed / 1 skipped / 0 failed

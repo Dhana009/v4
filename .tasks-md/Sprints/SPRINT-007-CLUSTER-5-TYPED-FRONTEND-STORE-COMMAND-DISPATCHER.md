@@ -2,9 +2,10 @@
 
 **Sprint:** Sprint 7  
 **Cluster:** 5  
-**Status:** Planning  
-**Date:** 2026-05-13  
+**Status:** In Progress (S7-0501, S7-0502, S7-0507, S7-0508 Done; S7-0503–S7-0506, S7-0509 Planning)  
+**Date:** 2026-05-14  
 **HEAD at planning:** 8bdd8de  
+**HEAD after cluster5 partial:** c1084ac  
 
 ---
 
@@ -380,3 +381,25 @@ After Cluster 5 is **Done**:
 - `PRD_v2_3_Modular_Pack_v2/04_BACKEND_EVENT_CONTRACT.md` — event taxonomy
 - `autoworkbench_complete_llm_mode_frontend_ui_spec.md` — UI spec
 - `.tasks-md/Bugs/Backlog/BUG-S6-FINAL-002-frontend-complete-llm-ui-contract-only.md` — context
+
+---
+
+## Cluster 5 Partial Closure (S7-0501, S7-0502, S7-0507, S7-0508)
+
+| Story | Status | Evidence |
+|-------|--------|----------|
+| S7-0501 Typed event model | Done | types.js: EVENT_TYPES + COMMAND_TYPES |
+| S7-0502 Reducer/event store | Done | reducer.js (162L), selectors.js (56L), useReducer wired in main.jsx |
+| S7-0507 Typed command dispatcher | Done | dispatcher.js (32L), buildCommand with run_id + command_id + schema version |
+| S7-0508 Stale/missing ID blocking | Done | validation.js: validateCommand + canDispatch, stale run_id detection |
+| S7-0503 session_state consumer | Planning | — |
+| S7-0504 run_completed / runtime_rejected | Planning | — |
+| S7-0505 Step lifecycle handlers | Planning | — |
+| S7-0506 Permission/recommendation/recovery | Planning | — |
+| S7-0509 Live prop threading | Planning | — |
+
+**Commits:**
+- 82bbeb1 — RED tests (test_frontend_event_store.py, test_frontend_command_dispatcher.py)
+- c1084ac — GREEN implementation (all store/commands modules)
+
+**Regression:** 2321 passed / 1 skipped / 0 failed (baseline was 2247 after Cluster 4)

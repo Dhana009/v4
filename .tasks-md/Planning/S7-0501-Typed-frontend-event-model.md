@@ -3,8 +3,8 @@
 **Sprint:** Sprint 7  
 **Cluster:** 5  
 **Story:** S7-0501  
-**Status:** Planning  
-**Date:** 2026-05-13  
+**Status:** Done  
+**Date:** 2026-05-14  
 
 ---
 
@@ -142,3 +142,12 @@ After S7-0501:
 ## Next Story
 
 → S7-0502: Frontend reducer and event store
+
+---
+
+## Evidence Recorded
+
+- **Commit (RED):** 82bbeb1 — test_frontend_event_store.py (54 tests, all RED)
+- **Commit (GREEN):** c1084ac — types.js: EVENT_TYPES, COMMAND_TYPES fully implemented
+- **File:** `frontend/src/store/types.js` — exports EVENT_TYPES (17 event strings) and COMMAND_TYPES (7 command strings)
+- **Regression:** 2321 passed / 1 skipped / 0 failed

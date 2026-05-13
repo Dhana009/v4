@@ -3,8 +3,8 @@
 **Sprint:** Sprint 7  
 **Cluster:** 5  
 **Story:** S7-0508  
-**Status:** Planning  
-**Date:** 2026-05-13  
+**Status:** Done  
+**Date:** 2026-05-14  
 
 ---
 
@@ -84,3 +84,14 @@ After S7-0508:
 ## Next Story
 
 → S7-0509: Live prop threading into IDEPanel
+
+---
+
+## Evidence Recorded
+
+- **Commit (RED):** 82bbeb1 — test_frontend_command_dispatcher.py (validateCommand, canDispatch tests)
+- **Commit (GREEN):** c1084ac — validation.js full implementation
+- **File:** `frontend/src/commands/validation.js` (69 lines)
+- **validateCommand:** checks run_id presence, stale run_id vs state.run_id, plan_id for confirm_plan, step_id for skip_step, returns {valid, reason}
+- **canDispatch:** returns {allowed, disabledReason}
+- **Regression:** 2321 passed / 1 skipped / 0 failed

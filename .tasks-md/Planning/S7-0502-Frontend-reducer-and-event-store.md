@@ -3,8 +3,8 @@
 **Sprint:** Sprint 7  
 **Cluster:** 5  
 **Story:** S7-0502  
-**Status:** Planning  
-**Date:** 2026-05-13  
+**Status:** Done  
+**Date:** 2026-05-14  
 
 ---
 
@@ -189,3 +189,15 @@ After S7-0502:
 ## Next Story
 
 → S7-0503: Session_state consumer and reconnect restore
+
+---
+
+## Evidence Recorded
+
+- **Commit (RED):** 82bbeb1 — test_frontend_event_store.py (54 tests)
+- **Commit (GREEN):** c1084ac — reducer.js full implementation, selectors.js implemented
+- **Files:** `frontend/src/store/reducer.js` (162 lines), `frontend/src/store/selectors.js` (56 lines)
+- **reducer.js:** pure reducer(state, event), createInitialState() with all required fields, handles 14 event types, no lifecycle inference, no mutation
+- **selectors.js:** selectPlan, selectInteractionMode, selectPendingSteps, + 10 more selectors
+- **main.jsx:** thin wiring — useReducer(reducer, null, createInitialState) in useFrontendEventStore
+- **Regression:** 2321 passed / 1 skipped / 0 failed
