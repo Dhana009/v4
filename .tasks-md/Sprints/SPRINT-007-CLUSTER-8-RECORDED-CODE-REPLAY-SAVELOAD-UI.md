@@ -2,8 +2,9 @@
 
 **Sprint:** Sprint 7
 **Cluster:** 8
-**Status:** Planning
-**Date:** 2026-05-13
+**Status:** Done
+**Date:** 2026-05-14
+**HEAD at closure:** 4abbb27
 **Expected Commits:** ~5 (test files + implementation per story)
 
 ---
@@ -295,3 +296,29 @@ For cluster sign-off:
 - [ ] Browser smoke test for Recorded/Code/Replay/Save/Load flows (Cluster 10 deliverable)
 - [ ] Cluster 8 handoff summary (story count, files committed, coverage, gaps)
 
+
+---
+
+## Cluster 8 Closure (2026-05-14)
+
+| Story | Status | File |
+|-------|--------|------|
+| S7-0801 Recorded tab evidence | Done | recorded/RecordedPanel.jsx |
+| S7-0802 Child operation evidence | Done | recorded/RecordedStepCard.jsx |
+| S7-0803 Repaired/skipped/unresolved | Done | recorded/RecordedStepCard.jsx |
+| S7-0804 Replay one/all | Done | replay/ReplayControls.jsx |
+| S7-0805 Replay result rendering | Done | replay/ReplayResultCard.jsx |
+| S7-0806 Code tab code_update | Done | code/CodePanel.jsx |
+| S7-0807 Code line→step mapping | Done | code/CodeLineMapping.jsx |
+| S7-0808 Code warnings/capability | Done | code/CodeWarnings.jsx |
+| S7-0809 Save/load session | Done | session/SessionPanel.jsx |
+| S7-0810 Export/copy code | Done | code/CodeExport.jsx |
+
+**Commit:** 4abbb27 — single commit, RED→GREEN.
+**Tests:** tests/test_frontend_recorded_code_replay_cards.py (27 tests).
+**Regression:** 2444 passed / 1 skipped / 0 failed.
+**Build:** dist/autoworkbench.js 1.3mb (clean).
+
+**Architecture invariants honored:** Recorded only from step_recorded; Code only from code_update; replay success only from replay_result; save/load result from backend events; copy/export disabled without code; skipped/failed not rendered as pass.
+
+**Forbidden-file audit:** no backend/runtime/agent/server/LLM-prompt changes; no E2E run.

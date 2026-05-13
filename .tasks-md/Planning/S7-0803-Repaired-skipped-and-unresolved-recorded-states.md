@@ -4,7 +4,7 @@
 **Cluster:** 8
 **Tier:** 1 (core)
 **Type:** Feature
-**Status:** Planning
+**Status:** Done
 **Blocks:** []
 **Blocked by:** [S7-0802]
 
@@ -106,3 +106,12 @@ Stop if:
 - Recovery manager (backend) does not provide repaired/skip metadata
 - Implementation requires new backend field/command
 
+
+---
+
+## Evidence Recorded
+
+- **Commit:** 4abbb27 — Cluster 8 components
+- **Tests:** tests/test_frontend_recorded_code_replay_cards.py (27 tests)
+- **Build:** dist/autoworkbench.js 1.3mb (clean)
+- **Regression:** 2444 passed / 1 skipped / 0 failed

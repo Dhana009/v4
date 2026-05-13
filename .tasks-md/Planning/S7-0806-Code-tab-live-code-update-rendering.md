@@ -4,7 +4,7 @@
 **Cluster:** 8
 **Tier:** 1 (core)
 **Type:** Feature
-**Status:** Planning
+**Status:** Done
 **Blocks:** [S7-0807, S7-0808]
 **Blocked by:** [S7-0500]
 
@@ -130,3 +130,12 @@ Stop if:
 - Syntax highlighter library selection requires infrastructure change
 - Coverage below 95%
 
+
+---
+
+## Evidence Recorded
+
+- **Commit:** 4abbb27 — Cluster 8 components
+- **Tests:** tests/test_frontend_recorded_code_replay_cards.py (27 tests)
+- **Build:** dist/autoworkbench.js 1.3mb (clean)
+- **Regression:** 2444 passed / 1 skipped / 0 failed

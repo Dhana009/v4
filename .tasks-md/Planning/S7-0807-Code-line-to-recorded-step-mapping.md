@@ -4,7 +4,7 @@
 **Cluster:** 8
 **Tier:** 2 (supporting)
 **Type:** Feature
-**Status:** Planning
+**Status:** Done
 **Blocks:** []
 **Blocked by:** [S7-0806]
 
@@ -111,3 +111,12 @@ Stop if:
 - Implementation requires backend changes
 - Coverage below 95%
 
+
+---
+
+## Evidence Recorded
+
+- **Commit:** 4abbb27 — Cluster 8 components
+- **Tests:** tests/test_frontend_recorded_code_replay_cards.py (27 tests)
+- **Build:** dist/autoworkbench.js 1.3mb (clean)
+- **Regression:** 2444 passed / 1 skipped / 0 failed

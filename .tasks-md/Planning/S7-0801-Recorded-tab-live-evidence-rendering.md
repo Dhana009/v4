@@ -4,7 +4,7 @@
 **Cluster:** 8
 **Tier:** 1 (core)
 **Type:** Feature
-**Status:** Planning
+**Status:** Done
 **Blocks:** [S7-0802, S7-0803]
 **Blocked by:** [S7-0500 (frontend event store), S7-0504 (step lifecycle handlers)]
 
@@ -295,3 +295,12 @@ Stop if:
 - Regression guard fails with a new failure (investigate before continuing)
 - A bug is found in the `step_recorded` event builder (file BUG ticket; do not fix in this story)
 
+
+---
+
+## Evidence Recorded
+
+- **Commit:** 4abbb27 — Cluster 8 components
+- **Tests:** tests/test_frontend_recorded_code_replay_cards.py (27 tests)
+- **Build:** dist/autoworkbench.js 1.3mb (clean)
+- **Regression:** 2444 passed / 1 skipped / 0 failed
