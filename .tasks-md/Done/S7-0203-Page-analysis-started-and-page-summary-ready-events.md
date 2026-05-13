@@ -3,7 +3,7 @@
 **Sprint:** Sprint 7  
 **Cluster:** 2  
 **Story:** S7-0203  
-**Status:** Planning  
+**Status:** Done  
 **Date:** 2026-05-13  
 
 ---
@@ -146,4 +146,25 @@ OR page_analysis_failed(request_id, error_type, message, timestamp)
 - ❌ Raw DOM in events.
 - ❌ Mismatched request_ids.
 - ❌ Paid LLM call.
+
+---
+
+## Evidence Recorded
+
+- **Implementation commit:** `0f2198b`
+- **Implementation files:**
+  - `runtime/event_contracts.py` — added `build_page_analysis_started_event`, `build_page_summary_ready_event` (strips raw_html), `build_page_analysis_failed_event`
+- **Tests added:** `tests/test_page_analysis_events.py` (24 tests: started/summary/failed type, fields, envelope, schema_version, raw_html stripping, negative validation)
+- **Validation commands:**
+  - `python -m pytest tests/test_page_analysis_events.py -q`
+  - `python -m pytest -q`
+- **Result summary:**
+  - 24 passed
+  - Full suite: 2078 passed, 0 failed, 1 skipped
+  - `runtime/event_contracts.py` coverage: 99%
+- **Confirmation:**
+  - `raw_html` stripped from page_summary before inclusion in event
+  - request_id validated (ValueError on empty)
+  - No frontend files changed
+- **Remaining gaps:** None.
 

@@ -3,7 +3,7 @@
 **Sprint:** Sprint 7  
 **Cluster:** 2  
 **Story:** S7-0207  
-**Status:** Planning  
+**Status:** Done  
 **Date:** 2026-05-13  
 
 ---
@@ -97,4 +97,26 @@ Expose safe token/model/purpose telemetry to frontend via `token_report` event s
 - ❌ Regression failure.
 - ❌ Secrets in event payload.
 - ❌ Prompt text leaked.
+
+---
+
+## Evidence Recorded
+
+- **Implementation commit:** `0f2198b`
+- **Implementation files:**
+  - `runtime/event_contracts.py` — added `build_token_report_event` (rejects negative token counts, rejects empty purpose/model_class, optional call_id/cached_tokens/latency_ms/estimated_cost; no messages/system_prompt fields included)
+- **Tests added:** `tests/test_token_report_event.py` (18 tests: type, purpose, model_class, input_tokens, output_tokens, envelope, schema_version, optional fields, redaction, negative validation)
+- **Validation commands:**
+  - `python -m pytest tests/test_token_report_event.py -q`
+  - `python -m pytest -q`
+- **Result summary:**
+  - 18 passed
+  - Full suite: 2078 passed, 0 failed, 1 skipped
+  - `runtime/event_contracts.py` coverage: 99%
+- **Confirmation:**
+  - No messages/system_prompt/api keys in result
+  - Negative input_tokens raises ValueError
+  - Negative output_tokens raises ValueError
+  - Empty purpose/model_class raises ValueError with matching match string
+- **Remaining gaps:** None.
 

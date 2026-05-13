@@ -3,7 +3,7 @@
 **Sprint:** Sprint 7  
 **Cluster:** 2  
 **Story:** S7-0204  
-**Status:** Planning  
+**Status:** Done  
 **Date:** 2026-05-13  
 
 ---
@@ -116,4 +116,26 @@ Emit typed plan diff events (`plan_diff_proposed`, `plan_diff_validated`, `plan_
 - ❌ Plan modified without user acceptance.
 - ❌ Invalid diff operations not caught.
 - ❌ Stale plan_id not validated.
+
+---
+
+## Evidence Recorded
+
+- **Implementation commit:** `0f2198b`
+- **Implementation files:**
+  - `runtime/event_contracts.py` — added `build_plan_diff_proposed_event`, `build_plan_diff_validated_event`, `build_plan_diff_applied_event`
+- **Tests added:** `tests/test_plan_diff_events.py` (22 tests: type, plan_id, versions, operations, envelope, schema_version, contract invariants, negative validation)
+- **Validation commands:**
+  - `python -m pytest tests/test_plan_diff_events.py -q`
+  - `python -m pytest -q`
+- **Result summary:**
+  - 22 passed
+  - Full suite: 2078 passed, 0 failed, 1 skipped
+  - `runtime/event_contracts.py` coverage: 99%
+- **Confirmation:**
+  - `plan_diff_proposed` type ≠ `plan_diff_applied` (no silent mutation)
+  - `plan_diff_proposed` type ≠ `plan_ready`, ≠ `step_recorded`
+  - None operations raises TypeError
+  - Empty plan_id raises ValueError
+- **Remaining gaps:** None.
 

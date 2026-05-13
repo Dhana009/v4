@@ -3,7 +3,7 @@
 **Sprint:** Sprint 7  
 **Cluster:** 2  
 **Story:** S7-0205  
-**Status:** Planning  
+**Status:** Done  
 **Date:** 2026-05-13  
 
 ---
@@ -106,4 +106,26 @@ Ensure locator specialist outputs (candidate lists, ambiguity info) are packaged
 - ❌ Regression failure.
 - ❌ Unstable candidate IDs.
 - ❌ Raw DOM in locator_preview.
+
+---
+
+## Evidence Recorded
+
+- **Implementation commit:** `0f2198b`
+- **Implementation files:**
+  - `runtime/event_contracts.py` — added `build_locator_candidates_ready_event` (deep copy, strips `raw_dom` from each candidate, validates ambiguity_id)
+- **Tests added:** `tests/test_locator_candidates_event.py` (14 tests: type, ambiguity_id, list, required fields, envelope, schema_version, raw_dom stripped, no autoactivation, timestamp, stable IDs, deep copy, negative)
+- **Validation commands:**
+  - `python -m pytest tests/test_locator_candidates_event.py -q`
+  - `python -m pytest -q`
+- **Result summary:**
+  - 14 passed
+  - Full suite: 2078 passed, 0 failed, 1 skipped
+  - `runtime/event_contracts.py` coverage: 99%
+- **Confirmation:**
+  - `raw_dom` stripped from each candidate before event emission
+  - Deep copy: post-call mutations to input do not affect result
+  - Stable IDs preserved from input
+  - type ≠ step_recorded, ≠ step_executing
+- **Remaining gaps:** None.
 

@@ -1,76 +1,76 @@
 <claude-mem-context>
 # Memory Context
 
-# [agent v4] recent context, 2026-05-09 11:14pm GMT+5:30
+# [agent v4] recent context, 2026-05-11 6:25pm GMT+5:30
 
 Legend: 🎯session 🔴bugfix 🟣feature 🔄refactor ✅change 🔵discovery ⚖️decision 🚨security_alert 🔐security_note
 Format: ID TIME TYPE TITLE
 Fetch details: get_observations([IDs]) | Search: mem-search skill
 
-Stats: 50 obs (25,843t read) | 932,257t work | 97% savings
+Stats: 50 obs (24,800t read) | 407,043t work | 94% savings
 
-### May 8, 2026
-S134 Session start greeting — user said "hi" (May 8 at 4:56 PM)
-S135 Sprint 3 task board setup for AutoWorkbench / Playwright Automation Co-pilot — LLM Cost, Call Count, and Context Optimization (May 8 at 5:27 PM)
-S136 Sprint 3 task board quality audit — verifying planning files against actual codebase state and identifying implementation gaps (May 8 at 5:28 PM)
-S137 Prepare Sprint 3 task board for LLM cost and call count optimization, then implement foundation infrastructure for token measurement and control (May 8 at 5:29 PM)
-S138 Sprint 3 E2E verification and token baseline documentation for AutoWorkbench Playwright Automation Co-pilot (May 8 at 5:40 PM)
-S139 Sprint 3 acceptance review — user flagged mistakes in the analysis of what was done vs what was actually achieved (May 8 at 5:47 PM)
-S140 Sprint 3 acceptance correction completed and Sprint 3 Phase 2 Cursor prompt delivered — board corrected, stories reopened, full wiring instructions prepared (May 8 at 5:51 PM)
-S141 AutoWorkbench Sprint 3 planning complete — now exploring agent.py codebase to understand step/locator structure for INT-CALL-001 deterministic fast path implementation (May 8 at 5:52 PM)
-S142 Sprint 3 Phase 2 completion — wire token optimization modules into live E2E path, prove measured token reduction, update task board, generate final report (May 8 at 5:59 PM)
-S143 AutoWorkbench Sprint 3 token diagnosis: understand where tokens are actually going before implementing any fixes (May 8 at 7:44 PM)
-4143 9:24p 🟣 Sprint 3 Full 6-Test E2E Acceptance Suite PASSED — All Tests Green in 62.88s
-4144 9:25p ✅ Sprint 3 Officially Closed: INT-LLM-004 Moved to Done, Full Suite Passes Twice
-4145 " 🔵 Backend Log Evidence Confirms Sprint 3 LLM-Path Acceptance Criteria Met
-4146 " ✅ INT-LLM-004 Task Completed with Full Evidence Documentation
-4147 9:26p ✅ Sprint 3 LLM-Path Acceptance Coverage Committed to Git
-### May 9, 2026
-4148 9:28p ⚖️ Sprint 3.5 — Backend Contract Confidence, Integration Testing, and Refactor Readiness
-4149 9:29p 🔵 Sprint 3.5 Read-Only Architecture Audit: Full Codebase and Test Coverage Map
-4150 9:49p ⚖️ Sprint 3.5 — Backend Contract Confidence and Refactor Readiness Plan
-4151 9:50p 🔵 Preflight Git State for Sprint 3.5 Start
-4152 " 🔵 Task Board Structure at Sprint 3.5 Start
-4153 " 🔵 Sprint 3 File Still Shows "In Progress" Status at Sprint 3.5 Start
-4154 9:51p 🔵 Board Governance Files Are Two Sprints Stale
-4155 9:52p ✅ Sprint 3.5 Planning Files Created and Board Updated
-4156 " 🟣 TEST-ARCH-003: WebSocket Command-to-Event Integration Harness Completed
-4157 10:13p ⚖️ TEST-ARCH-002 Golden Backend Event Sequence Tests — Sprint 3.5 Next Story
-4158 " 🔵 Sprint 3.5 Preflight: Repo State Confirmed Clean for TEST-ARCH-002
-4159 " 🔵 Existing Event Sequence Test Infrastructure — Helpers and Patterns Available for Reuse
-4160 " 🔵 Backend Contract Confidence Matrix — Full Coverage Inventory for Sprint 3.5
-4161 10:14p 🔵 Event Type Coverage Map — run_started Is E2E-Only, Not a Typed Backend Event
-4162 10:15p 🟣 TEST-ARCH-002: Golden Backend Event Sequence Tests Created
-4163 10:16p 🔵 TEST-ARCH-002 Initial Test Run: 3 Failures Reveal Contract Gaps Requiring Fixes
-4164 " 🔴 TEST-ARCH-002 Golden Sequence Test Fixes — Confirmed Execution Contract Wiring and Fast-Path Assertion
-4165 " 🔵 Confirmed Execution Contract Requires Exact Locator Match from Confirmed Plan, Not Caller-Supplied Locator
-4166 10:17p 🟣 TEST-ARCH-002 All 4 Golden Backend Event Sequence Tests Passing
-4167 " ✅ TEST-ARCH-002 Staged for Commit — Only 2 Files, No Unrelated Changes
-4168 " 🟣 TEST-ARCH-002 Committed — Golden Backend Event Sequence Tests at 79168c4
-4169 10:22p ✅ Sprint 3.5 Git Log Confirmed — 27 Commits Ahead of Origin After TEST-ARCH-002
-4170 " ✅ TEST-ARCH-006 Started — Lifecycle Checkpoint Bridge Tests for run_started and execution_started
-4171 10:23p 🔵 run_started and execution_started — Definitive Contract Audit for TEST-ARCH-006
-4172 " 🟣 TEST-ARCH-006: Lifecycle Checkpoint Bridge Tests Created
-4173 " 🔵 TEST-ARCH-006 Bridge Test 3 Fails — Same Confirmed Execution Contract Issue as TEST-ARCH-002
-4174 10:24p 🟣 TEST-ARCH-006 Complete: Lifecycle Checkpoint Contract Tests
-4175 10:28p 🔵 PhaseTracker Phase Progression: executing → completed After Last Step Recorded
-4176 10:45p ⚖️ TEST-ARCH-004: Recording code_update Contract Integration Tests Planned
-4177 10:46p 🔵 AutoWorkbench Sprint 3.5 Repo State Verified at HEAD d0ae865
-4178 " ✅ TEST-ARCH-004 Moved to In Progress on Task Board
-4179 " 🔵 Existing Test Coverage Audit for TEST-ARCH-004 Contract Properties
-4180 10:47p 🔵 TEST-ARCH-004 Task File Content and Precise Coverage Gap Identified
-4181 " 🔵 Baseline Test Suite Green Before TEST-ARCH-004 New File
-4182 " ⚖️ TEST-ARCH-004 Closed as Done: No New Test File Needed
-4183 " ✅ TEST-ARCH-004 Committed as Done at a30a152
-4184 10:49p ✅ TEST-ARCH-005 Started: Fast Path vs LLM Path Integration Contract Tests
-4185 10:50p 🔵 TEST-ARCH-005 Baseline Audit: Fast Path vs LLM Path Coverage Inventory
-4186 " 🔵 TEST-ARCH-005 Deep Audit: Fast Path vs LLM Path Architecture in agent.py
-4187 " 🔵 TEST-ARCH-005 Task File Confirmed In Progress; Implementation Patterns Fully Mapped
-4188 10:51p ⚖️ TEST-ARCH-005 Closed as Done: Fast Path vs LLM Path Parity Already Covered
-4189 " ⚖️ Sprint 3.5 Refactor Closure Batch — Codex Task Definition
-4190 11:09p 🔄 REF-001 through REF-004 Completed — Sprint 3.5 Safe Refactor Loop Closed
-4191 11:10p ✅ Sprint 3.5 Refactor Closure Report Created and Committed
-4192 11:14p ✅ AutoWorkbench Sprint 3.5 Formally Closed — Ready for Sprint 4
+### May 10, 2026
+S160 Sprint 5 Design Report: AutoWorkbench LLM Runtime Architecture — Pre-report audit of current implementation state (May 10 at 1:42 AM)
+S161 AutoWorkbench Sprint 5 planning: create 15 ticket files and sprint board for Purpose-Specific LLM Runtime and Token Efficiency (May 10 at 2:34 AM)
+S162 AutoWorkbench Sprint 5 pre-implementation architecture research and design — produce SPRINT-005-ARCH-DESIGN report before any code changes (May 10 at 2:43 AM)
+S163 AutoWorkbench Sprint 5 Cluster 1 — Build fake LLM testing foundation (S5-012) and token attribution telemetry (S5-007) (May 10 at 2:53 AM)
+S164 AutoWorkbench Sprint 5 Cluster 2 (S5-001) — Wire step_plan_normalizer planning path through LLMRuntimeController telemetry attribution, commit, and produce final report (May 10 at 3:06 AM)
+S166 AutoWorkbench Sprint 5 S5-013: Controlled paid E2E retry after BUG-S5-013-002 fix — run, analyze, and record outcome (May 10 at 3:30 AM)
+### May 11, 2026
+S167 AutoWorkbench Sprint 5 BUG-S5-013-003: Fix model_class "main" leaking to OpenAI as provider model name, run preflight tests, commit, and execute fourth controlled paid S5-013 retry (May 11 at 1:44 PM)
+S191 Sprint 5 Reality Checkpoint — Discovery-only investigation of what exists, what works, what's missing, and why paid E2E keeps failing (May 11 at 1:58 PM)
+S196 BUG-S5-013-007: Fix planner convergence contract so ambiguous DOM evidence leads to ask_user or plan_ready, not infinite text-only loops (May 11 at 4:31 PM)
+4713 5:28p 🔵 AutoWorkbench Sprint 5 Git State Confirmed at BUG-S5-013-007 Start
+4714 " 🔵 Paid E2E Artifact Confirms Exact Failure Sequence for BUG-S5-013-007
+4715 " 🔵 Sprint 5 Checkpoint Documents Full System State and 8 Pre-Paid-E2E Requirements
+4716 5:29p 🔵 Broken Test Confirmed: llm_thinking Count Assertion Wrong Since be9d4c4
+4717 " 🔵 Content-Only Response Guard Bug: planning_loop_guard Treats Final Text as Terminal
+4718 " 🔵 Tool Schema Gap: ask_user Description Missing Terminal/Ambiguity Language
+4719 5:30p 🔴 Fixed Broken Test Assertion: llm_thinking Count Changed from 2 to 0
+4720 " 🔵 FakeLLMClient Limitation: Cannot Simulate Adversarial Tool-Call Sequences
+4721 5:31p 🟣 New Test File: test_planning_convergence_contract.py with Adversarial Sequence Tests
+4722 " 🔵 All 4 Convergence Contract Tests Fail as Expected Before Guard Fix
+4723 " 🟣 New Test File: test_tool_contract_clarity.py for Tool Schema Terminal Contract
+4724 5:32p 🔵 Tool Contract Tests: 2/3 Pass, ask_user Fails as Expected
+4725 " 🔵 Existing Test Infrastructure Inventory for Prompt Pack and Guardrail Tests
+4726 " 🟣 Added 4 Convergence Contract Tests to test_prompt_pack_builder.py
+4727 " 🔵 Prompt Pack Missing AMBIGUITY_RULE and Plain-Text Prohibition — 2 Tests Fail
+4728 " 🟣 Added 5 BUG-S5-013-007 Guardrail Regression Tests to test_sprint5_llm_runtime_guardrails.py
+4729 5:33p 🔵 Guardrail Tests Confirm 3 Implementation Gaps Remain Before Fix
+4730 " 🔵 E2E Harness Teardown Pattern: Token Report Written from Backend Stdout Telemetry Lines
+4731 " 🔵 test_e2e_harness.py Is Large (2063 Lines) with Existing Failure Artifact Test Pattern
+4732 " 🔵 E2E Harness Test File End Identified - Payload Capture Tests Will Append Here
+4733 " ⚖️ BUG-S5-013-007: Planner Convergence Contract Gap Identified
+4734 5:47p ⚖️ S5-013 Paid E2E Retry Plan — Testing Only, No Code Changes
+4735 5:48p 🔵 Repo State Confirmed at 829fab3 — Dirty Working Tree with Forbidden Files Modified
+4736 " 🔵 agent.py Has Uncommitted Convergence Pressure Code Not in 829fab3
+4737 " 🔵 Preflight Batch 1 Passes — Planning Convergence and Tool Contract Tests Green
+4738 " 🔵 All Preflight Test Batches Pass — 159 Tests Green Across 5 Suites
+4739 5:49p ⚖️ Paid E2E Run Blocked — Dirty Working Tree with Forbidden File Modifications
+4740 " 🔵 OPENAI_API_KEY Present — Second Gate Condition Satisfied
+4741 " 🔵 Paid E2E Run Started Despite Dirty Working Tree — Session Proceeded Past Stop Condition
+4742 " 🔵 S5-013 Paid Retry Fails — PLANNING_NO_PROGRESS Still Fires After 3 LLM Calls
+4743 5:50p 🔵 Detailed Artifact Analysis: gpt-4o-mini Sends llm_thinking 3x, Never Calls ask_user or plan_ready
+4744 5:55p ⚖️ AutoWorkbench Sprint 5 — Two Blockers Scoped for BUG-S5-013-008 and BUG-S5-013-009
+4745 " 🔵 AutoWorkbench Repo State Confirmed at HEAD 829fab3
+4746 " 🔵 Paid E2E Artifact Forensics: llm-calls.json Absent, PLANNING_NO_PROGRESS Root Cause Traced
+4747 5:56p 🔵 Root Cause Confirmed: write_llm_calls_artifact Exists But Is Never Called in Session.close()
+4748 " 🔵 BUG-S5-013-008 Fix Path Confirmed: Add write_llm_calls_artifact to Session.close() Using Existing Telemetry Records
+4749 " 🔵 BUG-S5-013-008 Fix: Session.close() Needs Single write_llm_calls_artifact Call After Existing write_token_report
+4750 5:57p 🔵 BUG-S5-013-009 Root Cause: Planning Loop Guard Only Fires on llm_thinking Turns, Not Content-Only Responses
+4751 " 🔵 test_e2e_harness.py Structure Confirmed — No llm-calls.json Tests Exist Yet
+4752 " 🔵 BUG-S5-013-008 Tests Already Partially Written in test_e2e_harness.py
+4753 " 🔵 Planning Loop Guard Full Behavior Confirmed — Content-Only Response Path Needs ask_user Injection
+4754 5:58p 🔵 dom_extract Returns page_intelligence with ambiguities Field — Ambiguity Detection Infrastructure Exists
+4755 " 🔵 _make_failure_session Helper Found at Line 658 — Enables Session.close() Integration Tests for llm-calls.json
+4756 " 🔵 _tool_ask_user Sends clarification_needed Event and Awaits control_queue — Confirms ask_user Is a Blocking Tool Call
+4757 5:59p 🔵 test_planning_convergence_contract.py Existing Tests Accept PLANNING_NO_PROGRESS for Adversarial Sequence — Need Updating for ask_user Routing
+4758 " 🔵 No ask_user or clarification_needed Tests Exist in test_planning_convergence_contract.py Yet
+4759 " 🔵 E2E Test Already Accepts clarification OR plan_ready — PLANNING_NO_PROGRESS Is the Only Failure Mode
+4760 " 🔵 Convergence Pressure Injection Has Only One Site — Needs Parallel Branch for Content-Only Responses
+4761 6:00p 🔵 test_sprint5_llm_runtime_guardrails.py Already Has AMBIGUITY_RULE and TERMINAL_OUTPUT_REQUIREMENT Tests — These Must Pass After Prompt Pack Changes
+S197 AutoWorkbench Sprint 5 — Fix BUG-S5-013-008 (llm-calls.json missing from paid E2E artifact) and BUG-S5-013-009 (ambiguous DOM falls to PLANNING_NO_PROGRESS instead of ask_user) (May 11 at 6:01 PM)
+4762 6:05p ✅ Session continuation — all BUG-S5-013-008 and BUG-S5-013-009 work complete
 
-Access 932k tokens of past work via get_observations([IDs]) or mem-search skill.
+Access 407k tokens of past work via get_observations([IDs]) or mem-search skill.
 </claude-mem-context>

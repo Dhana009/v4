@@ -3,7 +3,7 @@
 **Sprint:** Sprint 7  
 **Cluster:** 2  
 **Story:** S7-0206  
-**Status:** Planning  
+**Status:** Done  
 **Date:** 2026-05-13  
 
 ---
@@ -94,4 +94,26 @@ Structure recovery_diagnoser outputs (failure analysis, recovery options) as fro
 
 - ❌ Regression failure.
 - ❌ Invalid action not rejected.
+
+---
+
+## Evidence Recorded
+
+- **Implementation commit:** `0f2198b`
+- **Implementation files:**
+  - `runtime/event_contracts.py` — added `build_recovery_needed_structured_event` (rejects empty options list, validates run_id/step_id/failure_reason, supports expected/actual fields)
+- **Tests added:** `tests/test_recovery_needed_event.py` (16 tests: type, run_id, step_id, failure_reason, options, required option fields, envelope, schema_version, expected/actual, contract invariants, negative validation)
+- **Validation commands:**
+  - `python -m pytest tests/test_recovery_needed_event.py -q`
+  - `python -m pytest -q`
+- **Result summary:**
+  - 16 passed
+  - Full suite: 2078 passed, 0 failed, 1 skipped
+  - `runtime/event_contracts.py` coverage: 99%
+- **Confirmation:**
+  - Empty options list raises ValueError (fail-closed)
+  - None options raises TypeError
+  - type ≠ run_completed, ≠ step_recorded
+  - Actions constrained to retry/skip/stop
+- **Remaining gaps:** None.
 

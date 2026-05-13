@@ -3,7 +3,7 @@
 **Sprint:** Sprint 7  
 **Cluster:** 2  
 **Story:** S7-0201  
-**Status:** Planning  
+**Status:** Done  
 **Date:** 2026-05-13  
 
 ---
@@ -245,4 +245,27 @@ No raw full DOM exposure.
 - ❌ Timeout triggers exception instead of event.
 - ❌ `page_intelligence_live.py` exceeds 300 lines.
 - ❌ Paid LLM call detected.
+
+---
+
+## Evidence Recorded
+
+- **Implementation commit:** `0f2198b`
+- **Implementation files:**
+  - `runtime/event_contracts.py` — added `build_page_analysis_started_event`, `build_page_summary_ready_event`, `build_page_analysis_failed_event`
+  - `runtime/page_intelligence_live.py` — pre-existing; `invoke_page_intelligence`, `needs_page_intelligence`, `PageIntelligencePacketResult` already present; source labeled fake/fallback; no raw HTML
+- **Tests added:** `tests/test_page_intelligence_live_invocation.py` (20 tests: boundary detection, invocation result, event pipeline, negative)
+- **Validation commands:**
+  - `python -m pytest tests/test_page_intelligence_live_invocation.py tests/test_page_analysis_events.py -q`
+  - `python -m pytest -q`
+- **Result summary:**
+  - 44 passed (page_intelligence + page_analysis combined)
+  - Full suite: 2078 passed, 0 failed, 1 skipped
+  - `runtime/event_contracts.py` coverage: 99%
+- **Confirmation:**
+  - No frontend files changed
+  - No LLM prompt files changed
+  - No E2E files changed
+  - No local noise staged
+- **Remaining gaps:** None.
 

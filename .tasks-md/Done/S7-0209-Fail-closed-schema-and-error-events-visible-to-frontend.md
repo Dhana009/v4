@@ -3,7 +3,7 @@
 **Sprint:** Sprint 7  
 **Cluster:** 2  
 **Story:** S7-0209  
-**Status:** Planning  
+**Status:** Done  
 **Date:** 2026-05-13  
 
 ---
@@ -110,4 +110,26 @@ Emit typed error events (`schema_error`, `provider_error`, `malformed_output_err
 - ❌ Regression failure.
 - ❌ Error not reported to frontend.
 - ❌ Secret/traceback in error message.
+
+---
+
+## Evidence Recorded
+
+- **Implementation commit:** `0f2198b`
+- **Implementation files:**
+  - `runtime/event_contracts.py` — added `_redact_api_keys()` helper (regex strips `sk-*`), `build_schema_error_event` (rejects negative retry_count, redacts sk-*), `build_provider_error_event` (redacts sk-*), `build_malformed_output_error_event` (truncates safe_output_sample to 2000 chars)
+- **Tests added:** `tests/test_error_events.py` (25 tests: type/purpose/fields, envelope, schema_version, sk-* redaction, no prompt dump, safe sample truncation, negative validation, fail-closed invariants)
+- **Validation commands:**
+  - `python -m pytest tests/test_error_events.py -q`
+  - `python -m pytest -q`
+- **Result summary:**
+  - 25 passed
+  - Full suite: 2078 passed, 0 failed, 1 skipped
+  - `runtime/event_contracts.py` coverage: 99%
+- **Confirmation:**
+  - `sk-abc123` redacted from error_message before event emission
+  - `safe_output_sample` truncated at 2000 chars (total payload < 50000 bytes)
+  - type ≠ plan_ready (schema_error), type ≠ step_recorded (provider_error)
+  - Negative retry_count raises ValueError
+- **Remaining gaps:** None.
 

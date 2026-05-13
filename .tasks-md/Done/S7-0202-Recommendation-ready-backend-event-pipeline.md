@@ -3,7 +3,7 @@
 **Sprint:** Sprint 7  
 **Cluster:** 2  
 **Story:** S7-0202  
-**Status:** Planning  
+**Status:** Done  
 **Date:** 2026-05-13  
 
 ---
@@ -224,4 +224,26 @@ recommendation_ready(
 - ❌ Stale request_id not validated.
 - ❌ Raw DOM in recommendation payload.
 - ❌ Paid LLM call detected.
+
+---
+
+## Evidence Recorded
+
+- **Implementation commit:** `0f2198b`
+- **Implementation files:**
+  - `runtime/event_contracts.py` — added `build_recommendation_ready_event` (deep copy, min_confidence filter, request_id validation)
+- **Tests added:** `tests/test_recommendation_event_pipeline.py` (14 tests: request_id, type, list, timestamp, envelope, schema_version, field preservation, empty safe, confidence filter, no autoexecution, negative, deep copy)
+- **Validation commands:**
+  - `python -m pytest tests/test_recommendation_event_pipeline.py -q`
+  - `python -m pytest -q`
+- **Result summary:**
+  - 14 passed
+  - Full suite: 2078 passed, 0 failed, 1 skipped
+  - `runtime/event_contracts.py` coverage: 99%
+- **Confirmation:**
+  - No frontend files changed
+  - No LLM prompt files changed
+  - No raw DOM in payload (deep copy; no DOM fields included)
+  - No autoexecution (type is advisory only)
+- **Remaining gaps:** None.
 

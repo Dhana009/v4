@@ -3,7 +3,7 @@
 **Sprint:** Sprint 7  
 **Cluster:** 2  
 **Story:** S7-0208  
-**Status:** Planning  
+**Status:** Done  
 **Date:** 2026-05-13  
 
 ---
@@ -87,4 +87,27 @@ Emit typed `capability_gap` events when user/LLM attempts unsupported action (e.
 
 - ❌ Regression failure.
 - ❌ Unsupported action executes anyway.
+
+---
+
+## Evidence Recorded
+
+- **Implementation commit:** `0f2198b`
+- **Implementation files:**
+  - `runtime/event_contracts.py` — added `build_capability_gap_event` (validates action/reason/next_legal_action, default severity="error")
+  - `runtime/capability_registry.py` — pre-existing; `BASELINE_CAPABILITIES` frozenset, `get_capability_status()`, `CapabilityStatus` enum already present; case-insensitive lookup confirmed
+- **Tests added:** `tests/test_capability_gap_event.py` (21 tests: type, action, reason, next_legal_action, envelope, schema_version, severity, contract invariants, registry unit tests, negative validation)
+- **Validation commands:**
+  - `python -m pytest tests/test_capability_gap_event.py -q`
+  - `python -m pytest -q`
+- **Result summary:**
+  - 21 passed
+  - Full suite: 2078 passed, 0 failed, 1 skipped
+  - `runtime/event_contracts.py` coverage: 99%
+- **Confirmation:**
+  - type ≠ step_recorded, ≠ code_update
+  - `drag_and_drop` not in BASELINE_CAPABILITIES
+  - `click`, `fill`, `hover` in BASELINE_CAPABILITIES
+  - Case-insensitive: `CLICK` → SUPPORTED
+- **Remaining gaps:** None.
 
