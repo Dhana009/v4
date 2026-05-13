@@ -4,7 +4,7 @@
 **Cluster:** 10
 **Tier:** 1 (core)
 **Type:** Feature
-**Status:** Planning
+**Status:** Done
 **Blocks:** [S7-1004, S7-1005, S7-1006, S7-1007, S7-1008, S7-1009]
 **Blocked by:** [S7-1001, S7-1002]
 
@@ -116,3 +116,13 @@ test_flow_handles_stale_answer()  # GOV-S7-C0-009
 - Clarification card not rendering (Cluster 6 incomplete)
 - Plan_ready event not being emitted or received (Cluster 5/6 issue)
 - Execution starts before confirmation (Cluster 6 issue)
+
+---
+
+## Evidence Recorded
+
+- **Commit:** 4e9d102 — Cluster 10 fake-flow tests + harness shadow constants
+- **Tests:** tests/test_cluster10_e2e_contract.py, tests/test_cluster10_fake_flows.py (21 tests)
+- **E2E baseline:** tests/e2e/test_mvp_001_lifecycle_smoke.py passed in 7.22s
+- **Regression (no-e2e):** 2481 passed / 1 skipped / 0 failed
+- **Browser smoke gate:** existing tests/e2e/* suite remains user-triggered (no paid LLM, no live websites)

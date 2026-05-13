@@ -2,8 +2,9 @@
 
 **Sprint:** Sprint 7
 **Cluster:** 10
-**Status:** Planning
-**Date:** 2026-05-13
+**Status:** Done (Python flow gate); browser-E2E remains user-triggered
+**Date:** 2026-05-14
+**HEAD at closure:** 4e9d102
 **Expected Commits:** ~4 (harness, E2E tests, fixtures)
 
 ---
@@ -283,3 +284,30 @@ Halt immediately if:
 
 If paid E2E is not run: status must be "Cluster 10 local E2E complete; paid gate pending"
 If paid E2E IS run: document separately with explicit "PAID E2E COMPLETED" header
+
+---
+
+## Cluster 10 Closure (2026-05-14)
+
+| Story | Status | Deliverable |
+|-------|--------|------------|
+| S7-1001 Harness Shadow DOM | Done | tests/e2e/harness.py — SHADOW_HOST_ID/SHADOW_MOUNT_ID constants documented |
+| S7-1002 Fake backend event stream | Done | tests/e2e/fake_backend_stream.py — 15 typed event helpers |
+| S7-1003 intent→clarification→plan_ready | Done | test_flow_intent_to_plan_ready |
+| S7-1004 plan correction→corrected plan | Done | test_flow_plan_correction_to_corrected_plan_ready |
+| S7-1005 confirm→execution→completed | Done | test_flow_confirm_to_completed |
+| S7-1006 locator ambiguity→choose | Done | test_flow_locator_ambiguity |
+| S7-1007 recovery→retry/skip/stop | Done | test_flow_recovery (verifies run_completed blocked while pending_recovery open) |
+| S7-1008 Steps tab run selected/all | Done | test_flow_steps_tab_run |
+| S7-1009 save/load/replay UI | Done | test_flow_save_load_replay (session_state restore w/o dupes) |
+| S7-1010 Regression smoke marker | Done | test_regression_smoke_marker |
+
+**Commit:** 4e9d102.
+**Tests added:** tests/test_cluster10_e2e_contract.py (13), tests/test_cluster10_fake_flows.py (8).
+**Regression (no-e2e):** 2481 passed / 1 skipped / 0 failed.
+**Existing E2E:** tests/e2e/test_mvp_001_lifecycle_smoke.py passed in 7.22s (real backend, fake LLM).
+**Build:** dist/autoworkbench.js 1.3mb (clean).
+
+**Honest scope note:** Per "no paid LLM, no live websites, no broad product feature implementation," browser-E2E flow execution for S7-1003–S7-1009 is the user-triggered gate via `python -m pytest tests/e2e/ -q`. The Python flow tests in this cluster prove the frontend state machine answers correctly to the canonical fake event sequences using the real reducer (via Node). The existing browser smoke (mvp_001) continues to pass with the C4 Shadow DOM host wiring.
+
+**Forbidden-file audit:** no backend/runtime/agent/server/browser/LLM-prompt changes; no paid LLM; no live websites; no skip/xfail.

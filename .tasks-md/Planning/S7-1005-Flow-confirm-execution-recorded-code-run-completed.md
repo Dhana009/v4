@@ -4,7 +4,7 @@
 **Cluster:** 10
 **Tier:** 1 (core)
 **Type:** Feature
-**Status:** Planning
+**Status:** Done
 **Blocks:** [S7-1009, S7-1010]
 **Blocked by:** [S7-1003]
 
@@ -68,3 +68,13 @@ test_run_completed_drives_terminal_state()  # PRD-03-FE-008
 - Steps marked recorded before step_recorded event (Cluster 6/8 inference issue)
 - Code appears before code_update event (Cluster 8 inference issue)
 - run_completed not terminating execution (Cluster 5 state issue)
+
+---
+
+## Evidence Recorded
+
+- **Commit:** 4e9d102 — Cluster 10 fake-flow tests + harness shadow constants
+- **Tests:** tests/test_cluster10_e2e_contract.py, tests/test_cluster10_fake_flows.py (21 tests)
+- **E2E baseline:** tests/e2e/test_mvp_001_lifecycle_smoke.py passed in 7.22s
+- **Regression (no-e2e):** 2481 passed / 1 skipped / 0 failed
+- **Browser smoke gate:** existing tests/e2e/* suite remains user-triggered (no paid LLM, no live websites)

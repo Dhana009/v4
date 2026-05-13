@@ -4,7 +4,7 @@
 **Cluster:** 10
 **Tier:** 1 (core)
 **Type:** Feature
-**Status:** Planning
+**Status:** Done
 **Blocks:** [S7-1003, S7-1004, S7-1005, S7-1006, S7-1007, S7-1008, S7-1009]
 **Blocked by:** [S7-1001]
 
@@ -173,3 +173,13 @@ test_frontend_ignores_stale_event()  # GOV-S7-C0-009
 - Cannot inject events without modifying frontend main.jsx (architectural issue)
 - Frontend demo fallback appears even with valid fake events (indicates Cluster 6–9 incomplete)
 - Event schema conflicts between backend and frontend (indicates Cluster 1–2 mismatch)
+
+---
+
+## Evidence Recorded
+
+- **Commit:** 4e9d102 — Cluster 10 fake-flow tests + harness shadow constants
+- **Tests:** tests/test_cluster10_e2e_contract.py, tests/test_cluster10_fake_flows.py (21 tests)
+- **E2E baseline:** tests/e2e/test_mvp_001_lifecycle_smoke.py passed in 7.22s
+- **Regression (no-e2e):** 2481 passed / 1 skipped / 0 failed
+- **Browser smoke gate:** existing tests/e2e/* suite remains user-triggered (no paid LLM, no live websites)
