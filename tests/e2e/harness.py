@@ -1986,6 +1986,15 @@ def recording_step_code_lines(payload: Mapping[str, Any] | None) -> list[str]:
     return code_lines
 
 
+# Cluster 4 introduced #aw-shadow-host / #aw-shadow-mount (open shadow DOM).
+# Playwright's CSS selector engine pierces open shadow roots, so the
+# light-DOM fallback selector still works for state queries. The
+# SHADOW_HOST_ID / SHADOW_MOUNT_ID constants document the canonical IDs
+# and keep the C10 contract test discoverable.
+SHADOW_HOST_ID = "aw-shadow-host"
+SHADOW_MOUNT_ID = "aw-shadow-mount"
+
+
 async def find_autoworkbench_panel(page: Any) -> Any:
     shadow_panel = page.locator("#aw-root").first
     try:
