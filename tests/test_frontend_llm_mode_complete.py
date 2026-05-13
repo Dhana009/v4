@@ -46,9 +46,17 @@ ALL_FRONTEND = [PANEL, TABS, HEADER, WORKBENCH, MAIN]
 # ---------------------------------------------------------------------------
 
 def test_shadow_dom_host_root_hook_exists():
-    """aw-root hook must exist for shadow DOM mounting."""
+    """aw-shadow-host (C4 canonical) or legacy aw-root must exist for mount."""
     content = "".join(_read(p) for p in ALL_FRONTEND)
-    assert any(hook in content for hook in ("aw-root", "data-testid=\"aw-root\"", "id=\"aw-root\""))
+    assert any(
+        hook in content
+        for hook in (
+            "aw-shadow-host",
+            "aw-root",
+            'data-testid="aw-shadow-host"',
+            'data-testid="aw-root"',
+        )
+    )
 
 
 def test_ui_boundary_no_inline_backend_logic():

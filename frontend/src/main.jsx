@@ -3,6 +3,7 @@ import { createRoot } from "react-dom/client";
 
 import "../styles.css";
 import "../style-ide.css";
+import "../v4.css";
 
 import "../icons.jsx";
 import "../aw-ide-panel.jsx";

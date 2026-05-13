@@ -1084,7 +1084,7 @@
             }
             return dispatcher.useContext(Context);
           }
-          function useState2(initialState) {
+          function useState5(initialState) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useState(initialState);
           }
@@ -1108,11 +1108,11 @@
             var dispatcher = resolveDispatcher();
             return dispatcher.useLayoutEffect(create, deps);
           }
-          function useCallback2(callback, deps) {
+          function useCallback3(callback, deps) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useCallback(callback, deps);
           }
-          function useMemo2(create, deps) {
+          function useMemo4(create, deps) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useMemo(create, deps);
           }
@@ -1875,7 +1875,7 @@
           exports.memo = memo;
           exports.startTransition = startTransition;
           exports.unstable_act = act;
-          exports.useCallback = useCallback2;
+          exports.useCallback = useCallback3;
           exports.useContext = useContext;
           exports.useDebugValue = useDebugValue;
           exports.useDeferredValue = useDeferredValue;
@@ -1884,10 +1884,10 @@
           exports.useImperativeHandle = useImperativeHandle;
           exports.useInsertionEffect = useInsertionEffect;
           exports.useLayoutEffect = useLayoutEffect2;
-          exports.useMemo = useMemo2;
+          exports.useMemo = useMemo4;
           exports.useReducer = useReducer;
           exports.useRef = useRef2;
-          exports.useState = useState2;
+          exports.useState = useState5;
           exports.useSyncExternalStore = useSyncExternalStore;
           exports.useTransition = useTransition;
           exports.version = ReactVersion;
@@ -2383,9 +2383,9 @@
           if (typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ !== "undefined" && typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart === "function") {
             __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart(new Error());
           }
-          var React3 = require_react();
+          var React7 = require_react();
           var Scheduler = require_scheduler();
-          var ReactSharedInternals = React3.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+          var ReactSharedInternals = React7.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
           var suppressWarning = false;
           function setSuppressWarning(newSuppressWarning) {
             {
@@ -2434,7 +2434,7 @@
           var HostPortal = 4;
           var HostComponent = 5;
           var HostText = 6;
-          var Fragment3 = 7;
+          var Fragment7 = 7;
           var Mode = 8;
           var ContextConsumer = 9;
           var ContextProvider = 10;
@@ -3591,7 +3591,7 @@
                 return "DehydratedFragment";
               case ForwardRef:
                 return getWrappedName$1(type, type.render, "ForwardRef");
-              case Fragment3:
+              case Fragment7:
                 return "Fragment";
               case HostComponent:
                 return type;
@@ -3992,7 +3992,7 @@
             {
               if (props.value == null) {
                 if (typeof props.children === "object" && props.children !== null) {
-                  React3.Children.forEach(props.children, function(child) {
+                  React7.Children.forEach(props.children, function(child) {
                     if (child == null) {
                       return;
                     }
@@ -12020,7 +12020,7 @@
               }
             }
             function updateFragment2(returnFiber, current2, fragment, lanes, key) {
-              if (current2 === null || current2.tag !== Fragment3) {
+              if (current2 === null || current2.tag !== Fragment7) {
                 var created = createFiberFromFragment(fragment, returnFiber.mode, lanes, key);
                 created.return = returnFiber;
                 return created;
@@ -12423,7 +12423,7 @@
                 if (child.key === key) {
                   var elementType = element.type;
                   if (elementType === REACT_FRAGMENT_TYPE) {
-                    if (child.tag === Fragment3) {
+                    if (child.tag === Fragment7) {
                       deleteRemainingChildren(returnFiber, child.sibling);
                       var existing = useFiber(child, element.props.children);
                       existing.return = returnFiber;
@@ -17899,7 +17899,7 @@
                 var _resolvedProps2 = workInProgress2.elementType === type ? _unresolvedProps2 : resolveDefaultProps(type, _unresolvedProps2);
                 return updateForwardRef(current2, workInProgress2, type, _resolvedProps2, renderLanes2);
               }
-              case Fragment3:
+              case Fragment7:
                 return updateFragment(current2, workInProgress2, renderLanes2);
               case Mode:
                 return updateMode(current2, workInProgress2, renderLanes2);
@@ -18171,7 +18171,7 @@
               case SimpleMemoComponent:
               case FunctionComponent:
               case ForwardRef:
-              case Fragment3:
+              case Fragment7:
               case Mode:
               case Profiler:
               case ContextConsumer:
@@ -22432,7 +22432,7 @@
             return fiber;
           }
           function createFiberFromFragment(elements, mode, lanes, key) {
-            var fiber = createFiber(Fragment3, elements, key, mode);
+            var fiber = createFiber(Fragment7, elements, key, mode);
             fiber.lanes = lanes;
             return fiber;
           }
@@ -23588,7 +23588,7 @@
       if (true) {
         (function() {
           "use strict";
-          var React3 = require_react();
+          var React7 = require_react();
           var REACT_ELEMENT_TYPE = Symbol.for("react.element");
           var REACT_PORTAL_TYPE = Symbol.for("react.portal");
           var REACT_FRAGMENT_TYPE = Symbol.for("react.fragment");
@@ -23614,7 +23614,7 @@
             }
             return null;
           }
-          var ReactSharedInternals = React3.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+          var ReactSharedInternals = React7.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
           function error(format) {
             {
               {
@@ -24464,11 +24464,11 @@
               return jsxWithValidation(type, props, key, false);
             }
           }
-          var jsx4 = jsxWithValidationDynamic;
-          var jsxs3 = jsxWithValidationStatic;
+          var jsx8 = jsxWithValidationDynamic;
+          var jsxs7 = jsxWithValidationStatic;
           exports.Fragment = REACT_FRAGMENT_TYPE;
-          exports.jsx = jsx4;
-          exports.jsxs = jsxs3;
+          exports.jsx = jsx8;
+          exports.jsxs = jsxs7;
         })();
       }
     }
@@ -24487,7 +24487,7 @@
   });
 
   // src/main.jsx
-  var import_react2 = __toESM(require_react());
+  var import_react6 = __toESM(require_react());
   var import_client = __toESM(require_client());
 
   // icons.jsx
@@ -24580,1834 +24580,2620 @@
   window.Icons = Icons;
 
   // aw-ide-panel.jsx
+  var import_react5 = __toESM(require_react());
+
+  // src/v4/chrome.jsx
+  var import_react2 = __toESM(require_react());
+
+  // src/v4/icons.jsx
   var import_react = __toESM(require_react());
   var import_jsx_runtime2 = __toESM(require_jsx_runtime());
-  var IDEIcons = window.Icons;
-  function IDEPlanTag({ kind }) {
-    const normalized = String(kind || "step").toLowerCase();
-    const map = { click: "click", fill: "fill", assert: "assert", navigate: "nav", nav: "nav", multi: "step" };
-    const label = normalized === "nav" ? "navigate" : normalized === "multi" ? "multi-action" : normalized;
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: `ide-plan-tag t-${map[normalized] || normalized}`, children: label });
-  }
-  function IDEBadge({ kind, children }) {
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: `ide-badge b-${kind}`, children });
-  }
-  function IDECard({ color, title, children, footer, testId, ariaLabel, id }) {
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
-      "div",
-      {
-        id,
-        className: `ide-card c-${color || "ink"}`,
-        "data-testid": testId,
-        "aria-label": ariaLabel,
-        children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-card-hd", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-card-hd-label", children: title }) }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-card-body", children }),
-          footer && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { padding: "0 10px 10px", display: "flex", gap: 6 }, children: footer })
-        ]
-      }
-    );
-  }
-  function getPlanStepChildren(step) {
-    if (!step || typeof step !== "object") {
-      return [];
+  var mk2 = (paths, vb = "0 0 24 24") => (props = {}) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+    "svg",
+    {
+      viewBox: vb,
+      fill: "none",
+      stroke: "currentColor",
+      strokeWidth: "1.6",
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      "aria-hidden": "true",
+      ...props,
+      children: paths
     }
-    if (Array.isArray(step.children)) {
-      return step.children;
-    }
-    const raw = step.raw;
-    if (raw && typeof raw === "object" && Array.isArray(raw.children)) {
-      return raw.children;
-    }
-    return [];
-  }
-  function normalizePlanChild(child, index) {
-    if (child == null) {
-      return null;
-    }
-    const source = typeof child === "object" ? child : { text: child };
-    const operationId = firstText(
-      source.operation_id,
-      source.operationId,
-      source.op_id,
-      source.opId,
-      source.id,
-      source.step_id,
-      source.stepId
-    );
-    const kind = normalizeStepAction(source.type || source.kind || source.action);
-    const description = pickRecordedText(
-      source.description,
-      source.target,
-      source.text,
-      source.label,
-      source.title,
-      source.intent,
-      `Child ${index + 1}`
-    );
-    const locator = firstText(source.locator, source.selector, source.xpath, source.css, source.path);
-    return {
-      key: operationId ? `${operationId}-${index + 1}` : `plan-child-${index + 1}`,
-      operationId,
-      kind,
-      description: description || `Child ${index + 1}`,
-      locator: locator && locator.length <= 56 ? locator : ""
-    };
-  }
-  function normalizePanelState(state) {
-    const key = String(state || "idle").trim().toLowerCase().replace(/[\s-]+/g, "_");
-    switch (key) {
-      case "idle":
-        return "idle";
-      case "planning":
-        return "planning";
-      case "await":
-      case "awaiting_confirmation":
-      case "awaiting confirmation":
-        return "await";
-      case "exec":
-      case "executing":
-        return "exec";
-      case "recover":
-      case "recovery":
-      case "recovery_needed":
-      case "recovery needed":
-        return "recover";
-      case "done":
-      case "completed":
-        return "done";
-      default:
-        return "idle";
-    }
-  }
-  function connectionLabel(status) {
-    switch (String(status || "disconnected")) {
-      case "connected":
-        return "Connected";
-      case "reconnecting":
-        return "Reconnecting";
-      default:
-        return "Disconnected";
-    }
-  }
-  function connectionStyle(status) {
-    switch (String(status || "disconnected")) {
-      case "connected":
-        return {
-          background: "#eef8f1",
-          border: "1px solid #cfe9d6",
-          color: "#1e7a46"
-        };
-      case "reconnecting":
-        return {
-          background: "#fbf6ea",
-          border: "1px solid #ead8ac",
-          color: "#8b6f1d"
-        };
-      default:
-        return {
-          background: "#f4f0ea",
-          border: "1px solid #ddd3c3",
-          color: "#7d7469"
-        };
-    }
-  }
-  function IDEConversation({ state, messages = [], live = false }) {
-    const scrollRef = import_react.default.useRef(null);
-    const fallback = {
-      idle: [{ w: "user", t: "10:41", txt: "Open playwright.dev, assert hero text exists, then click Get started." }],
-      planning: [
-        { w: "user", t: "10:41", txt: "Open playwright.dev, assert hero text exists, then click Get started." },
-        {
-          w: "agent",
-          t: "10:41",
-          txt: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ide-spinner", style: { color: "#4a9eff" } }),
-            "Parsing task \xB7 inspecting DOM \xB7 ranking locators\u2026"
-          ] })
-        }
-      ],
-      plan_review: [
-        { w: "user", t: "10:41", txt: "Open playwright.dev, assert hero text exists, then click Get started." },
-        { w: "agent", t: "10:41", txt: "Plan ready for your review." }
-      ],
-      clarification: [
-        { w: "user", t: "10:41", txt: "Open playwright.dev, assert hero text exists, then click Get started." },
-        { w: "agent", t: "10:41", txt: "I need a clarification before I can continue." }
-      ],
-      exec: [
-        { w: "user", t: "10:41", txt: "Open playwright.dev, assert hero text, then click Get started." },
-        {
-          w: "agent",
-          t: "10:42",
-          txt: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ide-spinner", style: { color: "#4a9eff" } }),
-            'Executing step 2 / 2 \u2014 clicking "Get started"\u2026'
-          ] })
-        }
-      ],
-      executing: [
-        { w: "user", t: "10:41", txt: "Open playwright.dev, assert hero text, then click Get started." },
-        {
-          w: "agent",
-          t: "10:42",
-          txt: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ide-spinner", style: { color: "#4a9eff" } }),
-            "Executing the current step\u2026"
-          ] })
-        }
-      ],
-      recover: [
-        { w: "user", t: "10:41", txt: "Open playwright.dev, assert hero text, then click Get started." },
-        { w: "system", t: "10:42", txt: "Step failed: page navigated before assertion ran. Hero element no longer in DOM." },
-        { w: "agent", t: "10:42", txt: "Recovery suggestion: go back \u2192 assert first \u2192 re-click." }
-      ],
-      recovery: [
-        { w: "user", t: "10:41", txt: "Open playwright.dev, assert hero text, then click Get started." },
-        { w: "system", t: "10:42", txt: "Step failed: page navigated before assertion ran. Hero element no longer in DOM." },
-        { w: "agent", t: "10:42", txt: "Recovery guidance needed." }
-      ],
-      done: [
-        { w: "user", t: "10:41", txt: "Open playwright.dev, assert hero text exists, then click Get started." },
-        {
-          w: "agent",
-          t: "10:42",
-          txt: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("b", { style: { color: "#1f9d6a" }, children: "2/2 steps recorded." }),
-            " Generated 4 lines of Playwright TS \u2014 see Code tab."
-          ] })
-        }
-      ],
-      completed: [
-        { w: "user", t: "10:41", txt: "Open playwright.dev, assert hero text exists, then click Get started." },
-        {
-          w: "agent",
-          t: "10:42",
-          txt: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("b", { style: { color: "#1f9d6a" }, children: "All steps recorded." }),
-            " Generated 4 lines of Playwright TS \u2014 see Code tab."
-          ] })
-        }
-      ]
-    }[state] || [];
-    const rows = live ? messages.length > 0 ? messages : [{ w: "system", t: "--:--:--", txt: "Waiting for backend messages\u2026" }] : fallback;
-    import_react.default.useEffect(() => {
-      const node = scrollRef.current;
-      if (!node) {
-        return;
-      }
-      node.scrollTop = node.scrollHeight;
-    }, [rows.length]);
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECard, { color: "violet", title: "// conversation", testId: "llm", ariaLabel: "LLM", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { ref: scrollRef, className: "ide-scrollbox ide-scrollbox-conversation", style: { maxHeight: 228 }, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { marginInline: -10 }, children: rows.map((m, i) => {
-      const who = m.role || m.w || "agent";
-      const time = m.time || m.t || "--:--:--";
-      const text = m.text !== void 0 ? m.text : m.txt;
-      return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-msg", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-msg-gutter", children: time }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-msg-body", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `ide-msg-who w-${who}`, children: who }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-msg-text", children: text })
-        ] })
-      ] }, i);
-    }) }) }) });
-  }
-  function IDEPlanReview({
-    plan,
-    live = false,
-    correctionText = "",
-    onCorrectionTextChange,
-    onConfirmPlan,
-    onSendCorrection
+  );
+  var I = {
+    Bolt: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M13 3 4 14h7l-1 7 9-11h-7l1-7z" })),
+    Chat: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.4A8 8 0 1 1 21 12z" }) })),
+    Steps: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M4 6h7M4 12h11M4 18h6" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "18", cy: "12", r: "2" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "14", cy: "18", r: "2" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "15", cy: "6", r: "2" })
+    ] })),
+    Camera: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M4 8h3l2-2h6l2 2h3v11H4z" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "12", cy: "13", r: "3.2" })
+    ] })),
+    Code: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "m8 8-5 4 5 4M16 8l5 4-5 4M14 4l-4 16" }) })),
+    Trace: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M4 6h16M4 12h10M4 18h13" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "18", cy: "12", r: "1.4", fill: "currentColor" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "20", cy: "18", r: "1.4", fill: "currentColor" })
+    ] })),
+    Plug: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M9 2v6M15 2v6M7 8h10v3a5 5 0 0 1-10 0V8zM12 16v5" }) })),
+    Settings: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "12", cy: "12", r: "3" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M19.4 14a1 1 0 0 0 .2 1.1l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1 1 0 0 0-1.1-.2 1 1 0 0 0-.6.9V19a2 2 0 1 1-4 0v-.1a1 1 0 0 0-.6-.9 1 1 0 0 0-1.1.2l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1 1 0 0 0 .2-1.1 1 1 0 0 0-.9-.6H5a2 2 0 1 1 0-4h.1a1 1 0 0 0 .9-.6 1 1 0 0 0-.2-1.1l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1 1 0 0 0 1.1.2H10a1 1 0 0 0 .6-.9V5a2 2 0 1 1 4 0v.1a1 1 0 0 0 .6.9 1 1 0 0 0 1.1-.2l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1 1 0 0 0-.2 1.1V10a1 1 0 0 0 .9.6H20a2 2 0 1 1 0 4h-.1a1 1 0 0 0-.9.6z" })
+    ] })),
+    Dock: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("rect", { x: "3", y: "4", width: "18", height: "16", rx: "2" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M15 4v16" })
+    ] })),
+    DockL: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("rect", { x: "3", y: "4", width: "18", height: "16", rx: "2" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M9 4v16" })
+    ] })),
+    DockTop: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("rect", { x: "3", y: "4", width: "18", height: "16", rx: "2" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M3 10h18" })
+    ] })),
+    Float: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("rect", { x: "3", y: "4", width: "14", height: "12", rx: "2" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("rect", { x: "7", y: "8", width: "14", height: "12", rx: "2" })
+    ] })),
+    Min: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M5 12h14" }) })),
+    X: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M6 6l12 12M18 6 6 18" }) })),
+    Spark: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2.1 2.1M16.3 16.3l2.1 2.1M5.6 18.4l2.1-2.1M16.3 7.7l2.1-2.1" }) })),
+    Check: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "m5 12 5 5L20 7" }) })),
+    Play: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M6 4v16l14-8z", fill: "currentColor", stroke: "none" }) })),
+    Pause: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M7 4h4v16H7zM13 4h4v16h-4z", fill: "currentColor", stroke: "none" }) })),
+    Stop: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("rect", { x: "6", y: "6", width: "12", height: "12", rx: "1.5", fill: "currentColor", stroke: "none" }) })),
+    Retry: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M21 12a9 9 0 1 1-3-6.7L21 8" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M21 3v5h-5" })
+    ] })),
+    Skip: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M5 4v16l9-8z", fill: "currentColor", stroke: "none" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M19 4v16" })
+    ] })),
+    Plus: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M12 5v14M5 12h14" }) })),
+    Caret: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "m6 9 6 6 6-6" }) })),
+    CaretR: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "m9 6 6 6-6 6" }) })),
+    Send: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M22 2 11 13M22 2l-7 20-4-9-9-4z" }) })),
+    Paperclip: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "m21 11-9 9a5.5 5.5 0 0 1-7.8-7.8l9-9a4 4 0 0 1 5.7 5.7l-9 9a2.5 2.5 0 0 1-3.5-3.5l8.5-8.5" }) })),
+    Mouse: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M5 3l7 18 2-8 8-2z", fill: "currentColor", stroke: "none", opacity: ".15" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M5 3l7 18 2-8 8-2z" })
+    ] })),
+    Eye: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "12", cy: "12", r: "3" })
+    ] })),
+    Alert: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M12 3 2 21h20zM12 10v5M12 18h.01", strokeLinecap: "round" }) })),
+    Info: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "12", cy: "12", r: "9" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M12 8h.01M11 12h1v5h1" })
+    ] })),
+    Copy: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("rect", { x: "8", y: "8", width: "13", height: "13", rx: "2" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" })
+    ] })),
+    Download: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M12 3v13M6 10l6 6 6-6M4 21h16" }) })),
+    Filter: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M3 5h18l-7 9v6l-4-2v-4z" }) })),
+    Folder: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" }) })),
+    Lock: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("rect", { x: "4", y: "11", width: "16", height: "9", rx: "2" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M8 11V7a4 4 0 1 1 8 0v4" })
+    ] })),
+    Shield: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z" }) })),
+    Target: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "12", cy: "12", r: "8" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "12", cy: "12", r: "4" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "12", cy: "12", r: "1", fill: "currentColor" })
+    ] })),
+    Drag: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "9", cy: "6", r: "1.2", fill: "currentColor" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "15", cy: "6", r: "1.2", fill: "currentColor" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "9", cy: "12", r: "1.2", fill: "currentColor" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "15", cy: "12", r: "1.2", fill: "currentColor" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "9", cy: "18", r: "1.2", fill: "currentColor" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "15", cy: "18", r: "1.2", fill: "currentColor" })
+    ] })),
+    More: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "6", cy: "12", r: "1.4", fill: "currentColor" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "12", cy: "12", r: "1.4", fill: "currentColor" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "18", cy: "12", r: "1.4", fill: "currentColor" })
+    ] })),
+    Sync: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M21 12A9 9 0 0 0 6 5.3L3 8" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M3 12a9 9 0 0 0 15 6.7L21 16" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M21 3v5h-5M3 21v-5h5" })
+    ] })),
+    Repeat: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M17 3 21 7l-4 4M3 11V9a4 4 0 0 1 4-4h14M7 21l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3" }) })),
+    Layers: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M12 2 2 7l10 5 10-5z" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M2 12l10 5 10-5M2 17l10 5 10-5" })
+    ] })),
+    Diff: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M6 3v13a2 2 0 0 0 2 2h4M12 7l4-4 4 4" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M18 21V8M18 21v0a2 2 0 0 1-2-2h-4M12 17l-4 4-4-4" })
+    ] })),
+    Key: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "8", cy: "15", r: "4" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "m11 12 9-9M16 7l3 3M14 9l2 2" })
+    ] })),
+    Branch: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "6", cy: "6", r: "2" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "6", cy: "18", r: "2" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "18", cy: "9", r: "2" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M6 8v8M16.5 10.5C15 14 11 14 8 14" })
+    ] })),
+    Doc: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6M8 13h8M8 17h6" }) })),
+    Globe: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "12", cy: "12", r: "9" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" })
+    ] })),
+    Search: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "11", cy: "11", r: "7" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "m20 20-3.5-3.5" })
+    ] }))
+  };
+
+  // src/v4/chrome.jsx
+  var import_jsx_runtime3 = __toESM(require_jsx_runtime());
+  var STATUS_MAP = {
+    connected: { cls: "ok", label: "Connected" },
+    busy: { cls: "busy", label: "Running" },
+    reconnect: { cls: "warn", label: "Reconnecting" },
+    offline: { cls: "err", label: "Offline" },
+    error: { cls: "err", label: "LLM error" }
+  };
+  function Header({
+    status = "connected",
+    dock = "right",
+    setDock = () => {
+    },
+    collapsed = false,
+    setCollapsed = () => {
+    },
+    tokenInfo = { tok: "0", cost: "0.00" },
+    runState = "\u2014",
+    agentsOpen = false,
+    setAgentsOpen = () => {
+    },
+    agentsSummary = ["on", "on", "on", "off", "off"],
+    pageUrl = ""
   }) {
-    const hasRuntimePlan = live && plan && Array.isArray(plan.steps);
-    const fallbackItems = [
-      { type: "assert", text: "Assert hero heading is visible", cls: "" },
-      { type: "click", text: 'Click "Get started" link', cls: "" }
+    const dockBtn = (kind, Icon, title) => /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+      "button",
+      {
+        type: "button",
+        className: "aw-icon-btn " + (dock === kind ? "active" : ""),
+        onClick: () => setDock(kind),
+        title,
+        "aria-label": title,
+        "data-testid": `aw-dock-${kind}`,
+        children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, {})
+      }
+    );
+    const s = STATUS_MAP[status] || STATUS_MAP.connected;
+    const pageLabel = pageUrl ? pageUrl.replace(/^[^/]+/, "") : "\u2014";
+    return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("header", { className: "aw-header", "data-testid": "aw-header", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "aw-header-main", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "aw-brand", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "aw-logo", "aria-hidden": "true" }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { children: "AutoWorkbench" })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "aw-brand-divider" }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
+        "span",
+        {
+          className: "aw-status-pill " + s.cls,
+          title: "Backend connection",
+          "data-testid": "aw-status-pill",
+          "data-status": status,
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "aw-dot" }),
+            s.label
+          ]
+        }
+      ),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "aw-status-pill mode", title: "Complete LLM Mode", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "aw-dot" }),
+        "LLM"
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
+        "button",
+        {
+          type: "button",
+          className: "aw-agents-btn " + (agentsOpen ? "open" : ""),
+          onClick: () => setAgentsOpen(!agentsOpen),
+          title: "Agent Control Center",
+          "data-testid": "aw-agents-toggle",
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(I.Layers, { style: { width: 11, height: 11 } }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { children: "Agents" }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dots", children: agentsSummary.map((c, i) => /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("i", { className: c }, i)) })
+          ]
+        }
+      ),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
+        "span",
+        {
+          className: "aw-status-pill shrinkable",
+          title: "Current page \xB7 " + (pageUrl || "\u2014"),
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(I.Globe, { style: { width: 10, height: 10, color: "var(--tx-3)" } }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "v", children: pageLabel })
+          ]
+        }
+      ),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "aw-spacer" }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
+        "span",
+        {
+          className: "aw-status-pill",
+          title: `run ${runState} \xB7 ${tokenInfo.tok} tokens \xB7 $${tokenInfo.cost}`,
+          "data-testid": "aw-run-pill",
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "v", children: tokenInfo.tok }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "k", children: "\xB7" }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "v", children: [
+              "$",
+              tokenInfo.cost
+            ] })
+          ]
+        }
+      ),
+      dockBtn("right", I.Dock, "Dock right"),
+      dockBtn("left", I.DockL, "Dock left"),
+      dockBtn("top", I.DockTop, "Dock top"),
+      dockBtn("float", I.Float, "Float"),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+        "button",
+        {
+          type: "button",
+          className: "aw-icon-btn",
+          onClick: () => setCollapsed(!collapsed),
+          title: "Collapse",
+          "data-testid": "aw-collapse",
+          children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(I.Min, {})
+        }
+      ),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { type: "button", className: "aw-icon-btn", title: "Settings", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(I.Settings, {}) })
+    ] }) });
+  }
+  function TabStrip({ tab, setTab, counts = {} }) {
+    const tabs = [
+      { id: "llm", label: "LLM", Icon: I.Spark, badge: counts.llm },
+      { id: "steps", label: "Steps", Icon: I.Steps, badge: counts.steps },
+      { id: "rec", label: "Recorded", Icon: I.Camera, badge: counts.rec },
+      { id: "code", label: "Code", Icon: I.Code, badge: counts.code },
+      { id: "trace", label: "Trace", Icon: I.Trace, badge: counts.trace }
     ];
-    const items = live ? hasRuntimePlan ? plan.steps : [] : fallbackItems;
-    const planIsCompleted = hasRuntimePlan && items.length > 0 && items.every((step) => {
-      const status = firstText(step.status, step.state, step.cls).toLowerCase();
-      return step.recorded === true || step.completed === true || ["done", "completed", "recorded", "passed"].includes(status);
-    });
-    const summary = hasRuntimePlan ? planIsCompleted ? plan.summary || "All plan steps recorded" : plan.summary || "Plan ready" : live ? "Waiting for plan_ready\u2026" : "2 actions \xB7 ~3s";
-    const showPlaceholder = live && (!plan || !Array.isArray(plan.steps) || plan.steps.length === 0);
-    const planBadge = planIsCompleted ? "Completed" : "Awaiting confirmation";
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
-      IDECard,
+    return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("nav", { className: "aw-tabs", role: "tablist", "data-testid": "aw-tabs", children: tabs.map((t) => /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
+      "button",
       {
-        color: "blue",
-        title: "// plan review",
-        testId: "plan-review",
-        ariaLabel: "plan review",
-        footer: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-            "button",
-            {
-              className: "ide-btn primary",
-              type: "button",
-              style: { flex: 1, justifyContent: "center" },
-              onClick: () => onConfirmPlan?.(),
-              children: "Confirm Plan"
-            },
-            "c"
-          ),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-            "button",
-            {
-              className: "ide-btn",
-              type: "button",
-              style: { flex: 1, justifyContent: "center" },
-              onClick: () => onSendCorrection?.(),
-              children: "Send Correction"
-            },
-            "s"
-          )
-        ],
+        type: "button",
+        role: "tab",
+        "aria-selected": tab === t.id,
+        className: "aw-tab " + (tab === t.id ? "active" : ""),
+        onClick: () => setTab(t.id),
+        "data-testid": `aw-tab-${t.id}`,
         children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, marginBottom: 8, flexWrap: "wrap" }, children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEBadge, { kind: planIsCompleted ? "recorded" : "await", children: planBadge }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { style: { fontSize: 10.5, color: "#9e9890" }, children: summary })
-          ] }),
-          showPlaceholder && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { marginBottom: 8, fontSize: 11.5, color: "#8f8a82" }, children: "Waiting for plan_ready\u2026" }),
-          items.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-scrollbox ide-scrollbox-plan", style: { maxHeight: 180 }, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("ol", { className: "ide-plan", children: items.map((it, i) => {
-            const kind = it.kind || it.type || "step";
-            const text = it.text || it.label || it.title || `Step ${i + 1}`;
-            const status = firstText(it.status, it.state, it.cls).toLowerCase();
-            const expectedOutcome = formatExpectedOutcomeSummary(it.expected_outcome ?? it.expectedOutcome);
-            const childRows = getPlanStepChildren(it).map((child, childIndex) => normalizePlanChild(child, childIndex)).filter(Boolean);
-            const cls = it.cls || (it.recorded === true || it.completed === true || ["done", "completed", "recorded", "passed"].includes(status) ? "done" : status === "active" ? "active" : "");
-            return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("li", { className: cls, children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-plan-parent-row", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { className: "ide-plan-num", children: [
-                  i + 1,
-                  "."
-                ] }),
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ide-plan-text", children: text }),
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEPlanTag, { kind })
-              ] }),
-              expectedOutcome && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-plan-outcome", children: [
-                "expected_outcome: ",
-                expectedOutcome
-              ] }),
-              childRows.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-plan-children", children: childRows.map((child) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-plan-child", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-plan-child-head", children: [
-                  child.operationId && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ide-plan-child-op", children: child.operationId }),
-                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEPlanTag, { kind: child.kind })
-                ] }),
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-plan-child-desc", children: child.description }),
-                child.locator && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "ide-plan-child-locator", children: child.locator })
-              ] }, child.key)) })
-            ] }, i);
-          }) }) }) : null,
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-            "textarea",
-            {
-              className: "ide-input",
-              rows: 2,
-              style: { marginTop: 8 },
-              placeholder: "Type correction\u2026",
-              value: correctionText,
-              onChange: (event) => onCorrectionTextChange?.(event.target.value)
-            }
-          )
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(t.Icon, { style: { width: 13, height: 13 } }),
+          t.label,
+          t.badge != null && /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "aw-badge", children: t.badge })
         ]
-      }
-    );
+      },
+      t.id
+    )) });
   }
-  function IDEClarificationCard({
-    question = "",
-    options = [],
-    answerText = "",
-    onAnswerTextChange,
-    onSendAnswer
-  }) {
-    const hasOptions = Array.isArray(options) && options.length > 0;
-    const text = question || "The agent needs a clarification before it can continue.";
-    const answerRef = import_react.default.useRef(null);
-    import_react.default.useEffect(() => {
-      answerRef.current?.focus?.();
-    }, [question, hasOptions]);
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
-      IDECard,
-      {
-        color: "violet",
-        title: "// clarification needed",
-        testId: "clarification",
-        ariaLabel: "clarification",
-        footer: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-            "button",
-            {
-              className: "ide-btn primary",
-              type: "button",
-              style: { flex: 1, justifyContent: "center" },
-              onClick: () => onSendAnswer?.(),
-              children: "Send Answer"
+  function NowStrip({ kind = "idle", state, task, refLabel, primaryLabel, primaryIcon: PI, onPrimary }) {
+    if (!state && !task) return null;
+    return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "aw-now " + kind, "data-testid": "aw-now", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "aw-now-rail" }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "aw-now-main", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "aw-now-eyebrow", children: [
+          "Current task",
+          state ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "aw-now-state", children: state }) : null
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "aw-now-task", children: [
+          task,
+          refLabel ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "ref", children: refLabel }) : null
+        ] })
+      ] }),
+      primaryLabel ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "aw-now-actions", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
+        "button",
+        {
+          type: "button",
+          className: "aw-btn primary",
+          onClick: () => typeof onPrimary === "function" && onPrimary(),
+          "data-testid": "aw-now-primary",
+          children: [
+            PI ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(PI, {}) : null,
+            primaryLabel
+          ]
+        }
+      ) }) : null
+    ] });
+  }
+  function Footer({ phase, event, blocker, nextAction, busy }) {
+    return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("footer", { className: "aw-footer", "data-testid": "aw-footer", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "aw-footer-phase", children: [
+        busy ? /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "aw-bar", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("i", {}),
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("i", {}),
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("i", {}),
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("i", {})
+        ] }) : null,
+        phase || "Idle"
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "aw-footer-event", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "em", children: "last:" }),
+        " ",
+        event || "\u2014",
+        blocker ? /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(import_jsx_runtime3.Fragment, { children: [
+          " \xB7 ",
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { style: { color: "var(--red)", fontWeight: 500 }, "data-testid": "aw-footer-blocker", children: [
+            "blocked: ",
+            blocker
+          ] })
+        ] }) : null
+      ] }),
+      nextAction ? /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "aw-footer-next", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(I.CaretR, { style: { width: 11, height: 11 } }),
+        nextAction
+      ] }) : null
+    ] });
+  }
+  function AgentsPopover({ onClose, agents = [] }) {
+    const list = Array.isArray(agents) && agents.length ? agents : DEFAULT_AGENTS;
+    return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "aw-agents-pop", role: "dialog", "aria-label": "Agent Control Center", "data-testid": "aw-agents-popover", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "aw-agents-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+          "span",
+          {
+            className: "aw-card-icon",
+            style: {
+              width: 22,
+              height: 22,
+              borderRadius: 6,
+              background: "var(--acc-tint)",
+              color: "var(--acc-2)"
             },
-            "s"
-          )
-        ],
-        children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-clarification-question", children: text }),
-          hasOptions && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-clarification-options", children: options.map((option, index) => {
-            const label = option?.label || option?.value || String(option);
-            const value = option?.value || option?.label || label;
-            return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+            children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(I.Layers, { style: { width: 12, height: 12 } })
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "t", children: "Agent Control Center" }) }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "sub", children: [
+          list.filter((a) => a.status !== "disabled").length,
+          " active \xB7 ",
+          list.filter((a) => a.status === "disabled").length,
+          " off"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "x", onClick: onClose, "data-testid": "aw-agents-close", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(I.X, { style: { width: 13, height: 13 } }) })
+      ] }),
+      list.map((a) => {
+        const status = a.status || "standby";
+        const cls = status === "running" ? "running" : status === "active" ? "active" : status === "disabled" ? "disabled" : "standby";
+        return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "aw-agent-row " + cls, "data-testid": `aw-agent-row-${a.key}`, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "aw-agent-av", children: a.initials }),
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "aw-agent-name", children: [
+              a.name,
+              a.required ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "aw-pin-required", children: "Required" }) : null
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "aw-agent-model", children: a.model }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "aw-agent-last", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "em", children: "last:" }),
+              " ",
+              a.last
+            ] })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "aw-agent-ctrl", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "aw-agent-status " + cls, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "ldot" }),
+              status === "queued" ? "queued" : status
+            ] }),
+            a.required ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { type: "button", className: "aw-toggle on locked", "aria-label": "locked on", disabled: true }) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
               "button",
               {
-                className: "ide-btn sm ide-clarification-option",
                 type: "button",
-                onClick: () => onSendAnswer?.(value),
-                children: label
-              },
-              option?.id || `${index}`
-            );
-          }) }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-            "textarea",
-            {
-              ref: answerRef,
-              className: "ide-input",
-              "data-testid": "clarification-answer",
-              "aria-label": "Clarification answer",
-              rows: 3,
-              placeholder: "Answer clarification\u2026",
-              value: answerText,
-              onChange: (event) => onAnswerTextChange?.(event.target.value)
-            }
-          )
-        ]
-      }
-    );
+                className: "aw-toggle " + (status === "disabled" ? "" : "on"),
+                "data-testid": `aw-agent-toggle-${a.key}`
+              }
+            )
+          ] })
+        ] }, a.key);
+      }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "aw-agents-foot", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(I.Info, { style: { width: 11, height: 11 } }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { children: "Main Orchestrator and Step Runner cannot be disabled while LLM Mode is running." }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { style: { flex: 1 } })
+      ] })
+    ] });
   }
-  function IDERecovery({ message, currentUrl, recoveryText = "", onRecoveryTextChange, onSendRecoveryInstruction }) {
-    const issue = message || "Action failed. The agent needs recovery guidance.";
-    const recoveryRef = import_react.default.useRef(null);
-    import_react.default.useEffect(() => {
-      recoveryRef.current?.focus?.();
-    }, [issue, currentUrl]);
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
-      IDECard,
-      {
-        color: "red",
-        title: "// recovery needed",
-        testId: "recovery",
-        ariaLabel: "recovery",
-        footer: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-            "button",
-            {
-              className: "ide-btn primary",
-              type: "button",
-              style: { flex: 1, justifyContent: "center" },
-              onClick: () => onSendRecoveryInstruction?.(),
-              children: "Send Recovery Instruction"
-            },
-            "s"
-          )
-        ],
-        children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-err-strip", style: { marginBottom: 10 }, children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEIcons.Warn, { size: 12 }),
-            issue
-          ] }),
-          currentUrl && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-recovery-url", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-recovery-url-label", children: "Current URL" }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "ide-recovery-url-code", children: currentUrl })
-          ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-            "textarea",
-            {
-              ref: recoveryRef,
-              className: "ide-input",
-              "data-testid": "recovery-instruction",
-              "aria-label": "Recovery instruction",
-              rows: 3,
-              placeholder: "Tell the agent how to recover...",
-              value: recoveryText,
-              onChange: (event) => onRecoveryTextChange?.(event.target.value)
-            }
-          )
-        ]
-      }
-    );
+  var DEFAULT_AGENTS = [
+    { key: "orch", name: "Main Orchestrator", initials: "MO", model: "\u2014", status: "standby", last: "Waiting on user input", required: true },
+    { key: "pi", name: "Page Intelligence", initials: "PI", model: "\u2014", status: "standby", last: "Standby", required: false },
+    { key: "sr", name: "Step Runner", initials: "SR", model: "internal \xB7 Playwright runtime", status: "standby", last: "Idle", required: true },
+    { key: "dbg", name: "Debug Agent", initials: "DA", model: "\u2014", status: "standby", last: "Standby", required: false },
+    { key: "cg", name: "Codegen Reviewer", initials: "CR", model: "\u2014", status: "standby", last: "Standby", required: false }
+  ];
+  function CollapsedRail({ tab, setTab, setCollapsed }) {
+    const items = [
+      { id: "llm", Icon: I.Spark },
+      { id: "steps", Icon: I.Steps },
+      { id: "rec", Icon: I.Camera },
+      { id: "code", Icon: I.Code },
+      { id: "trace", Icon: I.Trace }
+    ];
+    return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "aw-collapsed-rail", "data-testid": "aw-collapsed-rail", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { type: "button", className: "aw-icon-btn", onClick: () => setCollapsed(false), title: "Expand", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(I.CaretR, { style: { transform: "rotate(180deg)" } }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "aw-rail-sep" }),
+      items.map((it) => /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+        "button",
+        {
+          type: "button",
+          className: "aw-icon-btn " + (tab === it.id ? "active" : ""),
+          onClick: () => setTab(it.id),
+          "data-testid": `aw-rail-tab-${it.id}`,
+          children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(it.Icon, {})
+        },
+        it.id
+      ))
+    ] });
   }
-  function IDETimeline({ state, events = [], live = false }) {
-    const scrollRef = import_react.default.useRef(null);
-    const fallback = {
-      idle: [],
-      planning: [
-        { d: "ok", t: "10:41:30", txt: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
-          "Task parsed ",
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "dim", children: "\xB7 2 actions" })
-        ] }) },
-        { d: "active", t: "10:41:31", txt: "Ranking locator candidates\u2026" }
-      ],
-      await: [
-        { d: "ok", t: "10:41:30", txt: "Task parsed \xB7 2 actions" },
-        { d: "ok", t: "10:41:31", txt: "Locators ranked \xB7 2 / 2" },
-        { d: "warn", t: "10:41:32", txt: "Plan ready \xB7 awaiting confirmation" }
-      ],
-      plan_review: [
-        { d: "ok", t: "10:41:30", txt: "Task parsed \xB7 2 actions" },
-        { d: "ok", t: "10:41:31", txt: "Locators ranked \xB7 2 / 2" },
-        { d: "warn", t: "10:41:32", txt: "Plan ready \xB7 awaiting confirmation" }
-      ],
-      exec: [
-        { d: "ok", t: "10:42:00", txt: "Plan confirmed" },
-        { d: "ok", t: "10:42:01", txt: "DOM snapshot \xB7 1.2 MB" },
-        { d: "ok", t: "10:42:02", txt: "Assertion passed \xB7 hero visible" },
-        { d: "active", t: "10:42:02", txt: 'Clicking "Get started"\u2026' }
-      ],
-      executing: [
-        { d: "ok", t: "10:42:00", txt: "Action acknowledged" },
-        { d: "active", t: "10:42:01", txt: "Executing the next step\u2026" }
-      ],
-      recover: [
-        { d: "ok", t: "10:42:00", txt: "Plan confirmed" },
-        { d: "ok", t: "10:42:02", txt: "Click executed" },
-        { d: "warn", t: "10:42:14", txt: "Page navigated \u2192 /docs/intro" },
-        { d: "err", t: "10:42:14", txt: "Assertion failed \xB7 hero not in DOM" }
-      ],
-      recovery: [
-        { d: "ok", t: "10:42:00", txt: "Recovery needed" },
-        { d: "err", t: "10:42:14", txt: "Failure reason captured" }
-      ],
-      done: [
-        { d: "ok", t: "10:42:00", txt: "Plan confirmed" },
-        { d: "ok", t: "10:42:02", txt: "Assertion passed" },
-        { d: "ok", t: "10:42:04", txt: "Click executed \xB7 /docs/intro" },
-        { d: "ok", t: "10:42:05", txt: "Code generated \xB7 4 lines" }
-      ],
-      completed: [
-        { d: "ok", t: "10:42:00", txt: "Plan confirmed" },
-        { d: "ok", t: "10:42:02", txt: "All recorded steps complete" },
-        { d: "ok", t: "10:42:05", txt: "Code generated \xB7 4 lines" }
-      ],
-      clarification: [
-        { d: "warn", t: "10:41:32", txt: "Clarification needed" },
-        { d: "active", t: "10:41:33", txt: "Waiting for user answer\u2026" }
-      ]
-    }[state] || [];
-    const rows = live ? events : fallback;
-    import_react.default.useEffect(() => {
-      const node = scrollRef.current;
-      if (!node) {
-        return;
-      }
-      node.scrollTop = node.scrollHeight;
-    }, [rows.length]);
-    if (!rows.length) return null;
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECard, { color: "ink", title: "// execution", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { ref: scrollRef, className: "ide-scrollbox ide-scrollbox-timeline", style: { maxHeight: 208 }, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-tl", children: rows.map((r, i) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-tl-row", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `ide-tl-dot d-${r.d || "ok"}` }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-tl-text", children: r.txt !== void 0 ? r.txt : r.text }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-tl-time", children: r.t || r.time || "" })
-    ] }, i)) }) }) });
-  }
-  function firstText(...values) {
-    for (const value of values) {
-      if (typeof value === "string" && value.trim()) {
-        return value.trim();
-      }
-      if ((typeof value === "number" || typeof value === "boolean") && value !== "") {
-        return String(value);
-      }
-    }
-    return "";
-  }
-  function firstRawText(...values) {
-    for (const value of values) {
-      if (typeof value === "string" && value !== "") {
-        return value;
-      }
-      if (typeof value === "number" || typeof value === "boolean") {
-        return String(value);
-      }
-    }
-    return "";
-  }
-  function isTechnicalRecordedLabel(value) {
-    const text = firstText(value);
-    if (!text) {
-      return false;
-    }
-    const trimmed = text.trim();
-    return /^(css|xpath|text|role|id|name|label)=/i.test(trimmed) || /^\/{1,2}/.test(trimmed) || /[.#\[\]()>]/.test(trimmed) || /^[a-z][\w-]*(?:[.#][\w-]+)+$/i.test(trimmed);
-  }
-  function simplifyRecordedSubject(value) {
-    const text = firstText(value);
-    if (!text) {
-      return "";
-    }
-    const lower = text.toLowerCase();
-    if (/^h[1-6]$/.test(lower)) return "heading";
-    if (lower === "a") return "link";
-    if (lower === "button") return "button";
-    if (lower === "input" || lower === "textarea" || lower === "select") return "input";
-    if (lower === "img") return "image";
-    if (lower === "li") return "list item";
-    if (lower === "form") return "form";
-    if (/^[a-z][\w-]*(?:[.#][\w-]+)+$/i.test(text)) {
-      const base = text.split(/[.#\[]/, 1)[0].toLowerCase();
-      if (/^h[1-6]$/.test(base)) return "heading";
-      if (base === "a") return "link";
-      if (base === "button") return "button";
-      if (base === "input" || base === "textarea" || base === "select") return "input";
-      if (base === "img") return "image";
-    }
-    return text;
-  }
-  function pickRecordedText(...values) {
-    for (const value of values) {
-      const text = firstText(value);
-      if (!text) {
-        continue;
-      }
-      if (!isTechnicalRecordedLabel(text)) {
-        return text;
-      }
-      const simplified = simplifyRecordedSubject(text);
-      if (simplified && !isTechnicalRecordedLabel(simplified)) {
-        return simplified;
-      }
-    }
-    return firstText(...values);
-  }
-  function titleFromAction(action, subject, stepNumber) {
-    const fallback = Number.isFinite(stepNumber) && stepNumber > 0 ? `Step ${stepNumber}` : "Recorded step";
-    const cleaned = firstText(subject);
-    if (!cleaned) {
-      return fallback;
-    }
-    switch (action) {
-      case "click":
-        return `Clicked ${cleaned}`;
-      case "fill":
-        return `Filled ${cleaned}`;
-      case "assert":
-        return `Asserted ${cleaned}`;
-      case "navigate":
-        return `Navigated ${cleaned}`;
-      case "hover":
-        return `Hovered ${cleaned}`;
-      default:
-        return `Recorded ${cleaned}`;
+
+  // src/v4/llm-cards.jsx
+  var import_react3 = __toESM(require_react());
+  var import_jsx_runtime4 = __toESM(require_jsx_runtime());
+  function fmtTime(ts) {
+    if (!ts) return "";
+    if (typeof ts === "string" && ts.length <= 8) return ts;
+    try {
+      const d = new Date(ts);
+      return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    } catch {
+      return String(ts);
     }
   }
-  function resolveRecordedStepTitle(step, action, stepNumber) {
-    const elementInfo = step?.element_info && typeof step.element_info === "object" ? step.element_info : null;
-    const intentTitle = firstText(step?.intent, step?.raw?.intent);
-    if (intentTitle) {
-      return intentTitle;
-    }
-    const explicitTitle = firstText(step?.display_title, step?.displayTitle, step?.title, step?.label);
-    if (explicitTitle && !isTechnicalRecordedLabel(explicitTitle)) {
-      if (/^(clicked|filled|asserted|navigated|hovered|recorded|step)\b/i.test(explicitTitle)) {
-        return explicitTitle;
-      }
-      return titleFromAction(action, explicitTitle, stepNumber);
-    }
-    const subject = pickRecordedText(
-      step?.target_label,
-      step?.element_name,
-      step?.elementName,
-      step?.target,
-      step?.name,
-      elementInfo?.text,
-      elementInfo?.label,
-      elementInfo?.title,
-      elementInfo?.name,
-      simplifyRecordedSubject(firstRawText(elementInfo?.tag, elementInfo?.tagName, elementInfo?.nodeName))
-    );
-    if (subject) {
-      return titleFromAction(action, subject, stepNumber);
-    }
-    const locator = pickRecordedText(step?.locator, step?.selector, step?.xpath, step?.css, step?.path);
-    if (locator) {
-      return titleFromAction(action, locator, stepNumber);
-    }
-    return Number.isFinite(stepNumber) && stepNumber > 0 ? `Step ${stepNumber}` : "Recorded step";
-  }
-  function normalizeElementInfoForDisplay(info) {
-    if (!info || typeof info !== "object") {
-      return null;
-    }
-    const attributes = info.attributes && typeof info.attributes === "object" ? info.attributes : {};
-    const rawCandidates = Array.isArray(info.candidates) ? info.candidates : [];
-    const candidates = rawCandidates.map((candidate, index) => normalizeElementCandidateForDisplay(candidate, index)).filter(Boolean);
-    const selectedCandidateIndex = resolveSelectedCandidateIndex(info.selected_candidate_index ?? info.selectedCandidateIndex, candidates.length);
-    const selectedCandidate = selectedCandidateIndex === null ? normalizeElementCandidateForDisplay(info, 0) : candidates[selectedCandidateIndex] || normalizeElementCandidateForDisplay(info, 0);
-    const selectedAttributes = selectedCandidate && selectedCandidate.attributes && typeof selectedCandidate.attributes === "object" ? selectedCandidate.attributes : attributes;
-    let className = firstText(
-      selectedCandidate?.className,
-      selectedCandidate?.class,
-      info.className,
-      info.class,
-      selectedAttributes.className,
-      selectedAttributes.class
-    );
-    if (!className && Array.isArray(info.classes)) {
-      className = info.classes.filter(Boolean).map((value) => String(value).trim()).filter(Boolean).join(" ");
-    }
-    const selectedText = firstText(
-      selectedCandidate?.cleanText,
-      selectedCandidate?.clean_text,
-      selectedCandidate?.text,
-      info.cleanText,
-      info.clean_text,
-      info.text,
-      info.innerText,
-      info.content,
-      info.title,
-      info.label,
-      info.value
-    );
-    const selectedSemanticType = firstText(
-      selectedCandidate?.semanticType,
-      selectedCandidate?.semantic_type,
-      selectedCandidate?.category,
-      info.semanticType,
-      info.semantic_type
-    );
-    const selectedDisplayType = selectedSemanticType === "exact_element" || selectedSemanticType === "exact element" ? describeElementTargetKind(selectedCandidate) : selectedSemanticType;
-    const selectedRole = firstText(selectedCandidate?.role, info.role, selectedAttributes.role);
-    const selectedAriaLabel = firstText(
-      selectedCandidate?.ariaLabel,
-      selectedCandidate?.aria_label,
-      info.ariaLabel,
-      info.aria_label,
-      selectedAttributes["aria-label"]
-    );
-    const selectedSelectorHint = firstText(
-      selectedCandidate?.selectorHint,
-      selectedCandidate?.selector_hint,
-      info.selectorHint,
-      info.selector_hint
-    );
-    const selectedLocatorHint = firstText(
-      selectedCandidate?.locatorHint,
-      selectedCandidate?.locator_hint,
-      info.locatorHint,
-      info.locator_hint
-    );
-    return {
-      ...info,
-      tag: firstText(selectedCandidate?.tag, info.tag, info.tagName, info.nodeName).toLowerCase() || "element",
-      text: selectedText,
-      cleanText: selectedText,
-      clean_text: selectedText,
-      id: firstText(selectedCandidate?.id, info.id, selectedAttributes.id),
-      className,
-      class: className,
-      role: selectedRole,
-      ariaLabel: selectedAriaLabel,
-      aria_label: selectedAriaLabel,
-      semanticType: selectedDisplayType,
-      semantic_type: selectedDisplayType,
-      selectorHint: selectedSelectorHint,
-      selector_hint: selectedSelectorHint,
-      locatorHint: selectedLocatorHint,
-      locator_hint: selectedLocatorHint,
-      selected_candidate_index: selectedCandidateIndex,
-      candidates,
-      attributes: selectedAttributes
-    };
-  }
-  function resolveSelectedCandidateIndex(value, candidateCount) {
-    const index = Number(value);
-    if (Number.isInteger(index) && index >= 0 && index < candidateCount) {
-      return index;
-    }
-    return candidateCount > 0 ? 0 : null;
-  }
-  function normalizeElementCandidateForDisplay(candidate, fallbackLevel = 0) {
-    if (!candidate || typeof candidate !== "object") {
-      return null;
-    }
-    const attributes = candidate.attributes && typeof candidate.attributes === "object" ? candidate.attributes : {};
-    const className = firstText(candidate.className, candidate.class, attributes.className, attributes.class);
-    const text = firstText(
-      candidate.cleanText,
-      candidate.clean_text,
-      candidate.text,
-      candidate.innerText,
-      candidate.content,
-      candidate.title,
-      candidate.label,
-      candidate.value
-    );
-    const semanticType = firstText(candidate.semanticType, candidate.semantic_type, candidate.category).replace(/_/g, " ");
-    return {
-      ...candidate,
-      level: Number.isFinite(Number(candidate.level)) ? Number(candidate.level) : fallbackLevel,
-      tag: firstText(candidate.tag, candidate.tagName, candidate.nodeName).toLowerCase(),
-      role: firstText(candidate.role, attributes.role),
-      ariaLabel: firstText(candidate.ariaLabel, candidate.aria_label, attributes["aria-label"]),
-      text,
-      cleanText: text,
-      clean_text: text,
-      className,
-      class: className,
-      id: firstText(candidate.id, attributes.id),
-      selectorHint: firstText(candidate.selectorHint, candidate.selector_hint),
-      selector_hint: firstText(candidate.selector_hint, candidate.selectorHint),
-      locatorHint: firstText(candidate.locatorHint, candidate.locator_hint),
-      locator_hint: firstText(candidate.locator_hint, candidate.locatorHint),
-      semanticType,
-      semantic_type: semanticType,
-      reason: firstText(candidate.reason),
-      category: firstText(candidate.category),
-      attributes
-    };
-  }
-  function describeElementTargetKind(candidate) {
-    if (!candidate || typeof candidate !== "object") {
-      return "";
-    }
-    const semanticType = firstText(candidate.semanticType, candidate.semantic_type, candidate.category).replace(/_/g, " ");
-    const category = firstText(candidate.category).replace(/_/g, " ");
-    const role = firstText(candidate.role).toLowerCase();
-    const tag = firstText(candidate.tag, candidate.tagName, candidate.nodeName).toLowerCase();
-    if (category === "exact_element") {
-      if (semanticType && semanticType !== "exact element" && semanticType !== "exact_element" && semanticType !== "text node parent") {
-        return semanticType;
-      }
-      if (tag) {
-        return tag;
-      }
-    }
-    if (semanticType && semanticType !== "exact element" && semanticType !== "exact_element") {
-      return semanticType;
-    }
-    if (role) {
-      return role;
-    }
-    if (tag) {
-      return tag;
-    }
-    return "element";
-  }
-  function describeElementTargetOption(candidate, index) {
-    if (!candidate || typeof candidate !== "object") {
-      return `candidate ${index + 1}`;
-    }
-    const kind = describeElementTargetKind(candidate);
-    const text = firstText(candidate.cleanText, candidate.clean_text, candidate.text);
-    const parts = [index === 0 ? `exact ${kind}` : kind];
-    if (text) {
-      parts.push(shortenText(text, 56));
-    }
-    return parts.join(" \xB7 ");
-  }
-  function summarizePickerCandidateMetadata(candidate) {
-    if (!candidate || typeof candidate !== "object") {
-      return [];
-    }
-    const metadata = [];
-    const candidateId = firstText(candidate.candidate_id, candidate.candidateId, candidate.id);
-    const locator = firstText(
-      candidate.locator,
-      candidate.selector_or_locator,
-      candidate.selectorOrLocator,
-      candidate.selector,
-      candidate.selectorHint,
-      candidate.locatorHint
-    );
-    const strategy = firstText(candidate.strategy, candidate.source, candidate.candidate_type, candidate.candidateType);
-    const confidence = firstText(candidate.confidence, candidate.score);
-    const count = firstText(candidate.count, candidate.match_count, candidate.matchCount);
-    const visibility = candidate.hidden === true ? "hidden" : firstText(candidate.visibility, candidate.visible === false ? "hidden" : "");
-    const scope = firstText(candidate.scope, candidate.container, candidate.section_ref, candidate.sectionRef);
-    const riskFlags = Array.isArray(candidate.risk_flags) ? candidate.risk_flags.filter(Boolean).map((value) => firstText(value)).filter(Boolean).join(", ") : "";
-    const risk = firstText(candidate.risk, candidate.fragility_warning, candidate.fragilityWarning, candidate.warning, riskFlags);
-    const evidenceRef = firstText(candidate.evidence_ref, candidate.evidenceRef, candidate.trace_ref, candidate.traceRef);
-    if (candidateId) metadata.push({ label: "candidate_id", value: candidateId });
-    if (locator) metadata.push({ label: "locator", value: locator });
-    if (strategy) metadata.push({ label: "strategy", value: strategy });
-    if (confidence) metadata.push({ label: Number.isFinite(Number(confidence)) ? "confidence" : "score", value: confidence });
-    if (count) metadata.push({ label: "count", value: count });
-    if (visibility) metadata.push({ label: "visibility", value: visibility });
-    if (scope) metadata.push({ label: "scope", value: scope });
-    if (risk) metadata.push({ label: "risk", value: risk });
-    if (evidenceRef) metadata.push({ label: "evidence_ref", value: evidenceRef });
-    return metadata;
-  }
-  function summarizePickerCandidateWarning(candidate, candidateCount = 0) {
-    const warnings = [];
-    if (!candidate || typeof candidate !== "object") {
-      return candidateCount > 0 ? "No locator candidates available." : "No locator candidates yet.";
-    }
-    if (Number.isInteger(candidateCount) && candidateCount > 1) {
-      warnings.push(`Multiple candidates require backend validation (${candidateCount}).`);
-    }
-    const visibility = firstText(candidate.visibility, candidate.visible === false ? "hidden" : "");
-    const hidden = candidate.hidden === true || visibility === "hidden";
-    if (hidden) {
-      warnings.push("Hidden candidate requires validation.");
-    }
-    const confidenceValue = Number(firstText(candidate.confidence, candidate.score));
-    if (Number.isFinite(confidenceValue) && confidenceValue < 0.7) {
-      warnings.push(`Low confidence candidate (${firstText(candidate.confidence, candidate.score)}).`);
-    }
-    const evidenceRef = firstText(candidate.evidence_ref, candidate.evidenceRef, candidate.trace_ref, candidate.traceRef);
-    if (!evidenceRef) {
-      warnings.push("Evidence ref missing.");
-    }
-    const riskFlags = Array.isArray(candidate.risk_flags) ? candidate.risk_flags.filter(Boolean).map((value) => firstText(value)).filter(Boolean) : [];
-    if (riskFlags.length > 0) {
-      warnings.push(`Risk flags: ${riskFlags.join(", ")}.`);
-    }
-    const candidateType = firstText(candidate.candidate_type, candidate.candidateType);
-    if (!candidateType) {
-      warnings.push("Candidate type missing.");
-    }
-    return warnings.join(" ");
-  }
-  function shortenText(text, maxLength = 48) {
-    const value = firstText(text);
-    if (!value) {
-      return "";
-    }
-    return value.length > maxLength ? `${value.slice(0, maxLength - 1)}\u2026` : value;
-  }
-  function normalizeStepAction(kind) {
-    const normalized = firstText(kind).toLowerCase();
-    if (!normalized) return "step";
-    if (normalized === "nav") return "navigate";
-    return normalized;
-  }
-  function resolveReplayStatusDisplay(replayStatus) {
-    if (!replayStatus || typeof replayStatus !== "object") {
-      return null;
-    }
-    const status = firstText(replayStatus.status, replayStatus.state).toLowerCase();
-    const shortReason = firstText(replayStatus.short_reason, replayStatus.shortReason, replayStatus.detail);
-    if (status === "passed") {
-      return {
-        label: "Replay passed",
-        kind: "passed",
-        note: ""
-      };
-    }
-    if (status === "blocked") {
-      return {
-        label: "Replay blocked",
-        kind: "failed",
-        note: shortReason && shortReason !== "Replay blocked" ? shortReason : ""
-      };
-    }
-    if (status === "failed") {
-      return {
-        label: "Replay failed",
-        kind: "failed",
-        note: shortReason && shortReason !== "Replay failed" ? shortReason : ""
-      };
+  function pickFirst(...vals) {
+    for (const v of vals) {
+      if (v != null && v !== "") return v;
     }
     return null;
   }
-  var EXPECTED_OUTCOME_TYPES = [
-    "navigation",
-    "modal",
-    "dropdown",
-    "new_tab",
-    "toast_or_message",
-    "content_change",
-    "download",
-    "file_picker",
-    "no_visible_change",
-    "not_sure"
-  ];
-  function isClickLikeIntent(value) {
-    const text = firstText(value).toLowerCase();
-    return /(^|\b)(click|tap|press|open)\b/.test(text);
+  function asArray(v) {
+    return Array.isArray(v) ? v : [];
   }
-  function formatExpectedOutcomeSummary(expectedOutcome) {
-    if (!expectedOutcome || typeof expectedOutcome !== "object") {
-      return "";
-    }
-    const type = firstText(expectedOutcome.type).toLowerCase().replace(/[\s-]+/g, "_");
-    if (!type || !EXPECTED_OUTCOME_TYPES.includes(type)) {
-      return "";
-    }
-    const description = firstText(expectedOutcome.description);
-    const summary = description ? `${type} \xB7 ${description}` : type;
-    return summary.length > 80 ? `${summary.slice(0, 79)}\u2026` : summary;
+  function Conf({ level }) {
+    const cls = level >= 0.8 ? "high" : level >= 0.5 ? "med" : "low";
+    const txt = level >= 0.8 ? "High" : level >= 0.5 ? "Medium" : "Low";
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "aw-conf " + cls, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("i", {}),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("i", {}),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("i", {})
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { style: { fontSize: 11, color: "var(--tx-3)" }, children: [
+        txt,
+        " \xB7 ",
+        Math.round((level ?? 0) * 100),
+        "%"
+      ] })
+    ] });
   }
-  function inferActionKindFromText(...values) {
-    const text = values.map((value) => firstText(value)).filter(Boolean).join(" ").toLowerCase();
-    if (!text) return "step";
-    if (/(^|\b)(click|tap|press|select|choose|open)\b/.test(text)) return "click";
-    if (/(^|\b)(fill|type|enter|input|paste|set)\b/.test(text)) return "fill";
-    if (/(^|\b)(assert|verify|check|expect|confirm|validate)\b/.test(text)) return "assert";
-    if (/(^|\b)(navigate|goto|go to|go back|back|forward|reload|refresh)\b/.test(text)) return "navigate";
-    if (/(^|\b)(hover)\b/.test(text)) return "hover";
-    return "step";
+  function Bubble({ children, time }) {
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-msg-user", "data-testid": "aw-msg-user", children: [
+      children,
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { style: { fontSize: 10.5, color: "#9A6E4A", marginTop: 4, opacity: 0.65 }, children: fmtTime(time) })
+    ] });
   }
-  function PendingChipRow({ elementInfo, intent }) {
-    const chipStyle = {
-      display: "inline-flex",
-      alignItems: "center",
-      gap: 4,
-      padding: "2px 6px",
-      background: "#f4f0ea",
-      border: "1px solid #ddd8d0",
-      borderRadius: 2,
-      fontSize: 10.5,
-      color: "#4a4640",
-      whiteSpace: "nowrap"
+  function Sys({ from = "AutoWorkbench", time, initials = "AW", children }) {
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-msg-system", "data-testid": "aw-msg-system", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "aw-avatar", children: initials }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-msg-content", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-msg-from", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("b", { children: from }),
+          time ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "aw-tstamp", children: [
+            " \xB7 ",
+            fmtTime(time)
+          ] }) : null
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "aw-msg-body", children })
+      ] })
+    ] });
+  }
+  function CardClarification({ clarification, onAnswer, onLetLLMDecide }) {
+    const [pick, setPick] = (0, import_react3.useState)(null);
+    const [free, setFree] = (0, import_react3.useState)("");
+    if (!clarification) return null;
+    const question = clarification.question ?? "";
+    const options = asArray(clarification.options);
+    const question_id = pickFirst(clarification.question_id, clarification.id);
+    const target_step = clarification.target_step ?? null;
+    const submit = (value) => {
+      if (typeof onAnswer === "function") {
+        onAnswer({
+          type: "option_selected",
+          question_id,
+          target_step,
+          answer: value
+        });
+      }
     };
-    if (!elementInfo) {
-      return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { style: { color: "#8f8a82" }, children: intent.trim() ? "No element attached." : "Draft step." });
-    }
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { style: chipStyle, children: elementInfo.tag }),
-      elementInfo.text && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { style: chipStyle, children: [
-        '"',
-        shortenText(elementInfo.text),
-        '"'
-      ] }),
-      elementInfo.id && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { style: chipStyle, children: [
-        "#",
-        elementInfo.id
-      ] }),
-      elementInfo.className && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("span", { style: chipStyle, children: [
-        ".",
-        elementInfo.className.split(/\s+/).filter(Boolean).join(".")
-      ] })
-    ] });
-  }
-  function IDERecordedStepCard({
-    step,
-    index = 0,
-    compact = false,
-    showGeneratedLine = true,
-    replayStatus = null,
-    onReplay,
-    onCopy
-  }) {
-    const [showDetails, setShowDetails] = import_react.default.useState(false);
-    const action = normalizeStepAction(step.action || step.action_label || step.kind || step.type);
-    const stepNumberValue = Number.isFinite(Number(step.step_number)) && Number(step.step_number) > 0 ? Number(step.step_number) : index + 1;
-    const displayTitle = resolveRecordedStepTitle(step, action, stepNumberValue);
-    const target = pickRecordedText(step.target_label, step.element_name, step.target, step.label);
-    const locator = firstText(step.locator);
-    const expectedOutcome = formatExpectedOutcomeSummary(step.expected_outcome ?? step.expectedOutcome);
-    const status = firstText(step.status, "recorded").toLowerCase();
-    const statusKind = status === "passed" ? "passed" : status === "failed" ? "failed" : "recorded";
-    const replayDisplay = resolveReplayStatusDisplay(
-      replayStatus || step.replay_status || step.replayStatus || step.last_replay || step.lastReplay || null
-    );
-    const codeLine = firstText(step.generated_line);
-    const childRows = getPlanStepChildren(step);
-    const hasChildren = childRows.length > 0;
-    const displayChildRows = childRows.map((child, childIndex) => normalizePlanChild(child, childIndex)).filter(Boolean);
-    const codeBlockText = hasChildren ? childRows.reduce((accumulatedLines, child) => {
-      if (!child || typeof child !== "object") {
-        return accumulatedLines;
-      }
-      if (Array.isArray(child.code_lines) && child.code_lines.length > 0) {
-        for (const line of child.code_lines) {
-          const text = firstText(line);
-          if (text) {
-            accumulatedLines.push(text);
-          }
-        }
-        return accumulatedLines;
-      }
-      const childLine = firstText(child.generated_line);
-      if (childLine) {
-        accumulatedLines.push(childLine);
-      }
-      return accumulatedLines;
-    }, []).join("\n") : codeLine;
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `ide-recorded-step${compact ? " is-compact" : ""}`, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-recorded-step-main", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-recorded-step-head", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "ide-step-num", children: String(stepNumberValue).padStart(2, "0") }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-recorded-step-headcopy", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-recorded-step-title", children: displayTitle }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-recorded-step-badges", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEPlanTag, { kind: hasChildren ? "multi" : action }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEBadge, { kind: statusKind, children: statusKind })
-          ] })
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card clarify needs-input", "data-testid": "card-clarification", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Info, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-title", children: "Clarification needed" }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-state", children: "Decision required" }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "aw-card-source llm", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "src-dot" }),
+          "LLM proposal"
         ] })
       ] }),
-      replayDisplay && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-recorded-step-note", style: { display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEBadge, { kind: replayDisplay.kind, children: replayDisplay.label }),
-        replayDisplay.note && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { children: replayDisplay.note })
-      ] }),
-      !hasChildren && target && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-recorded-step-target", children: target }),
-      expectedOutcome && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-recorded-step-outcome", children: [
-        "expected_outcome: ",
-        expectedOutcome
-      ] }),
-      !hasChildren && locator && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "ide-recorded-step-locator", children: locator }),
-      showGeneratedLine && codeBlockText && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("pre", { className: "ide-recorded-step-code", children: codeBlockText }),
-      !showGeneratedLine && showDetails && codeBlockText && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("pre", { className: "ide-recorded-step-code ide-recorded-step-code-collapsed", children: codeBlockText }),
-      displayChildRows.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-plan-children", children: displayChildRows.map((child) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-plan-child", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-plan-child-head", children: [
-          child.operationId && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ide-plan-child-op", children: child.operationId }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEPlanTag, { kind: child.kind })
-        ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-plan-child-desc", children: child.description }),
-        child.locator && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "ide-plan-child-locator", children: child.locator })
-      ] }, child.key)) }),
-      showDetails && showGeneratedLine && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-recorded-step-note", children: "Technical details are in the Debug tab." }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-recorded-step-actions", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ide-btn sm", type: "button", onClick: () => onReplay?.(step), children: "Replay" }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ide-btn sm", type: "button", onClick: () => onCopy?.(step), children: "Copy" }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ide-btn sm", type: "button", onClick: () => setShowDetails((value) => !value), children: "More" })
-      ] })
-    ] }) });
-  }
-  function IDERecordedStepsSection({
-    recordedSteps = [],
-    lastReplayByStepId = {},
-    onReplayRecordedStep,
-    onReplayAllRecordedSteps,
-    onCopyRecordedStep
-  }) {
-    const steps = Array.isArray(recordedSteps) ? recordedSteps : [];
-    const footer = onReplayAllRecordedSteps ? [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-        "button",
-        {
-          className: "ide-btn sm",
-          type: "button",
-          style: { marginLeft: "auto" },
-          onClick: () => onReplayAllRecordedSteps?.(),
-          children: "Replay All"
-        },
-        "replay-all"
-      )
-    ] : null;
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-      IDECard,
-      {
-        color: steps.length ? "green" : null,
-        title: "// recorded steps",
-        testId: "recorded",
-        ariaLabel: "Recorded",
-        footer,
-        children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-scrollbox ide-scrollbox-recorded", style: { maxHeight: 300 }, children: steps.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-list", children: steps.map((step, i) => {
-          const stepKey = firstText(step.id, step.step_id, step.stepId);
-          return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-            IDERecordedStepCard,
-            {
-              step,
-              index: i,
-              compact: false,
-              showGeneratedLine: true,
-              replayStatus: stepKey ? lastReplayByStepId[stepKey] : null,
-              onReplay: onReplayRecordedStep,
-              onCopy: onCopyRecordedStep
-            },
-            step.id || `${step.step_number || i}`
-          );
-        }) }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-empty-state", children: "No recorded steps yet." }) })
-      }
-    );
-  }
-  function IDERecordedOutput({
-    recordedSteps = [],
-    lastReplayByStepId = {},
-    onReplayRecordedStep,
-    onReplayAllRecordedSteps,
-    onCopyRecordedStep
-  }) {
-    const [activeTab, setActiveTab] = import_react.default.useState("steps");
-    const steps = Array.isArray(recordedSteps) ? recordedSteps : [];
-    const visibleSteps = activeTab === "steps" ? steps.slice(-3).reverse() : [];
-    const codeLines = steps.reduce((accumulatedLines, step) => {
-      const childRows = Array.isArray(step && step.children) ? step.children : [];
-      if (childRows.length > 0) {
-        for (const child of childRows) {
-          if (!child || typeof child !== "object") {
-            continue;
-          }
-          if (Array.isArray(child.code_lines) && child.code_lines.length > 0) {
-            for (const line of child.code_lines) {
-              const text = firstText(line);
-              if (text) {
-                accumulatedLines.push(text);
-              }
-            }
-            continue;
-          }
-          const childLine = firstText(child.generated_line);
-          if (childLine) {
-            accumulatedLines.push(childLine);
-          }
-        }
-        return accumulatedLines;
-      }
-      const parentLine = firstText(step && step.generated_line);
-      if (parentLine) {
-        accumulatedLines.push(parentLine);
-      }
-      return accumulatedLines;
-    }, []);
-    const codeText = codeLines.join("\n");
-    const recordedCount = steps.length;
-    const lineCount = codeLines.length;
-    const footer = onReplayAllRecordedSteps ? [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-        "button",
-        {
-          className: "ide-btn sm",
-          type: "button",
-          style: { marginLeft: "auto" },
-          onClick: () => onReplayAllRecordedSteps?.(),
-          children: "Replay All"
-        },
-        "replay-all"
-      )
-    ] : null;
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
-      IDECard,
-      {
-        color: recordedCount > 0 ? "green" : null,
-        title: "// recorded output",
-        testId: "recorded",
-        ariaLabel: "Recorded",
-        footer,
-        children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-stats", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-stat", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `ide-stat-num${recordedCount > 0 ? " s-green" : ""}`, children: recordedCount }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-stat-lbl", children: "Recorded steps" })
-            ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-stat", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-stat-num", children: lineCount > 0 ? lineCount : "\u2014" }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-stat-lbl", children: "Code lines" })
-            ] })
-          ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-mini-tabs", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-              "button",
-              {
-                className: `ide-mini-tab${activeTab === "steps" ? " active" : ""}`,
-                type: "button",
-                onClick: () => setActiveTab("steps"),
-                children: "Steps"
-              }
-            ),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-              "button",
-              {
-                className: `ide-mini-tab${activeTab === "code" ? " active" : ""}`,
-                type: "button",
-                onClick: () => setActiveTab("code"),
-                children: "Code"
-              }
-            )
-          ] }),
-          activeTab === "steps" ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-scrollbox ide-scrollbox-recorded", style: { maxHeight: 216 }, children: [
-            visibleSteps.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-list", children: visibleSteps.map((step, i) => {
-              const stepKey = firstText(step.id, step.step_id, step.stepId);
-              return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-                IDERecordedStepCard,
-                {
-                  step,
-                  index: i,
-                  compact: true,
-                  showGeneratedLine: false,
-                  replayStatus: stepKey ? lastReplayByStepId[stepKey] : null,
-                  onReplay: onReplayRecordedStep,
-                  onCopy: onCopyRecordedStep
-                },
-                step.id || `${step.step_number || i}`
-              );
-            }) }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-empty-state", children: "No recorded steps yet." }),
-            steps.length > visibleSteps.length && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-more-note", children: [
-              "+ ",
-              steps.length - visibleSteps.length,
-              " more in the full Steps tab."
-            ] })
-          ] }) : codeText ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("pre", { className: "ide-code ide-recorded-code", style: { marginTop: 2, whiteSpace: "pre-wrap" }, children: codeText }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-empty-state", children: "No recorded steps yet." })
-        ]
-      }
-    );
-  }
-  function IDEPendingStepCard({
-    step,
-    index = 0,
-    compact = false,
-    activePickerStepId = "",
-    onChangeIntent,
-    onChangeExpectedOutcome,
-    onChangeElementTarget,
-    onAttachElement,
-    onDeleteStep
-  }) {
-    const inputRef = import_react.default.useRef(null);
-    const intent = firstRawText(step.intent, step.text, step.label);
-    const trimmedIntent = intent.trim();
-    const elementInfo = normalizeElementInfoForDisplay(step.element_info ?? step.elementInfo ?? null);
-    const expectedOutcome = step.expected_outcome && typeof step.expected_outcome === "object" ? step.expected_outcome : null;
-    const expectedOutcomeType = firstText(expectedOutcome?.type).toLowerCase().replace(/[\s-]+/g, "_");
-    const expectedOutcomeDescription = firstRawText(expectedOutcome?.description);
-    const isPicking = activePickerStepId === step.id;
-    const candidateList = Array.isArray(elementInfo?.candidates) ? elementInfo.candidates : [];
-    const selectedCandidateIndex = resolveSelectedCandidateIndex(elementInfo?.selected_candidate_index, candidateList.length);
-    const selectedCandidate = selectedCandidateIndex === null ? elementInfo : candidateList[selectedCandidateIndex] || elementInfo;
-    const exactCandidate = candidateList[0] || null;
-    const currentTargetLabel = describeElementTargetKind(selectedCandidate);
-    const exactTargetLabel = exactCandidate ? describeElementTargetKind(exactCandidate) : "";
-    const actionGuess = inferActionKindFromText(intent, elementInfo?.text, elementInfo?.tag, elementInfo?.id);
-    const explicitStatus = firstText(step.status, step.state).toLowerCase();
-    const needsExpectedOutcome = isClickLikeIntent(intent) && !expectedOutcomeType;
-    const statusLabel = isPicking ? "picking\u2026" : needsExpectedOutcome ? "needs outcome" : explicitStatus === "ready" || trimmedIntent ? "ready" : "draft";
-    const statusKind = isPicking ? "await" : needsExpectedOutcome ? "await" : explicitStatus === "ready" || trimmedIntent ? "ready" : "await";
-    const stepNumber = String(index + 1).padStart(2, "0");
-    const outcomeLine = expectedOutcomeType ? formatExpectedOutcomeSummary(expectedOutcome) : "";
-    const validationMessage = needsExpectedOutcome ? "Expected outcome required for click-like steps." : "";
-    const targetSelectValue = selectedCandidateIndex === null ? "" : String(selectedCandidateIndex);
-    const candidateMetadata = summarizePickerCandidateMetadata(selectedCandidate);
-    const candidateWarning = summarizePickerCandidateWarning(selectedCandidate, candidateList.length);
-    const elementSummary = selectedCandidate ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(PendingChipRow, { elementInfo: selectedCandidate, intent }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { style: { color: "#8f8a82" }, children: trimmedIntent ? "No element attached." : "Draft step." });
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: `ide-step-card${compact ? " is-compact" : ""}${isPicking ? " is-active" : ""}`, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-numcol", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "ide-step-num", children: stepNumber }) }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-step-card-main", children: [
-        !compact ? /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-step-topline", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-            "input",
-            {
-              ref: inputRef,
-              className: "ide-input ide-step-input",
-              value: intent,
-              onChange: (event) => onChangeIntent?.(step.id, event.target.value),
-              placeholder: "click Get started"
-            }
-          ),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEBadge, { kind: statusKind, children: statusLabel })
-        ] }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-summary-title", children: trimmedIntent || "Draft step" }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-step-meta", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEPlanTag, { kind: actionGuess }),
-          compact ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEBadge, { kind: statusKind, children: statusLabel }) : null
-        ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-elements", children: elementSummary }),
-        candidateList.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-step-target", "data-testid": "picker-candidates", "aria-label": "Locator candidates", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-target-label", children: "Selected target" }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-step-target-summary", children: [
-            "Current: ",
-            currentTargetLabel
-          ] }),
-          exactTargetLabel && exactTargetLabel !== currentTargetLabel && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-step-target-picked", children: [
-            "Exact pick: ",
-            exactTargetLabel
-          ] }),
-          candidateMetadata.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-target-metadata", style: { display: "flex", flexWrap: "wrap", gap: 4 }, children: candidateMetadata.map((item) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
-            "span",
-            {
-              className: "ide-badge b-await",
-              style: { fontSize: 10, lineHeight: 1.2 },
-              children: [
-                item.label,
-                ": ",
-                shortenText(item.value, 56)
-              ]
-            },
-            `${item.label}:${item.value}`
-          )) }),
-          candidateWarning && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-validation", "data-testid": "picker-candidate-warning", children: candidateWarning }),
-          candidateList.length > 1 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-            "select",
-            {
-              className: "ide-input ide-step-target-select",
-              "data-testid": "picker-candidate-select",
-              "aria-label": "Choose locator candidate",
-              value: targetSelectValue,
-              onChange: (event) => onChangeElementTarget?.(step.id, Number(event.target.value)),
-              children: candidateList.map((candidate, candidateIndex) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("option", { value: candidateIndex, children: describeElementTargetOption(candidate, candidateIndex) }, `${candidate.level ?? candidateIndex}-${candidate.tag || "element"}-${candidateIndex}`))
-            }
-          )
-        ] }),
-        !compact && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-step-outcome", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-outcome-label", children: "Expected Outcome" }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-outcome-chips", children: EXPECTED_OUTCOME_TYPES.map((type) => {
-            const active = expectedOutcomeType === type;
-            return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-              "button",
-              {
-                className: `ide-outcome-chip${active ? " active" : ""}`,
-                type: "button",
-                onClick: () => onChangeExpectedOutcome?.(step.id, {
-                  type,
-                  description: expectedOutcomeDescription,
-                  source: "user",
-                  required: isClickLikeIntent(intent)
-                }),
-                children: type
-              },
-              type
-            );
-          }) }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-            "input",
-            {
-              className: "ide-input ide-step-outcome-input",
-              value: expectedOutcomeDescription,
-              onChange: (event) => onChangeExpectedOutcome?.(step.id, {
-                type: expectedOutcomeType || (event.target.value.trim() ? "not_sure" : ""),
-                description: event.target.value,
-                source: "user",
-                required: isClickLikeIntent(intent)
-              }),
-              placeholder: "Expected outcome details"
-            }
-          ),
-          validationMessage && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-validation", children: validationMessage }),
-          outcomeLine && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-step-outcome-summary", children: [
-            "selected: ",
-            outcomeLine
-          ] })
-        ] }),
-        compact && validationMessage && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-validation", children: validationMessage }),
-        !compact && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-step-actions", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ide-btn sm", type: "button", onClick: () => onAttachElement?.(step.id), children: isPicking ? "Click page element\u2026" : "Attach Element" }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-            "button",
-            {
-              className: "ide-btn sm",
-              type: "button",
-              onClick: () => {
-                const node = inputRef.current;
-                if (!node) return;
-                node.focus();
-                if (typeof node.select === "function") {
-                  node.select();
-                }
-              },
-              children: "Edit"
-            }
-          ),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ide-btn sm danger", type: "button", onClick: () => onDeleteStep?.(step.id), children: "Delete" })
-        ] })
-      ] })
-    ] });
-  }
-  function IDEPendingSteps({
-    state = "idle",
-    steps = [],
-    live = false,
-    compact = false,
-    activePickerStepId = "",
-    onChangeIntent,
-    onChangeExpectedOutcome,
-    onChangeElementTarget,
-    onAddStep,
-    onAttachElement,
-    onDeleteStep
-  }) {
-    const hasRuntimeSteps = live && Array.isArray(steps) && steps.length > 0;
-    const fallback = ["01 \xB7 Assert hero text", "02 \xB7 Click Get started"];
-    const rows = live ? hasRuntimeSteps ? steps : [] : fallback;
-    const visibleRows = compact && rows.length > 3 ? rows.slice(Math.max(0, rows.length - 3)) : rows;
-    const hasMore = compact && rows.length > visibleRows.length;
-    const emptyLabel = state === "clarification" ? "Waiting for clarification answer\u2026" : state === "recovery" ? "Waiting for recovery instruction\u2026" : state === "executing" ? "Executing\u2026" : "Awaiting plan_ready\u2026";
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-      IDECard,
-      {
-        color: "amber",
-        title: "// pending steps",
-        testId: "steps",
-        ariaLabel: "Steps",
-        footer: !compact && onAddStep ? [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ide-btn primary", type: "button", style: { flex: 1, justifyContent: "center" }, onClick: () => onAddStep?.(), children: "+ Step" }, "add")
-        ] : null,
-        children: /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: `ide-scrollbox ide-scrollbox-pending${compact ? " is-compact" : ""}`, style: { maxHeight: compact ? 206 : 312 }, children: [
-          visibleRows.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-list", children: visibleRows.map((step, i) => {
-            if (typeof step === "string") {
-              return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-step-card is-summary", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-numcol", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "ide-step-num", children: String(i + 1).padStart(2, "0") }) }),
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-step-card-main", children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-summary-title", children: step }),
-                  /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-step-meta", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEBadge, { kind: "ready", children: "ready" }) })
-                ] })
-              ] }, i);
-            }
-            return /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-              IDEPendingStepCard,
-              {
-                step,
-                index: i,
-                compact,
-                activePickerStepId,
-                onChangeIntent,
-                onChangeExpectedOutcome,
-                onChangeElementTarget,
-                onAttachElement,
-                onDeleteStep
-              },
-              step.id || `${i}`
-            );
-          }) }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-empty-state", children: emptyLabel }),
-          hasMore && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-more-note", children: [
-            "+ ",
-            rows.length - visibleRows.length,
-            " more in the Steps tab."
-          ] })
-        ] })
-      }
-    );
-  }
-  function IDECodePreview({ codePreview, codeDiagnostics = [], live = false }) {
-    const text = typeof codePreview === "string" && codePreview.trim() ? codePreview.trim() : live ? "Awaiting code_update\u2026" : "Generated Playwright code will appear here.";
-    const diagnostics = Array.isArray(codeDiagnostics) ? codeDiagnostics.filter(Boolean) : [];
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(IDECard, { color: "ink", title: "// code preview", testId: "code", ariaLabel: "Code", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("pre", { className: "ide-code", style: { marginTop: 0, whiteSpace: "pre-wrap" }, children: text }),
-      diagnostics.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-code-diagnostics", "data-testid": "code-diagnostics", "aria-label": "Code diagnostics", children: diagnostics.map((diagnostic, index) => {
-        const entry = diagnostic && typeof diagnostic === "object" ? diagnostic : { message: firstText(diagnostic) };
-        const level = firstText(entry.level, entry.severity, entry.kind, entry.type).toLowerCase();
-        const levelLabel = firstText(entry.level, entry.severity, entry.kind, entry.type) || "info";
-        const type = firstText(entry.type, entry.kind);
-        const message = firstText(entry.message, entry.reason, entry.detail, entry.text, entry.summary, entry.description, entry.note) || firstText(entry);
-        const reason = firstText(entry.reason);
-        const currentState = firstText(entry.current_state, entry.currentState, entry.state);
-        const evidenceRef = firstText(entry.evidence_ref, entry.evidenceRef);
-        return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-body", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("p", { children: question || "I need a bit more detail to draft this plan." }),
+        options.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
           "div",
           {
-            className: `ide-code-diagnostic s-${level || "ok"}`,
-            "data-testid": "code-diagnostic",
-            "aria-label": `Code diagnostic ${type || levelLabel || index + 1}`,
-            children: [
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-code-diagnostic-head", children: [
-                /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEBadge, { kind: level === "err" ? "failed" : level === "warn" ? "await" : "recorded", children: levelLabel }),
-                type && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ide-code-diagnostic-type", children: type })
-              ] }),
-              message && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-code-diagnostic-message", children: message }),
-              /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-code-diagnostic-meta", children: [
-                reason && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-code-diagnostic-reason", children: [
-                  "reason: ",
-                  reason
-                ] }),
-                currentState && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-code-diagnostic-state", children: [
-                  "current_state: ",
-                  currentState
-                ] }),
-                evidenceRef && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-code-diagnostic-evidence", children: [
-                  "evidence_ref: ",
-                  evidenceRef
-                ] })
-              ] })
-            ]
-          },
-          firstText(entry.id, entry.key, entry.label, type, level) || `code-diagnostic-${index}`
-        );
-      }) })
-    ] });
-  }
-  function IDETraceArtifactRow({ artifact }) {
-    if (!artifact) {
-      return null;
-    }
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-trace-artifact", "data-testid": "trace-artifact", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-trace-artifact-head", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ide-trace-artifact-label", children: artifact.label || artifact.key }),
-        artifact.status && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEBadge, { kind: artifact.status === "err" ? "failed" : artifact.status === "warn" ? "await" : "recorded", children: artifact.status })
-      ] }),
-      artifact.path && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("code", { className: "ide-trace-artifact-path", children: artifact.path }),
-      artifact.note && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-trace-warning", children: artifact.note })
-    ] });
-  }
-  function IDETraceRow({ entry }) {
-    if (!entry) {
-      return null;
-    }
-    const severityKind = entry.severity === "err" ? "failed" : entry.severity === "warn" ? "await" : "recorded";
-    const label = entry.type ? entry.type.replace(/_/g, " ") : "trace event";
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: `ide-trace-row s-${entry.severity || "ok"}`, "data-testid": "trace-row", "aria-label": `Trace row ${label}`, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-trace-row-head", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ide-trace-row-type", children: label }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEBadge, { kind: severityKind, children: entry.severity === "err" ? "Error" : entry.severity === "warn" ? "Warn" : "Trace" }),
-        entry.timestamp && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ide-trace-row-time", children: entry.timestamp }),
-        entry.category && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ide-trace-row-category", children: entry.category }),
-        entry.source && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ide-trace-row-source", children: entry.source })
-      ] }),
-      entry.summary && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-trace-row-summary", children: entry.summary }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-trace-row-meta", children: [
-        entry.evidenceRef && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-trace-row-evidence", children: [
-          "evidence_ref: ",
-          entry.evidenceRef
-        ] }),
-        entry.redactionStatus && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-trace-row-redaction", children: [
-          "redaction: ",
-          entry.redactionStatus
-        ] }),
-        entry.redactionWarning && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-trace-warning", children: entry.redactionWarning }),
-        entry.rejectionReason && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-trace-row-rejection", children: [
-          "rejection: ",
-          entry.rejectionReason
-        ] }),
-        entry.currentStateLabel && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-trace-row-state", children: [
-          "current_state: ",
-          entry.currentStateLabel
-        ] }),
-        entry.diagnostic && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-trace-warning", children: entry.diagnostic })
-      ] }),
-      Array.isArray(entry.artifacts) && entry.artifacts.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-trace-artifact-list", "data-testid": "trace-artifacts", children: entry.artifacts.map((artifact) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDETraceArtifactRow, { artifact }, `${entry.id}-${artifact.key}`)) })
-    ] });
-  }
-  function IDEDebugPane({ connectionStatus, lastEvent, lastError, traceEntries = [] }) {
-    const artifacts = traceEntries.reduce((accumulated, entry) => {
-      if (Array.isArray(entry?.artifacts) && entry.artifacts.length > 0) {
-        accumulated.push(...entry.artifacts);
-      }
-      return accumulated;
-    }, []);
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { "data-testid": "trace", "aria-label": "Trace", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECard, { color: "blue", title: "// trace log", testId: "trace-log", ariaLabel: "Trace log", children: traceEntries.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-trace-list", role: "list", children: traceEntries.map((entry) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDETraceRow, { entry }, entry.id)) }) : /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-empty-state", children: "No trace evidence yet." }) }),
-      artifacts.length > 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECard, { color: "green", title: "// evidence bundle", testId: "trace-artifacts", ariaLabel: "Evidence bundle", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-trace-artifact-list", children: artifacts.map((artifact, index) => /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDETraceArtifactRow, { artifact }, `${artifact.key || artifact.label || "artifact"}-${index}`)) }) }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(IDECard, { color: "red", title: "// transport", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 6, fontSize: 11.5 }, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { padding: "6px 8px", background: "#faf7f3", border: "1px solid #ede8e0", borderRadius: 2 }, children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { fontSize: 9.5, color: "#9e9890", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 2 }, children: "Connection" }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { fontWeight: 700 }, children: connectionLabel(connectionStatus) })
-          ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { style: { padding: "6px 8px", background: "#faf7f3", border: "1px solid #ede8e0", borderRadius: 2 }, children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { fontSize: 9.5, color: "#9e9890", textTransform: "uppercase", letterSpacing: ".08em", marginBottom: 2 }, children: "Last event" }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { fontWeight: 700 }, children: lastEvent ? `${lastEvent.type}` : "\u2014" })
-          ] })
-        ] }),
-        lastEvent?.txt && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { marginTop: 8, fontSize: 11.5, color: "#4a4640", background: "#faf7f3", border: "1px solid #ede8e0", borderRadius: 2, padding: "8px 10px" }, children: lastEvent.txt }),
-        lastError && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-err-strip", style: { marginTop: 10 }, children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEIcons.Warn, { size: 12 }),
-          lastError
-        ] })
-      ] }),
-      lastError && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECard, { color: "ink", title: "// log snapshot", children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { fontSize: 11.5, color: "#4a4640", lineHeight: 1.6 }, children: lastError }) })
-    ] });
-  }
-  function IDEIdleComposer() {
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(IDECard, { color: "blue", title: "// new task", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-        "textarea",
-        {
-          className: "ide-input",
-          rows: 3,
-          placeholder: "// describe the task, e.g. open playwright.dev, assert hero text, then click Get started\u2026"
-        }
-      ),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { style: { display: "flex", gap: 6, marginTop: 8, justifyContent: "flex-end" }, children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ide-btn primary", type: "button", children: "\u25B6 Plan task" }) })
-    ] });
-  }
-  function IDEHeader({ state, interactionMode, connectionStatus = "disconnected" }) {
-    const labels = {
-      idle: "idle",
-      planning: "planning\u2026",
-      plan_review: "plan review",
-      clarification: "clarification needed",
-      await: "awaiting confirmation",
-      exec: "executing",
-      executing: "executing",
-      recovery: "recovery needed",
-      recover: "recovery needed",
-      done: "completed",
-      completed: "completed"
-    };
-    const statusStyle = connectionStyle(connectionStatus);
-    const label = labels[interactionMode] || labels[state] || state;
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-hd", style: { gap: 8 }, children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-hd-logo", children: "AW" }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-hd-title", children: "AutoWorkbench" }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-hd-sub", children: "playwright co-pilot" })
-      ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
-        "div",
-        {
-          style: {
-            marginLeft: "auto",
-            display: "flex",
-            alignItems: "center",
-            gap: 6,
-            flexWrap: "wrap",
-            justifyContent: "flex-end"
-          },
-          children: [
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: `ide-hd-state s-${state}`, children: label }),
-            /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-              "div",
-              {
-                style: {
-                  ...statusStyle,
-                  padding: "5px 8px",
-                  borderRadius: 999,
-                  fontSize: 10.5,
-                  fontWeight: 700,
-                  letterSpacing: ".04em",
-                  textTransform: "uppercase",
-                  lineHeight: 1
+            style: { display: "flex", flexDirection: "column", gap: 6, marginTop: 8 },
+            "data-testid": "clarification-options",
+            children: options.map((o, idx) => {
+              const id = pickFirst(o.id, o.value, String(o.label ?? idx));
+              const label = o.label ?? o.value ?? String(o);
+              const desc = o.description ?? o.detail ?? "";
+              const selected = pick === id;
+              return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+                "label",
+                {
+                  onClick: () => setPick(id),
+                  "data-testid": `clarification-option-${id}`,
+                  style: {
+                    display: "flex",
+                    gap: 9,
+                    padding: "9px 11px",
+                    border: "1px solid " + (selected ? "var(--acc)" : "var(--br)"),
+                    background: selected ? "#FFF8EE" : "var(--bg-card)",
+                    borderRadius: 9,
+                    cursor: "pointer",
+                    alignItems: "flex-start"
+                  },
+                  children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: {
+                      width: 14,
+                      height: 14,
+                      borderRadius: "50%",
+                      border: "1.5px solid " + (selected ? "var(--acc)" : "var(--br-strong)"),
+                      background: selected ? "radial-gradient(circle, var(--acc) 40%, white 45%)" : "white",
+                      flex: "0 0 14px",
+                      marginTop: 2
+                    } }),
+                    /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontSize: 12.5, fontWeight: 500 }, children: label }),
+                      desc ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { display: "block", fontSize: 11.5, color: "var(--tx-3)", marginTop: 1 }, children: desc }) : null
+                    ] })
+                  ]
                 },
-                children: connectionLabel(connectionStatus)
-              }
-            )
-          ]
-        }
-      )
-    ] });
-  }
-  function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
-    const live = runtime.live !== false;
-    const panelState = normalizePanelState(state);
-    const interactionMode = typeof runtime.interactionMode === "string" && runtime.interactionMode ? runtime.interactionMode : panelState;
-    const connectionStatus = runtime.connectionStatus || "disconnected";
-    const conversation = Array.isArray(runtime.conversation) ? runtime.conversation : [];
-    const timeline = Array.isArray(runtime.timeline) ? runtime.timeline : [];
-    const plan = runtime.plan || null;
-    const pendingSteps = Array.isArray(runtime.pendingSteps) ? runtime.pendingSteps : [];
-    const recordedSteps = Array.isArray(runtime.recordedSteps) ? runtime.recordedSteps : [];
-    const lastReplayByStepId = runtime.lastReplayByStepId && typeof runtime.lastReplayByStepId === "object" ? runtime.lastReplayByStepId : {};
-    const planCorrectionText = typeof runtime.planCorrectionText === "string" ? runtime.planCorrectionText : "";
-    const clarificationQuestion = typeof runtime.clarificationQuestion === "string" ? runtime.clarificationQuestion : "";
-    const clarificationOptions = Array.isArray(runtime.clarificationOptions) ? runtime.clarificationOptions : [];
-    const clarificationAnswerText = typeof runtime.clarificationAnswerText === "string" ? runtime.clarificationAnswerText : "";
-    const recoveryText = typeof runtime.recoveryText === "string" ? runtime.recoveryText : "";
-    const currentUrl = typeof runtime.currentUrl === "string" ? runtime.currentUrl : "";
-    const codePreview = typeof runtime.codePreview === "string" ? runtime.codePreview : "";
-    const lastError = typeof runtime.lastError === "string" ? runtime.lastError : "";
-    const lastEvent = runtime.lastEvent || null;
-    const traceEntries = Array.isArray(runtime.traceEntries) ? runtime.traceEntries : [];
-    const codeDiagnostics = Array.isArray(runtime.codeDiagnostics) ? runtime.codeDiagnostics : [];
-    const activePickerStepId = typeof runtime.activePickerStepId === "string" ? runtime.activePickerStepId : "";
-    const stepCount = pendingSteps.length + recordedSteps.length;
-    const showPlanReview = interactionMode === "plan_review";
-    const showClarification = interactionMode === "clarification";
-    const showRecovery = interactionMode === "recovery";
-    return /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-panel", id: "aw-root", "data-testid": "aw-root", "aria-label": "AutoWorkbench", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEHeader, { state: panelState, interactionMode, connectionStatus }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("div", { className: "ide-tabs", children: [
-        ["workbench", "workbench"],
-        ["steps", "steps"],
-        ["code", "code"],
-        ["debug", "debug"]
-      ].map(([id, label]) => /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(
-        "button",
-        {
-          className: `ide-tab${tab === id ? " active" : ""}`,
-          type: "button",
-          "data-testid": id === "workbench" ? "llm-tab" : id === "steps" ? "steps-tab" : id === "code" ? "code-tab" : "trace-tab",
-          "aria-label": id === "workbench" ? "LLM" : id === "steps" ? "Steps" : id === "code" ? "Code" : "Trace",
-          onClick: () => onTabChange?.(id),
-          children: [
-            label,
-            id === "steps" && stepCount > 0 && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("span", { className: "ide-tab-badge", children: stepCount })
-          ]
-        },
-        id
-      )) }),
-      /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-body", children: [
-        tab === "workbench" && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
-          panelState === "idle" && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEIdleComposer, {}),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEConversation, { state: interactionMode, messages: conversation, live }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDETimeline, { state: interactionMode, events: timeline, live }),
-          showPlanReview && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-            IDEPlanReview,
-            {
-              plan,
-              live,
-              correctionText: planCorrectionText,
-              onCorrectionTextChange: runtime.onPlanCorrectionTextChange || runtime.onCorrectionTextChange,
-              onConfirmPlan: runtime.onConfirmPlan,
-              onSendCorrection: runtime.onSendPlanCorrection || runtime.onSendCorrection
-            }
-          ),
-          showClarification && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-            IDEClarificationCard,
-            {
-              question: clarificationQuestion,
-              options: clarificationOptions,
-              answerText: clarificationAnswerText,
-              onAnswerTextChange: runtime.onClarificationAnswerTextChange,
-              onSendAnswer: runtime.onSendClarificationAnswer || runtime.onSendOptionSelected
-            }
-          ),
-          showRecovery && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-            IDERecovery,
-            {
-              message: lastError,
-              currentUrl,
-              recoveryText,
-              onRecoveryTextChange: runtime.onRecoveryTextChange,
-              onSendRecoveryInstruction: runtime.onSendRecoveryInstruction
-            }
-          ),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-            IDEPendingSteps,
-            {
-              state: interactionMode,
-              steps: pendingSteps,
-              live,
-              compact: true,
-              activePickerStepId,
-              onChangeIntent: runtime.onPendingStepIntentChange,
-              onChangeExpectedOutcome: runtime.onPendingStepExpectedOutcomeChange,
-              onChangeElementTarget: runtime.onPendingStepElementTargetChange,
-              onAttachElement: runtime.onAttachElement,
-              onDeleteStep: runtime.onDeletePendingStep
-            }
-          ),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-            IDERecordedOutput,
-            {
-              recordedSteps,
-              lastReplayByStepId,
-              onReplayRecordedStep: runtime.onReplayRecordedStep,
-              onReplayAllRecordedSteps: runtime.onReplayAllRecordedSteps,
-              onCopyRecordedStep: runtime.onCopyRecordedStep
-            }
-          )
-        ] }),
-        tab === "steps" && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-            IDEPendingSteps,
-            {
-              state: interactionMode,
-              steps: pendingSteps,
-              live,
-              compact: false,
-              activePickerStepId,
-              onChangeIntent: runtime.onPendingStepIntentChange,
-              onChangeExpectedOutcome: runtime.onPendingStepExpectedOutcomeChange,
-              onChangeElementTarget: runtime.onPendingStepElementTargetChange,
-              onAddStep: runtime.onAddPendingStep,
-              onAttachElement: runtime.onAttachElement,
-              onDeleteStep: runtime.onDeletePendingStep
-            }
-          ),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
-            IDERecordedStepsSection,
-            {
-              recordedSteps,
-              lastReplayByStepId,
-              onReplayRecordedStep: runtime.onReplayRecordedStep,
-              onReplayAllRecordedSteps: runtime.onReplayAllRecordedSteps,
-              onCopyRecordedStep: runtime.onCopyRecordedStep
-            }
-          )
-        ] }),
-        tab === "code" && /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(import_jsx_runtime2.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDECodePreview, { codePreview, codeDiagnostics, live }) }),
-        tab === "debug" && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDEDebugPane, { connectionStatus, lastEvent, lastError, traceEntries }),
-          /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(IDETimeline, { state: panelState, events: timeline, live })
-        ] })
+                id
+              );
+            })
+          }
+        ) : /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { style: { marginTop: 8 }, children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+          "textarea",
+          {
+            "data-testid": "clarification-free-input",
+            value: free,
+            onChange: (e) => setFree(e.target.value),
+            rows: 2,
+            style: { width: "100%", padding: 8, border: "1px solid var(--br)", borderRadius: 8 }
+          }
+        ) })
       ] }),
-      tab === "workbench" && /* @__PURE__ */ (0, import_jsx_runtime2.jsxs)("div", { className: "ide-bottom", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ide-btn", type: "button", onClick: () => runtime.onAddPendingStep?.(), children: "+ Step" }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("button", { className: "ide-btn", type: "button", onClick: () => runtime.onSaveSnapshot?.(), children: "Save Snapshot" }),
-        /* @__PURE__ */ (0, import_jsx_runtime2.jsx)(
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-foot", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
           "button",
           {
-            className: "ide-btn primary",
             type: "button",
-            style: { flex: 1, justifyContent: "center" },
-            onClick: () => runtime.onRunPendingSteps?.(),
-            children: "Run Pending Steps"
+            className: "aw-btn primary",
+            "data-testid": "clarification-submit",
+            disabled: options.length > 0 ? !pick : !free.trim(),
+            onClick: () => submit(options.length > 0 ? pick : free.trim()),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Send, {}),
+              "Submit answer"
+            ]
+          }
+        ),
+        typeof onLetLLMDecide === "function" ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn subtle",
+            "data-testid": "clarification-let-llm",
+            onClick: () => onLetLLMDecide({ type: "option_selected", question_id, answer: "__llm_decide__" }),
+            children: "Let LLM decide"
+          }
+        ) : null,
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { flex: 1 } }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontSize: 11, color: "var(--tx-4)" }, children: "Pauses execution until answered" })
+      ] })
+    ] });
+  }
+  function CardRecommendation({ recommendations = [], onAccept, onAddOwn }) {
+    const list = asArray(recommendations);
+    const [picked, setPicked] = (0, import_react3.useState)(() => list.filter((r) => r.checked !== false).map((r) => r.id ?? r.label));
+    if (list.length === 0) return null;
+    const toggle = (id) => setPicked((cur) => cur.includes(id) ? cur.filter((x) => x !== id) : [...cur, id]);
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card plan needs-input", "data-testid": "card-recommendation", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Layers, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-title", children: "Recommended assertions" }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-state", children: "Review" }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "aw-card-source llm", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "src-dot" }),
+          "LLM proposal \xB7 not executable"
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-body", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("p", { style: { color: "var(--tx-2)", fontSize: 12 }, children: "Pick the assertions to include before I draft a plan." }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+          "div",
+          {
+            style: { display: "flex", flexDirection: "column", gap: 2, marginTop: 8 },
+            "data-testid": "recommendation-list",
+            children: list.map((r, idx) => {
+              const id = r.id ?? r.label ?? `rec-${idx}`;
+              const text = r.label ?? r.text ?? r.summary ?? id;
+              const scope = r.scope ?? r.locator ?? "";
+              const checked = picked.includes(id);
+              return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+                "label",
+                {
+                  "data-testid": `recommendation-item-${id}`,
+                  style: {
+                    display: "flex",
+                    gap: 9,
+                    padding: "7px 8px",
+                    borderRadius: 6,
+                    background: idx % 2 ? "var(--bg-soft)" : "transparent",
+                    cursor: "pointer",
+                    alignItems: "flex-start"
+                  },
+                  children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+                      "input",
+                      {
+                        type: "checkbox",
+                        checked,
+                        onChange: () => toggle(id),
+                        style: { marginTop: 3, accentColor: "var(--acc)" }
+                      }
+                    ),
+                    /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { style: { flex: 1, minWidth: 0 }, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: {
+                        fontSize: 12.5,
+                        color: checked ? "var(--tx)" : "var(--tx-3)",
+                        textDecoration: checked ? "none" : "line-through"
+                      }, children: text }),
+                      scope ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { display: "block", fontSize: 10.5, color: "var(--tx-4)", fontFamily: "var(--ff-mono)", marginTop: 2 }, children: scope }) : null
+                    ] })
+                  ]
+                },
+                id
+              );
+            })
+          }
+        )
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-foot", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn primary",
+            "data-testid": "recommendation-accept",
+            disabled: picked.length === 0,
+            onClick: () => typeof onAccept === "function" && onAccept({
+              type: "accept_recommendations",
+              selected_recs: picked
+            }),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Check, {}),
+              "Use selected (",
+              picked.length,
+              ")"
+            ]
+          }
+        ),
+        typeof onAddOwn === "function" ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn",
+            "data-testid": "recommendation-add-own",
+            onClick: () => onAddOwn({ type: "add_recommendation_request" }),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Plus, {}),
+              "Add my own assertion"
+            ]
+          }
+        ) : null
+      ] })
+    ] });
+  }
+  function CardPlanDiff({ diff, onApply, onReject, onRevert }) {
+    if (!diff) return null;
+    const diff_id = pickFirst(diff.diff_id, diff.id);
+    const plan_id = diff.plan_id ?? null;
+    const ops = asArray(diff.operations ?? diff.ops);
+    const impacts = asArray(diff.impact ?? diff.impacts);
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card diff needs-input", "data-testid": "card-plan-diff", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Diff, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-title", children: "Plan revision proposed" }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-state", children: "Review" }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "aw-card-source llm", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "src-dot" }),
+          "LLM proposal \xB7 ",
+          diff.version ? `v${diff.version} \xB7 ` : "",
+          ops.length,
+          " changes"
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-body", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+          "div",
+          {
+            className: "aw-diff",
+            style: { marginTop: 6, display: "flex", flexDirection: "column", gap: 1 },
+            "data-testid": "plan-diff-ops",
+            children: ops.map((op, i) => {
+              const sign = op.kind === "add" ? "+" : op.kind === "remove" ? "-" : " ";
+              const cls = op.kind === "add" ? "add" : op.kind === "remove" ? "rem" : "ctx";
+              return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: `aw-diff-row ${cls}`, "data-testid": `plan-diff-op-${i}`, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-diff-sign", children: sign }),
+                op.path ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { marginRight: 8 }, children: op.path }) : null,
+                op.description ?? op.text ?? ""
+              ] }, i);
+            })
+          }
+        ),
+        impacts.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(import_jsx_runtime4.Fragment, { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "aw-card-section-title", children: "Impact" }),
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("ul", { className: "aw-dotlist", children: impacts.map((it, i) => /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("li", { className: it.level === "ok" ? "ok" : "", children: it.text ?? String(it) }, i)) })
+        ] }) : null
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-foot", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn primary",
+            "data-testid": "plan-diff-apply",
+            disabled: !diff_id,
+            onClick: () => typeof onApply === "function" && onApply({
+              type: "apply_plan_diff",
+              plan_id,
+              diff_id,
+              operations: ops
+            }),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Check, {}),
+              "Apply changes"
+            ]
+          }
+        ),
+        typeof onReject === "function" ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn",
+            "data-testid": "plan-diff-reject",
+            disabled: !diff_id,
+            onClick: () => onReject({ type: "reject_plan_diff", plan_id, diff_id }),
+            children: "Reject"
+          }
+        ) : null,
+        typeof onRevert === "function" ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn subtle",
+            "data-testid": "plan-diff-revert",
+            onClick: () => onRevert({ type: "plan_revert" }),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Retry, { style: { width: 12, height: 12 } }),
+              "Revert"
+            ]
+          }
+        ) : null
+      ] })
+    ] });
+  }
+  function CardPlanReady({ plan, onConfirm, onEdit, onPartialRun }) {
+    if (!plan) return null;
+    const plan_id = pickFirst(plan.plan_id, plan.id);
+    const plan_version = pickFirst(plan.version, plan.plan_version);
+    const steps = asArray(plan.steps);
+    const totalOps = steps.reduce((acc, s) => acc + (asArray(s.operations).length || 1), 0);
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card plan needs-input", "data-testid": "card-plan-ready", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Layers, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-title", children: plan.title ? `Plan ready \xB7 ${plan.title}` : "Plan ready" }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-state", children: "Confirm to run" }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "aw-card-source backend", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "src-dot" }),
+          "Backend event \xB7 plan_ready"
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-body", style: { paddingBottom: 6 }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-status-pill", style: { justifySelf: "start" }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-dot", style: { background: "var(--blu)" } }),
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "k", children: "steps" }),
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "v", "data-testid": "plan-step-count", children: steps.length })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-status-pill", style: { justifySelf: "start" }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-dot", style: { background: "var(--vio)" } }),
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "k", children: "ops" }),
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "v", children: totalOps })
+          ] }),
+          plan.estimate ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-status-pill", style: { justifySelf: "start" }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-dot", style: { background: "var(--grn)" } }),
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "k", children: "est" }),
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "v", children: plan.estimate })
+          ] }) : null
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { "data-testid": "plan-steps", children: steps.map((s, i) => {
+          const stepId = pickFirst(s.step_id, s.id, `step-${i}`);
+          const title = s.description ?? s.title ?? s.action ?? `Step ${i + 1}`;
+          const ops = asArray(s.operations);
+          const locatorKind = s.locator_kind ?? (s.weak_locator ? "warn" : "ok");
+          return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-step pending", "data-testid": `plan-step-${stepId}`, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-step-idx", children: i + 1 }),
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-step-main", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-step-title", children: [
+                title,
+                /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "id", children: stepId })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-step-meta", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: `aw-badge-i ${locatorKind === "warn" ? "warn" : "ok"}`, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "ldot" }),
+                  locatorKind === "warn" ? "weak locator" : "strong locator"
+                ] }),
+                s.scope ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { children: [
+                  "scope: ",
+                  /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "mono", children: s.scope })
+                ] }) : null
+              ] }),
+              ops.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "aw-step-ops", children: ops.map((op, j) => /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-step-op", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "op-tag", children: op.kind ?? op.type ?? "op" }),
+                op.description ?? op.text ?? ""
+              ] }, j)) }) : null
+            ] })
+          ] }, stepId);
+        }) })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-foot", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn primary",
+            "data-testid": "plan-confirm",
+            disabled: !plan_id,
+            onClick: () => typeof onConfirm === "function" && onConfirm({
+              type: "confirm_plan",
+              plan_id,
+              plan_version
+            }),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Play, {}),
+              "Confirm & run",
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-kbd", children: "\u2318\u21B5" })
+            ]
+          }
+        ),
+        typeof onEdit === "function" ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn",
+            "data-testid": "plan-edit",
+            onClick: () => onEdit({ type: "correction", plan_id, plan_version }),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Diff, {}),
+              "Edit plan"
+            ]
+          }
+        ) : null,
+        typeof onPartialRun === "function" && steps.length > 3 ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn subtle",
+            "data-testid": "plan-partial-run",
+            onClick: () => onPartialRun({
+              type: "run_steps",
+              step_ids: steps.slice(0, 3).map((s) => s.step_id ?? s.id)
+            }),
+            children: "Run first 3 only"
+          }
+        ) : null,
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { flex: 1 } }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontSize: 11, color: "var(--tx-4)" }, children: "Backend will validate locators before execution" })
+      ] })
+    ] });
+  }
+  function CardPermission({ permission, onDecision }) {
+    if (!permission) return null;
+    const operation = permission.operation ?? permission.action ?? "operation";
+    const step_id = permission.step_id ?? null;
+    const risk = permission.risk_level ?? permission.risk ?? "unknown";
+    const reason = permission.reason ?? permission.message ?? "";
+    const decide = (decision, scope = "once") => {
+      if (typeof onDecision === "function") {
+        onDecision({
+          type: "permission_decision",
+          operation,
+          step_id,
+          decision,
+          scope
+        });
+      }
+    };
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card perm needs-input", "data-testid": "card-permission", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Shield, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "aw-card-title", children: [
+          "Permission required \xB7 ",
+          risk,
+          "-risk action"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-state", style: { background: "var(--ylw-soft)", color: "#7A5A0E", borderColor: "#ECD89A" }, children: "Decision required" })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "aw-card-body", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-fail-grid", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "k", children: "operation" }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "v mono", children: operation }),
+        step_id ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(import_jsx_runtime4.Fragment, { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "k", children: "on step" }),
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "v", children: step_id })
+        ] }) : null,
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "k", children: "risk" }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "v", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "aw-badge-i warn", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "ldot" }),
+          risk
+        ] }) }),
+        reason ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(import_jsx_runtime4.Fragment, { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "k", children: "why" }),
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "v", children: reason })
+        ] }) : null
+      ] }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-foot", style: { flexWrap: "wrap" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn primary",
+            "data-testid": "permission-allow-once",
+            onClick: () => decide("allow", "once"),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Check, {}),
+              "Allow once"
+            ]
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn",
+            "data-testid": "permission-allow-plan",
+            onClick: () => decide("allow", "plan"),
+            children: "Allow for this plan"
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { flex: 1 } }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn danger",
+            "data-testid": "permission-deny",
+            onClick: () => decide("deny"),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Stop, { style: { width: 11, height: 11 } }),
+              "Deny"
+            ]
           }
         )
       ] })
     ] });
+  }
+  function CardExecution({ phase, currentStep, recordedSteps = [], pendingSteps = [], onPause, onStop }) {
+    if (phase !== "executing" && !currentStep) return null;
+    const recorded = asArray(recordedSteps);
+    const pending = asArray(pendingSteps);
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card exec running", "data-testid": "card-execution", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Play, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-title", children: "Executing plan" }),
+        currentStep ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-state", "data-testid": "exec-current-step", children: currentStep.label ?? currentStep.step_id ?? "" }) : null,
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "aw-card-source backend", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "src-dot" }),
+          "Step Runner \xB7 live"
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-body", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "aw-prog", style: { marginBottom: 10 } }),
+        recorded.map((s, i) => {
+          const id = pickFirst(s.step_id, s.id, `r-${i}`);
+          const title = s.description ?? s.title ?? id;
+          return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-step ok", "data-testid": `exec-recorded-${id}`, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-step-idx", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Check, { style: { width: 11, height: 11 } }) }),
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-step-main", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "aw-step-title", children: title }),
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-step-meta", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "aw-badge-i ok", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "ldot" }),
+                  "recorded"
+                ] }),
+                s.duration_ms ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { children: [
+                  "\xB7 ",
+                  s.duration_ms,
+                  "ms"
+                ] }) : null
+              ] })
+            ] })
+          ] }, id);
+        }),
+        currentStep ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-step run", "data-testid": "exec-current", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-step-idx", children: recorded.length + 1 }),
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-step-main", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-step-title", children: [
+              currentStep.description ?? currentStep.title ?? currentStep.step_id,
+              currentStep.step_id ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "id", children: currentStep.step_id }) : null
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-step-meta", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "aw-badge-i info", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "ldot" }),
+                currentStep.status ?? "running"
+              ] }),
+              currentStep.scope ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { children: [
+                "scope ",
+                /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "mono", children: currentStep.scope })
+              ] }) : null
+            ] })
+          ] })
+        ] }) : null,
+        pending.map((s, i) => {
+          const id = pickFirst(s.step_id, s.id, `p-${i}`);
+          const title = s.description ?? s.title ?? id;
+          return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-step pending", "data-testid": `exec-pending-${id}`, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-step-idx", children: recorded.length + 1 + (currentStep ? 1 : 0) + i }),
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-step-main", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "aw-step-title", children: title }),
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "aw-step-meta", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-badge-i outline", children: "queued" }) })
+            ] })
+          ] }, id);
+        })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-foot", children: [
+        typeof onPause === "function" ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn",
+            "data-testid": "exec-pause",
+            onClick: () => onPause({ type: "pause_run" }),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Pause, { style: { width: 11, height: 11 } }),
+              "Pause"
+            ]
+          }
+        ) : null,
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn danger",
+            "data-testid": "exec-stop",
+            onClick: () => typeof onStop === "function" && onStop({ type: "stop_run" }),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Stop, { style: { width: 11, height: 11 } }),
+              "Stop run"
+            ]
+          }
+        )
+      ] })
+    ] });
+  }
+  function CardLocatorAmbiguity({ ambiguity, onChoose, onAskLLM, onChangeScope, onStop }) {
+    const [pick, setPick] = (0, import_react3.useState)(null);
+    if (!ambiguity) return null;
+    const candidates = asArray(ambiguity.candidates);
+    const step_id = pickFirst(ambiguity.step_id, ambiguity.target_step);
+    const pickedIdx = candidates.findIndex((c) => (c.id ?? c.candidate_id) === pick);
+    const picked = pickedIdx >= 0 ? candidates[pickedIdx] : null;
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card locator blocking", "data-testid": "card-locator-ambiguity", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Target, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-title", children: "Choose the correct candidate" }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-state", children: "Execution paused" }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "aw-card-source backend", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "src-dot" }),
+          "Step Runner \xB7 ",
+          candidates.length,
+          " matches"
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-body", style: { padding: "14px 14px 12px" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("p", { style: { margin: "0 0 12px", fontSize: 12.5, color: "var(--tx-2)" }, children: [
+          step_id ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(import_jsx_runtime4.Fragment, { children: [
+            "Multiple matches were found while resolving ",
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontFamily: "var(--ff-mono)", color: "var(--tx)" }, children: step_id }),
+            ". "
+          ] }) : null,
+          "I won't pick on your behalf \u2014 choose one, ask me to refine the locator, or narrow the scope."
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+          "div",
+          {
+            style: { display: "flex", flexDirection: "column", gap: 8 },
+            "data-testid": "locator-candidates",
+            children: candidates.map((c, i) => {
+              const id = pickFirst(c.id, c.candidate_id, `cand-${i}`);
+              const selected = pick === id;
+              return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+                "div",
+                {
+                  className: "aw-cand " + (selected ? "selected" : ""),
+                  onClick: () => setPick(id),
+                  "data-testid": `locator-candidate-${id}`,
+                  children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-cand-num", children: i + 1 }),
+                    /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-cand-main", children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, justifyContent: "space-between" }, children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-cand-title", children: c.title ?? c.description ?? id }),
+                        c.confidence != null ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Conf, { level: c.confidence }) : null
+                      ] }),
+                      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-cand-meta", children: [
+                        c.scope ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { children: [
+                          "scope: ",
+                          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontFamily: "var(--ff-mono)", color: "var(--tx-2)" }, children: c.scope })
+                        ] }) : null,
+                        c.risk ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(import_jsx_runtime4.Fragment, { children: [
+                          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { children: "\xB7" }),
+                          /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { children: [
+                            "risk: ",
+                            /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "aw-badge-i " + (c.risk === "safe-read" ? "ok" : "warn"), children: [
+                              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "ldot" }),
+                              c.risk
+                            ] })
+                          ] })
+                        ] }) : null
+                      ] }),
+                      c.locator ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "aw-cand-loc", children: c.locator }) : null,
+                      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "aw-cand-actions", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+                        "button",
+                        {
+                          type: "button",
+                          className: "aw-btn",
+                          onClick: (e) => {
+                            e.stopPropagation();
+                            setPick(id);
+                          },
+                          "data-testid": `locator-select-${id}`,
+                          children: [
+                            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Check, {}),
+                            " ",
+                            selected ? "Selected" : "Select"
+                          ]
+                        }
+                      ) })
+                    ] })
+                  ]
+                },
+                id
+              );
+            })
+          }
+        )
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-foot", style: { flexWrap: "wrap" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontSize: 11.5, color: "var(--tx-3)" }, children: picked ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(import_jsx_runtime4.Fragment, { children: [
+          "Selected: ",
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("b", { style: { color: "var(--tx)" }, children: [
+            "candidate ",
+            pickedIdx + 1
+          ] })
+        ] }) : "No candidate selected" }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { flex: 1 } }),
+        typeof onAskLLM === "function" ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn",
+            "data-testid": "locator-ask-llm",
+            onClick: () => onAskLLM({ type: "improve_locator", step_id }),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Spark, {}),
+              "Ask LLM for better locator"
+            ]
+          }
+        ) : null,
+        typeof onChangeScope === "function" ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn",
+            "data-testid": "locator-change-scope",
+            onClick: () => onChangeScope({ type: "change_locator_scope", step_id }),
+            children: "Change scope"
+          }
+        ) : null,
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn danger",
+            "data-testid": "locator-stop",
+            disabled: typeof onStop !== "function",
+            onClick: () => typeof onStop === "function" && onStop({ type: "stop_run" }),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Stop, { style: { width: 11, height: 11 } }),
+              "Stop"
+            ]
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn primary",
+            "data-testid": "locator-confirm",
+            disabled: !picked,
+            onClick: () => typeof onChoose === "function" && onChoose({
+              type: "choose_locator_candidate",
+              step_id,
+              candidate_id: pick
+            }),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Check, {}),
+              "Use candidate ",
+              picked ? pickedIdx + 1 : ""
+            ]
+          }
+        )
+      ] })
+    ] });
+  }
+  function CardRecovery({ recovery, onApplyRepair, onRetry, onChooseLocator, onStop }) {
+    if (!recovery) return null;
+    const step_id = recovery.step_id ?? null;
+    const reason = recovery.failure_reason ?? recovery.reason ?? recovery.message ?? "";
+    const expected = recovery.expected ?? null;
+    const actual = recovery.actual ?? null;
+    const evidence = asArray(recovery.evidence);
+    const attempts = asArray(recovery.attempts);
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card recover blocking", "data-testid": "card-recovery", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Alert, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "aw-card-title", children: [
+          "Recovery needed",
+          step_id ? ` \xB7 ${step_id}` : ""
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-state", children: "Run blocked" })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-body", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-fail-grid", children: [
+          reason ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(import_jsx_runtime4.Fragment, { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "k", children: "reason" }),
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "v", children: reason })
+          ] }) : null,
+          expected != null ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(import_jsx_runtime4.Fragment, { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "k", children: "expected" }),
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "v mono", children: String(expected) })
+          ] }) : null,
+          actual != null ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(import_jsx_runtime4.Fragment, { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "k", children: "actual" }),
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "v mono", children: String(actual) })
+          ] }) : null,
+          evidence.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(import_jsx_runtime4.Fragment, { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "k", children: "evidence" }),
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "v", style: { display: "flex", gap: 8, flexWrap: "wrap" }, children: evidence.map((e, i) => /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { "data-testid": `recovery-evidence-${i}`, children: typeof e === "string" ? e : e.label ?? e.url ?? e.kind ?? "evidence" }, i)) })
+          ] }) : null
+        ] }),
+        attempts.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(import_jsx_runtime4.Fragment, { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "aw-card-section-title", children: "Recovery attempts" }),
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("ul", { className: "aw-dotlist", "data-testid": "recovery-attempts", children: attempts.map((a, i) => /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("li", { className: a.outcome === "ok" ? "ok" : "no", children: a.text ?? a.reason ?? String(a) }, i)) })
+        ] }) : null
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-foot", style: { flexWrap: "wrap" }, children: [
+        typeof onApplyRepair === "function" ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn primary",
+            "data-testid": "recovery-apply-llm",
+            onClick: () => onApplyRepair({ type: "retry_recovery", step_id, recovery_action: "llm_repair" }),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Spark, {}),
+              "Apply LLM repair"
+            ]
+          }
+        ) : null,
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn",
+            "data-testid": "recovery-retry",
+            onClick: () => typeof onRetry === "function" && onRetry({
+              type: "retry_recovery",
+              step_id,
+              recovery_action: "retry_as_is"
+            }),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Retry, { style: { width: 12, height: 12 } }),
+              "Retry as-is"
+            ]
+          }
+        ),
+        typeof onChooseLocator === "function" ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn",
+            "data-testid": "recovery-choose-locator",
+            onClick: () => onChooseLocator({ type: "choose_locator", step_id }),
+            children: "Choose another locator"
+          }
+        ) : null,
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { flex: 1 } }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn danger",
+            "data-testid": "recovery-stop",
+            onClick: () => typeof onStop === "function" && onStop({ type: "stop_run" }),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Stop, { style: { width: 11, height: 11 } }),
+              "Stop run"
+            ]
+          }
+        )
+      ] })
+    ] });
+  }
+  function CardCompleted({ completion, onReplayAll, onSaveSession, onOpenCode, onDownloadTrace }) {
+    if (!completion) return null;
+    const passed = completion.passed ?? completion.success_count ?? null;
+    const repaired = completion.repaired ?? null;
+    const failed = completion.failed ?? completion.failure_count ?? null;
+    const elapsed = completion.elapsed ?? completion.duration ?? null;
+    const summary = completion.summary ?? "";
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card done", "data-testid": "card-completed", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Check, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-title", children: "Run completed" }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-state", "data-testid": "completed-state", children: completion.outcome ?? "ok" }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("span", { className: "aw-card-source backend", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "src-dot" }),
+          "Backend event \xB7 run_completed"
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-body", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+          "div",
+          {
+            style: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 10 },
+            "data-testid": "completed-summary-grid",
+            children: [
+              passed != null ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-status-pill", style: { justifySelf: "start" }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-dot", style: { background: "var(--grn)" } }),
+                /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "k", children: "passed" }),
+                /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "v", children: passed })
+              ] }) : null,
+              repaired != null ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-status-pill", style: { justifySelf: "start" }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-dot", style: { background: "var(--ylw)" } }),
+                /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "k", children: "repaired" }),
+                /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "v", children: repaired })
+              ] }) : null,
+              failed != null ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-status-pill", style: { justifySelf: "start" }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-dot", style: { background: "var(--red)" } }),
+                /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "k", children: "failed" }),
+                /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "v", children: failed })
+              ] }) : null,
+              elapsed != null ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-status-pill", style: { justifySelf: "start" }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-dot", style: { background: "var(--blu)" } }),
+                /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "k", children: "elapsed" }),
+                /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "v", children: elapsed })
+              ] }) : null
+            ]
+          }
+        ),
+        summary ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("p", { style: { margin: 0, fontSize: 12, color: "var(--tx-2)" }, "data-testid": "completed-summary-text", children: summary }) : null
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-foot", children: [
+        typeof onReplayAll === "function" ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn primary",
+            "data-testid": "completed-replay-all",
+            onClick: () => onReplayAll({ type: "replay_all" }),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Repeat, {}),
+              "Replay all"
+            ]
+          }
+        ) : null,
+        typeof onSaveSession === "function" ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn",
+            "data-testid": "completed-save",
+            onClick: () => onSaveSession({ type: "save_session" }),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Branch, {}),
+              "Save as suite"
+            ]
+          }
+        ) : null,
+        typeof onOpenCode === "function" ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn",
+            "data-testid": "completed-open-code",
+            onClick: () => onOpenCode({ type: "open_code" }),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Code, {}),
+              "Open code"
+            ]
+          }
+        ) : null,
+        typeof onDownloadTrace === "function" ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn subtle",
+            "data-testid": "completed-download-trace",
+            onClick: () => onDownloadTrace({ type: "download_trace" }),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Download, {}),
+              "Download trace"
+            ]
+          }
+        ) : null
+      ] })
+    ] });
+  }
+  function CardOffline({ connection, onReconnect }) {
+    if (!connection || connection.connected) return null;
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card recover blocking", "data-testid": "card-offline", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Plug, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-title", children: "Backend unavailable" }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-state", children: "Holding state" })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-body", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("p", { style: { margin: "0 0 6px" }, children: [
+          "The frontend lost its websocket. ",
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("b", { children: "I will not infer success or failure of in-flight steps." })
+        ] }),
+        connection.last_event ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("ul", { className: "aw-dotlist", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("li", { className: "no", children: [
+          "last event: ",
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: connection.last_event })
+        ] }) }) : null
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "aw-card-foot", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+        "button",
+        {
+          type: "button",
+          className: "aw-btn primary",
+          "data-testid": "offline-reconnect",
+          onClick: () => typeof onReconnect === "function" && onReconnect({ type: "reconnect" }),
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Sync, {}),
+            "Reconnect now"
+          ]
+        }
+      ) })
+    ] });
+  }
+  function CardSchemaError({ rejection, onAskRepair }) {
+    if (!rejection) return null;
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card warn blocking", "data-testid": "card-schema-error", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Alert, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-title", children: "Schema validation failed" }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-state", children: "Nothing executed" })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-body", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("p", { style: { margin: "0 0 6px", fontSize: 12.5 }, children: rejection.reason ?? rejection.message ?? "The LLM response did not validate." }),
+        rejection.detail ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "aw-fail-grid", children: Object.entries(rejection.detail).map(([k, v]) => /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(import_react3.default.Fragment, { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "k", children: k }),
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "v mono", children: String(v) })
+        ] }, k)) }) : null
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "aw-card-foot", children: typeof onAskRepair === "function" ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+        "button",
+        {
+          type: "button",
+          className: "aw-btn primary",
+          "data-testid": "schema-repair",
+          onClick: () => onAskRepair({ type: "repair_plan" }),
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Sync, {}),
+            "Ask LLM to repair plan"
+          ]
+        }
+      ) : null })
+    ] });
+  }
+  function LlmEmpty({ onSeed }) {
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-empty", "data-testid": "llm-empty", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "ic", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Spark, {}) }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("h3", { children: "Describe what you want to automate or validate." }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("p", { children: "Tell me about a page, attach a selection from the page, or paste a Playwright snippet. I'll plan a flow, ask before running, and record evidence on the way." }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "aw-suggestions", children: ["Validate this pricing page", "Smoke test the login flow", "Repair my flaky checkout spec"].map((c) => /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+        "span",
+        {
+          className: "aw-chip",
+          "data-testid": `llm-seed-${c.split(" ")[0].toLowerCase()}`,
+          onClick: () => typeof onSeed === "function" && onSeed(c),
+          children: c
+        },
+        c
+      )) })
+    ] });
+  }
+  function Composer({ onSend, onPickElement, disabled = false }) {
+    const [text, setText] = (0, import_react3.useState)("");
+    const send = () => {
+      if (!text.trim()) return;
+      if (typeof onSend === "function") onSend({ type: "user_message", message_text: text.trim() });
+      setText("");
+    };
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "aw-composer", "data-testid": "aw-composer", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-composer-box", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+        "textarea",
+        {
+          className: "aw-composer-input",
+          rows: 1,
+          "data-testid": "aw-composer-input",
+          placeholder: "Reply, refine the plan, or paste a step\u2026",
+          value: text,
+          onChange: (e) => setText(e.target.value),
+          onKeyDown: (e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              send();
+            }
+          }
+        }
+      ),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-composer-actions", style: { justifyContent: "space-between" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { style: { display: "flex", gap: 2, alignItems: "center" }, children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+          "button",
+          {
+            type: "button",
+            className: "aw-icon-btn",
+            title: "Pick element",
+            "data-testid": "aw-composer-pick",
+            disabled,
+            onClick: () => typeof onPickElement === "function" && onPickElement({ type: "arm_picker" }),
+            children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Mouse, {})
+          }
+        ) }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn primary",
+            style: { padding: "5px 10px", fontSize: 11.5, height: 24 },
+            "data-testid": "aw-composer-send",
+            disabled: disabled || !text.trim(),
+            onClick: send,
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Send, {}),
+              "Send",
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-kbd", children: "\u21B5" })
+            ]
+          }
+        )
+      ] })
+    ] }) });
+  }
+  function LlmThread({
+    conversation = [],
+    plan,
+    pendingClarification,
+    pendingRecommendations = [],
+    pendingPermission,
+    pendingDiff,
+    pendingRecovery,
+    ambiguity,
+    completion,
+    rejection,
+    connection,
+    phase,
+    currentStep,
+    recordedSteps = [],
+    pendingSteps = [],
+    dispatchers = {},
+    onSeed
+  }) {
+    const has = (v) => v != null && (Array.isArray(v) ? v.length > 0 : true);
+    const empty = !has(conversation) && !has(plan) && !has(pendingClarification) && !has(pendingRecommendations) && !has(pendingPermission) && !has(pendingDiff) && !has(pendingRecovery) && !has(ambiguity) && !has(completion) && !has(rejection) && !has(currentStep);
+    if (empty) return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(LlmEmpty, { onSeed });
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-thread", "data-testid": "aw-thread", children: [
+      asArray(conversation).map((m, i) => {
+        const isUser = m.role === "user";
+        if (isUser) {
+          return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Bubble, { time: m.timestamp ?? m.time, children: m.text ?? "" }, m.id ?? `m-${i}`);
+        }
+        return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Sys, { time: m.timestamp ?? m.time, children: m.text ?? "" }, m.id ?? `s-${i}`);
+      }),
+      connection && !connection.connected ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(CardOffline, { connection, onReconnect: dispatchers.onReconnect }) : null,
+      pendingClarification ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+        CardClarification,
+        {
+          clarification: pendingClarification,
+          onAnswer: dispatchers.onAnswerClarification,
+          onLetLLMDecide: dispatchers.onAnswerClarification
+        }
+      ) : null,
+      has(pendingRecommendations) ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+        CardRecommendation,
+        {
+          recommendations: pendingRecommendations,
+          onAccept: dispatchers.onAcceptRecommendations,
+          onAddOwn: dispatchers.onAddRecommendation
+        }
+      ) : null,
+      pendingDiff ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+        CardPlanDiff,
+        {
+          diff: pendingDiff,
+          onApply: dispatchers.onApplyPlanDiff,
+          onReject: dispatchers.onRejectPlanDiff
+        }
+      ) : null,
+      plan ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+        CardPlanReady,
+        {
+          plan,
+          onConfirm: dispatchers.onConfirmPlan,
+          onEdit: dispatchers.onSendCorrection,
+          onPartialRun: dispatchers.onRunSelected
+        }
+      ) : null,
+      pendingPermission ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+        CardPermission,
+        {
+          permission: pendingPermission,
+          onDecision: dispatchers.onPermissionDecision
+        }
+      ) : null,
+      phase === "executing" || currentStep ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+        CardExecution,
+        {
+          phase,
+          currentStep,
+          recordedSteps,
+          pendingSteps,
+          onPause: dispatchers.onPause,
+          onStop: dispatchers.onStop
+        }
+      ) : null,
+      ambiguity ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+        CardLocatorAmbiguity,
+        {
+          ambiguity,
+          onChoose: dispatchers.onChooseLocatorCandidate,
+          onAskLLM: dispatchers.onAskLocatorLLM,
+          onChangeScope: dispatchers.onChangeLocatorScope,
+          onStop: dispatchers.onStop
+        }
+      ) : null,
+      pendingRecovery ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+        CardRecovery,
+        {
+          recovery: pendingRecovery,
+          onApplyRepair: dispatchers.onApplyRecoveryLLM,
+          onRetry: dispatchers.onRetryRecovery,
+          onChooseLocator: dispatchers.onChooseLocator,
+          onStop: dispatchers.onStop
+        }
+      ) : null,
+      rejection ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(CardSchemaError, { rejection, onAskRepair: dispatchers.onRepairPlan }) : null,
+      completion ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+        CardCompleted,
+        {
+          completion,
+          onReplayAll: dispatchers.onReplayAll,
+          onSaveSession: dispatchers.onSaveSession,
+          onOpenCode: dispatchers.onOpenCode,
+          onDownloadTrace: dispatchers.onDownloadTrace
+        }
+      ) : null
+    ] });
+  }
+
+  // src/v4/secondary-tabs.jsx
+  var import_react4 = __toESM(require_react());
+  var import_jsx_runtime5 = __toESM(require_jsx_runtime());
+  function asArray2(v) {
+    return Array.isArray(v) ? v : [];
+  }
+  function pickFirst2(...vals) {
+    for (const v of vals) if (v != null && v !== "") return v;
+    return null;
+  }
+  function StepsTab({
+    pendingSteps = [],
+    selectedStepIds = [],
+    onAdd,
+    onPickElement,
+    onToggleSelect,
+    onRunSelected,
+    onRunAll,
+    onReorder,
+    onDuplicate,
+    onDelete,
+    onEdit,
+    blocked = false,
+    blockedReason = ""
+  }) {
+    const list = asArray2(pendingSteps);
+    const [filter, setFilter] = (0, import_react4.useState)("");
+    const filtered = filter ? list.filter(
+      (s) => ((s.description ?? "") + " " + (s.id ?? s.step_id ?? "")).toLowerCase().includes(filter.toLowerCase())
+    ) : list;
+    return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { "data-testid": "steps-tab", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-list-toolbar", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn primary",
+            "data-testid": "steps-add",
+            onClick: () => typeof onAdd === "function" && onAdd({ type: "add_step" }),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Plus, {}),
+              "Add step"
+            ]
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn",
+            "data-testid": "steps-pick",
+            onClick: () => typeof onPickElement === "function" && onPickElement({ type: "arm_picker" }),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Mouse, {}),
+              "Pick element"
+            ]
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "aw-spacer" }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: "aw-search", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Search, { style: { width: 11, height: 11, color: "var(--tx-3)" } }),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+            "input",
+            {
+              "data-testid": "steps-filter",
+              placeholder: "Filter steps\u2026",
+              value: filter,
+              onChange: (e) => setFilter(e.target.value)
+            }
+          )
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-info-strip", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Info, {}),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: "Step display order is for your convenience. Stable IDs persist across reorders." }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "aw-spacer" }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn primary",
+            style: { padding: "4px 10px" },
+            "data-testid": "steps-run-all",
+            disabled: blocked || list.length === 0,
+            onClick: () => typeof onRunAll === "function" && onRunAll({
+              type: "run_steps",
+              step_ids: list.map((s) => s.step_id ?? s.id),
+              mode: "all"
+            }),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Play, {}),
+              "Run all"
+            ]
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn",
+            style: { padding: "4px 10px" },
+            "data-testid": "steps-run-selected",
+            disabled: blocked || selectedStepIds.length === 0,
+            onClick: () => typeof onRunSelected === "function" && onRunSelected({
+              type: "run_steps",
+              step_ids: selectedStepIds,
+              mode: "selected"
+            }),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Play, {}),
+              "Run selected (",
+              selectedStepIds.length,
+              ")"
+            ]
+          }
+        )
+      ] }),
+      blocked && blockedReason ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+        "div",
+        {
+          className: "aw-info-strip",
+          "data-testid": "steps-blocked",
+          style: { background: "#FBEEEA", borderColor: "#E8B9AE", color: "#8A3A2E" },
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Alert, { style: { color: "var(--red)" } }),
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: blockedReason })
+          ]
+        }
+      ) : null,
+      filtered.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-info-strip", "data-testid": "steps-empty", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Info, {}),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: "No pending steps. Use Add step or Pick element to start." })
+      ] }) : filtered.map((s, i) => {
+        const stepId = pickFirst2(s.step_id, s.id, `step-${i}`);
+        const title = s.description ?? s.title ?? s.action ?? stepId;
+        const weak = s.weak_locator || s.locator_kind === "warn";
+        const checked = selectedStepIds.includes(stepId);
+        const blockedReasonRow = s.blocked_reason ?? null;
+        return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-step-row", "data-testid": `step-row-${stepId}`, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "aw-step-handle", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Drag, {}) }),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+            "span",
+            {
+              className: "aw-step-idx " + (weak ? "warn" : "pending"),
+              style: weak ? { background: "var(--ylw)", color: "#fff" } : { background: "var(--bg-card)", border: "1px dashed var(--br-strong)", color: "var(--tx-3)" },
+              children: i + 1
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { flex: 1, minWidth: 0 }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-step-title", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("label", { style: { display: "inline-flex", alignItems: "center", gap: 6 }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+                  "input",
+                  {
+                    type: "checkbox",
+                    checked,
+                    "data-testid": `step-select-${stepId}`,
+                    onChange: () => typeof onToggleSelect === "function" && onToggleSelect(stepId)
+                  }
+                ),
+                title
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "id", children: stepId })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-step-meta", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: `aw-badge-i ${weak ? "warn" : "ok"}`, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "ldot" }),
+                weak ? "weak locator" : "strong locator"
+              ] }),
+              s.scope ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: "aw-badge-i outline", children: [
+                "scope: ",
+                s.scope
+              ] }) : null,
+              blockedReasonRow ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: "aw-badge-i err", "data-testid": `step-blocked-${stepId}`, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "ldot" }),
+                blockedReasonRow
+              ] }) : null
+            ] })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "actions", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+              "button",
+              {
+                type: "button",
+                className: "aw-icon-btn",
+                title: "Duplicate",
+                "data-testid": `step-duplicate-${stepId}`,
+                onClick: () => typeof onDuplicate === "function" && onDuplicate({ type: "duplicate_step", step_id: stepId }),
+                children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Copy, {})
+              }
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+              "button",
+              {
+                type: "button",
+                className: "aw-icon-btn",
+                title: "Reorder up",
+                "data-testid": `step-up-${stepId}`,
+                onClick: () => typeof onReorder === "function" && onReorder({ type: "reorder_step", step_id: stepId, direction: -1 }),
+                children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Caret, { style: { transform: "rotate(180deg)" } })
+              }
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+              "button",
+              {
+                type: "button",
+                className: "aw-icon-btn",
+                title: "Reorder down",
+                "data-testid": `step-down-${stepId}`,
+                onClick: () => typeof onReorder === "function" && onReorder({ type: "reorder_step", step_id: stepId, direction: 1 }),
+                children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Caret, {})
+              }
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+              "button",
+              {
+                type: "button",
+                className: "aw-icon-btn",
+                title: "Delete",
+                "data-testid": `step-delete-${stepId}`,
+                onClick: () => typeof onDelete === "function" && onDelete({ type: "delete_step", step_id: stepId }),
+                children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.X, {})
+              }
+            )
+          ] })
+        ] }, stepId);
+      })
+    ] });
+  }
+  function RecordedTab({ recordedSteps = [], onReplayOne, onReplayAll }) {
+    const list = asArray2(recordedSteps);
+    return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { "data-testid": "recorded-tab", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-info-strip", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Camera, {}),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: "Backend-emitted evidence only. Skipped or unresolved steps are not shown as recorded." }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "aw-spacer" }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn",
+            style: { padding: "4px 10px" },
+            "data-testid": "recorded-replay-all",
+            disabled: list.length === 0 || typeof onReplayAll !== "function",
+            onClick: () => typeof onReplayAll === "function" && onReplayAll({ type: "replay_all" }),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Repeat, {}),
+              "Replay all"
+            ]
+          }
+        )
+      ] }),
+      list.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-info-strip", "data-testid": "recorded-empty", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Info, {}),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: "No recorded steps yet. They appear here after `step_recorded` events." })
+      ] }) : list.map((s, i) => {
+        const id = pickFirst2(s.step_id, s.id, `r-${i}`);
+        const state = (s.state ?? s.status ?? "recorded").toLowerCase();
+        const repaired = state === "repaired";
+        const skipped = state === "skipped";
+        const failed = state === "failed";
+        const passed = !skipped && !failed;
+        const title = s.description ?? s.title ?? id;
+        const locator = s.locator ?? s.selector ?? "";
+        return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+          "div",
+          {
+            className: "aw-rec-item",
+            "data-testid": `recorded-item-${id}`,
+            "data-state": state,
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-rec-head", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+                  "span",
+                  {
+                    className: "aw-step-idx ok",
+                    style: {
+                      background: passed ? "var(--grn)" : repaired ? "var(--ylw)" : "var(--bg-inset)",
+                      color: passed ? "#fff" : repaired ? "#fff" : "var(--tx-3)"
+                    },
+                    children: skipped ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Skip, { style: { width: 11, height: 11 } }) : repaired ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Sync, { style: { width: 11, height: 11 } }) : /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Check, { style: { width: 11, height: 11 } })
+                  }
+                ),
+                /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { flex: 1 }, children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { fontSize: 13, fontWeight: 500 }, "data-testid": `recorded-title-${id}`, children: [
+                    title,
+                    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { fontFamily: "var(--ff-mono)", fontSize: 10, color: "var(--tx-4)", marginLeft: 6 }, children: id })
+                  ] }),
+                  /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-step-meta", style: { marginTop: 3 }, children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: `aw-badge-i ${passed ? "ok" : repaired ? "warn" : "outline"}`, children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "ldot" }),
+                      state
+                    ] }),
+                    locator ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { children: [
+                      "locator: ",
+                      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: locator })
+                    ] }) : null,
+                    s.duration_ms ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { children: [
+                      "\xB7 ",
+                      s.duration_ms,
+                      "ms"
+                    ] }) : null
+                  ] })
+                ] }),
+                typeof onReplayOne === "function" ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+                  "button",
+                  {
+                    type: "button",
+                    className: "aw-icon-btn",
+                    title: "Replay",
+                    "data-testid": `recorded-replay-${id}`,
+                    onClick: () => onReplayOne({ type: "replay_one", step_id: id }),
+                    children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Repeat, {})
+                  }
+                ) : null
+              ] }),
+              asArray2(s.children).length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+                "div",
+                {
+                  className: "aw-step-ops",
+                  style: { borderLeft: "2px solid var(--grn-soft)", marginTop: 6, paddingLeft: 10 },
+                  "data-testid": `recorded-children-${id}`,
+                  children: asArray2(s.children).map((child, j) => /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-step-op", children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "op-tag", children: child.operation ?? child.kind ?? "op" }),
+                    child.description ?? child.text ?? "",
+                    child.generated_line ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("code", { style: { marginLeft: 6, fontFamily: "var(--ff-mono)", fontSize: 11, color: "var(--tx-3)" }, children: child.generated_line }) : null
+                  ] }, j))
+                }
+              ) : null,
+              repaired && (s.repaired_from || s.repaired_to) ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-diff", style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 1 }, children: [
+                s.repaired_from ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-diff-row rem", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "aw-diff-sign", children: "-" }),
+                  s.repaired_from
+                ] }) : null,
+                s.repaired_to ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-diff-row add", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "aw-diff-sign", children: "+" }),
+                  s.repaired_to
+                ] }) : null
+              ] }) : null
+            ]
+          },
+          id
+        );
+      })
+    ] });
+  }
+  function CodeTab({ codePreview, codeDiagnostics = [], onCopy, onSave }) {
+    const text = (0, import_react4.useMemo)(() => {
+      if (!codePreview) return "";
+      if (typeof codePreview === "string") return codePreview;
+      return codePreview.code ?? codePreview.content ?? "";
+    }, [codePreview]);
+    const fileLabel = (0, import_react4.useMemo)(() => {
+      if (!codePreview) return "";
+      if (typeof codePreview === "object") {
+        return codePreview.file ?? codePreview.path ?? "";
+      }
+      return "";
+    }, [codePreview]);
+    const diagnostics = asArray2(codeDiagnostics).filter(Boolean);
+    const hasCode = !!text;
+    return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { "data-testid": "code-tab", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-info-strip", style: { background: "var(--blu-tint)", borderColor: "#D8E3F2" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Info, { style: { color: "var(--blu)" } }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { children: [
+          "Code is rendered from ",
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: "code_update" }),
+          " events. Frontend does not generate code."
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-list-toolbar", style: { position: "sticky" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 12.5 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Doc, { style: { width: 13, height: 13, color: "var(--tx-2)" } }),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { fontFamily: "var(--ff-mono)", color: "var(--tx)" }, "data-testid": "code-file-label", children: fileLabel || (hasCode ? "generated.spec.ts" : "\u2014") })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "aw-spacer" }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn",
+            "data-testid": "code-copy",
+            disabled: !hasCode,
+            onClick: () => typeof onCopy === "function" && onCopy({ type: "copy_code", code: text }),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Copy, {}),
+              "Copy"
+            ]
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn",
+            "data-testid": "code-save",
+            disabled: !hasCode,
+            onClick: () => typeof onSave === "function" && onSave({ type: "export_code", code: text }),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Download, {}),
+              "Save"
+            ]
+          }
+        )
+      ] }),
+      !hasCode ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-info-strip", "data-testid": "code-empty", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Info, {}),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: "Awaiting code_update event. No code rendered yet." })
+      ] }) : /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { padding: "10px 14px" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("pre", { className: "aw-code", "data-testid": "code-preview", children: text }),
+        diagnostics.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(import_jsx_runtime5.Fragment, { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "aw-card-section-title", children: "Diagnostics" }),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("ul", { className: "aw-dotlist", "data-testid": "code-diagnostics", children: diagnostics.map((d, i) => {
+            const level = (d.level ?? d.severity ?? d.kind ?? "info").toLowerCase();
+            const cls = level === "warning" || level === "warn" || level === "error" ? "no" : "";
+            const message = d.message ?? d.text ?? d.reason ?? "";
+            return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("li", { className: cls, "data-testid": `code-diagnostic-${i}`, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "sec", children: level }),
+              message
+            ] }, i);
+          }) })
+        ] }) : null
+      ] })
+    ] });
+  }
+  var KNOWN_TYPES = /* @__PURE__ */ new Set([
+    "run_started",
+    "plan_ready",
+    "clarification_needed",
+    "recommendation_ready",
+    "permission_required",
+    "locator_ambiguous",
+    "recovery_needed",
+    "step_validating",
+    "step_executing",
+    "step_failed",
+    "step_skipped",
+    "step_recorded",
+    "code_update",
+    "replay_started",
+    "replay_result",
+    "run_completed",
+    "runtime_rejected",
+    "session_state",
+    "schema_error",
+    "error"
+  ]);
+  function TraceTab({ traceEntries = [] }) {
+    const [filter, setFilter] = (0, import_react4.useState)("");
+    const [kind, setKind] = (0, import_react4.useState)("all");
+    const list = asArray2(traceEntries);
+    const filtered = list.filter((row) => {
+      const type = row.type ?? "";
+      if (kind !== "all" && !type.startsWith(kind)) return false;
+      if (filter && !((row.text ?? row.description ?? "") + type).toLowerCase().includes(filter.toLowerCase())) {
+        return false;
+      }
+      return true;
+    });
+    return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { "data-testid": "trace-tab", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-list-toolbar", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: "aw-search", style: { flex: 1, maxWidth: 240 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Search, { style: { width: 11, height: 11, color: "var(--tx-3)" } }),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+            "input",
+            {
+              "data-testid": "trace-filter",
+              placeholder: "Filter events\u2026",
+              value: filter,
+              onChange: (e) => setFilter(e.target.value)
+            }
+          )
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { display: "flex", gap: 4 }, children: ["all", "llm", "step", "permission", "error", "code"].map((k) => /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+          "span",
+          {
+            className: "aw-badge-i " + (kind === k ? "info" : "outline"),
+            style: { cursor: "pointer" },
+            "data-testid": `trace-filter-${k}`,
+            onClick: () => setKind(k),
+            children: [
+              kind === k ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "ldot" }) : null,
+              k
+            ]
+          },
+          k
+        )) })
+      ] }),
+      filtered.length === 0 ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-info-strip", "data-testid": "trace-empty", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Info, {}),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: "No trace events yet." })
+      ] }) : filtered.map((r, i) => {
+        const type = r.type ?? "unknown";
+        const known = KNOWN_TYPES.has(type) || ["session", "plan", "step", "llm", "code", "permission", "locator", "recover", "redact", "page", "e2e", "run"].some((p) => type.startsWith(p));
+        const cls = r.severity === "err" || r.severity === "error" ? "err" : r.severity === "warn" ? "warn" : type.includes("ok") || type === "step.recorded" || type === "run_completed" ? "ok" : known ? "" : "unknown";
+        return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+          "div",
+          {
+            className: "aw-trace-row " + cls,
+            "data-testid": `trace-row-${i}`,
+            "data-type": type,
+            "data-known": known ? "1" : "0",
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "t", children: r.timestamp ?? r.t ?? "" }),
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "aw-trace-icon", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Info, { style: { width: 10, height: 10 } }) }),
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "type", children: type }),
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: "desc", children: [
+                r.text ?? r.description ?? r.message ?? "",
+                !known ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { marginLeft: 8, color: "var(--tx-4)" }, children: "(unknown event \xB7 diagnostic only)" }) : null
+              ] })
+            ]
+          },
+          r.id ?? i
+        );
+      })
+    ] });
+  }
+
+  // aw-ide-panel.jsx
+  var import_jsx_runtime6 = __toESM(require_jsx_runtime());
+  var TAB_ALIAS = {
+    workbench: "llm",
+    llm: "llm",
+    steps: "steps",
+    rec: "rec",
+    recorded: "rec",
+    code: "code",
+    trace: "trace",
+    debug: "trace"
+  };
+  function normalizeTab(tab) {
+    if (!tab) return "llm";
+    return TAB_ALIAS[tab] ?? "llm";
+  }
+  var PHASE_META = {
+    idle: { kind: "idle", state: "Idle", phase: "Idle", task: "Tell me what to automate or validate.", primaryLabel: null, busy: false },
+    planning: { kind: "run", state: "Analyzing", phase: "Analyzing page", task: "Backend is drafting a plan.", primaryLabel: null, busy: true },
+    awaiting_confirmation: { kind: "decide", state: "Confirm to run", phase: "Plan review", task: "Plan is ready \u2014 review before running.", primaryLabel: "Confirm & run", busy: false },
+    clarification: { kind: "decide", state: "Clarification", phase: "Clarification needed", task: "Answer the question to continue.", primaryLabel: "Jump to question", busy: false },
+    executing: { kind: "run", state: "Executing", phase: "Executing", task: "Backend is running steps.", primaryLabel: "Pause", busy: true },
+    recovery: { kind: "block", state: "Run blocked", phase: "Recovery needed", task: "Resolve the failure to continue.", primaryLabel: "Apply LLM repair", busy: false, blocker: "needs recovery" },
+    completed: { kind: "ok", state: "Completed", phase: "Completed", task: "Run finished.", primaryLabel: "Replay all", busy: false }
+  };
+  function phaseMetaFor(state, runtime) {
+    const m = runtime?.storeInteractionMode;
+    if (m && PHASE_META[m]) return PHASE_META[m];
+    return PHASE_META[state] ?? PHASE_META.idle;
+  }
+  function statusForConnection(conn) {
+    if (!conn || conn === "disconnected" || conn === "offline") return "offline";
+    if (conn === "reconnecting") return "reconnect";
+    if (conn === "error") return "error";
+    if (conn === "busy") return "busy";
+    return "connected";
+  }
+  function buildCompletion(runtime, state) {
+    const phase = runtime?.storeState?.phase ?? state;
+    if (phase !== "completed") return null;
+    const recorded = Array.isArray(runtime?.recordedSteps) ? runtime.recordedSteps : runtime?.storeRecordedSteps ?? [];
+    const errors = Array.isArray(runtime?.storeErrors) ? runtime.storeErrors : [];
+    const failed = recorded.filter((s) => (s.state ?? s.status) === "failed").length;
+    return {
+      outcome: errors.length > 0 ? "completed_with_errors" : "ok",
+      passed: recorded.filter((s) => !["failed", "skipped"].includes(s.state ?? s.status)).length,
+      repaired: recorded.filter((s) => (s.state ?? s.status) === "repaired").length,
+      failed,
+      summary: runtime?.lastEvent?.text ?? ""
+    };
+  }
+  function buildAmbiguity(runtime) {
+    const rec = runtime?.storePendingRecovery;
+    if (!rec) return null;
+    const opts = Array.isArray(rec.options) ? rec.options : [];
+    const isLocator = rec.failure_reason === "locator_ambiguous" || rec.kind === "locator_ambiguous" || opts.some((o) => o.locator || o.selector);
+    if (!isLocator) return null;
+    return {
+      step_id: rec.step_id ?? null,
+      candidates: opts.map((o) => ({
+        id: o.id ?? o.candidate_id,
+        title: o.title ?? o.label ?? o.id,
+        locator: o.locator ?? o.selector ?? "",
+        scope: o.scope ?? "",
+        risk: o.risk ?? null,
+        confidence: o.confidence ?? null
+      }))
+    };
+  }
+  function buildRecoveryPayload(runtime) {
+    const rec = runtime?.storePendingRecovery;
+    if (!rec) return null;
+    if (buildAmbiguity(runtime)) return null;
+    return rec;
+  }
+  function buildRejection(runtime) {
+    const errors = Array.isArray(runtime?.storeErrors) ? runtime.storeErrors : [];
+    const last = errors[errors.length - 1];
+    if (!last) return null;
+    if (last.type !== "runtime_rejected" && last.type !== "schema_error") return null;
+    return {
+      reason: last.rejection_reason ?? last.message ?? last.reason ?? "",
+      detail: last.detail ?? null
+    };
+  }
+  function selectCurrentStep(runtime) {
+    const pending = Array.isArray(runtime?.pendingSteps) ? runtime.pendingSteps : runtime?.storePendingSteps ?? [];
+    const recorded = Array.isArray(runtime?.recordedSteps) ? runtime.recordedSteps : runtime?.storeRecordedSteps ?? [];
+    if (pending.length === 0) return null;
+    const recordedIds = new Set(recorded.map((s) => s.step_id ?? s.id));
+    return pending.find((s) => !recordedIds.has(s.step_id ?? s.id)) || null;
+  }
+  function safe(fn) {
+    return typeof fn === "function" ? fn : () => {
+    };
+  }
+  function buildDispatchers(runtime) {
+    return {
+      onSendUserMessage: safe(runtime?.onSendUserMessage ?? runtime?.handleSendUserMessage),
+      onAnswerClarification: safe(runtime?.handleSendClarificationAnswer ?? runtime?.onSendClarificationAnswer ?? runtime?.onSendOptionSelected),
+      onAcceptRecommendations: safe(runtime?.onAcceptRecommendations ?? runtime?.handleAcceptRecommendations),
+      onAddRecommendation: safe(runtime?.onAddRecommendation),
+      onApplyPlanDiff: safe(runtime?.onApplyPlanDiff ?? runtime?.handleApplyPlanDiff),
+      onRejectPlanDiff: safe(runtime?.onRejectPlanDiff ?? runtime?.handleRejectPlanDiff),
+      onConfirmPlan: safe(runtime?.handleConfirmPlan ?? runtime?.onConfirmPlan),
+      onSendCorrection: safe(runtime?.handleSendPlanCorrection ?? runtime?.onSendCorrection ?? runtime?.onSendPlanCorrection),
+      onPermissionDecision: safe(runtime?.onPermissionDecision ?? runtime?.handlePermissionDecision),
+      onChooseLocatorCandidate: safe(runtime?.onChooseLocatorCandidate ?? runtime?.handleChooseLocatorCandidate),
+      onAskLocatorLLM: safe(runtime?.onAskLocatorLLM),
+      onChangeLocatorScope: safe(runtime?.onChangeLocatorScope),
+      onApplyRecoveryLLM: safe(runtime?.handleSendRecoveryInstruction ?? runtime?.onApplyRecoveryLLM),
+      onRetryRecovery: safe(runtime?.onRetryRecovery),
+      onChooseLocator: safe(runtime?.onChooseLocator),
+      onPause: safe(runtime?.onPause),
+      onStop: safe(runtime?.onStop ?? runtime?.handleStopRun),
+      onReplayAll: safe(runtime?.handleReplayAllRecordedSteps ?? runtime?.onReplayAllRecordedSteps),
+      onSaveSession: safe(runtime?.handleSaveSnapshot ?? runtime?.onSaveSnapshot),
+      onOpenCode: safe(runtime?.onOpenCode),
+      onDownloadTrace: safe(runtime?.onDownloadTrace),
+      onReconnect: safe(runtime?.onReconnect),
+      onRepairPlan: safe(runtime?.onRepairPlan),
+      onRunSelected: safe(runtime?.handleRunPendingSteps ?? runtime?.onRunSelected)
+    };
+  }
+  function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
+    const [dock, setDock] = (0, import_react5.useState)("right");
+    const [collapsed, setCollapsed] = (0, import_react5.useState)(false);
+    const [agentsOpen, setAgentsOpen] = (0, import_react5.useState)(false);
+    const [selectedStepIds, setSelectedStepIds] = (0, import_react5.useState)([]);
+    const activeTab = normalizeTab(tab);
+    const setTab = (0, import_react5.useCallback)(
+      (next) => {
+        if (typeof onTabChange === "function") onTabChange(next);
+      },
+      [onTabChange]
+    );
+    const dispatchers = (0, import_react5.useMemo)(() => buildDispatchers(runtime), [runtime]);
+    const recordedSteps = runtime.recordedSteps ?? runtime.storeRecordedSteps ?? [];
+    const pendingSteps = runtime.pendingSteps ?? runtime.storePendingSteps ?? [];
+    const codePreview = runtime.codePreview ?? runtime.storeCodePreview ?? null;
+    const codeDiagnostics = runtime.codeDiagnostics ?? [];
+    const traceEntries = runtime.traceEntries ?? runtime.storeTraceEntries ?? [];
+    const conversation = runtime.conversation ?? [];
+    const plan = runtime.plan ?? runtime.storePlan ?? null;
+    const pendingClarification = (0, import_react5.useMemo)(() => {
+      if (runtime.storePendingClarification) return runtime.storePendingClarification;
+      if (runtime.clarificationQuestion) {
+        return {
+          question_id: runtime.clarificationQuestionId ?? null,
+          question: runtime.clarificationQuestion,
+          options: runtime.clarificationOptions ?? []
+        };
+      }
+      return null;
+    }, [runtime]);
+    const pendingPermission = runtime.storePendingPermission ?? null;
+    const pendingDiff = runtime.storePendingDiff ?? null;
+    const pendingRecommendations = runtime.storePendingRecommendations ?? [];
+    const ambiguity = (0, import_react5.useMemo)(() => buildAmbiguity(runtime), [runtime]);
+    const pendingRecovery = (0, import_react5.useMemo)(() => buildRecoveryPayload(runtime), [runtime]);
+    const completion = (0, import_react5.useMemo)(() => buildCompletion(runtime, state), [runtime, state]);
+    const rejection = (0, import_react5.useMemo)(() => buildRejection(runtime), [runtime]);
+    const currentStep = (0, import_react5.useMemo)(() => selectCurrentStep(runtime), [runtime]);
+    const meta = phaseMetaFor(state, runtime);
+    const status = statusForConnection(runtime.connectionStatus);
+    const connectionPayload = (0, import_react5.useMemo)(
+      () => ({
+        connected: status === "connected" || status === "busy",
+        last_event: runtime.lastEvent?.type ?? runtime.lastEvent ?? null
+      }),
+      [status, runtime]
+    );
+    const counts = {
+      llm: pendingClarification || pendingPermission || ambiguity || pendingRecovery ? 1 : null,
+      steps: pendingSteps.length || null,
+      rec: recordedSteps.length || null,
+      code: codePreview ? 1 : null,
+      trace: traceEntries.length || null
+    };
+    const tokenInfo = (0, import_react5.useMemo)(() => {
+      const tokens = runtime.tokenInfo?.tokens ?? runtime.storeState?.token_usage?.total_tokens ?? 0;
+      const cost = runtime.tokenInfo?.cost ?? runtime.storeState?.token_usage?.cost ?? 0;
+      const tokStr = tokens >= 1e3 ? `${(tokens / 1e3).toFixed(1)}k` : String(tokens);
+      return { tok: tokStr, cost: Number(cost).toFixed(2) };
+    }, [runtime]);
+    const runIdLabel = runtime.storeState?.run_id ?? runtime.run_id ?? "\u2014";
+    const agentsSummary = (0, import_react5.useMemo)(() => {
+      const phase = runtime.storeState?.phase ?? state ?? "idle";
+      return [
+        "on",
+        phase === "planning" ? "run" : "on",
+        phase === "executing" ? "run" : "on",
+        phase === "recovery" ? "on" : "off",
+        "off"
+      ];
+    }, [runtime, state]);
+    const handleToggleStepSelect = (0, import_react5.useCallback)(
+      (stepId) => setSelectedStepIds(
+        (cur) => cur.includes(stepId) ? cur.filter((x) => x !== stepId) : [...cur, stepId]
+      ),
+      []
+    );
+    const showNow = activeTab === "llm" && meta.kind !== "idle";
+    let body = null;
+    if (activeTab === "llm") {
+      body = /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+        LlmThread,
+        {
+          conversation,
+          plan,
+          pendingClarification,
+          pendingRecommendations,
+          pendingPermission,
+          pendingDiff,
+          pendingRecovery,
+          ambiguity,
+          completion,
+          rejection,
+          connection: connectionPayload,
+          phase: runtime.storeState?.phase ?? state,
+          currentStep,
+          recordedSteps,
+          pendingSteps,
+          dispatchers,
+          onSeed: (text) => dispatchers.onSendUserMessage({ type: "user_message", message_text: text })
+        }
+      );
+    } else if (activeTab === "steps") {
+      body = /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+        StepsTab,
+        {
+          pendingSteps,
+          selectedStepIds,
+          onAdd: runtime.addPendingStep ?? runtime.onAddPendingStep,
+          onPickElement: runtime.handleAttachElement ?? runtime.onAttachElement,
+          onToggleSelect: handleToggleStepSelect,
+          onRunSelected: dispatchers.onRunSelected,
+          onRunAll: dispatchers.onRunSelected,
+          onReorder: runtime.onReorderPendingStep,
+          onDuplicate: runtime.onDuplicatePendingStep,
+          onDelete: runtime.removePendingStep ?? runtime.onDeletePendingStep,
+          blocked: !!runtime.storePendingRecovery || !!runtime.storePendingPermission,
+          blockedReason: runtime.storePendingRecovery ? "Run blocked while recovery is open" : runtime.storePendingPermission ? "Run blocked while permission is pending" : ""
+        }
+      );
+    } else if (activeTab === "rec") {
+      body = /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+        RecordedTab,
+        {
+          recordedSteps,
+          onReplayOne: runtime.handleReplayRecordedStep ?? runtime.onReplayRecordedStep,
+          onReplayAll: dispatchers.onReplayAll
+        }
+      );
+    } else if (activeTab === "code") {
+      body = /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+        CodeTab,
+        {
+          codePreview,
+          codeDiagnostics,
+          onCopy: runtime.handleCopyRecordedStep ?? runtime.onCopyCode,
+          onSave: runtime.onExportCode
+        }
+      );
+    } else if (activeTab === "trace") {
+      body = /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(TraceTab, { traceEntries });
+    }
+    const containerCls = `aw-stage dock-${dock}` + (collapsed ? " collapsed" : "");
+    return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: containerCls, "data-testid": "aw-stage", "data-state": state, "data-tab": activeTab, children: /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(
+      "aside",
+      {
+        className: "aw-panel",
+        "data-testid": "aw-panel",
+        "data-wide": dock === "top" ? "1" : "0",
+        style: { width: dock === "top" ? "100%" : 420 },
+        children: [
+          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "aw-resize" }),
+          !collapsed ? /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(import_jsx_runtime6.Fragment, { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+              Header,
+              {
+                status,
+                dock,
+                setDock,
+                collapsed,
+                setCollapsed,
+                tokenInfo,
+                runState: runIdLabel,
+                agentsOpen,
+                setAgentsOpen,
+                agentsSummary,
+                pageUrl: runtime.pageUrl ?? ""
+              }
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(TabStrip, { tab: activeTab, setTab, counts }),
+            showNow ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+              NowStrip,
+              {
+                kind: meta.kind,
+                state: meta.state,
+                task: meta.task,
+                refLabel: runtime.lastEvent?.label ?? null,
+                primaryLabel: meta.primaryLabel,
+                onPrimary: () => {
+                  if (state === "awaiting_confirmation" && plan) {
+                    dispatchers.onConfirmPlan({
+                      type: "confirm_plan",
+                      plan_id: plan.plan_id ?? plan.id,
+                      plan_version: plan.version
+                    });
+                  } else if (state === "completed") {
+                    dispatchers.onReplayAll({ type: "replay_all" });
+                  } else if (state === "executing") {
+                    dispatchers.onPause({ type: "pause_run" });
+                  }
+                }
+              }
+            ) : null,
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "aw-panel-body", "data-testid": "aw-panel-body", children: body }),
+            activeTab === "llm" ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+              Composer,
+              {
+                onSend: dispatchers.onSendUserMessage,
+                onPickElement: runtime.handleAttachElement ?? runtime.onAttachElement,
+                disabled: status === "offline"
+              }
+            ) : null,
+            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+              Footer,
+              {
+                phase: meta.phase,
+                event: runtime.lastEvent?.text ?? runtime.lastEvent?.type ?? "\u2014",
+                blocker: meta.blocker || (rejection ? "schema invalid" : null),
+                nextAction: meta.primaryLabel,
+                busy: meta.busy
+              }
+            ),
+            agentsOpen ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+              AgentsPopover,
+              {
+                onClose: () => setAgentsOpen(false),
+                agents: runtime.storeState?.agents ?? []
+              }
+            ) : null
+          ] }) : /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(CollapsedRail, { tab: activeTab, setTab, setCollapsed })
+        ]
+      }
+    ) });
   }
   window.IDEPanel = IDEPanel;
 
@@ -26780,7 +27566,7 @@
   }
 
   // src/main.jsx
-  var import_jsx_runtime3 = __toESM(require_jsx_runtime());
+  var import_jsx_runtime7 = __toESM(require_jsx_runtime());
   var VALID_TABS = /* @__PURE__ */ new Set(["workbench", "steps", "code", "debug"]);
   var DEFAULT_CONFIG = {
     state: "planning",
@@ -27130,7 +27916,7 @@
     }
     return diagnostics.map((entry) => entry && typeof entry === "object" ? { ...entry } : entry).filter((entry) => entry != null);
   }
-  var EXPECTED_OUTCOME_TYPES2 = [
+  var EXPECTED_OUTCOME_TYPES = [
     "navigation",
     "modal",
     "dropdown",
@@ -27142,7 +27928,7 @@
     "no_visible_change",
     "not_sure"
   ];
-  function isClickLikeIntent2(value) {
+  function isClickLikeIntent(value) {
     const text = firstNonEmptyText(value).toLowerCase();
     return /(^|\b)(click|tap|press|open)\b/.test(text);
   }
@@ -27151,10 +27937,10 @@
       return null;
     }
     const type = firstNonEmptyText(expectedOutcome.type).toLowerCase().replace(/[\s-]+/g, "_");
-    if (!type || !EXPECTED_OUTCOME_TYPES2.includes(type)) {
+    if (!type || !EXPECTED_OUTCOME_TYPES.includes(type)) {
       return null;
     }
-    const description = firstRawText2(expectedOutcome.description);
+    const description = firstRawText(expectedOutcome.description);
     return {
       type,
       ...description ? { description } : {},
@@ -27162,7 +27948,7 @@
       required: Boolean(required || expectedOutcome.required === true)
     };
   }
-  function resolveSelectedCandidateIndex2(value, candidateCount) {
+  function resolveSelectedCandidateIndex(value, candidateCount) {
     const index = Number(value);
     if (Number.isInteger(index) && index >= 0 && index < candidateCount) {
       return index;
@@ -27229,8 +28015,8 @@
     if (!intent) {
       return "draft";
     }
-    const expectedOutcome = normalizeExpectedOutcome(step.expected_outcome ?? step.expectedOutcome, isClickLikeIntent2(intent));
-    if (isClickLikeIntent2(intent) && (!expectedOutcome || !expectedOutcome.type)) {
+    const expectedOutcome = normalizeExpectedOutcome(step.expected_outcome ?? step.expectedOutcome, isClickLikeIntent(intent));
+    if (isClickLikeIntent(intent) && (!expectedOutcome || !expectedOutcome.type)) {
       return "needs_outcome";
     }
     return "ready";
@@ -27246,7 +28032,7 @@
     }
     return "";
   }
-  function firstRawText2(...values) {
+  function firstRawText(...values) {
     for (const value of values) {
       if (typeof value === "string" && value !== "") {
         return value;
@@ -27491,7 +28277,7 @@
     }
     return values;
   }
-  function isTechnicalRecordedLabel2(value) {
+  function isTechnicalRecordedLabel(value) {
     const text = firstNonEmptyText(value);
     if (!text) {
       return false;
@@ -27502,7 +28288,7 @@
   function pickFriendlyText(...values) {
     for (const value of values) {
       const text = firstNonEmptyText(value);
-      if (text && !isTechnicalRecordedLabel2(text)) {
+      if (text && !isTechnicalRecordedLabel(text)) {
         return text;
       }
     }
@@ -27550,7 +28336,7 @@
     const attributes = info.attributes && typeof info.attributes === "object" ? info.attributes : {};
     const rawCandidates = Array.isArray(info.candidates) ? info.candidates : [];
     const candidates = rawCandidates.map((candidate, index) => normalizeElementCandidate(candidate, index)).filter(Boolean);
-    const selectedIndex = resolveSelectedCandidateIndex2(info.selected_candidate_index ?? info.selectedCandidateIndex, candidates.length);
+    const selectedIndex = resolveSelectedCandidateIndex(info.selected_candidate_index ?? info.selectedCandidateIndex, candidates.length);
     const selectedCandidate = selectedIndex === null ? normalizeElementCandidate(info, 0) : candidates[selectedIndex] || normalizeElementCandidate(info, 0);
     const selectedAttributes = selectedCandidate && selectedCandidate.attributes && typeof selectedCandidate.attributes === "object" ? selectedCandidate.attributes : attributes;
     let classValue = firstNonEmptyText(
@@ -27635,7 +28421,7 @@
     if (!candidates.length) {
       return info;
     }
-    const selectedIndex = resolveSelectedCandidateIndex2(selectedCandidateIndex, candidates.length);
+    const selectedIndex = resolveSelectedCandidateIndex(selectedCandidateIndex, candidates.length);
     if (selectedIndex === null) {
       return info;
     }
@@ -27695,7 +28481,7 @@
       intent: nextIntent,
       element_info: step.element_info ?? step.elementInfo ?? null,
       elementInfo: step.elementInfo ?? step.element_info ?? null,
-      expected_outcome: normalizeExpectedOutcome(step.expected_outcome ?? step.expectedOutcome, isClickLikeIntent2(nextIntent)),
+      expected_outcome: normalizeExpectedOutcome(step.expected_outcome ?? step.expectedOutcome, isClickLikeIntent(nextIntent)),
       recorded: step.recorded === true
     };
     const status = typeof step.status === "string" ? step.status.trim().toLowerCase() : "";
@@ -27714,7 +28500,7 @@
     const number = Number(value);
     return Number.isFinite(number) ? number : null;
   }
-  function inferActionKindFromText2(...values) {
+  function inferActionKindFromText(...values) {
     const text = values.map((value) => firstNonEmptyText(value)).filter(Boolean).join(" ").toLowerCase();
     if (!text) return "step";
     if (/(^|\b)(click|tap|press|select|choose|open)\b/.test(text)) return "click";
@@ -27797,7 +28583,7 @@
   function normalizeRecordedStep(step, index) {
     if (!step || typeof step !== "object") {
       const rawText = firstNonEmptyText(step) || `Recorded step ${index + 1}`;
-      const action2 = inferActionKindFromText2(rawText);
+      const action2 = inferActionKindFromText(rawText);
       const target = stripActionPrefix(rawText, action2);
       return {
         id: `recorded-step-${Date.now().toString(36)}-${index + 1}`,
@@ -27812,7 +28598,7 @@
         target_label: target || rawText
       };
     }
-    const action = inferActionKindFromText2(
+    const action = inferActionKindFromText(
       step.action,
       step.action_label,
       step.kind,
@@ -27925,7 +28711,7 @@
   }
   function buildRecordedStepFromPayload(payload, matchedStep, matchIndex, recordedStepId, recordedStepNumber, recordedStepIndex) {
     const source = payload && typeof payload === "object" ? payload : {};
-    const action = inferActionKindFromText2(
+    const action = inferActionKindFromText(
       source.action,
       source.step_action,
       source.kind,
@@ -28177,7 +28963,7 @@
     };
   }
   function useAutoWorkbenchTransport(config) {
-    const wsUrl = (0, import_react2.useMemo)(
+    const wsUrl = (0, import_react6.useMemo)(
       () => resolveWsUrl(config),
       [
         config?.wsUrl,
@@ -28193,71 +28979,71 @@
         config?.host
       ]
     );
-    const [connectionStatus, setConnectionStatus] = (0, import_react2.useState)("disconnected");
-    const [runState, setRunState] = (0, import_react2.useState)(() => normalizeRunState(config.runState ?? config.state) || "planning");
-    const [conversation, setConversation] = (0, import_react2.useState)([]);
-    const [timeline, setTimeline] = (0, import_react2.useState)([]);
-    const [traceEntries, setTraceEntries] = (0, import_react2.useState)(() => normalizeTraceEntries(config.traceEntries));
-    const [plan, setPlan] = (0, import_react2.useState)(null);
-    const [codePreview, setCodePreview] = (0, import_react2.useState)("");
-    const [lastError, setLastError] = (0, import_react2.useState)("");
-    const [lastEvent, setLastEvent] = (0, import_react2.useState)(null);
-    const [lastSavedSnapshot, setLastSavedSnapshot] = (0, import_react2.useState)(null);
-    const [pendingCommands, setPendingCommands] = (0, import_react2.useState)(() => normalizePendingCommands(config.pendingCommands));
-    const [pendingSteps, setPendingSteps] = (0, import_react2.useState)(() => normalizePendingSteps(config.pendingSteps));
-    const [recordedSteps, setRecordedSteps] = (0, import_react2.useState)(() => normalizeRecordedSteps(config.recordedSteps));
-    const [lastReplayByStepId, setLastReplayByStepId] = (0, import_react2.useState)({});
-    const [codeDiagnostics, setCodeDiagnostics] = (0, import_react2.useState)(() => normalizeCodeDiagnostics(config.codeDiagnostics));
-    const [interactionMode, setInteractionMode] = (0, import_react2.useState)(
+    const [connectionStatus, setConnectionStatus] = (0, import_react6.useState)("disconnected");
+    const [runState, setRunState] = (0, import_react6.useState)(() => normalizeRunState(config.runState ?? config.state) || "planning");
+    const [conversation, setConversation] = (0, import_react6.useState)([]);
+    const [timeline, setTimeline] = (0, import_react6.useState)([]);
+    const [traceEntries, setTraceEntries] = (0, import_react6.useState)(() => normalizeTraceEntries(config.traceEntries));
+    const [plan, setPlan] = (0, import_react6.useState)(null);
+    const [codePreview, setCodePreview] = (0, import_react6.useState)("");
+    const [lastError, setLastError] = (0, import_react6.useState)("");
+    const [lastEvent, setLastEvent] = (0, import_react6.useState)(null);
+    const [lastSavedSnapshot, setLastSavedSnapshot] = (0, import_react6.useState)(null);
+    const [pendingCommands, setPendingCommands] = (0, import_react6.useState)(() => normalizePendingCommands(config.pendingCommands));
+    const [pendingSteps, setPendingSteps] = (0, import_react6.useState)(() => normalizePendingSteps(config.pendingSteps));
+    const [recordedSteps, setRecordedSteps] = (0, import_react6.useState)(() => normalizeRecordedSteps(config.recordedSteps));
+    const [lastReplayByStepId, setLastReplayByStepId] = (0, import_react6.useState)({});
+    const [codeDiagnostics, setCodeDiagnostics] = (0, import_react6.useState)(() => normalizeCodeDiagnostics(config.codeDiagnostics));
+    const [interactionMode, setInteractionMode] = (0, import_react6.useState)(
       () => normalizeInteractionMode(config.interactionMode ?? config.mode ?? config.runState ?? config.state) || "planning"
     );
-    const [planCorrectionText, setPlanCorrectionText] = (0, import_react2.useState)("");
-    const [clarificationQuestion, setClarificationQuestion] = (0, import_react2.useState)("");
-    const [clarificationOptions, setClarificationOptions] = (0, import_react2.useState)([]);
-    const [clarificationAnswerText, setClarificationAnswerText] = (0, import_react2.useState)("");
-    const [recoveryText, setRecoveryText] = (0, import_react2.useState)("");
-    const [activePickerStepId, setActivePickerStepId] = (0, import_react2.useState)("");
-    const socketRef = (0, import_react2.useRef)(null);
-    const retryRef = (0, import_react2.useRef)(null);
-    const attemptRef = (0, import_react2.useRef)(0);
-    const mountedRef = (0, import_react2.useRef)(true);
-    const planRef = (0, import_react2.useRef)(null);
-    const pendingCommandsRef = (0, import_react2.useRef)([]);
-    const activePickerStepIdRef = (0, import_react2.useRef)("");
-    const pendingStepsRef = (0, import_react2.useRef)([]);
-    (0, import_react2.useLayoutEffect)(() => {
+    const [planCorrectionText, setPlanCorrectionText] = (0, import_react6.useState)("");
+    const [clarificationQuestion, setClarificationQuestion] = (0, import_react6.useState)("");
+    const [clarificationOptions, setClarificationOptions] = (0, import_react6.useState)([]);
+    const [clarificationAnswerText, setClarificationAnswerText] = (0, import_react6.useState)("");
+    const [recoveryText, setRecoveryText] = (0, import_react6.useState)("");
+    const [activePickerStepId, setActivePickerStepId] = (0, import_react6.useState)("");
+    const socketRef = (0, import_react6.useRef)(null);
+    const retryRef = (0, import_react6.useRef)(null);
+    const attemptRef = (0, import_react6.useRef)(0);
+    const mountedRef = (0, import_react6.useRef)(true);
+    const planRef = (0, import_react6.useRef)(null);
+    const pendingCommandsRef = (0, import_react6.useRef)([]);
+    const activePickerStepIdRef = (0, import_react6.useRef)("");
+    const pendingStepsRef = (0, import_react6.useRef)([]);
+    (0, import_react6.useLayoutEffect)(() => {
       pendingCommandsRef.current = pendingCommands;
     }, [pendingCommands]);
-    (0, import_react2.useLayoutEffect)(() => {
+    (0, import_react6.useLayoutEffect)(() => {
       activePickerStepIdRef.current = activePickerStepId;
     }, [activePickerStepId]);
-    (0, import_react2.useLayoutEffect)(() => {
+    (0, import_react6.useLayoutEffect)(() => {
       pendingStepsRef.current = pendingSteps;
     }, [pendingSteps]);
-    (0, import_react2.useLayoutEffect)(() => {
+    (0, import_react6.useLayoutEffect)(() => {
       planRef.current = plan;
     }, [plan]);
-    const updatePendingSteps = (0, import_react2.useCallback)((updater) => {
+    const updatePendingSteps = (0, import_react6.useCallback)((updater) => {
       setPendingSteps((current) => {
         const next = typeof updater === "function" ? updater(current) : updater;
         pendingStepsRef.current = next;
         return next;
       });
     }, []);
-    const updatePendingCommands = (0, import_react2.useCallback)((updater) => {
+    const updatePendingCommands = (0, import_react6.useCallback)((updater) => {
       setPendingCommands((current) => {
         const next = typeof updater === "function" ? updater(current) : updater;
         pendingCommandsRef.current = next;
         return next;
       });
     }, []);
-    const recordTraceEntry = (0, import_react2.useCallback)((traceEntry) => {
+    const recordTraceEntry = (0, import_react6.useCallback)((traceEntry) => {
       if (!traceEntry || typeof traceEntry !== "object") {
         return;
       }
       setTraceEntries((current) => mergeTraceEntryList(current, traceEntry));
     }, []);
-    const recordPendingCommand = (0, import_react2.useCallback)(
+    const recordPendingCommand = (0, import_react6.useCallback)(
       (commandEnvelope, metadata = {}) => {
         const commandId = firstNonEmptyText(commandEnvelope?.command_id, commandEnvelope?.commandId);
         const commandType = firstNonEmptyText(commandEnvelope?.type);
@@ -28277,7 +29063,7 @@
       },
       [updatePendingCommands]
     );
-    const acknowledgePendingCommands = (0, import_react2.useCallback)(
+    const acknowledgePendingCommands = (0, import_react6.useCallback)(
       (eventType, metadata = {}) => {
         updatePendingCommands((current) => {
           const index = current.findIndex((command) => command && command.status === "pending");
@@ -28297,7 +29083,7 @@
       },
       [updatePendingCommands]
     );
-    const rejectPendingCommand = (0, import_react2.useCallback)(
+    const rejectPendingCommand = (0, import_react6.useCallback)(
       (commandId, metadata = {}) => {
         const rejectionId = firstNonEmptyText(commandId);
         if (!rejectionId) {
@@ -28323,7 +29109,7 @@
       },
       [updatePendingCommands]
     );
-    const updateLastReplayByStepId = (0, import_react2.useCallback)((stepId, replayStatus) => {
+    const updateLastReplayByStepId = (0, import_react6.useCallback)((stepId, replayStatus) => {
       const replayStepId = firstNonEmptyText(stepId);
       if (!replayStepId) {
         return;
@@ -28333,17 +29119,17 @@
         [replayStepId]: replayStatus
       }));
     }, []);
-    const appendTimeline = (0, import_react2.useCallback)((label, level = "ok") => {
+    const appendTimeline = (0, import_react6.useCallback)((label, level = "ok") => {
       const entry = normalizeTimelineEntry(label, level);
       setTimeline((current) => [...current.slice(-39), entry]);
       setLastEvent({ type: "timeline", ...entry });
     }, []);
-    const appendConversation = (0, import_react2.useCallback)((role, text) => {
+    const appendConversation = (0, import_react6.useCallback)((role, text) => {
       const entry = normalizeConversationEntry(role, text);
       setConversation((current) => [...current.slice(-29), entry]);
       setLastEvent({ type: "conversation", ...entry });
     }, []);
-    const sendPayload = (0, import_react2.useCallback)(
+    const sendPayload = (0, import_react6.useCallback)(
       (payload, offlineMessage = "WebSocket not connected.") => {
         const socket = socketRef.current;
         if (!isSocketOpen(socket)) {
@@ -28364,7 +29150,7 @@
       },
       [appendTimeline]
     );
-    const updatePendingStepIntent = (0, import_react2.useCallback)((stepId, intent) => {
+    const updatePendingStepIntent = (0, import_react6.useCallback)((stepId, intent) => {
       updatePendingSteps(
         (current) => current.map((step) => {
           if (step.id !== stepId) {
@@ -28381,14 +29167,14 @@
             ...nextStep,
             expected_outcome: normalizeExpectedOutcome(
               step.expected_outcome ?? step.expectedOutcome,
-              isClickLikeIntent2(nextIntent)
+              isClickLikeIntent(nextIntent)
             ),
             status: resolvePendingStepStatus(nextStep)
           };
         })
       );
     }, [updatePendingSteps]);
-    const updatePendingStepExpectedOutcome = (0, import_react2.useCallback)((stepId, expectedOutcome) => {
+    const updatePendingStepExpectedOutcome = (0, import_react6.useCallback)((stepId, expectedOutcome) => {
       updatePendingSteps(
         (current) => current.map((step) => {
           if (step.id !== stepId) {
@@ -28400,7 +29186,7 @@
             intent: nextIntent,
             recorded: false,
             element_info: step.element_info ?? step.elementInfo ?? null,
-            expected_outcome: normalizeExpectedOutcome(expectedOutcome, isClickLikeIntent2(nextIntent))
+            expected_outcome: normalizeExpectedOutcome(expectedOutcome, isClickLikeIntent(nextIntent))
           };
           return {
             ...nextStep,
@@ -28409,7 +29195,7 @@
         })
       );
     }, [updatePendingSteps]);
-    const updatePendingStepElementTarget = (0, import_react2.useCallback)((stepId, selectedCandidateIndex) => {
+    const updatePendingStepElementTarget = (0, import_react6.useCallback)((stepId, selectedCandidateIndex) => {
       updatePendingSteps(
         (current) => current.map((step) => {
           if (step.id !== stepId) {
@@ -28434,7 +29220,7 @@
         })
       );
     }, [updatePendingSteps]);
-    const removePendingStep = (0, import_react2.useCallback)(
+    const removePendingStep = (0, import_react6.useCallback)(
       (stepId) => {
         if (!stepId) {
           return;
@@ -28454,11 +29240,11 @@
       },
       [appendTimeline, updatePendingSteps]
     );
-    const addPendingStep = (0, import_react2.useCallback)(() => {
+    const addPendingStep = (0, import_react6.useCallback)(() => {
       updatePendingSteps((current) => [...current, createPendingStep("")]);
       appendTimeline("Step added.", "ok");
     }, [appendTimeline, updatePendingSteps]);
-    const handleReplayRecordedStep = (0, import_react2.useCallback)(
+    const handleReplayRecordedStep = (0, import_react6.useCallback)(
       (step) => {
         const stepId = firstNonEmptyText(step?.id, step?.step_id, step?.stepId);
         const title = firstNonEmptyText(step?.display_title, step?.element_name, step?.action, stepId, "Recorded step");
@@ -28479,7 +29265,7 @@
       },
       [appendTimeline, sendPayload]
     );
-    const handleReplayAllRecordedSteps = (0, import_react2.useCallback)(() => {
+    const handleReplayAllRecordedSteps = (0, import_react6.useCallback)(() => {
       const sent = sendPayload(
         {
           type: "replay_all",
@@ -28491,7 +29277,7 @@
         appendTimeline("Replay all requested.", "active");
       }
     }, [appendTimeline, sendPayload]);
-    const handleCopyRecordedStep = (0, import_react2.useCallback)(
+    const handleCopyRecordedStep = (0, import_react6.useCallback)(
       (step) => {
         const line = firstNonEmptyText(step?.generated_line);
         if (!line) {
@@ -28506,7 +29292,7 @@
       },
       [appendTimeline]
     );
-    const handleAttachElement = (0, import_react2.useCallback)(
+    const handleAttachElement = (0, import_react6.useCallback)(
       (stepId) => {
         if (!stepId) {
           return;
@@ -28527,7 +29313,7 @@
       },
       [appendTimeline, sendPayload]
     );
-    const handleRunPendingSteps = (0, import_react2.useCallback)(() => {
+    const handleRunPendingSteps = (0, import_react6.useCallback)(() => {
       const readySteps = [];
       for (const step of pendingSteps) {
         if (!step || typeof step !== "object" || step.recorded === true) {
@@ -28539,9 +29325,9 @@
         }
         const normalizedOutcome = normalizeExpectedOutcome(
           step.expected_outcome ?? step.expectedOutcome,
-          isClickLikeIntent2(intent)
+          isClickLikeIntent(intent)
         );
-        if (isClickLikeIntent2(intent) && (!normalizedOutcome || !normalizedOutcome.type)) {
+        if (isClickLikeIntent(intent) && (!normalizedOutcome || !normalizedOutcome.type)) {
           appendTimeline(`Select an expected outcome for "${intent}" before running.`, "warn");
           return;
         }
@@ -28564,7 +29350,7 @@
         "WebSocket not connected."
       );
     }, [appendTimeline, pendingSteps, sendPayload]);
-    const handleSaveSnapshot = (0, import_react2.useCallback)(() => {
+    const handleSaveSnapshot = (0, import_react6.useCallback)(() => {
       sendPayload(
         {
           type: "save_snapshot"
@@ -28572,7 +29358,7 @@
         "WebSocket not connected."
       );
     }, [sendPayload]);
-    const handleConfirmPlan = (0, import_react2.useCallback)(() => {
+    const handleConfirmPlan = (0, import_react6.useCallback)(() => {
       const currentPlan = planRef.current && typeof planRef.current === "object" ? planRef.current : null;
       const rawPlan = currentPlan && typeof currentPlan.raw === "object" ? currentPlan.raw : {};
       const commandPayload = {};
@@ -28599,7 +29385,7 @@
         appendTimeline("Confirmation sent.", "ok");
       }
     }, [appendConversation, appendTimeline, recordPendingCommand, sendPayload]);
-    const handleSendPlanCorrection = (0, import_react2.useCallback)(() => {
+    const handleSendPlanCorrection = (0, import_react6.useCallback)(() => {
       const correction = planCorrectionText.trim();
       if (!correction) {
         appendTimeline("Correction is empty.", "warn");
@@ -28631,7 +29417,7 @@
         appendTimeline("Correction sent.", "ok");
       }
     }, [appendConversation, appendTimeline, plan, planCorrectionText, recordPendingCommand, sendPayload]);
-    const handleSendClarificationAnswer = (0, import_react2.useCallback)(
+    const handleSendClarificationAnswer = (0, import_react6.useCallback)(
       (answerOverride = "") => {
         const answer = firstNonEmptyText(answerOverride, clarificationAnswerText).trim();
         if (!answer) {
@@ -28661,7 +29447,7 @@
       },
       [appendConversation, appendTimeline, clarificationAnswerText, recordPendingCommand, sendPayload]
     );
-    const handleSendRecoveryInstruction = (0, import_react2.useCallback)(() => {
+    const handleSendRecoveryInstruction = (0, import_react6.useCallback)(() => {
       const instruction = recoveryText.trim();
       if (!instruction) {
         appendTimeline("Recovery instruction is empty.", "warn");
@@ -28686,7 +29472,7 @@
         setRecoveryText("");
       }
     }, [appendConversation, appendTimeline, recordPendingCommand, recoveryText, sendPayload]);
-    const handleBackendMessage = (0, import_react2.useCallback)(
+    const handleBackendMessage = (0, import_react6.useCallback)(
       (message) => {
         const type = String(message?.type || "status").toLowerCase();
         const payload = message?.payload;
@@ -29117,7 +29903,7 @@
                     ...nextStep,
                     expected_outcome: normalizeExpectedOutcome(
                       step.expected_outcome ?? step.expectedOutcome,
-                      isClickLikeIntent2(nextIntent)
+                      isClickLikeIntent(nextIntent)
                     ),
                     status: resolvePendingStepStatus(nextStep)
                   };
@@ -29144,7 +29930,7 @@
       },
       [acknowledgePendingCommands, appendConversation, appendTimeline, rejectPendingCommand]
     );
-    (0, import_react2.useEffect)(() => {
+    (0, import_react6.useEffect)(() => {
       mountedRef.current = true;
       return () => {
         mountedRef.current = false;
@@ -29161,7 +29947,7 @@
         }
       };
     }, []);
-    (0, import_react2.useEffect)(() => {
+    (0, import_react6.useEffect)(() => {
       let cancelled = false;
       const clearRetry = () => {
         if (retryRef.current) {
@@ -29309,13 +30095,13 @@
   function AutoWorkbenchRuntime({ config }) {
     const normalized = normalizeConfig(config);
     const transport = useFrontendEventStore(config);
-    const [tab, setTab] = (0, import_react2.useState)(normalized.tab);
-    (0, import_react2.useEffect)(() => {
+    const [tab, setTab] = (0, import_react6.useState)(normalized.tab);
+    (0, import_react6.useEffect)(() => {
       setTab(normalized.tab);
     }, [normalized.tab]);
     const panelState = toPanelState(transport.runState || normalized.panelState);
     const IDEPanel2 = window.IDEPanel;
-    return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+    return /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
       "div",
       {
         style: {
@@ -29328,7 +30114,7 @@
           boxSizing: "border-box",
           pointerEvents: "none"
         },
-        children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+        children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
           "div",
           {
             className: `aw-density-${normalized.density}`,
@@ -29338,7 +30124,7 @@
               pointerEvents: "auto",
               boxShadow: "-12px 0 36px rgba(0,0,0,0.28)"
             },
-            children: IDEPanel2 ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+            children: IDEPanel2 ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
               IDEPanel2,
               {
                 state: panelState,
@@ -29372,7 +30158,7 @@
     );
   }
   function useFrontendEventStore(config) {
-    const [storeState, storeDispatch] = import_react2.default.useReducer(reducer, null, createInitialState);
+    const [storeState, storeDispatch] = import_react6.default.useReducer(reducer, null, createInitialState);
     const transport = useAutoWorkbenchTransport(config);
     return { ...transport, storeState, storeDispatch };
   }
@@ -29397,7 +30183,7 @@
       currentHostNode = node;
       currentMountNode = mountNode;
     }
-    currentRoot.render(/* @__PURE__ */ (0, import_jsx_runtime3.jsx)(AutoWorkbenchRuntime, { config }));
+    currentRoot.render(/* @__PURE__ */ (0, import_jsx_runtime7.jsx)(AutoWorkbenchRuntime, { config }));
   }
   function mount(root, config = {}) {
     const node = resolveMountNode(root);
