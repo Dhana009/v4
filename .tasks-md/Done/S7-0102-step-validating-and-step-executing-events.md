@@ -4,7 +4,7 @@
 **Cluster:** 1 (Backend Event and Command Seams)
 **Tier:** 1 (core)
 **Type:** Feature
-**Status:** Planning
+**Status:** Done
 **Blocks:** S7-0110
 **Blocked by:** S7-0101 (run_id must be stable)
 
@@ -233,3 +233,28 @@ python -m pytest tests/test_step_progress_events_contract.py --cov=runtime.event
 - Emission point requires restructuring the execution loop — stop; file a modular boundary story
 - `step_executing` ordering cannot be guaranteed without a broad refactor — stop; escalate
 - Coverage < 95% — add tests, do not lower threshold
+
+---
+
+## Evidence Recorded
+
+- **Implementation commit:** `0dd4506`
+- **Implementation files:**
+  - `runtime/event_contracts.py` — added `build_step_validating_payload()`, `build_step_executing_payload()`
+  - `agent.py` — emission seam in `_mark_step_executing()` emitting step_validating then step_executing
+- **Tests added:** `tests/test_step_progress_events_contract.py`
+- **Validation commands:**
+  - `python -m pytest tests/test_step_progress_events_contract.py -q`
+  - `python -m pytest -q --ignore=tests/e2e 2>&1 | tail -5`
+- **Result summary:**
+  - Cluster 1 focused audit: 7/8 passed (evidence gap was item 8, resolved by this commit)
+  - 203 new tests pass
+  - Full pytest: 0 failures, ~1898 passed, 1 skipped
+  - Coverage: 96% overall on Cluster 1 target modules
+  - `runtime/event_contracts.py`: 98%
+- **Confirmation:**
+  - No frontend files changed
+  - No LLM prompt files changed
+  - No E2E files changed
+  - No local noise staged
+- **Remaining gaps:** None for Cluster 1 implementation; evidence gap resolved.

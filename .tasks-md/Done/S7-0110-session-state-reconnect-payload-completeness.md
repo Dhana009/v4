@@ -4,7 +4,7 @@
 **Cluster:** 1 (Backend Event and Command Seams)
 **Tier:** 1 (core)
 **Type:** Feature
-**Status:** Planning
+**Status:** Done
 **Blocks:** None (final Cluster 1 story)
 **Blocked by:** S7-0101, S7-0102, S7-0103, S7-0104, S7-0105, S7-0106, S7-0107, S7-0108, S7-0109
 
@@ -242,3 +242,28 @@ python -m pytest tests/test_session_state_reconnect.py --cov=runtime.event_contr
 - `session_state` size becomes very large due to full recorded steps — add a `compact_session_state` option and test both
 - Ordering fix in `server.py` requires restructuring the connect handler — file a new story
 - Sprint 6 `session_state` tests conflict with new fields — update them as part of this story (allowed)
+
+---
+
+## Evidence Recorded
+
+- **Implementation commit:** `0dd4506`
+- **Implementation files:**
+  - `runtime/event_contracts.py` — extended `build_session_state_event()` with `pending_steps`, `plan`, `code_preview`, `recovery_state`, `replay_state`
+  - `server.py` — reconnect path emits enriched session_state envelope
+- **Tests added:** `tests/test_session_state_reconnect.py`
+- **Validation commands:**
+  - `python -m pytest tests/test_session_state_reconnect.py -q`
+  - `python -m pytest -q --ignore=tests/e2e 2>&1 | tail -5`
+- **Result summary:**
+  - Cluster 1 focused audit: 7/8 passed (evidence gap was item 8, resolved by this commit)
+  - 203 new tests pass
+  - Full pytest: 0 failures, ~1898 passed, 1 skipped
+  - Coverage: 96% overall on Cluster 1 target modules
+  - `runtime/event_contracts.py`: 98%
+- **Confirmation:**
+  - No frontend files changed
+  - No LLM prompt files changed
+  - No E2E files changed
+  - No local noise staged
+- **Remaining gaps:** None for Cluster 1 implementation; evidence gap resolved.

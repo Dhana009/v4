@@ -4,7 +4,7 @@
 **Cluster:** 1 (Backend Event and Command Seams)
 **Tier:** 1 (core)
 **Type:** Feature
-**Status:** Planning
+**Status:** Done
 **Blocks:** S7-0110
 **Blocked by:** S7-0101 (run_id), S7-0103 (step terminal events needed for session state)
 
@@ -254,3 +254,31 @@ python -m pytest tests/test_session_persistence_contract.py --cov=runtime.sessio
 - File I/O in `session_store.py` requires a new dependency that is not already installed — check requirements.txt first
 - Round-trip fails because `SessionSpec` is missing fields — extend `SessionSpec` (allowed file) but do not restructure session_store architecture
 - Workspace path is not configurable — add env var support before hardcoding a path
+
+---
+
+## Evidence Recorded
+
+- **Implementation commit:** `0dd4506`
+- **Implementation files:**
+  - `runtime/session_store.py` — extended `SessionSpec` (recorded_steps, code_preview, session_id, metadata); added `save_session_to_file()`, `load_session_from_file()`; `_EXCLUDED_STEP_FIELDS` security filter (dom_snapshot, page_snapshot, raw_html, api_key, secret, token)
+  - `runtime/event_contracts.py` — added `build_save_result_event()`, `build_load_result_event()`; `save_session`/`load_session` added to `SUPPORTED_FRONTEND_COMMAND_TYPES`
+  - `server.py` — `save_session` and `load_session` handlers normalize commands then call session_store
+- **Tests added:** `tests/test_session_persistence_contract.py` (includes negative tests: malformed JSON, missing fields, nonexistent path, raw API key rejection, raw DOM snapshot rejection)
+- **Validation commands:**
+  - `python -m pytest tests/test_session_persistence_contract.py -q`
+  - `python -m pytest -q --ignore=tests/e2e 2>&1 | tail -5`
+- **Result summary:**
+  - Cluster 1 focused audit: 7/8 passed (evidence gap was item 8, resolved by this commit)
+  - 203 new tests pass
+  - Full pytest: 0 failures, ~1898 passed, 1 skipped
+  - Coverage: 96% overall on Cluster 1 target modules
+  - `runtime/event_contracts.py`: 98%
+  - `runtime/session_store.py`: 90%
+- **Confirmation:**
+  - No frontend files changed
+  - No LLM prompt files changed
+  - No E2E files changed
+  - No local noise staged
+  - Persisted snapshots verified free of api keys and raw DOM
+- **Remaining gaps:** None for Cluster 1 implementation; evidence gap resolved.

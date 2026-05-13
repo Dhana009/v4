@@ -4,7 +4,7 @@
 **Cluster:** 1 (Backend Event and Command Seams)
 **Tier:** 1 (core)
 **Type:** Feature
-**Status:** Planning
+**Status:** Done
 **Blocks:** S7-0102, S7-0103, S7-0104, S7-0106, S7-0110
 **Blocked by:** None
 
@@ -220,3 +220,28 @@ python -m pytest tests/test_run_started_event_contract.py --cov=runtime.event_co
 - Builder requires changes to LLM controller or policy gateway — stop; file separate story
 - Emission introduces a duplicate event in existing tests — stop; investigate before fixing
 - Coverage < 95% after adding tests — do not lower threshold; add more tests
+
+---
+
+## Evidence Recorded
+
+- **Implementation commit:** `0dd4506`
+- **Implementation files:**
+  - `runtime/event_contracts.py` — added `build_run_started_payload()`
+  - `agent.py` — emission seam before planning loop; `_run_started_emitted` guard in `_reset_lifecycle_state()`
+- **Tests added:** `tests/test_run_started_event_contract.py` (28 tests including coverage gap closers)
+- **Validation commands:**
+  - `python -m pytest tests/test_run_started_event_contract.py -q`
+  - `python -m pytest -q --ignore=tests/e2e 2>&1 | tail -5`
+- **Result summary:**
+  - Cluster 1 focused audit: 7/8 passed (evidence gap was item 8, resolved by this commit)
+  - 203 new tests pass
+  - Full pytest: 0 failures, ~1898 passed, 1 skipped
+  - Coverage: 96% overall on Cluster 1 target modules
+  - `runtime/event_contracts.py`: 98%
+- **Confirmation:**
+  - No frontend files changed
+  - No LLM prompt files changed
+  - No E2E files changed
+  - No local noise staged
+- **Remaining gaps:** None for Cluster 1 implementation; evidence gap resolved.

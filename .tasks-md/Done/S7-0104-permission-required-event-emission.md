@@ -4,7 +4,7 @@
 **Cluster:** 1 (Backend Event and Command Seams)
 **Tier:** 1 (core)
 **Type:** Feature
-**Status:** Planning
+**Status:** Done
 **Blocks:** S7-0110
 **Blocked by:** S7-0101 (run_id)
 
@@ -237,3 +237,29 @@ python -m pytest tests/test_permission_required_event_contract.py --cov=runtime.
 - Permission awaiting requires restructuring the execution loop — stop; file a story
 - Sprint 6 permission policy module has a conflicting internal state model — file a bug ticket
 - `permission_decision` routing cannot be added to `server.py` without a broad refactor — file a modular boundary story
+
+---
+
+## Evidence Recorded
+
+- **Implementation commit:** `0dd4506`
+- **Implementation files:**
+  - `runtime/event_contracts.py` — added `build_permission_required_payload()`
+  - `server.py` — `permission_decision` command handler routes user choice to agent's control_queue
+  - `runtime/event_contracts.py` — `permission_decision` added to `SUPPORTED_FRONTEND_COMMAND_TYPES`
+- **Tests added:** `tests/test_permission_required_event_contract.py`
+- **Validation commands:**
+  - `python -m pytest tests/test_permission_required_event_contract.py -q`
+  - `python -m pytest -q --ignore=tests/e2e 2>&1 | tail -5`
+- **Result summary:**
+  - Cluster 1 focused audit: 7/8 passed (evidence gap was item 8, resolved by this commit)
+  - 203 new tests pass
+  - Full pytest: 0 failures, ~1898 passed, 1 skipped
+  - Coverage: 96% overall on Cluster 1 target modules
+  - `runtime/event_contracts.py`: 98%
+- **Confirmation:**
+  - No frontend files changed
+  - No LLM prompt files changed
+  - No E2E files changed
+  - No local noise staged
+- **Remaining gaps:** None for Cluster 1 implementation; evidence gap resolved.

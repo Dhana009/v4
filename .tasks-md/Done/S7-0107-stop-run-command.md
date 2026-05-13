@@ -4,7 +4,7 @@
 **Cluster:** 1 (Backend Event and Command Seams)
 **Tier:** 1 (core)
 **Type:** Feature
-**Status:** Planning
+**Status:** Done
 **Blocks:** S7-0110
 **Blocked by:** S7-0101 (run_id needed for command routing)
 
@@ -227,3 +227,28 @@ Note: `server.py` is harder to reach 95% on due to async/WS dependencies; 80% mi
 - `run_task.cancel()` requires changes to agent.py lifecycle that are not a thin seam — file story
 - Cancellation leaks state that blocks a new run — investigate before merging
 - Stale rejection cannot be returned without a WS send call that is hard to unit test — use an integration test instead
+
+---
+
+## Evidence Recorded
+
+- **Implementation commit:** `0dd4506`
+- **Implementation files:**
+  - `runtime/event_contracts.py` — added `build_stop_run_result_event()`; `stop_run` added to `SUPPORTED_FRONTEND_COMMAND_TYPES`
+  - `server.py` — `stop_run` handler normalizes command, validates run_id, cancels run_task, emits `run_stopped`
+- **Tests added:** `tests/test_stop_run_command_contract.py`
+- **Validation commands:**
+  - `python -m pytest tests/test_stop_run_command_contract.py -q`
+  - `python -m pytest -q --ignore=tests/e2e 2>&1 | tail -5`
+- **Result summary:**
+  - Cluster 1 focused audit: 7/8 passed (evidence gap was item 8, resolved by this commit)
+  - 203 new tests pass
+  - Full pytest: 0 failures, ~1898 passed, 1 skipped
+  - Coverage: 96% overall on Cluster 1 target modules
+  - `runtime/event_contracts.py`: 98%
+- **Confirmation:**
+  - No frontend files changed
+  - No LLM prompt files changed
+  - No E2E files changed
+  - No local noise staged
+- **Remaining gaps:** None for Cluster 1 implementation; evidence gap resolved.
