@@ -27,7 +27,8 @@ After S7-0810:
 
 - PRD-05-CODEGEN-004: Copy/export code commands and UX
 - PRD-05-CODEGEN-003: Placeholder warning on export
-- PRD-03-FE-007: Frontend does not fabricate state
+- PRD-03-FE-009: Frontend does not infer or fabricate state (no inference from LLM text or missing events)
+- PRD-03-FE-019: Frontend sends only typed, schema-validated commands
 
 ---
 
@@ -68,9 +69,9 @@ test_export_warning_shows_if_placeholders()  # PRD-05-CODEGEN-003
 ### Negative Tests
 
 ```python
-test_copy_button_graceful_if_clipboard_unavailable()  # GOV-S7-C0-004
+test_copy_button_graceful_if_clipboard_unavailable()  # GOV-S7-C0-009
 test_export_without_code_disabled()  # PRD-05-CODEGEN-004
-test_export_does_not_fabricate_file_path()  # PRD-03-FE-007
+test_export_does_not_fabricate_file_path()  # PRD-03-FE-009
 ```
 
 ---

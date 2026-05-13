@@ -27,7 +27,7 @@ After S7-0905:
 
 - PRD-07-AGENT-004: LLM call telemetry structure
 - PRD-02-LLM-RUNTIME-003: Token attribution and cost tracking
-- GOV-S7-C0-004: No raw secrets/prompts in frontend
+- GOV-S7-C0-009: No raw secrets/prompts in frontend
 
 ---
 
@@ -39,7 +39,7 @@ After S7-0905:
 test_llm_telemetry_from_trace_event()  # PRD-07-AGENT-004
 test_token_summary_computed()  # PRD-02-LLM-RUNTIME-003
 test_cost_estimate_computed()  # PRD-02-LLM-RUNTIME-003
-test_telemetry_no_raw_prompts()  # GOV-S7-C0-004
+test_telemetry_no_raw_prompts()  # GOV-S7-C0-009
 ```
 
 ### Component Tests

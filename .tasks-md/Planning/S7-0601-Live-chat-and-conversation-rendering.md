@@ -83,7 +83,7 @@ test_user_intent_message_has_intent_text_and_timestamp() # PRD-03-FE-001
 test_assistant_summary_message_has_summary_and_model()   # PRD-03-FE-001
 test_llm_thinking_message_has_reasoning()                # PRD-03-FE-001
 test_runtime_rejected_message_has_error_and_reason()     # PRD-03-FE-001
-test_malformed_event_payload_rejected()                  # GOV-S7-C0-004
+test_malformed_event_payload_rejected()                  # GOV-S7-C0-009
 ```
 
 File: `tests/test_frontend_message_contract.py`
@@ -116,12 +116,12 @@ File: `tests/test_frontend_message_integration.py`
 ### Negative Tests
 
 ```
-test_null_message_text_handled_safely()                  # GOV-S7-C0-004
-test_empty_message_text_shows_empty_state()              # GOV-S7-C0-004
-test_unknown_message_type_logged_not_rendered()          # GOV-S7-C0-004
-test_message_id_mismatch_in_reconnect_detected()         # GOV-S7-C0-004
-test_duplicate_message_id_not_rendered_twice()           # GOV-S7-C0-004
-test_missing_timestamp_safe()                            # GOV-S7-C0-004
+test_null_message_text_handled_safely()                  # GOV-S7-C0-009
+test_empty_message_text_shows_empty_state()              # GOV-S7-C0-009
+test_unknown_message_type_logged_not_rendered()          # GOV-S7-C0-009
+test_message_id_mismatch_in_reconnect_detected()         # GOV-S7-C0-009
+test_duplicate_message_id_not_rendered_twice()           # GOV-S7-C0-009
+test_missing_timestamp_safe()                            # GOV-S7-C0-009
 ```
 
 File: `tests/test_frontend_message_negative.py`

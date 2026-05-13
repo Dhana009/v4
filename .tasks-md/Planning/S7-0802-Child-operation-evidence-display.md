@@ -27,7 +27,7 @@ After S7-0802:
 - PRD-05-REC-002: Child operation evidence includes action/assertion type, locator/target, expected_outcome metadata
 - PRD-05-REC-003: Expected outcomes are metadata; they do not imply operation success
 - PRD-03-FE-C8-001: Frontend renders backend evidence only; no inferred success
-- GOV-S7-C0-004: No negative tests → no merge
+- GOV-S7-C0-009: No negative tests → no merge
 
 ---
 
@@ -57,8 +57,8 @@ After S7-0802:
 test_operation_from_event_payload()  # PRD-05-REC-002
 test_operation_action_vs_assertion_type()  # PRD-05-REC-002
 test_operation_locator_target_rendering()  # PRD-05-REC-002
-test_operation_rejects_missing_type()  # GOV-S7-C0-004
-test_operation_rejects_missing_locator()  # GOV-S7-C0-004
+test_operation_rejects_missing_type()  # GOV-S7-C0-009
+test_operation_rejects_missing_locator()  # GOV-S7-C0-009
 ```
 
 ### Component Tests
@@ -70,14 +70,14 @@ test_operation_renders_action_type()  # PRD-05-REC-002
 test_operation_renders_assertion_type()  # PRD-05-REC-002
 test_operation_renders_locator_and_target()  # PRD-05-REC-002
 test_operation_renders_expected_outcome_as_metadata()  # PRD-05-REC-003
-test_child_operation_malformed_rejected_safely()  # GOV-S7-C0-004
+test_child_operation_malformed_rejected_safely()  # GOV-S7-C0-009
 ```
 
 ### Negative Tests
 
 ```python
-test_child_operation_with_null_type_rejected()  # GOV-S7-C0-004
-test_child_operation_with_missing_locator_shows_fallback()  # GOV-S7-C0-004
+test_child_operation_with_null_type_rejected()  # GOV-S7-C0-009
+test_child_operation_with_missing_locator_shows_fallback()  # GOV-S7-C0-009
 test_recorded_step_empty_children_array_shows_no_operations()  # PRD-05-REC-002
 test_failed_child_operation_does_not_show_pass()  # PRD-05-REC-003
 ```

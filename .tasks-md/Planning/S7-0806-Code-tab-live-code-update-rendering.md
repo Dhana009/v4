@@ -28,8 +28,8 @@ After S7-0806:
 - PRD-05-CODEGEN-001: Code tab shows backend-generated test code only; no frontend code generation
 - PRD-04-BACKEND-009: code_update event payload with code, diagnostics, lineMapping
 - PRD-03-FE-C8-002: Frontend never generates code; renders backend code_update only
-- PRD-03-FE-007: No demo/draft code in live mode
-- GOV-S7-C0-004: Negative tests required
+- PRD-03-FE-011: No static/demo content in live mode (no demo/draft code)
+- GOV-S7-C0-009: Negative tests required for every story (no negative tests → no merge)
 
 ---
 
@@ -56,14 +56,14 @@ After S7-0806:
 ```python
 test_code_update_from_event_payload()  # PRD-04-BACKEND-009
 test_code_update_with_syntax_language()  # PRD-05-CODEGEN-001
-test_code_update_rejects_missing_code()  # GOV-S7-C0-004
+test_code_update_rejects_missing_code()  # GOV-S7-C0-009
 test_code_update_timestamp_display()  # PRD-04-BACKEND-009
 ```
 
 ### Reducer Tests
 
 ```python
-test_reducer_code_update_replaces_codePreview()  # PRD-03-FE-007
+test_reducer_code_update_replaces_codePreview()  # PRD-03-FE-011
 test_reducer_code_update_maintains_update_history()  # PRD-05-CODEGEN-001
 test_reducer_code_update_preserves_lineMapping()  # PRD-04-BACKEND-009
 ```
@@ -71,19 +71,19 @@ test_reducer_code_update_preserves_lineMapping()  # PRD-04-BACKEND-009
 ### Component Tests
 
 ```python
-test_code_tab_renders_empty_state()  # PRD-03-FE-007
+test_code_tab_renders_empty_state()  # PRD-03-FE-011
 test_code_tab_renders_code_with_syntax_highlight()  # PRD-05-CODEGEN-001
 test_code_tab_renders_update_timestamp()  # PRD-04-BACKEND-009
-test_code_tab_renders_malformed_safe()  # GOV-S7-C0-004
+test_code_tab_renders_malformed_safe()  # GOV-S7-C0-009
 ```
 
 ### Negative Tests
 
 ```python
-test_code_update_with_null_code_rejected()  # GOV-S7-C0-004
-test_code_update_with_wrong_language_type_rejected()  # GOV-S7-C0-004
+test_code_update_with_null_code_rejected()  # GOV-S7-C0-009
+test_code_update_with_wrong_language_type_rejected()  # GOV-S7-C0-009
 test_frontend_never_generates_code()  # PRD-05-CODEGEN-001
-test_code_tab_shows_empty_before_first_code_update()  # PRD-03-FE-007
+test_code_tab_shows_empty_before_first_code_update()  # PRD-03-FE-011
 ```
 
 ---

@@ -84,24 +84,47 @@ This index resolves every `PRD-<doc>-<area>-<NNN>` ID cited across Sprint 7 stor
 
 ### PRD-03 (Frontend Runtime)
 
+Canonical definitions align with the matrix in `S7-0001-Complete-LLM-Mode-requirement-matrix.md`. Stories must cite IDs as defined here.
+
 | Synthetic ID | Source document | Section / rule | Rule summary |
 |--------------|-----------------|----------------|--------------|
 | PRD-03-FE-001 | `03_FRONTEND_RUNTIME.md` | Live WS transport | Frontend connects via typed WS transport; IDEPanel receives live state |
-| PRD-03-FE-002 | `03_FRONTEND_RUNTIME.md` | Manual Mode is deterministic first | Manual Mode is deterministic/manual-control-first; LLM help is explicit and optional |
-| PRD-03-FE-003 | `03_FRONTEND_RUNTIME.md` | Same Recorder/Code/Trace systems serve both modes | LLM Mode and Manual Mode share backend recording/code/replay infrastructure |
-| PRD-03-FE-004 | `03_FRONTEND_RUNTIME.md` | plan_review interaction mode | Triggered by plan_ready event only |
-| PRD-03-FE-005 | `03_FRONTEND_RUNTIME.md` | clarification interaction mode | Triggered by clarification_needed event only |
-| PRD-03-FE-006 | `03_FRONTEND_RUNTIME.md` | executing interaction mode | Triggered by step lifecycle events only |
-| PRD-03-FE-007 | `03_FRONTEND_RUNTIME.md` | Typed commands only | Frontend sends only typed, schema-validated commands |
-| PRD-03-FE-008 | `03_FRONTEND_RUNTIME.md` | completed interaction mode | Triggered by run_completed event only |
+| PRD-03-FE-002 | `03_FRONTEND_RUNTIME.md` | `idle` interaction mode | Idle mode renders correctly from backend ready event |
+| PRD-03-FE-003 | `03_FRONTEND_RUNTIME.md` | `planning` interaction mode | Triggered by `run_started` event only |
+| PRD-03-FE-004 | `03_FRONTEND_RUNTIME.md` | `plan_review` interaction mode | Triggered by `plan_ready` event only |
+| PRD-03-FE-005 | `03_FRONTEND_RUNTIME.md` | `clarification` interaction mode | Triggered by `clarification_needed` event only |
+| PRD-03-FE-006 | `03_FRONTEND_RUNTIME.md` | `executing` interaction mode | Triggered by step lifecycle events only |
+| PRD-03-FE-007 | `03_FRONTEND_RUNTIME.md` | `recovery` interaction mode | Triggered by `recovery_needed` event only |
+| PRD-03-FE-008 | `03_FRONTEND_RUNTIME.md` | `completed` interaction mode | Triggered by `run_completed` event only |
 | PRD-03-FE-009 | `03_FRONTEND_RUNTIME.md` | No inference from LLM text | UI never derives lifecycle state from LLM prose |
-| PRD-03-FE-010 | `03_FRONTEND_RUNTIME.md` | session_state reconnect restore | UI restores from session_state snapshot on reconnect |
+| PRD-03-FE-010 | `03_FRONTEND_RUNTIME.md` | `session_state` reconnect restore | UI restores from session_state snapshot on reconnect |
 | PRD-03-FE-011 | `03_FRONTEND_RUNTIME.md` | No static/demo fallback in live mode | Live mode never renders demo/static content |
 | PRD-03-FE-012 | `03_FRONTEND_RUNTIME.md` | Shadow DOM host wiring | Frontend mounts inside `aw-shadow-host` with isolated styles |
-| PRD-03-FE-013 | `03_FRONTEND_RUNTIME.md` | Design tokens externalized | Tokens extracted from prototype; no inline magic values |
-| PRD-03-FE-014 | `03_FRONTEND_RUNTIME.md` | Docked panel layout | Panel docks right/left/top/bottom; non-overlay |
-| PRD-03-FE-015 | `03_FRONTEND_RUNTIME.md` | Page compensation | Host page content shifts; not hidden behind panel |
-| PRD-03-FE-016 | `03_FRONTEND_RUNTIME.md` | data-testid baseline | Critical UI elements expose stable data-testid attributes |
+| PRD-03-FE-013 | `03_FRONTEND_RUNTIME.md` | Design tokens externalized | Tokens extracted from `frontend_new_design_prototype`; no inline magic values |
+| PRD-03-FE-014 | `03_FRONTEND_RUNTIME.md` | Docked/resizable layout host | Panel docks right/left/top/bottom with resize controller (Sprint 7 brought forward from earlier Sprint 8 plan via C4) |
+| PRD-03-FE-015 | `03_FRONTEND_RUNTIME.md` | Page compensation / fullscreen-safe rendering | Host page content shifts; not hidden behind panel |
+| PRD-03-FE-016 | `03_FRONTEND_RUNTIME.md` | Agent Control Center UI toggles | Out of scope for Sprint 7; tracked for later phase (limited live view only in C9) |
+| PRD-03-FE-017 | `03_FRONTEND_RUNTIME.md` | Manual Mode is deterministic first | Manual Mode is deterministic/manual-control-first; LLM help is explicit and optional |
+| PRD-03-FE-018 | `03_FRONTEND_RUNTIME.md` | Shared Recorder/Code/Trace systems | LLM Mode and Manual Mode share backend recording/code/replay infrastructure |
+| PRD-03-FE-019 | `03_FRONTEND_RUNTIME.md` | Typed commands only | Frontend sends only typed, schema-validated commands |
+| PRD-03-FE-020 | `03_FRONTEND_RUNTIME.md` | data-testid baseline | Critical UI elements expose stable data-testid attributes |
+
+#### PRD-03-FE-C\<cluster\> (cluster-namespaced frontend invariants)
+
+These IDs scope a frontend invariant to a specific Sprint 7 cluster. They derive from `03_FRONTEND_RUNTIME.md` plus the cluster-specific source rules in each cluster doc.
+
+| Synthetic ID | Cluster | Source | Rule summary |
+|--------------|---------|--------|--------------|
+| PRD-03-FE-C4-001 | C4 (Docked Shadow DOM) | `03_FRONTEND_RUNTIME.md` + C4 cluster doc | Shadow DOM host exists and is docked, not fullscreen overlay |
+| PRD-03-FE-C4-002 | C4 | C4 cluster doc | Page content remains accessible; panel docking compensates page area |
+| PRD-03-FE-C4-003 | C4 | C4 cluster doc | CSS isolation prevents style bleed between Shadow DOM and host page |
+| PRD-03-FE-C6-001 | C6 (LLM tab) | C6 cluster doc | LLM tab clarification and plan cards render from backend events only |
+| PRD-03-FE-C6-002 | C6 | C6 cluster doc | After new `plan_ready`, only the new plan is confirmable; old plan invalid |
+| PRD-03-FE-C8-001 | C8 (Recorded/Code/Replay) | C8 cluster doc | Frontend renders backend evidence; no inference of recorded state |
+| PRD-03-FE-C8-002 | C8 | C8 cluster doc | Frontend never generates code; renders backend `code_update` only |
+| PRD-03-FE-C8-003 | C8 | C8 cluster doc | Frontend never mutates recorded evidence based on local replay state |
+| PRD-03-FE-C8-004 | C8 | C8 cluster doc | Frontend never restores session locally; backend validation event required |
+| PRD-03-FE-C9-001 | C9 (Trace) | C9 cluster doc | Trace is evidence only; does not drive runtime state |
 
 ### PRD-04 (Backend Event and Command Contract)
 
@@ -136,6 +159,8 @@ This index resolves every `PRD-<doc>-<area>-<NNN>` ID cited across Sprint 7 stor
 |--------------|-----------------|--------------|
 | PRD-07-AGENT-001 | `07_MULTI_MODEL_ORCHESTRATION.md` | Agent Control Center limited visibility in Sprint 7 |
 | PRD-07-AGENT-004 | `07_MULTI_MODEL_ORCHESTRATION.md` | Specialist agents (Page Intelligence) emit context only, not decisions |
+| PRD-07-AGENT-C9-001 | `07_MULTI_MODEL_ORCHESTRATION.md` + C9 cluster doc | Cluster 9 agent activity view: render only telemetry the backend actually emits |
+| PRD-07-AGENT-C9-002 | `07_MULTI_MODEL_ORCHESTRATION.md` + C9 cluster doc | Cluster 9 limited live view: no fake controls, no overclaim; placeholder when backend support absent |
 
 ### GOV-S7-C0 (Sprint 7 Cluster 0 Governance)
 
@@ -206,7 +231,7 @@ Every story must include negative tests. Negative tests require their own source
 
 | Negative Scenario | Source Rule | Required in Story |
 |-------------------|-------------|------------------|
-| Malformed event payload rejected | GOV-S7-C0-004 | All Cluster 1 stories |
+| Malformed event payload rejected | GOV-S7-C0-009 | All Cluster 1 stories |
 | Stale command rejected with typed error | GOV-S7-C0-005 | S7-0107, S7-0108 |
 | Missing required field rejected | PRD-04-BE-000 (validation rules) | All event builder stories |
 | Unknown event type logged not silently ignored | PRD-04-BE-000 | S7-0105 |

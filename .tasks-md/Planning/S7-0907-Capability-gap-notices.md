@@ -26,8 +26,8 @@ After S7-0907:
 ## Source Rules
 
 - PRD-05-CAPGAP-002: Capability gap recording and user notices
-- PRD-03-FE-007: No fake state; frontend renders backend truth only
-- GOV-S7-C0-004: Negative tests required
+- PRD-03-FE-011: No fake state / static-demo fallback; frontend renders backend truth only
+- GOV-S7-C0-009: Negative tests required
 
 ---
 
@@ -50,7 +50,7 @@ After S7-0907:
 
 ```python
 test_capability_gap_from_event_payload()  # PRD-05-CAPGAP-002
-test_capability_gap_rejects_missing_action_type()  # GOV-S7-C0-004
+test_capability_gap_rejects_missing_action_type()  # GOV-S7-C0-009
 ```
 
 ### Component Tests
@@ -59,14 +59,14 @@ test_capability_gap_rejects_missing_action_type()  # GOV-S7-C0-004
 test_capability_gap_notice_renders()  # PRD-05-CAPGAP-002
 test_capability_gap_notice_shows_reason()  # PRD-05-CAPGAP-002
 test_capability_gap_notice_shows_next_action()  # PRD-05-CAPGAP-002
-test_notice_dismissal_local_only()  # PRD-03-FE-007
+test_notice_dismissal_local_only()  # PRD-03-FE-019
 test_no_fake_success_with_capability_gap()  # PRD-05-CAPGAP-002
 ```
 
 ### Negative Tests
 
 ```python
-test_malformed_capability_gap_safe()  # GOV-S7-C0-004
+test_malformed_capability_gap_safe()  # GOV-S7-C0-009
 ```
 
 ---

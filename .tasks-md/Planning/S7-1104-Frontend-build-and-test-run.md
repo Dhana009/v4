@@ -14,7 +14,7 @@
 
 - `PRD-06-ACC-003`: Frontend build/test must pass before push readiness (`06_BUILD_ROADMAP_AND_ACCEPTANCE.md`)
 - `PRD-03-FE-011`: No static/demo content in live mode (`03_FRONTEND_RUNTIME.md`)
-- `PRD-03-FE-016`: data-testid baseline on critical UI elements (`03_FRONTEND_RUNTIME.md`)
+- `PRD-03-FE-020`: data-testid baseline on critical UI elements (`03_FRONTEND_RUNTIME.md`)
 - `GOV-S7-C0-022`: Cheap regression suite must remain stable
 - `GOV-S7-C0-036` … `GOV-S7-C0-040`: Evidence requirements for Done state
 - C11 acceptance: build log + test log committed as evidence

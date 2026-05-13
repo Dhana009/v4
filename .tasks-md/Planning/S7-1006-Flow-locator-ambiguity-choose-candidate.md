@@ -29,11 +29,11 @@ test_flow_locator_ambiguity_to_selection()  # PRD-02-WORKFLOWS-004
   # 5. Command dispatched with candidate_id
   # 6. Execution continues after backend validates selection
 
-test_execution_blocked_during_ambiguity()  # GOV-S7-C0-004
+test_execution_blocked_during_ambiguity()  # GOV-S7-C0-009
   # While ambiguity card shown, execution blocked (no other actions)
   # Unresolved ambiguity stops step execution
 
-test_invalid_candidate_selection_rejected()  # GOV-S7-C0-004
+test_invalid_candidate_selection_rejected()  # GOV-S7-C0-009
   # If user sends command with wrong candidate_id, backend rejects
   # Frontend shows error or re-prompts
 ```

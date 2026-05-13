@@ -27,7 +27,7 @@ After S7-0904:
 
 - PRD-06-TRACE-004: Artifact references in trace and failure context
 - PRD-06-REDACTION-001: Redaction status visibility and secret protection
-- GOV-S7-C0-004: No raw secrets in frontend
+- GOV-S7-C0-009: No raw secrets in frontend
 
 ---
 
@@ -46,8 +46,8 @@ test_llm_calls_artifact_renders()  # PRD-06-TRACE-004
 ### Negative Tests
 
 ```python
-test_malformed_artifact_ref_safe()  # GOV-S7-C0-004
-test_no_raw_secrets_in_artifact_display()  # GOV-S7-C0-004
+test_malformed_artifact_ref_safe()  # GOV-S7-C0-009
+test_no_raw_secrets_in_artifact_display()  # GOV-S7-C0-009
 ```
 
 ---

@@ -27,7 +27,7 @@ After S7-0903:
 
 - PRD-06-TRACE-003: Failure detail context and remediation UI
 - PRD-05-RECOVERY-002: Recovery context in failure events
-- GOV-S7-C0-004: Negative tests required
+- GOV-S7-C0-009: Negative tests required
 
 ---
 
@@ -41,7 +41,7 @@ test_failure_detail_shows_expected_actual()  # PRD-06-TRACE-003
 test_failure_detail_shows_failed_layer()  # PRD-06-TRACE-003
 test_failure_detail_shows_recovery_context()  # PRD-05-RECOVERY-002
 test_failure_detail_shows_next_actions()  # PRD-06-TRACE-003
-test_failure_detail_malformed_safe()  # GOV-S7-C0-004
+test_failure_detail_malformed_safe()  # GOV-S7-C0-009
 ```
 
 ---

@@ -25,7 +25,7 @@ Create deterministic fake backend event stream for E2E testing without real back
 ## Source Rules
 
 - PRD-04-BACKEND-001: All backend event schemas and payloads
-- PRD-03-FE-007: Frontend renders backend truth only; no demo fallback
+- PRD-03-FE-011: Frontend renders backend truth only; no demo fallback
 - GOV-S7-C0-007: No source rule → no test
 - GOV-S7-C10-002: Local E2E; fake LLM only; no paid APIs
 
@@ -84,7 +84,7 @@ test_fake_event_payload_matches_schema()  # PRD-04-BACKEND-001
   # For each event type, assert payload matches backend schema
   # All required fields present and typed correctly
 
-test_malformed_event_injection_safe()  # GOV-S7-C0-004
+test_malformed_event_injection_safe()  # GOV-S7-C0-009
   # Frontend event handler receives malformed event (missing field, wrong type)
   # Frontend handles safely (does not crash, shows diagnostic)
 ```
@@ -92,25 +92,25 @@ test_malformed_event_injection_safe()  # GOV-S7-C0-004
 ### Integration Tests
 
 ```python
-test_frontend_renders_fake_session_state()  # PRD-03-FE-007
+test_frontend_renders_fake_session_state()  # PRD-03-FE-011
   # Inject session_state event → frontend store updates → state visible in UI
   # Assert no static demo UI appears
 
-test_frontend_renders_fake_plan_ready()  # PRD-03-FE-007
+test_frontend_renders_fake_plan_ready()  # PRD-03-FE-011
   # Inject plan_ready event → plan card appears with correct data
   # Assert no demo fallback
 
-test_frontend_handles_malformed_event_stream()  # GOV-S7-C0-004
+test_frontend_handles_malformed_event_stream()  # GOV-S7-C0-009
   # Stream with missing/wrong-typed fields → frontend rejects safely
 ```
 
 ### Negative Tests
 
 ```python
-test_event_stream_rejects_duplicate_event_ids()  # GOV-S7-C0-004
-test_event_stream_rejects_null_timestamp()  # GOV-S7-C0-004
-test_event_stream_rejects_missing_run_id()  # GOV-S7-C0-004
-test_frontend_ignores_stale_event()  # GOV-S7-C0-004
+test_event_stream_rejects_duplicate_event_ids()  # GOV-S7-C0-009
+test_event_stream_rejects_null_timestamp()  # GOV-S7-C0-009
+test_event_stream_rejects_missing_run_id()  # GOV-S7-C0-009
+test_frontend_ignores_stale_event()  # GOV-S7-C0-009
   # Event for old run_id ignored when new run active
 ```
 

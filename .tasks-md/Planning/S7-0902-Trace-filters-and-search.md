@@ -26,7 +26,8 @@ After S7-0902:
 ## Source Rules
 
 - PRD-06-TRACE-002: Trace filtering and search UI
-- PRD-03-FE-007: Frontend filtering is local; does not mutate backend state
+- GOV-S7-C0-001: Backend owns runtime truth; frontend filtering is local UI only and does not mutate backend state
+- PRD-03-FE-019: Frontend sends only typed commands (filter UI must not send untyped backend writes)
 
 ---
 

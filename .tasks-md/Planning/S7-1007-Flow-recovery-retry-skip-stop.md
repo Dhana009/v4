@@ -29,7 +29,7 @@ test_flow_step_failure_to_recovery()  # PRD-02-WORKFLOWS-005
   # 5. Command dispatched (retry_step, skip_step, or stop_run)
   # 6. Backend processes action
 
-test_execution_blocked_during_recovery()  # GOV-S7-C0-004
+test_execution_blocked_during_recovery()  # GOV-S7-C0-009
   # While recovery card shown, no other execution
   # Unresolved recovery blocks completion summary
 

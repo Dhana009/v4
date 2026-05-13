@@ -40,7 +40,7 @@ test_code_not_shown_before_code_update_event()  # GOV-S7-C8-002
   # During code generation, Code tab empty or shows "generating..."
   # Only after code_update event does code appear
 
-test_run_completed_drives_terminal_state()  # PRD-03-FE-007
+test_run_completed_drives_terminal_state()  # PRD-03-FE-008
   # Only run_completed event can end run
   # Frontend waits for event, does not infer completion
 ```

@@ -54,7 +54,7 @@ test_repaired_step_displays_old_and_new_locator()  # PRD-05-REC-004
 test_skipped_step_displays_skip_reason()  # PRD-05-REC-004
 test_unresolved_step_displays_failure_reason()  # PRD-05-REC-004
 test_state_badge_rendering()  # PRD-05-REC-004
-test_malformed_state_safe_fallback()  # GOV-S7-C0-004
+test_malformed_state_safe_fallback()  # GOV-S7-C0-009
 ```
 
 ### Component Tests
@@ -69,9 +69,9 @@ test_unresolved_step_does_not_show_pass_badge()  # PRD-05-REC-004
 ### Negative Tests
 
 ```python
-test_repaired_step_missing_new_locator_shows_fallback()  # GOV-S7-C0-004
-test_skipped_step_missing_skip_reason_safe()  # GOV-S7-C0-004
-test_unresolved_step_unknown_state_safe()  # GOV-S7-C0-004
+test_repaired_step_missing_new_locator_shows_fallback()  # GOV-S7-C0-009
+test_skipped_step_missing_skip_reason_safe()  # GOV-S7-C0-009
+test_unresolved_step_unknown_state_safe()  # GOV-S7-C0-009
 ```
 
 ---

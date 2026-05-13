@@ -165,7 +165,7 @@ List every negative/invalid scenario test.
 
 Format:
 ```
-test_<feature>_rejects_<invalid_scenario>()  # GOV-S7-C0-004
+test_<feature>_rejects_<invalid_scenario>()  # GOV-S7-C0-009
 ```
 
 Minimum: 2 negative tests per new event builder or command handler.

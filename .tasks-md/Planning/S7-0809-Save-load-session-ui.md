@@ -27,7 +27,7 @@ After S7-0809:
 
 - PRD-05-SESSION-001: save_session and load_session command/event payloads
 - PRD-03-FE-C8-004: Frontend never restores session without backend validation event
-- PRD-03-FE-007: Frontend sends typed commands; renders typed events
+- PRD-03-FE-019: Frontend sends typed commands; renders typed events
 
 ---
 
@@ -72,7 +72,7 @@ test_reducer_session_state_applies_restored_state()  # PRD-03-FE-C8-004
 test_dispatch_save_session_command()  # PRD-05-SESSION-001
 test_dispatch_load_session_command()  # PRD-05-SESSION-001
 test_dispatch_save_requires_active_run_context()  # PRD-05-SESSION-001
-test_dispatch_load_rejects_missing_session_id()  # GOV-S7-C0-004
+test_dispatch_load_rejects_missing_session_id()  # GOV-S7-C0-009
 ```
 
 ### Component Tests
@@ -84,16 +84,16 @@ test_saved_sessions_list_displays()  # PRD-05-SESSION-001
 test_save_result_shows_success_or_failure()  # PRD-05-SESSION-001
 test_load_result_prevents_local_restoration()  # PRD-03-FE-C8-004
 test_session_state_event_applies_restoration()  # PRD-03-FE-C8-004
-test_ui_disabled_if_backend_command_unavailable()  # PRD-03-FE-007
+test_ui_disabled_if_backend_command_unavailable()  # PRD-03-FE-019
 ```
 
 ### Negative Tests
 
 ```python
 test_save_command_without_active_run_rejected()  # PRD-05-SESSION-001
-test_load_command_without_session_id_rejected()  # GOV-S7-C0-004
-test_malformed_save_result_rejected()  # GOV-S7-C0-004
-test_stale_load_result_ignored()  # GOV-S7-C0-004
+test_load_command_without_session_id_rejected()  # GOV-S7-C0-009
+test_malformed_save_result_rejected()  # GOV-S7-C0-009
+test_stale_load_result_ignored()  # GOV-S7-C0-009
 test_save_button_disabled_when_no_active_run()  # PRD-05-SESSION-001
 ```
 

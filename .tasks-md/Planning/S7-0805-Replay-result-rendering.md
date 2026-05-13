@@ -27,7 +27,7 @@ After S7-0805:
 
 - PRD-04-BACKEND-008: replay_started/replay_result event payload and semantics
 - PRD-03-FE-C8-003: Frontend never mutates recorded evidence based on local replay state
-- PRD-03-FE-007: Frontend renders backend truth; no inference
+- PRD-03-FE-009: Frontend does not infer state from absent or malformed events
 
 ---
 
@@ -54,7 +54,7 @@ After S7-0805:
 test_replay_result_from_event_payload()  # PRD-04-BACKEND-008
 test_replay_result_success_vs_failure()  # PRD-04-BACKEND-008
 test_replay_failure_reason_display()  # PRD-04-BACKEND-008
-test_replay_rejects_stale_result()  # GOV-S7-C0-004
+test_replay_rejects_stale_result()  # GOV-S7-C0-009
 ```
 
 ### Reducer Tests
@@ -68,7 +68,7 @@ test_reducer_replay_result_stores_result_summary()  # PRD-04-BACKEND-008
 ### Component Tests
 
 ```python
-test_replay_panel_renders_empty_state()  # PRD-03-FE-007
+test_replay_panel_renders_empty_state()  # PRD-03-FE-011
 test_replay_panel_renders_running_on_replay_started()  # PRD-04-BACKEND-008
 test_replay_panel_renders_success_on_replay_result()  # PRD-04-BACKEND-008
 test_replay_panel_renders_failure_reason()  # PRD-04-BACKEND-008
@@ -78,9 +78,9 @@ test_replay_panel_shows_next_actions_on_failure()  # PRD-04-BACKEND-008
 ### Negative Tests
 
 ```python
-test_replay_result_malformed_rejected()  # GOV-S7-C0-004
-test_replay_result_missing_step_id_rejected()  # GOV-S7-C0-004
-test_stale_replay_result_ignored()  # GOV-S7-C0-004
+test_replay_result_malformed_rejected()  # GOV-S7-C0-009
+test_replay_result_missing_step_id_rejected()  # GOV-S7-C0-009
+test_stale_replay_result_ignored()  # GOV-S7-C0-009
 test_replay_failure_does_not_mutate_recorded_evidence()  # PRD-03-FE-C8-003
 ```
 

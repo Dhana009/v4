@@ -68,10 +68,10 @@ test_flow_artifacts_captured()  # GOV-S7-C10-002
 ### Negative Tests
 
 ```python
-test_flow_handles_no_clarification()  # GOV-S7-C0-004
+test_flow_handles_no_clarification()  # GOV-S7-C0-009
   # If plan_ready comes without clarification_needed, plan card appears directly
 
-test_flow_handles_stale_answer()  # GOV-S7-C0-004
+test_flow_handles_stale_answer()  # GOV-S7-C0-009
   # If user answers after run has moved to next phase, error handled gracefully
 ```
 

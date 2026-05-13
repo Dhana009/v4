@@ -28,7 +28,7 @@ After S7-0901:
 - PRD-06-TRACE-001: Trace event timeline structure and field display
 - PRD-04-BACKEND-010: trace_event payload format and semantics
 - PRD-03-FE-C9-001: Trace is evidence only; not runtime truth
-- PRD-03-FE-007: No demo/static content in live mode
+- PRD-03-FE-011: No demo/static content in live mode
 - GOV-S7-C0-007: No source rule → no test; no test → no implementation
 
 ---
@@ -61,8 +61,8 @@ After S7-0901:
 ```python
 test_trace_event_from_backend_payload()  # PRD-04-BACKEND-010
 test_trace_event_timestamp_formatting()  # PRD-06-TRACE-001
-test_trace_event_rejects_missing_type()  # GOV-S7-C0-004
-test_trace_event_rejects_missing_timestamp()  # GOV-S7-C0-004
+test_trace_event_rejects_missing_type()  # GOV-S7-C0-009
+test_trace_event_rejects_missing_timestamp()  # GOV-S7-C0-009
 ```
 
 ### Reducer Tests
@@ -71,13 +71,13 @@ test_trace_event_rejects_missing_timestamp()  # GOV-S7-C0-004
 test_reducer_trace_event_appends_to_timeline()  # PRD-03-FE-C9-001
 test_reducer_trace_events_maintain_chronological_order()  # PRD-06-TRACE-001
 test_reducer_unknown_event_type_creates_diagnostic_row()  # PRD-06-TRACE-001
-test_reducer_ignores_non_trace_events()  # PRD-03-FE-007
+test_reducer_ignores_non_trace_events()  # PRD-03-FE-011
 ```
 
 ### Component Tests
 
 ```python
-test_trace_tab_renders_empty_state()  # PRD-03-FE-007
+test_trace_tab_renders_empty_state()  # PRD-03-FE-011
 test_trace_tab_renders_trace_events()  # PRD-06-TRACE-001
 test_trace_row_renders_event_type()  # PRD-06-TRACE-001
 test_trace_row_renders_timestamp()  # PRD-06-TRACE-001
@@ -89,10 +89,10 @@ test_trace_row_renders_unknown_event_safe()  # PRD-06-TRACE-001
 ### Negative Tests
 
 ```python
-test_trace_event_with_null_type_rejected()  # GOV-S7-C0-004
-test_trace_event_with_malformed_timestamp_rejected()  # GOV-S7-C0-004
-test_trace_event_with_missing_phase_shows_unknown()  # GOV-S7-C0-004
-test_static_demo_trace_not_loaded_in_live_mode()  # PRD-03-FE-007
+test_trace_event_with_null_type_rejected()  # GOV-S7-C0-009
+test_trace_event_with_malformed_timestamp_rejected()  # GOV-S7-C0-009
+test_trace_event_with_missing_phase_shows_unknown()  # GOV-S7-C0-009
+test_static_demo_trace_not_loaded_in_live_mode()  # PRD-03-FE-011
 ```
 
 ---

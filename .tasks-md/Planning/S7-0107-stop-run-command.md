@@ -22,7 +22,8 @@ After this story: `stop_run` command is registered, validated, and handled; acti
 ## Source Rules
 
 - `PRD-04-CMD-001`: `stop_run` command with `run_id`; stops current run safely.
-- `PRD-03-FE-007`: `recovery` / stop controls must send typed backend commands.
+- `PRD-03-FE-019`: Frontend sends only typed, schema-validated commands (stop controls dispatch typed `stop_run`).
+- `PRD-03-FE-007`: `recovery` interaction mode owns stop controls during recovery flows.
 - `GOV-S7-C0-001`: Backend owns runtime truth — only backend decides the run is stopped.
 - `GOV-S7-C0-005`: Stale commands must be rejected with typed error.
 - `GOV-S7-C0-009`: No negative tests → no merge.

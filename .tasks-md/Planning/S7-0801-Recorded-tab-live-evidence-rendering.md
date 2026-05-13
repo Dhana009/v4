@@ -27,7 +27,7 @@ After S7-0801:
 - PRD-05-REC-001: Recorded evidence shows validated steps with locator used, validation count, observed/expected outcomes
 - PRD-05-REC-002: Child operation evidence includes action/assertion type, locator/target, expected_outcome metadata (not execution truth)
 - PRD-03-FE-C8-001 (Cluster 8 Rule C8-1): Frontend renders only `step_recorded` events; never infers recording from local state
-- PRD-03-FE-007: Frontend renders backend truth only; no demo/draft content in live mode
+- PRD-03-FE-011: Frontend renders backend truth only; no demo/draft content in live mode
 - GOV-S7-C0-007: No source rule → no test; no test → no implementation
 - GOV-S7-C8-001 (Cluster 8): Backend owns runtime truth; frontend renders, never simulates
 
@@ -68,10 +68,10 @@ test_recorded_step_from_event_payload()  # PRD-05-REC-001
   # Transform step_recorded backend event to RecordedStep frontend type
   # Verify: step_id, locator_used, validation_count, observed_outcome, expected_outcome, timestamp present
 
-test_recorded_step_rejects_missing_step_id()  # GOV-S7-C0-004
+test_recorded_step_rejects_missing_step_id()  # GOV-S7-C0-009
   # Malformed payload without step_id must not crash renderer
 
-test_recorded_step_rejects_missing_locator()  # GOV-S7-C0-004
+test_recorded_step_rejects_missing_locator()  # GOV-S7-C0-009
   # Recorded step without locator_used should be rejected or show "unknown locator" safely
 
 test_recorded_step_timestamp_formatting()  # PRD-05-REC-001
@@ -99,23 +99,23 @@ test_step_recorded_event_contract_malformed_rejects()  # PRD-04-BACKEND-003
 ### Reducer Tests
 
 ```python
-test_reducer_step_recorded_event_appends_to_recordedsteps()  # PRD-03-FE-007
+test_reducer_step_recorded_event_appends_to_recordedsteps()  # PRD-03-FE-011
   # reducer(state, {type: 'step_recorded', payload: {...}}) appends to state.recordedSteps
 
 test_reducer_step_recorded_event_maintains_order()  # PRD-05-REC-001
   # Multiple step_recorded events → recordedSteps maintains backend order
 
-test_reducer_step_recorded_event_rejects_stale_step_id()  # GOV-S7-C0-004
+test_reducer_step_recorded_event_rejects_stale_step_id()  # GOV-S7-C0-009
   # If step_id already in recordedSteps, new event with same id is rejected with diagnostic
 
-test_reducer_ignores_non_recorded_events()  # PRD-03-FE-007
+test_reducer_ignores_non_recorded_events()  # PRD-03-FE-011
   # Other event types (planning_started, step_executing, etc.) do not affect recordedSteps
 ```
 
 ### Component Tests
 
 ```python
-test_recorded_tab_renders_empty_state()  # PRD-03-FE-007
+test_recorded_tab_renders_empty_state()  # PRD-03-FE-011
   # No recorded steps → show "No steps recorded yet" or placeholder
 
 test_recorded_tab_renders_recorded_steps()  # PRD-05-REC-001
@@ -130,7 +130,7 @@ test_recorded_tab_renders_evidence_link()  # PRD-05-REC-001
 test_recorded_tab_renders_timestamp()  # PRD-05-REC-001
   # step timestamp rendered as human-readable string
 
-test_recorded_tab_renders_malformed_safe()  # GOV-S7-C0-004
+test_recorded_tab_renders_malformed_safe()  # GOV-S7-C0-009
   # Malformed recorded step → show [!] error badge, do not crash
 ```
 
@@ -143,7 +143,7 @@ test_recorded_tab_renders_malformed_safe()  # GOV-S7-C0-004
 ### Integration Tests
 
 ```python
-test_recorded_tab_integration_event_to_display()  # PRD-05-REC-001 + PRD-03-FE-007
+test_recorded_tab_integration_event_to_display()  # PRD-05-REC-001 + PRD-03-FE-011
   # End-to-end: dispatch step_recorded event → reducer updates state → component re-renders
   # Verify displayed step_id matches event payload
 ```
@@ -151,13 +151,13 @@ test_recorded_tab_integration_event_to_display()  # PRD-05-REC-001 + PRD-03-FE-0
 ### Negative Tests
 
 ```python
-test_recorded_step_with_null_step_id_rejected()  # GOV-S7-C0-004
+test_recorded_step_with_null_step_id_rejected()  # GOV-S7-C0-009
   # step_recorded event with step_id=null → no render, diagnostic shown
 
-test_recorded_step_with_missing_locator_shows_fallback()  # GOV-S7-C0-004
+test_recorded_step_with_missing_locator_shows_fallback()  # GOV-S7-C0-009
   # step_recorded without locator_used → show "unknown" or skip field, do not crash
 
-test_recorded_step_with_wrong_validation_count_type_rejected()  # GOV-S7-C0-004
+test_recorded_step_with_wrong_validation_count_type_rejected()  # GOV-S7-C0-009
   # validation_count not a number → reject with diagnostic
 
 test_recorded_step_validation_count_zero_renders()  # GOV-S7-C8-001

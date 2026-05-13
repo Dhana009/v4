@@ -35,7 +35,7 @@ test_flow_run_all()  # PRD-02-WORKFLOWS-006
   # run_all command sent
   # Backend executes all steps
 
-test_blocked_step_shows_reason()  # GOV-S7-C0-004
+test_blocked_step_shows_reason()  # GOV-S7-C0-009
   # If step is blocked (dependency not met), show reason
   # Button disabled with explanation
 ```

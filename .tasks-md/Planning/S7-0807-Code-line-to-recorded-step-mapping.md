@@ -51,7 +51,7 @@ After S7-0807:
 ```python
 test_line_mapping_from_code_update_payload()  # PRD-05-CODEGEN-002
 test_line_mapping_correlates_to_step_id()  # PRD-05-CODEGEN-002
-test_missing_line_mapping_safe_fallback()  # GOV-S7-C0-004
+test_missing_line_mapping_safe_fallback()  # GOV-S7-C0-009
 ```
 
 ### Component Tests
@@ -60,14 +60,14 @@ test_missing_line_mapping_safe_fallback()  # GOV-S7-C0-004
 test_code_line_renders_mapping_indicator()  # PRD-05-CODEGEN-002
 test_recorded_step_renders_code_link()  # PRD-05-CODEGEN-002
 test_click_mapping_highlights_code_and_step()  # PRD-05-CODEGEN-002
-test_missing_mapping_shows_no_link()  # GOV-S7-C0-004
+test_missing_mapping_shows_no_link()  # GOV-S7-C0-009
 ```
 
 ### Negative Tests
 
 ```python
-test_malformed_line_mapping_rejected()  # GOV-S7-C0-004
-test_stale_step_id_in_mapping_safe()  # GOV-S7-C0-004
+test_malformed_line_mapping_rejected()  # GOV-S7-C0-009
+test_stale_step_id_in_mapping_safe()  # GOV-S7-C0-009
 ```
 
 ---

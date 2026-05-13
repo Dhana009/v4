@@ -26,9 +26,9 @@ After S7-0804:
 ## Source Rules
 
 - PRD-05-REPLAY-001: replay_one and replay_all commands with specified payloads
-- PRD-03-FE-007: Frontend sends typed commands only
+- PRD-03-FE-019: Frontend sends typed commands only
 - PRD-04-BACKEND-007: Command validation includes stale step_id/run_id checks
-- GOV-S7-C0-004: Negative tests required
+- GOV-S7-C0-009: Negative tests required
 
 ---
 
@@ -55,17 +55,17 @@ After S7-0804:
 test_replay_one_command_payload_with_step_id()  # PRD-05-REPLAY-001
 test_replay_all_command_payload_with_run_id()  # PRD-05-REPLAY-001
 test_replay_command_includes_session_context()  # PRD-05-REPLAY-001
-test_replay_button_disabled_when_no_recorded_steps()  # PRD-03-FE-007
-test_replay_button_disabled_during_replay()  # PRD-03-FE-007
+test_replay_button_disabled_when_no_recorded_steps()  # PRD-03-FE-019
+test_replay_button_disabled_during_replay()  # PRD-03-FE-019
 ```
 
 ### Command Dispatcher Tests
 
 ```python
-test_dispatch_replay_one_command()  # PRD-03-FE-007
-test_dispatch_replay_all_command()  # PRD-03-FE-007
-test_dispatch_replay_rejects_missing_step_id()  # GOV-S7-C0-004
-test_dispatch_replay_rejects_missing_run_id()  # GOV-S7-C0-004
+test_dispatch_replay_one_command()  # PRD-03-FE-019
+test_dispatch_replay_all_command()  # PRD-03-FE-019
+test_dispatch_replay_rejects_missing_step_id()  # GOV-S7-C0-009
+test_dispatch_replay_rejects_missing_run_id()  # GOV-S7-C0-009
 ```
 
 ### Component Tests
@@ -74,15 +74,15 @@ test_dispatch_replay_rejects_missing_run_id()  # GOV-S7-C0-004
 test_replay_button_renders_when_recorded_steps_exist()  # PRD-05-REPLAY-001
 test_replay_one_button_dispatches_command()  # PRD-05-REPLAY-001
 test_replay_all_button_dispatches_command()  # PRD-05-REPLAY-001
-test_replay_button_disabled_during_replay()  # PRD-03-FE-007
+test_replay_button_disabled_during_replay()  # PRD-03-FE-019
 ```
 
 ### Negative Tests
 
 ```python
-test_replay_command_without_step_id_rejected()  # GOV-S7-C0-004
+test_replay_command_without_step_id_rejected()  # GOV-S7-C0-009
 test_replay_command_with_stale_step_id_rejected()  # PRD-04-BACKEND-007
-test_replay_button_disabled_if_no_run_id()  # PRD-03-FE-007
+test_replay_button_disabled_if_no_run_id()  # PRD-03-FE-019
 ```
 
 ---

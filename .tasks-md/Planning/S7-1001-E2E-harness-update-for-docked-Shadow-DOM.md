@@ -128,23 +128,23 @@ test_harness_event_stream_with_shadow_dom()  # GOV-S7-C10-002
 ### Negative Tests
 
 ```python
-test_harness_rejects_missing_shadow_host()  # GOV-S7-C0-004
+test_harness_rejects_missing_shadow_host()  # GOV-S7-C0-009
   # If aw-shadow-host not found, raise clear error (not timeout, not silent fail)
   # Error message includes: "Shadow DOM host not found"
 
-test_harness_rejects_inaccessible_shadow_root()  # GOV-S7-C0-004
+test_harness_rejects_inaccessible_shadow_root()  # GOV-S7-C0-009
   # If shadow root blocked by browser, raise clear error
   # Error message includes: "Cannot access shadow root"
 
-test_harness_rejects_malformed_docked_bounds()  # GOV-S7-C0-004
+test_harness_rejects_malformed_docked_bounds()  # GOV-S7-C0-009
   # If panel bounds calc fails (panel outside viewport), raise diagnostic error
   # Do not silently fall back to full-screen assumptions
 
-test_harness_rejects_selector_without_testid()  # GOV-S7-C0-004
+test_harness_rejects_selector_without_testid()  # GOV-S7-C0-009
   # If data-testid missing on critical element, raise clear error during test setup
   # Error message includes: "Element <name> missing data-testid"
 
-test_harness_handles_shadow_dom_reattach()  # GOV-S7-C0-004
+test_harness_handles_shadow_dom_reattach()  # GOV-S7-C0-009
   # If Shadow DOM unmounts/remounts during test, harness recognizes it (not flake)
   # Can re-establish root reference and continue
 ```

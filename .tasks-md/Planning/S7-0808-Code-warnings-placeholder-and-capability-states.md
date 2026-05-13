@@ -26,7 +26,7 @@ After S7-0808:
 
 - PRD-05-CODEGEN-003: Diagnostics and warnings in code_update payload
 - PRD-05-CAPGAP-001: Capability gap warning and next actions
-- PRD-03-FE-007: No fake success for unsupported capabilities
+- PRD-03-FE-011: No fake success for unsupported capabilities
 
 ---
 
@@ -68,7 +68,7 @@ test_unsupported_capability_prevents_pass()  # PRD-05-CAPGAP-001
 ### Negative Tests
 
 ```python
-test_malformed_diagnostic_rejected()  # GOV-S7-C0-004
+test_malformed_diagnostic_rejected()  # GOV-S7-C0-009
 test_empty_diagnostics_array_renders()  # PRD-05-CODEGEN-003
 test_severity_not_color_only()  # PRD-05-CODEGEN-003
 ```
