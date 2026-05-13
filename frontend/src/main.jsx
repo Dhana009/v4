@@ -12,6 +12,7 @@ import { createHost, unmountHost, SHADOW_HOST_ID, SHADOW_MOUNT_ID } from "./host
 import { getDockMode, applyDock } from "./layout/dock-controller.js";
 import { getPanelMode, applyMode } from "./layout/panel-modes.js";
 import { applyCompensation, removeCompensation } from "./layout/compensation.js";
+import { getStoredSize } from "./layout/resize-controller.js";
 
 const VALID_TABS = new Set(["workbench", "steps", "code", "debug"]);
 
@@ -3081,7 +3082,9 @@ function mount(root, config = {}) {
   const panelMode = getPanelMode();
   applyDock(node, dockMode);
   applyMode(node, panelMode);
-  applyCompensation(dockMode, { width: config.panelWidth ?? 460 });
+  const storedSize = getStoredSize();
+  const panelWidth = storedSize?.width ?? config.panelWidth ?? 460;
+  applyCompensation(dockMode, { width: panelWidth });
 
   renderInto(node, config);
   return node;
