@@ -4,7 +4,7 @@
 **Cluster:** 7  
 **Tier:** 2  
 **Type:** Feature  
-**Status:** Planning  
+**Status:** Done  
 **Owner:** Frontend  
 **Blocked by:** S7-0709, S7-0710
 
@@ -81,3 +81,12 @@ test_upload_file_permission_respected()
 
 - Test data structure from backend undefined
 - Secret redaction rules unclear
+
+---
+
+## Evidence Recorded
+
+- **Commit:** 1e8c736 — Cluster 7 modular components
+- **Tests:** tests/test_frontend_steps_manual_cards.py (34 source-pattern tests)
+- **Build:** dist/autoworkbench.js 1.3mb (clean)
+- **Regression:** 2417 passed / 1 skipped / 0 failed

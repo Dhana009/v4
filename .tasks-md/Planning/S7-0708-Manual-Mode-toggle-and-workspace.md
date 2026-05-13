@@ -4,7 +4,7 @@
 **Cluster:** 7  
 **Tier:** 1  
 **Type:** Feature  
-**Status:** Planning  
+**Status:** Done  
 **Owner:** Frontend  
 **Blocks:** S7-0709, S7-0710
 
@@ -150,3 +150,12 @@ test_mode_state_change_emits_no_backend_command_unless_required()  # PRD-03-FE-0
 
 - Mode state conflicts with existing store structure
 - Workspace layout requires complex conditional logic
+
+---
+
+## Evidence Recorded
+
+- **Commit:** 1e8c736 — Cluster 7 modular components
+- **Tests:** tests/test_frontend_steps_manual_cards.py (34 source-pattern tests)
+- **Build:** dist/autoworkbench.js 1.3mb (clean)
+- **Regression:** 2417 passed / 1 skipped / 0 failed

@@ -4,7 +4,7 @@
 **Cluster:** 7  
 **Tier:** 2  
 **Type:** Feature  
-**Status:** Planning  
+**Status:** Done  
 **Owner:** Frontend  
 **Blocked by:** S7-0701, S7-0706, S7-0707
 
@@ -107,3 +107,12 @@ test_next_actions_shown_per_blocked_state()
 
 - Blocked state structure from backend undefined
 - Automatic repair logic required
+
+---
+
+## Evidence Recorded
+
+- **Commit:** 1e8c736 — Cluster 7 modular components
+- **Tests:** tests/test_frontend_steps_manual_cards.py (34 source-pattern tests)
+- **Build:** dist/autoworkbench.js 1.3mb (clean)
+- **Regression:** 2417 passed / 1 skipped / 0 failed

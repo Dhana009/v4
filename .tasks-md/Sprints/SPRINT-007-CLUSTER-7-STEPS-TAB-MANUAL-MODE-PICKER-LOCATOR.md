@@ -2,9 +2,10 @@
 
 **Sprint:** Sprint 7  
 **Cluster:** 7  
-**Status:** Planning  
-**Date:** 2026-05-13  
+**Status:** Done  
+**Date:** 2026-05-14  
 **HEAD at planning:** 8bdd8def90b71fdaa24890943ec792b55397c66f
+**HEAD at closure:** 1e8c736
 
 ---
 
@@ -285,3 +286,31 @@ Cluster 7 planning is complete when:
 ## Recommended Next Step
 
 After Cluster 7 planning: **Create Sprint 7 Cluster 8 and Cluster 9 planning tickets** (Recorded/Code/Replay tabs, Trace tab, final E2E smoke gate).
+
+---
+
+## Cluster 7 Closure (2026-05-14)
+
+| Story | Status | File |
+|-------|--------|------|
+| S7-0701 Steps tab live wiring | Done | steps/StepsPanel.jsx |
+| S7-0702 Add/edit/delete/reorder/duplicate | Done | steps/StepBuilder.jsx |
+| S7-0703 Run selected/run all | Done | steps/RunControls.jsx |
+| S7-0704 Picker element/section | Done | picker/PickerControls.jsx |
+| S7-0705 Selected element preview | Done | picker/SelectedElementPreview.jsx |
+| S7-0706 Locator candidate display | Done | locator/LocatorCandidates.jsx |
+| S7-0707 Validate/improve locator | Done | locator/LocatorActions.jsx |
+| S7-0708 Manual Mode toggle | Done | manual/ManualModeToggle.jsx |
+| S7-0709 Manual action builder | Done | manual/ManualActionBuilder.jsx |
+| S7-0710 Manual assertion builder | Done | manual/ManualAssertionBuilder.jsx |
+| S7-0711 Expected value/test data | Done | manual/ExpectedValuePanel.jsx |
+| S7-0712 Wrong-page/missing-data/weak-locator | Done | primitives/BlockedStateBanner.jsx |
+
+**Commit:** 1e8c736 — single commit covering all 12 components + RED→GREEN tests.
+**Tests:** tests/test_frontend_steps_manual_cards.py — 34 tests verifying typed commands, exclusion selectors, redaction, blocked states.
+**Regression:** 2417 passed / 1 skipped / 0 failed.
+**Build:** dist/autoworkbench.js 1.3mb (clean).
+
+**Architecture invariants honored:** step identity uses step_id (not display index); manual mode never auto-calls LLM; picker exclusion mirrors `PICKER_EXCLUSION_SELECTOR`; locator selection blocked until backend validates; no frontend-created recording.
+
+**Forbidden-file audit:** no backend/runtime/agent/server/browser/LLM-prompt changes; no E2E run.
