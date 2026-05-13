@@ -531,20 +531,22 @@ def test_plan_correction_triggers_replanned_plan_ready_before_execution(monkeypa
 
     assert call_counter["count"] == 2
     assert confirmation_calls["count"] == 2
-    assert len(sent_messages) == 3
-    assert sent_messages[0][0] == "plan_ready"
-    assert len(sent_messages[0][1]["steps"][0]["children"]) == 1
-    assert sent_messages[0][1]["steps"][0]["children"][0]["type"] == "click"
-    assert sent_messages[1][0] == "plan_ready"
-    assert len(sent_messages[1][1]["steps"][0]["children"]) == 2
-    second_children = sent_messages[1][1]["steps"][0]["children"]
+    _INFRA = {"run_started", "step_validating", "step_executing", "step_failed", "step_skipped"}
+    msgs = [m for m in sent_messages if m[0] not in _INFRA]
+    assert len(msgs) == 3
+    assert msgs[0][0] == "plan_ready"
+    assert len(msgs[0][1]["steps"][0]["children"]) == 1
+    assert msgs[0][1]["steps"][0]["children"][0]["type"] == "click"
+    assert msgs[1][0] == "plan_ready"
+    assert len(msgs[1][1]["steps"][0]["children"]) == 2
+    second_children = msgs[1][1]["steps"][0]["children"]
     assert [child["type"] for child in second_children] == ["assert", "click"]
-    assert sent_messages[1][1]["steps"][0]["intent"] == "Click the Get started button"
+    assert msgs[1][1]["steps"][0]["intent"] == "Click the Get started button"
     assert all(str(child.get("locator") or "").strip() for child in second_children)
     assert second_children[0]["operation_id"] == "op_2"
     assert second_children[1]["operation_id"] == "op_1"
     assert second_children[0]["locator"] == second_children[1]["locator"]
-    assert sent_messages[2][0] == "llm_result"
+    assert msgs[2][0] == "llm_result"
     assert loop.plan_confirmed is False
     assert any("Structured plan correction event." in str(message.get("content") or "") for message in model_messages[1])
     assert all(message_type not in {"step_recorded", "code_update"} for message_type, _ in sent_messages)
@@ -1594,7 +1596,8 @@ def test_plan_correction_clarification_answer_allows_final_corrected_plan_ready(
 
     asyncio.run(loop.run([_make_current_step("Click the Get started button")]))
 
-    message_types = [message_type for message_type, _ in sent_messages]
+    _INFRA = {"run_started", "step_validating", "step_executing", "step_failed", "step_skipped"}
+    message_types = [t for t, _ in sent_messages if t not in _INFRA]
     assert call_counter["count"] == 2
     assert confirmation_calls["count"] == 2
     assert message_types == ["plan_ready", "plan_ready", "llm_result"]
@@ -2500,7 +2503,9 @@ def test_plan_diff_editor_run_uses_controller_and_fails_closed_without_model_rou
     assert controller_calls[0]["purpose"] == "plan_diff_editor"
     assert controller_calls[0]["tools"] == []
     assert sent_messages
-    assert sent_messages[-1][0] == "llm_result"
-    assert sent_messages[-1][1]["success"] is False
+    _INFRA = {"run_started", "step_validating", "step_executing", "step_failed", "step_skipped"}
+    msgs = [m for m in sent_messages if m[0] not in _INFRA]
+    assert msgs[-1][0] == "llm_result"
+    assert msgs[-1][1]["success"] is False
     assert loop._active_plan_correction_state is None
     assert loop._active_plan_state == active_plan

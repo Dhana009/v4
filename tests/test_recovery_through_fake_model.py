@@ -121,4 +121,6 @@ def test_recovery_diagnoser_run_uses_controller_and_compact_context(monkeypatch)
     assert "timeout while clicking" in serialized_messages
     assert "http://fixture/current" in serialized_messages
     assert "Fixture page" in serialized_messages
-    assert sent_messages[-1][0] == "llm_result"
+    _INFRA = {"run_started", "step_validating", "step_executing", "step_failed", "step_skipped"}
+    msgs = [m for m in sent_messages if m[0] not in _INFRA]
+    assert msgs[-1][0] == "llm_result"

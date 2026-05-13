@@ -10,7 +10,17 @@ BACKEND_EVENT_SCHEMA_VERSION = "autoworkbench.event.v1"
 FRONTEND_COMMAND_SCHEMA_VERSION = "autoworkbench.command.v1"
 RUNTIME_REJECTION_SCHEMA_VERSION = "autoworkbench.rejection.v1"
 
-SUPPORTED_FRONTEND_COMMAND_TYPES = {"confirmed", "correction", "option_selected"}
+SUPPORTED_FRONTEND_COMMAND_TYPES = {
+    "confirmed",
+    "correction",
+    "option_selected",
+    # Sprint 7 Cluster 1 — new command types
+    "stop_run",
+    "skip_step",
+    "save_session",
+    "load_session",
+    "permission_decision",
+}
 
 
 def _coerce_text(value: Any) -> str:
@@ -188,6 +198,9 @@ def build_run_completed_payload(
     summary: str,
     recorded_count: int,
     skipped_count: int,
+    failed_count: int = 0,
+    code_status: str = "not_generated",
+    phase: str = "completed",
     source: str | None = "agent",
     event_id: str | None = None,
     emitted_at: str | None = None,
@@ -200,11 +213,24 @@ def build_run_completed_payload(
     if not summary_text:
         raise ValueError("summary is required")
 
+    recorded = int(recorded_count)
+    skipped = int(skipped_count)
+    failed = int(failed_count)
+    if recorded < 0:
+        raise ValueError("recorded_count must be non-negative")
+    if skipped < 0:
+        raise ValueError("skipped_count must be non-negative")
+    if failed < 0:
+        raise ValueError("failed_count must be non-negative")
+
     payload = {
         "run_id": run_id_text,
         "summary": summary_text,
-        "recorded_count": int(recorded_count),
-        "skipped_count": int(skipped_count),
+        "recorded_count": recorded,
+        "skipped_count": skipped,
+        "failed_count": failed,
+        "code_status": _coerce_text(code_status) or "not_generated",
+        "phase": _coerce_text(phase) or "completed",
     }
     return build_backend_event_envelope(
         "run_completed",
@@ -286,17 +312,429 @@ def build_session_state_event(
         raise ValueError("run_id is required")
 
     phase = _coerce_text(payload_data.get("phase")) or "planning"
-    session_state_payload = {
+
+    session_state_payload: dict[str, Any] = {
         "run_id": run_id,
         "phase": phase,
-        "steps": _json_safe_copy(payload_data.get("steps") or []),
+        # pending steps (may be keyed as "steps" or "pending_steps")
+        "steps": _json_safe_copy(payload_data.get("steps") or payload_data.get("pending_steps") or []),
         "recorded_steps": _json_safe_copy(payload_data.get("recorded_steps") or []),
     }
+
+    # Sprint 7 Cluster 1 — S7-0110: full reconnect payload fields
+    if "pending_steps" in payload_data:
+        session_state_payload["pending_steps"] = _json_safe_copy(payload_data["pending_steps"] or [])
+
+    plan_val = payload_data.get("plan")
+    if plan_val is not None:
+        session_state_payload["plan"] = _json_safe_copy(plan_val)
+
+    code_preview = payload_data.get("code_preview")
+    session_state_payload["code_preview"] = _coerce_text(code_preview) if code_preview is not None else None
+
+    recovery_state = payload_data.get("recovery_state")
+    if recovery_state is not None:
+        session_state_payload["recovery_state"] = _json_safe_copy(recovery_state)
+    else:
+        session_state_payload["recovery_state"] = None
+
+    replay_state = payload_data.get("replay_state")
+    if replay_state is not None:
+        session_state_payload["replay_state"] = _json_safe_copy(replay_state)
+    else:
+        session_state_payload["replay_state"] = None
 
     return build_backend_event_envelope(
         "session_state",
         session_state_payload,
         run_id=run_id,
+        event_id=event_id,
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Sprint 7 Cluster 1 — new event builders (S7-0101 through S7-0110)
+# ---------------------------------------------------------------------------
+
+def build_run_started_payload(
+    run_id: str,
+    steps: list[Any],
+    phase: str = "planning",
+    *,
+    source: str | None = "agent",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    """S7-0101: Emit when a new run begins. PRD-04-BE-001."""
+    run_id_text = _coerce_text(run_id)
+    if not run_id_text:
+        raise ValueError("run_id is required")
+    if steps is None:
+        raise TypeError("steps must be a list, got None")
+
+    payload = {
+        "run_id": run_id_text,
+        "steps": _json_safe_copy(list(steps)),
+        "phase": _coerce_text(phase) or "planning",
+    }
+    return build_backend_event_envelope(
+        "run_started",
+        payload,
+        run_id=run_id_text,
+        event_id=event_id,
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+def build_step_validating_payload(
+    step_id: str,
+    run_id: str,
+    *,
+    operation_id: str | None = None,
+    locator: str | None = None,
+    source: str | None = "agent",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    """S7-0102: Emit before validation of a step/operation. PRD-04-BE-002."""
+    step_id_text = _coerce_text(step_id)
+    if not step_id_text:
+        raise ValueError("step_id is required")
+    run_id_text = _coerce_text(run_id)
+    if not run_id_text:
+        raise ValueError("run_id is required")
+
+    payload: dict[str, Any] = {
+        "step_id": step_id_text,
+        "run_id": run_id_text,
+    }
+    if operation_id:
+        payload["operation_id"] = _coerce_text(operation_id)
+    if locator:
+        payload["locator"] = _coerce_text(locator)
+
+    return build_backend_event_envelope(
+        "step_validating",
+        payload,
+        run_id=run_id_text,
+        event_id=event_id,
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+def build_step_executing_payload(
+    step_id: str,
+    run_id: str,
+    action: str,
+    *,
+    operation_id: str | None = None,
+    source: str | None = "agent",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    """S7-0102: Emit when a step action is about to execute. PRD-04-BE-003."""
+    step_id_text = _coerce_text(step_id)
+    if not step_id_text:
+        raise ValueError("step_id is required")
+    run_id_text = _coerce_text(run_id)
+    if not run_id_text:
+        raise ValueError("run_id is required")
+    action_text = _coerce_text(action)
+    if not action_text:
+        raise ValueError("action is required")
+
+    payload: dict[str, Any] = {
+        "step_id": step_id_text,
+        "run_id": run_id_text,
+        "action": action_text,
+    }
+    if operation_id:
+        payload["operation_id"] = _coerce_text(operation_id)
+
+    return build_backend_event_envelope(
+        "step_executing",
+        payload,
+        run_id=run_id_text,
+        event_id=event_id,
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+def build_step_failed_payload(
+    step_id: str,
+    run_id: str,
+    error: str,
+    status: str,
+    *,
+    operation_id: str | None = None,
+    source: str | None = "agent",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    """S7-0103: Emit when a step execution fails. PRD-04-BE-004."""
+    step_id_text = _coerce_text(step_id)
+    if not step_id_text:
+        raise ValueError("step_id is required")
+    run_id_text = _coerce_text(run_id)
+    if not run_id_text:
+        raise ValueError("run_id is required")
+    error_text = _coerce_text(error)
+    if not error_text:
+        raise ValueError("error is required")
+
+    payload: dict[str, Any] = {
+        "step_id": step_id_text,
+        "run_id": run_id_text,
+        "error": error_text,
+        "status": _coerce_text(status) or "failed",
+    }
+    if operation_id:
+        payload["operation_id"] = _coerce_text(operation_id)
+
+    return build_backend_event_envelope(
+        "step_failed",
+        payload,
+        run_id=run_id_text,
+        event_id=event_id,
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+def build_step_skipped_payload(
+    step_id: str,
+    run_id: str,
+    reason: str,
+    *,
+    source: str | None = "agent",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    """S7-0103: Emit when a step is deliberately skipped. PRD-04-BE-005."""
+    step_id_text = _coerce_text(step_id)
+    if not step_id_text:
+        raise ValueError("step_id is required")
+    run_id_text = _coerce_text(run_id)
+    if not run_id_text:
+        raise ValueError("run_id is required")
+    reason_text = _coerce_text(reason)
+    if not reason_text:
+        raise ValueError("reason is required")
+
+    payload: dict[str, Any] = {
+        "step_id": step_id_text,
+        "run_id": run_id_text,
+        "reason": reason_text,
+    }
+    return build_backend_event_envelope(
+        "step_skipped",
+        payload,
+        run_id=run_id_text,
+        event_id=event_id,
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+def build_permission_required_payload(
+    run_id: str,
+    operation_id: str,
+    action_type: str,
+    risk_level: str,
+    message: str,
+    *,
+    options: list[str] | None = None,
+    source: str | None = "agent",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    """S7-0104: Emit when policy requires a user decision before proceeding. PRD-04-BE-006."""
+    run_id_text = _coerce_text(run_id)
+    if not run_id_text:
+        raise ValueError("run_id is required")
+    operation_id_text = _coerce_text(operation_id)
+    if not operation_id_text:
+        raise ValueError("operation_id is required")
+    action_type_text = _coerce_text(action_type)
+    if not action_type_text:
+        raise ValueError("action_type is required")
+    risk_level_text = _coerce_text(risk_level)
+    if not risk_level_text:
+        raise ValueError("risk_level is required")
+    message_text = _coerce_text(message)
+    if not message_text:
+        raise ValueError("message is required")
+
+    payload: dict[str, Any] = {
+        "run_id": run_id_text,
+        "operation_id": operation_id_text,
+        "action_type": action_type_text,
+        "risk_level": risk_level_text,
+        "message": message_text,
+    }
+    if options is not None:
+        payload["options"] = list(options)
+
+    return build_backend_event_envelope(
+        "permission_required",
+        payload,
+        run_id=run_id_text,
+        event_id=event_id,
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+def build_typed_ready_envelope(
+    session_id: str,
+    workspace: str,
+    mode: str,
+    url: str,
+    *,
+    backend_ready: bool = True,
+    browser_ready: bool = False,
+    session_active: bool = False,
+    source: str | None = "server",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    """S7-0105: Typed ready envelope replacing plain status string. PRD-04-BE-007."""
+    session_id_text = _coerce_text(session_id)
+    if not session_id_text:
+        raise ValueError("session_id is required")
+
+    payload: dict[str, Any] = {
+        "session_id": session_id_text,
+        "workspace": _coerce_text(workspace),
+        "mode": _coerce_text(mode),
+        "url": _coerce_text(url),
+        "backend_ready": bool(backend_ready),
+        "browser_ready": bool(browser_ready),
+        "session_active": bool(session_active),
+    }
+    return build_backend_event_envelope(
+        "ready",
+        payload,
+        event_id=event_id,
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+def build_browser_ready_event(
+    *,
+    browser_ready: bool = True,
+    context: str | None = None,
+    url: str | None = None,
+    source: str | None = "server",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    """S7-0105: Companion browser_ready event. PRD-04-BE-007."""
+    payload: dict[str, Any] = {
+        "browser_ready": bool(browser_ready),
+    }
+    if context:
+        payload["context"] = _coerce_text(context)
+    if url:
+        payload["url"] = _coerce_text(url)
+
+    return build_backend_event_envelope(
+        "browser_ready",
+        payload,
+        event_id=event_id,
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+def build_stop_run_result_event(
+    run_id: str,
+    status: str,
+    *,
+    reason: str | None = None,
+    source: str | None = "server",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    """S7-0107: Typed confirmation event after stop_run command is processed. PRD-04-CMD-001."""
+    run_id_text = _coerce_text(run_id)
+    if not run_id_text:
+        raise ValueError("run_id is required")
+    status_text = _coerce_text(status)
+    if not status_text:
+        raise ValueError("status is required")
+
+    payload: dict[str, Any] = {
+        "run_id": run_id_text,
+        "status": status_text,
+    }
+    if reason:
+        payload["reason"] = _coerce_text(reason)
+
+    return build_backend_event_envelope(
+        "run_stopped",
+        payload,
+        run_id=run_id_text,
+        event_id=event_id,
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+def build_save_result_event(
+    path: str,
+    name: str,
+    session_id: str,
+    step_count: int,
+    *,
+    source: str | None = "server",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    """S7-0109: Emitted after successful save_session. PRD-04-BE-save-load."""
+    payload: dict[str, Any] = {
+        "path": _coerce_text(path),
+        "name": _coerce_text(name),
+        "session_id": _coerce_text(session_id),
+        "step_count": int(step_count),
+    }
+    return build_backend_event_envelope(
+        "save_result",
+        payload,
+        event_id=event_id,
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+def build_load_result_event(
+    path: str,
+    name: str,
+    session_id: str,
+    step_count: int,
+    snapshot_valid: bool,
+    *,
+    source: str | None = "server",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    """S7-0109: Emitted after successful load_session. PRD-04-BE-save-load."""
+    payload: dict[str, Any] = {
+        "path": _coerce_text(path),
+        "name": _coerce_text(name),
+        "session_id": _coerce_text(session_id),
+        "step_count": int(step_count),
+        "snapshot_valid": bool(snapshot_valid),
+    }
+    return build_backend_event_envelope(
+        "load_result",
+        payload,
         event_id=event_id,
         emitted_at=emitted_at,
         source=source,

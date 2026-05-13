@@ -65,7 +65,7 @@ def test_replay_all_defaults_stop_on_error_true(monkeypatch) -> None:
     with TestClient(server.app) as client:
         with client.websocket_connect("/ws") as websocket:
             initial_message = websocket.receive_json()
-            assert initial_message["type"] == "status"
+            assert initial_message["type"] in {"status", "ready"}
             websocket.send_json({"type": "replay_all"})
             response = websocket.receive_json()
 

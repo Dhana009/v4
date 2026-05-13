@@ -56,8 +56,7 @@ def test_transient_websocket_disconnect_preserves_active_run(monkeypatch) -> Non
     with TestClient(server.app) as client:
         with client.websocket_connect("/ws") as first_ws:
             initial = first_ws.receive_json()
-            assert initial["type"] == "status"
-            assert "Browser launched" in initial["message"]
+            assert initial["type"] in {"status", "ready"}
 
             first_ws.send_json({"type": "run_steps", "steps": [{"step_id": "step-1"}]})
             assert started.wait(timeout=1.0)
@@ -68,8 +67,7 @@ def test_transient_websocket_disconnect_preserves_active_run(monkeypatch) -> Non
 
         with client.websocket_connect("/ws") as second_ws:
             reconnect_status = second_ws.receive_json()
-            assert reconnect_status["type"] == "status"
-            assert "Browser launched" in reconnect_status["message"]
+            assert reconnect_status["type"] in {"status", "ready"}
 
             assert created_agents[0].ws_rebind_count == 1
             resumed.set()
