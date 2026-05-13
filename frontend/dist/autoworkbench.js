@@ -1088,9 +1088,9 @@
             var dispatcher = resolveDispatcher();
             return dispatcher.useState(initialState);
           }
-          function useReducer(reducer, initialArg, init) {
+          function useReducer(reducer2, initialArg, init) {
             var dispatcher = resolveDispatcher();
-            return dispatcher.useReducer(reducer, initialArg, init);
+            return dispatcher.useReducer(reducer2, initialArg, init);
           }
           function useRef2(initialValue) {
             var dispatcher = resolveDispatcher();
@@ -13656,7 +13656,7 @@
           function basicStateReducer(state, action) {
             return typeof action === "function" ? action(state) : action;
           }
-          function mountReducer(reducer, initialArg, init) {
+          function mountReducer(reducer2, initialArg, init) {
             var hook = mountWorkInProgressHook();
             var initialState;
             if (init !== void 0) {
@@ -13670,20 +13670,20 @@
               interleaved: null,
               lanes: NoLanes,
               dispatch: null,
-              lastRenderedReducer: reducer,
+              lastRenderedReducer: reducer2,
               lastRenderedState: initialState
             };
             hook.queue = queue;
             var dispatch = queue.dispatch = dispatchReducerAction.bind(null, currentlyRenderingFiber$1, queue);
             return [hook.memoizedState, dispatch];
           }
-          function updateReducer(reducer, initialArg, init) {
+          function updateReducer(reducer2, initialArg, init) {
             var hook = updateWorkInProgressHook();
             var queue = hook.queue;
             if (queue === null) {
               throw new Error("Should have a queue. This is likely a bug in React. Please file an issue.");
             }
-            queue.lastRenderedReducer = reducer;
+            queue.lastRenderedReducer = reducer2;
             var current2 = currentHook;
             var baseQueue = current2.baseQueue;
             var pendingQueue = queue.pending;
@@ -13745,7 +13745,7 @@
                     newState = update.eagerState;
                   } else {
                     var action = update.action;
-                    newState = reducer(newState, action);
+                    newState = reducer2(newState, action);
                   }
                 }
                 update = update.next;
@@ -13778,13 +13778,13 @@
             var dispatch = queue.dispatch;
             return [hook.memoizedState, dispatch];
           }
-          function rerenderReducer(reducer, initialArg, init) {
+          function rerenderReducer(reducer2, initialArg, init) {
             var hook = updateWorkInProgressHook();
             var queue = hook.queue;
             if (queue === null) {
               throw new Error("Should have a queue. This is likely a bug in React. Please file an issue.");
             }
-            queue.lastRenderedReducer = reducer;
+            queue.lastRenderedReducer = reducer2;
             var dispatch = queue.dispatch;
             var lastRenderPhaseUpdate = queue.pending;
             var newState = hook.memoizedState;
@@ -13794,7 +13794,7 @@
               var update = firstRenderPhaseUpdate;
               do {
                 var action = update.action;
-                newState = reducer(newState, action);
+                newState = reducer2(newState, action);
                 update = update.next;
               } while (update !== firstRenderPhaseUpdate);
               if (!objectIs(newState, hook.memoizedState)) {
@@ -14474,13 +14474,13 @@
                   ReactCurrentDispatcher$1.current = prevDispatcher;
                 }
               },
-              useReducer: function(reducer, initialArg, init) {
+              useReducer: function(reducer2, initialArg, init) {
                 currentHookNameInDev = "useReducer";
                 mountHookTypesDev();
                 var prevDispatcher = ReactCurrentDispatcher$1.current;
                 ReactCurrentDispatcher$1.current = InvalidNestedHooksDispatcherOnMountInDEV;
                 try {
-                  return mountReducer(reducer, initialArg, init);
+                  return mountReducer(reducer2, initialArg, init);
                 } finally {
                   ReactCurrentDispatcher$1.current = prevDispatcher;
                 }
@@ -14578,13 +14578,13 @@
                   ReactCurrentDispatcher$1.current = prevDispatcher;
                 }
               },
-              useReducer: function(reducer, initialArg, init) {
+              useReducer: function(reducer2, initialArg, init) {
                 currentHookNameInDev = "useReducer";
                 updateHookTypesDev();
                 var prevDispatcher = ReactCurrentDispatcher$1.current;
                 ReactCurrentDispatcher$1.current = InvalidNestedHooksDispatcherOnMountInDEV;
                 try {
-                  return mountReducer(reducer, initialArg, init);
+                  return mountReducer(reducer2, initialArg, init);
                 } finally {
                   ReactCurrentDispatcher$1.current = prevDispatcher;
                 }
@@ -14682,13 +14682,13 @@
                   ReactCurrentDispatcher$1.current = prevDispatcher;
                 }
               },
-              useReducer: function(reducer, initialArg, init) {
+              useReducer: function(reducer2, initialArg, init) {
                 currentHookNameInDev = "useReducer";
                 updateHookTypesDev();
                 var prevDispatcher = ReactCurrentDispatcher$1.current;
                 ReactCurrentDispatcher$1.current = InvalidNestedHooksDispatcherOnUpdateInDEV;
                 try {
-                  return updateReducer(reducer, initialArg, init);
+                  return updateReducer(reducer2, initialArg, init);
                 } finally {
                   ReactCurrentDispatcher$1.current = prevDispatcher;
                 }
@@ -14786,13 +14786,13 @@
                   ReactCurrentDispatcher$1.current = prevDispatcher;
                 }
               },
-              useReducer: function(reducer, initialArg, init) {
+              useReducer: function(reducer2, initialArg, init) {
                 currentHookNameInDev = "useReducer";
                 updateHookTypesDev();
                 var prevDispatcher = ReactCurrentDispatcher$1.current;
                 ReactCurrentDispatcher$1.current = InvalidNestedHooksDispatcherOnRerenderInDEV;
                 try {
-                  return rerenderReducer(reducer, initialArg, init);
+                  return rerenderReducer(reducer2, initialArg, init);
                 } finally {
                   ReactCurrentDispatcher$1.current = prevDispatcher;
                 }
@@ -14898,14 +14898,14 @@
                   ReactCurrentDispatcher$1.current = prevDispatcher;
                 }
               },
-              useReducer: function(reducer, initialArg, init) {
+              useReducer: function(reducer2, initialArg, init) {
                 currentHookNameInDev = "useReducer";
                 warnInvalidHookAccess();
                 mountHookTypesDev();
                 var prevDispatcher = ReactCurrentDispatcher$1.current;
                 ReactCurrentDispatcher$1.current = InvalidNestedHooksDispatcherOnMountInDEV;
                 try {
-                  return mountReducer(reducer, initialArg, init);
+                  return mountReducer(reducer2, initialArg, init);
                 } finally {
                   ReactCurrentDispatcher$1.current = prevDispatcher;
                 }
@@ -15019,14 +15019,14 @@
                   ReactCurrentDispatcher$1.current = prevDispatcher;
                 }
               },
-              useReducer: function(reducer, initialArg, init) {
+              useReducer: function(reducer2, initialArg, init) {
                 currentHookNameInDev = "useReducer";
                 warnInvalidHookAccess();
                 updateHookTypesDev();
                 var prevDispatcher = ReactCurrentDispatcher$1.current;
                 ReactCurrentDispatcher$1.current = InvalidNestedHooksDispatcherOnUpdateInDEV;
                 try {
-                  return updateReducer(reducer, initialArg, init);
+                  return updateReducer(reducer2, initialArg, init);
                 } finally {
                   ReactCurrentDispatcher$1.current = prevDispatcher;
                 }
@@ -15140,14 +15140,14 @@
                   ReactCurrentDispatcher$1.current = prevDispatcher;
                 }
               },
-              useReducer: function(reducer, initialArg, init) {
+              useReducer: function(reducer2, initialArg, init) {
                 currentHookNameInDev = "useReducer";
                 warnInvalidHookAccess();
                 updateHookTypesDev();
                 var prevDispatcher = ReactCurrentDispatcher$1.current;
                 ReactCurrentDispatcher$1.current = InvalidNestedHooksDispatcherOnUpdateInDEV;
                 try {
-                  return rerenderReducer(reducer, initialArg, init);
+                  return rerenderReducer(reducer2, initialArg, init);
                 } finally {
                   ReactCurrentDispatcher$1.current = prevDispatcher;
                 }
@@ -26411,6 +26411,374 @@
   }
   window.IDEPanel = IDEPanel;
 
+  // src/host/host.jsx
+  var SHADOW_HOST_ID = "aw-shadow-host";
+  var SHADOW_MOUNT_ID = "aw-shadow-mount";
+  var CONTAINER_ID = "autoworkbench-root";
+  var HOST_ATTR = "data-autoworkbench";
+  function createHost(container) {
+    if (!container || typeof container.attachShadow !== "function") return null;
+    const shadowRoot = container.shadowRoot ?? container.attachShadow({ mode: "open" });
+    let hostEl = shadowRoot.querySelector(`#${SHADOW_HOST_ID}`);
+    if (!hostEl) {
+      hostEl = document.createElement("div");
+      hostEl.id = SHADOW_HOST_ID;
+      hostEl.setAttribute("data-testid", "aw-shadow-host");
+      hostEl.setAttribute(HOST_ATTR, "true");
+      shadowRoot.appendChild(hostEl);
+    }
+    return { shadowRoot, hostElement: hostEl };
+  }
+  function unmountHost() {
+    if (typeof document === "undefined") return;
+    const container = document.getElementById(CONTAINER_ID);
+    if (!container) return;
+    const shadowRoot = container.shadowRoot;
+    if (shadowRoot) {
+      while (shadowRoot.firstChild) {
+        shadowRoot.removeChild(shadowRoot.firstChild);
+      }
+    }
+    if (container.parentNode) {
+      container.parentNode.removeChild(container);
+    }
+  }
+
+  // src/layout/dock-controller.js
+  var VALID_DOCK_MODES = ["dock-right", "dock-left", "dock-bottom", "floating"];
+  var DEFAULT_DOCK_MODE = "dock-right";
+  var DOCK_STORAGE_KEY = "aw-dock-mode";
+  function getDockMode() {
+    try {
+      const stored = localStorage.getItem(DOCK_STORAGE_KEY);
+      if (stored && VALID_DOCK_MODES.includes(stored)) return stored;
+    } catch (_) {
+    }
+    return DEFAULT_DOCK_MODE;
+  }
+  function applyDock(hostElement, mode) {
+    if (!hostElement) return;
+    const targetMode = VALID_DOCK_MODES.includes(mode) ? mode : DEFAULT_DOCK_MODE;
+    VALID_DOCK_MODES.forEach((m) => {
+      hostElement.classList.remove(`aw-${m}`);
+    });
+    hostElement.classList.add(`aw-${targetMode}`);
+    hostElement.setAttribute("data-dock-mode", targetMode);
+  }
+
+  // src/layout/panel-modes.js
+  var PANEL_MODES = {
+    collapsed: "collapsed",
+    expanded: "expanded",
+    floating: "floating"
+  };
+  var DEFAULT_PANEL_MODE = PANEL_MODES.expanded;
+  var MODES_STORAGE_KEY = "aw-panel-mode";
+  function getPanelMode() {
+    try {
+      const stored = localStorage.getItem(MODES_STORAGE_KEY);
+      if (stored && Object.values(PANEL_MODES).includes(stored)) return stored;
+    } catch (_) {
+    }
+    return DEFAULT_PANEL_MODE;
+  }
+  function applyMode(hostElement, mode) {
+    if (!hostElement) return;
+    const targetMode = Object.values(PANEL_MODES).includes(mode) ? mode : DEFAULT_PANEL_MODE;
+    Object.values(PANEL_MODES).forEach((m) => {
+      hostElement.classList.remove(`aw-panel-${m}`);
+    });
+    hostElement.classList.add(`aw-panel-${targetMode}`);
+    hostElement.setAttribute("data-panel-mode", targetMode);
+  }
+
+  // src/layout/compensation.js
+  var SAVED_ATTR_PREFIX = "data-aw-original-";
+  function saveOriginalStyle(el, prop) {
+    const attr = `${SAVED_ATTR_PREFIX}${prop}`;
+    if (!el.hasAttribute(attr)) {
+      el.setAttribute(attr, el.style[prop] ?? "");
+    }
+  }
+  function restoreOriginalStyle(el, prop) {
+    const attr = `${SAVED_ATTR_PREFIX}${prop}`;
+    if (el.hasAttribute(attr)) {
+      el.style[prop] = el.getAttribute(attr);
+      el.removeAttribute(attr);
+    }
+  }
+  function applyCompensation(dockMode, panelSize) {
+    if (dockMode === "floating") return;
+    const body = document.body;
+    const html = document.documentElement;
+    if (!body || !html) return;
+    if (dockMode === "dock-right") {
+      const width = panelSize?.width ?? 380;
+      saveOriginalStyle(body, "width");
+      saveOriginalStyle(body, "maxWidth");
+      saveOriginalStyle(html, "width");
+      saveOriginalStyle(html, "maxWidth");
+      body.style.width = `calc(100vw - ${width}px)`;
+      body.style.maxWidth = `calc(100vw - ${width}px)`;
+    } else if (dockMode === "dock-left") {
+      const width = panelSize?.width ?? 380;
+      saveOriginalStyle(body, "marginLeft");
+      body.style.marginLeft = `${width}px`;
+    } else if (dockMode === "dock-bottom") {
+      const height = panelSize?.height ?? 300;
+      saveOriginalStyle(body, "height");
+      saveOriginalStyle(body, "maxHeight");
+      body.style.height = `calc(100vh - ${height}px)`;
+      body.style.maxHeight = `calc(100vh - ${height}px)`;
+    }
+  }
+  function removeCompensation() {
+    const body = document.body;
+    const html = document.documentElement;
+    if (!body || !html) return;
+    const props = ["width", "maxWidth", "height", "maxHeight", "marginLeft", "paddingRight"];
+    props.forEach((prop) => {
+      restoreOriginalStyle(body, prop);
+      restoreOriginalStyle(html, prop);
+    });
+  }
+
+  // src/layout/resize-controller.js
+  var SIZE_STORAGE_KEY = "aw-panel-size";
+  function getStoredSize() {
+    try {
+      const raw = localStorage.getItem(SIZE_STORAGE_KEY);
+      if (raw) return JSON.parse(raw);
+    } catch (_) {
+    }
+    return null;
+  }
+
+  // src/store/types.js
+  var EVENT_TYPES = (
+    /** @type {const} */
+    {
+      session_state: "session_state",
+      run_started: "run_started",
+      plan_ready: "plan_ready",
+      clarification_needed: "clarification_needed",
+      run_completed: "run_completed",
+      runtime_rejected: "runtime_rejected",
+      step_validating: "step_validating",
+      step_executing: "step_executing",
+      step_failed: "step_failed",
+      step_skipped: "step_skipped",
+      step_recorded: "step_recorded",
+      permission_required: "permission_required",
+      recommendation_ready: "recommendation_ready",
+      recovery_needed: "recovery_needed",
+      code_update: "code_update",
+      recovery_resolved: "recovery_resolved",
+      schema_error: "schema_error",
+      llm_thinking: "llm_thinking",
+      llm_result: "llm_result",
+      status: "status",
+      error: "error"
+    }
+  );
+
+  // src/store/reducer.js
+  function createInitialState() {
+    return {
+      connected: false,
+      run_id: null,
+      phase: "idle",
+      plan: null,
+      pending_steps: [],
+      recorded_steps: [],
+      pending_clarification: null,
+      pending_permission: null,
+      pending_recovery: null,
+      pending_recommendations: [],
+      code_preview: null,
+      trace_entries: [],
+      errors: [],
+      interaction_mode: "idle",
+      last_error: null,
+      session_metadata: null
+    };
+  }
+  function isStaleRunId(state, payload) {
+    if (!state || !state.run_id) return false;
+    const incoming = payload?.run_id;
+    if (!incoming) return false;
+    return incoming !== state.run_id;
+  }
+  function dedupeRecordedSteps(existing, incoming) {
+    if (!incoming) return existing;
+    const incomingId = incoming.step_id ?? incoming.id;
+    if (!incomingId) return [...existing, incoming];
+    const filtered = existing.filter((s) => (s.step_id ?? s.id) !== incomingId);
+    return [...filtered, incoming];
+  }
+  function reducer(state, event) {
+    const { type, payload = {} } = event || {};
+    switch (type) {
+      case EVENT_TYPES.session_state: {
+        return {
+          ...state,
+          connected: true,
+          run_id: payload.run_id ?? state.run_id,
+          phase: payload.phase ?? payload.state ?? state.phase,
+          plan: payload.plan ?? state.plan,
+          pending_steps: payload.pending_steps ?? state.pending_steps,
+          recorded_steps: payload.recorded_steps ?? state.recorded_steps,
+          code_preview: payload.code_preview ?? payload.code ?? state.code_preview,
+          pending_clarification: payload.pending_clarification ?? state.pending_clarification,
+          pending_permission: payload.pending_permission ?? state.pending_permission,
+          pending_recovery: payload.pending_recovery ?? state.pending_recovery,
+          pending_recommendations: payload.pending_recommendations ?? state.pending_recommendations,
+          interaction_mode: payload.interaction_mode ?? state.interaction_mode,
+          session_metadata: payload
+        };
+      }
+      case EVENT_TYPES.run_started: {
+        return {
+          ...createInitialState(),
+          connected: state.connected,
+          run_id: payload.run_id ?? state.run_id,
+          phase: "planning",
+          interaction_mode: "planning"
+        };
+      }
+      case EVENT_TYPES.plan_ready: {
+        return {
+          ...state,
+          plan: payload.plan ?? payload,
+          pending_steps: payload.plan?.steps ?? payload.steps ?? state.pending_steps,
+          phase: "awaiting_confirmation",
+          interaction_mode: "plan_review",
+          pending_clarification: null
+        };
+      }
+      case EVENT_TYPES.clarification_needed: {
+        return {
+          ...state,
+          phase: "awaiting_confirmation",
+          interaction_mode: "clarification",
+          pending_clarification: payload.clarification ?? payload
+        };
+      }
+      case EVENT_TYPES.run_completed: {
+        if (state.pending_recovery) {
+          return {
+            ...state,
+            last_error: "run_completed received while pending_recovery open"
+          };
+        }
+        return {
+          ...state,
+          phase: "completed",
+          interaction_mode: "completed",
+          pending_steps: []
+        };
+      }
+      case EVENT_TYPES.runtime_rejected: {
+        return {
+          ...state,
+          last_error: payload.rejection_reason ?? payload.reason ?? null,
+          errors: [...state.errors, payload]
+        };
+      }
+      case "error":
+      case EVENT_TYPES.schema_error: {
+        return {
+          ...state,
+          last_error: payload.message ?? payload.reason ?? type,
+          errors: [...state.errors, { type, ...payload }]
+        };
+      }
+      case EVENT_TYPES.step_validating: {
+        if (isStaleRunId(state, payload)) return state;
+        return {
+          ...state,
+          phase: "executing",
+          interaction_mode: "executing"
+        };
+      }
+      case EVENT_TYPES.step_executing: {
+        if (isStaleRunId(state, payload)) return state;
+        return {
+          ...state,
+          phase: "executing",
+          interaction_mode: "executing"
+        };
+      }
+      case EVENT_TYPES.step_failed: {
+        if (isStaleRunId(state, payload)) return state;
+        return {
+          ...state,
+          errors: [...state.errors, payload],
+          last_error: payload.reason ?? payload.message ?? null
+        };
+      }
+      case EVENT_TYPES.step_skipped: {
+        if (isStaleRunId(state, payload)) return state;
+        const skipId = payload.step_id ?? payload.id;
+        return {
+          ...state,
+          pending_steps: state.pending_steps.filter(
+            (s) => (s.step_id ?? s.id) !== skipId
+          )
+        };
+      }
+      case EVENT_TYPES.step_recorded: {
+        if (isStaleRunId(state, payload)) return state;
+        return {
+          ...state,
+          recorded_steps: dedupeRecordedSteps(state.recorded_steps, payload)
+        };
+      }
+      case EVENT_TYPES.permission_required: {
+        return {
+          ...state,
+          interaction_mode: "executing",
+          pending_permission: payload
+        };
+      }
+      case EVENT_TYPES.recommendation_ready: {
+        const incoming = Array.isArray(payload.recommendations) ? payload.recommendations : [payload];
+        return {
+          ...state,
+          pending_recommendations: incoming
+        };
+      }
+      case EVENT_TYPES.recovery_needed: {
+        const options = Array.isArray(payload.options) ? payload.options : [];
+        return {
+          ...state,
+          phase: "recovery",
+          interaction_mode: "recovery",
+          pending_recovery: { ...payload, options },
+          last_error: payload.reason ?? payload.message ?? null
+        };
+      }
+      case EVENT_TYPES.recovery_resolved: {
+        const currentPhase = state.phase;
+        const currentMode = state.interaction_mode;
+        return {
+          ...state,
+          pending_recovery: null,
+          phase: currentPhase === "recovery" ? "executing" : currentPhase,
+          interaction_mode: currentMode === "recovery" ? "executing" : currentMode
+        };
+      }
+      case EVENT_TYPES.code_update: {
+        return {
+          ...state,
+          code_preview: payload.code ?? payload.content ?? payload
+        };
+      }
+      default:
+        return state;
+    }
+  }
+
   // src/main.jsx
   var import_jsx_runtime3 = __toESM(require_jsx_runtime());
   var VALID_TABS = /* @__PURE__ */ new Set(["workbench", "steps", "code", "debug"]);
@@ -26420,8 +26788,6 @@
     panelWidth: 460,
     density: "compact"
   };
-  var SHADOW_HOST_ID = "aw-shadow-host";
-  var SHADOW_MOUNT_ID = "aw-shadow-mount";
   var SHADOW_STYLE_ID = "aw-shadow-style";
   var SHADOW_STYLE_FLAG = "data-autoworkbench-shadow-style";
   var AUTOWORKBENCH_STYLE_ID = "autoworkbench-style";
@@ -26517,21 +26883,6 @@
       (document.body || document.documentElement).appendChild(node);
     }
     return node;
-  }
-  function ensureShadowHost(host) {
-    if (!host || typeof host.attachShadow !== "function") {
-      return null;
-    }
-    const shadowRoot = host.shadowRoot || host.attachShadow({ mode: "open" });
-    let marker = shadowRoot.querySelector(`#${SHADOW_HOST_ID}`);
-    if (!marker) {
-      marker = document.createElement("div");
-      marker.id = SHADOW_HOST_ID;
-      marker.setAttribute("data-testid", "aw-shadow-host");
-      marker.setAttribute("aria-hidden", "true");
-      shadowRoot.appendChild(marker);
-    }
-    return shadowRoot;
   }
   function ensureShadowStyles(shadowRoot) {
     if (!shadowRoot) {
@@ -28994,7 +29345,23 @@
                 tab,
                 runtime: {
                   live: true,
-                  ...transport
+                  ...transport,
+                  storeState: transport.storeState,
+                  connected: transport.storeState?.connected ?? false,
+                  run_id: transport.storeState?.run_id ?? null,
+                  phase: transport.storeState?.phase ?? "idle",
+                  storePlan: transport.storeState?.plan ?? null,
+                  storePendingSteps: transport.storeState?.pending_steps ?? [],
+                  storeRecordedSteps: transport.storeState?.recorded_steps ?? [],
+                  storeCodePreview: transport.storeState?.code_preview ?? null,
+                  storeTraceEntries: transport.storeState?.trace_entries ?? [],
+                  storeErrors: transport.storeState?.errors ?? [],
+                  storeLastError: transport.storeState?.last_error ?? null,
+                  storeInteractionMode: transport.storeState?.interaction_mode ?? "idle",
+                  storePendingClarification: transport.storeState?.pending_clarification ?? null,
+                  storePendingPermission: transport.storeState?.pending_permission ?? null,
+                  storePendingRecovery: transport.storeState?.pending_recovery ?? null,
+                  storePendingRecommendations: transport.storeState?.pending_recommendations ?? []
                 },
                 onTabChange: setTab
               }
@@ -29005,13 +29372,16 @@
     );
   }
   function useFrontendEventStore(config) {
-    return useAutoWorkbenchTransport(config);
+    const [storeState, storeDispatch] = import_react2.default.useReducer(reducer, null, createInitialState);
+    const transport = useAutoWorkbenchTransport(config);
+    return { ...transport, storeState, storeDispatch };
   }
   var currentRoot = null;
   var currentHostNode = null;
   var currentMountNode = null;
   function renderInto(node, config) {
-    const shadowRoot = ensureShadowHost(node);
+    const hostResult = createHost(node);
+    const shadowRoot = hostResult ? hostResult.shadowRoot : null;
     const mountNode = shadowRoot ? ensureShadowMount(shadowRoot) : node;
     if (shadowRoot) {
       ensureShadowStyles(shadowRoot);
@@ -29031,16 +29401,25 @@
   }
   function mount(root, config = {}) {
     const node = resolveMountNode(root);
+    const dockMode = getDockMode();
+    const panelMode = getPanelMode();
+    applyDock(node, dockMode);
+    applyMode(node, panelMode);
+    const storedSize = getStoredSize();
+    const panelWidth = storedSize?.width ?? config.panelWidth ?? 460;
+    applyCompensation(dockMode, { width: panelWidth });
     renderInto(node, config);
     return node;
   }
   function unmount() {
+    removeCompensation();
     if (currentRoot) {
       currentRoot.unmount();
       currentRoot = null;
       currentHostNode = null;
       currentMountNode = null;
     }
+    unmountHost();
   }
   window.AutoWorkbench = {
     mount,

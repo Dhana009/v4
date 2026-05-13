@@ -3,8 +3,8 @@
 **Sprint:** Sprint 7  
 **Cluster:** 5  
 **Story:** S7-0503  
-**Status:** Planning  
-**Date:** 2026-05-13  
+**Status:** Done  
+**Date:** 2026-05-14  
 
 ---
 
@@ -145,3 +145,13 @@ After S7-0503:
 ## Next Story
 
 → S7-0504: Run_completed, runtime_rejected, and error handlers
+
+---
+
+## Evidence Recorded
+
+- **Commit (RED):** 65eb6d6 — test_frontend_event_store_handlers.py (10 new RED tests)
+- **Commit (GREEN):** 345365e — reducer extension + main.jsx threading
+- **Change:** session_state restores plan, pending_steps, recorded_steps, code_preview with ?? fallbacks; recorded_steps replaced (not appended) to avoid dupes on reconnect
+- **Build:** dist/autoworkbench.js 1.3mb (clean)
+- **Regression:** 2347 passed / 1 skipped / 0 failed

@@ -3,8 +3,8 @@
 **Sprint:** Sprint 7  
 **Cluster:** 5  
 **Story:** S7-0509  
-**Status:** Planning  
-**Date:** 2026-05-13  
+**Status:** Done  
+**Date:** 2026-05-14  
 
 ---
 
@@ -180,3 +180,13 @@ Cluster 5 closes BUG-S6-FINAL-002 by wiring live backend state into frontend UI.
 - [ ] Full flow integration test passing
 - [ ] Regression baseline maintained
 - [ ] Ready for Cluster 6 (LLM tab UI implementation)
+
+---
+
+## Evidence Recorded
+
+- **Commit (RED):** 65eb6d6 — test_frontend_event_store_handlers.py (10 new RED tests)
+- **Commit (GREEN):** 345365e — reducer extension + main.jsx threading
+- **Change:** storeState threaded into IDEPanel runtime prop (connected, run_id, phase, plan, pending/recorded steps, code_preview, errors, modes, pending_clarification/permission/recovery/recommendations); createDispatcher imported
+- **Build:** dist/autoworkbench.js 1.3mb (clean)
+- **Regression:** 2347 passed / 1 skipped / 0 failed

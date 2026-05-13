@@ -2,7 +2,7 @@
 
 **Sprint:** Sprint 7  
 **Cluster:** 5  
-**Status:** In Progress (S7-0501, S7-0502, S7-0507, S7-0508 Done; S7-0503–S7-0506, S7-0509 Planning)  
+**Status:** Done
 **Date:** 2026-05-14  
 **HEAD at planning:** 8bdd8de  
 **HEAD after cluster5 partial:** c1084ac  
@@ -403,3 +403,33 @@ After Cluster 5 is **Done**:
 - c1084ac — GREEN implementation (all store/commands modules)
 
 **Regression:** 2321 passed / 1 skipped / 0 failed (baseline was 2247 after Cluster 4)
+
+---
+
+## Cluster 5 Final Closure (2026-05-14)
+
+| Story | Status | Commit | Key file(s) |
+|-------|--------|--------|-------------|
+| S7-0501 Typed event model | Done | c1084ac | types.js (EVENT_TYPES, COMMAND_TYPES) |
+| S7-0502 Reducer/event store | Done | c1084ac | reducer.js, selectors.js |
+| S7-0503 session_state consumer | Done | 345365e | reducer.js session_state case |
+| S7-0504 run_completed/runtime_rejected/error | Done | 345365e | reducer.js: recovery-aware guard, error/schema_error cases |
+| S7-0505 Step lifecycle | Done | 345365e | reducer.js: isStaleRunId, dedupeRecordedSteps |
+| S7-0506 Permission/recommendation/recovery | Done | 345365e | reducer.js: recovery_resolved case |
+| S7-0507 Typed command dispatcher | Done | c1084ac | command-builder.js, dispatcher.js |
+| S7-0508 Stale/missing ID blocking | Done | c1084ac | validation.js |
+| S7-0509 Live prop threading | Done | 345365e | main.jsx AutoWorkbenchRuntime storeState→runtime prop |
+
+**Commits:**
+- 82bbeb1 — RED tests (typed event store + dispatcher)
+- c1084ac — GREEN initial (types/reducer/selectors/commands)
+- bdfd925 — docs partial
+- 65eb6d6 — RED tests (handlers + threading)
+- 345365e — GREEN final (session restore, error/recovery handlers, prop threading)
+
+**Regression:** 2347 passed / 1 skipped / 0 failed (baseline was 2247 after Cluster 4 — +100 net tests).
+**Build:** dist/autoworkbench.js 1.3mb, dist/autoworkbench.css 42.9kb.
+
+**Forbidden file audit:** no changes to backend/runtime/LLM prompt files; no E2E run; no demo-state leaked into live mode; no .DS_Store / AGENTS.md / .tasks-md/.DS_Store / .playwright-cli / frontend_new_design_prototype staged.
+
+**Next:** Cluster 6 (LLM tab live rendering) may now begin — backend-event-driven store and dispatcher are in place.

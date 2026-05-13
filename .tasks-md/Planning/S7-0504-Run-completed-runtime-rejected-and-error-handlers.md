@@ -3,8 +3,8 @@
 **Sprint:** Sprint 7  
 **Cluster:** 5  
 **Story:** S7-0504  
-**Status:** Planning  
-**Date:** 2026-05-13  
+**Status:** Done  
+**Date:** 2026-05-14  
 
 ---
 
@@ -84,3 +84,13 @@ After S7-0504:
 ## Next Story
 
 → S7-0505: Step lifecycle event handlers
+
+---
+
+## Evidence Recorded
+
+- **Commit (RED):** 65eb6d6 — test_frontend_event_store_handlers.py (10 new RED tests)
+- **Commit (GREEN):** 345365e — reducer extension + main.jsx threading
+- **Change:** run_completed blocked when pending_recovery open; runtime_rejected appends to errors+last_error; generic error and schema_error event handlers added
+- **Build:** dist/autoworkbench.js 1.3mb (clean)
+- **Regression:** 2347 passed / 1 skipped / 0 failed
