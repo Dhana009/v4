@@ -26433,7 +26433,7 @@
     onSeed
   }) {
     const has = (v) => v != null && (Array.isArray(v) ? v.length > 0 : true);
-    const empty = !has(conversation) && !has(plan) && !has(pendingClarification) && !has(pendingRecommendations) && !has(pendingPermission) && !has(pendingDiff) && !has(pendingRecovery) && !has(ambiguity) && !has(completion) && !has(rejection) && !has(currentStep);
+    const empty = phase !== "executing" && !has(conversation) && !has(plan) && !has(pendingClarification) && !has(pendingRecommendations) && !has(pendingPermission) && !has(pendingDiff) && !has(pendingRecovery) && !has(ambiguity) && !has(completion) && !has(rejection);
     if (empty) return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(LlmEmpty, { onSeed });
     return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-thread", "data-testid": "aw-thread", children: [
       asArray(conversation).map((m, i) => {

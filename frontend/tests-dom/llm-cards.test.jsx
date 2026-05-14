@@ -12,6 +12,7 @@ import {
   CardRecovery,
   CardOffline,
   Composer,
+  LlmThread,
 } from "../src/v4/llm-cards.jsx";
 
 describe("v4 LLM cards (real DOM render)", () => {
@@ -222,5 +223,89 @@ describe("v4 Composer pick (D-107)", () => {
   it("aw-composer-send button still present (regression guard)", () => {
     render(<Composer onSend={vi.fn()} />);
     expect(screen.getByTestId("aw-composer-send")).toBeInTheDocument();
+  });
+});
+
+// Regression: draft pending step on Steps tab made currentStep truthy, which
+// killed the LLM-tab welcome card (LlmEmpty) and rendered a blank thread div
+// because every other card was null-gated. See debug report: post-Batch-D
+// LLM empty-state regression. Fix removed currentStep from the empty-state
+// gate; currentStep continues to flow to CardExecution which renders only on
+// phase === "executing".
+describe("v4 LlmThread empty-state gate (post-Batch-D regression)", () => {
+  it("renders LlmEmpty welcome card even when a draft pending step exists and no LLM activity has occurred", () => {
+    render(
+      <LlmThread
+        conversation={[]}
+        plan={null}
+        pendingClarification={null}
+        pendingRecommendations={[]}
+        pendingPermission={null}
+        pendingDiff={null}
+        pendingRecovery={null}
+        ambiguity={null}
+        completion={null}
+        rejection={null}
+        connection={{ connected: true }}
+        phase="idle"
+        currentStep={{ step_id: "s1", intent: "click hero", id: "s1" }}
+        recordedSteps={[]}
+        pendingSteps={[{ step_id: "s1", intent: "click hero", id: "s1" }]}
+        dispatchers={{}}
+        onSeed={vi.fn()}
+      />
+    );
+    expect(screen.getByTestId("llm-empty")).toBeInTheDocument();
+    expect(screen.queryByTestId("aw-thread")).toBeNull();
+  });
+
+  it("renders aw-thread (not LlmEmpty) when real LLM activity is present even with no currentStep", () => {
+    render(
+      <LlmThread
+        conversation={[{ role: "user", text: "hi", id: "m1" }]}
+        plan={null}
+        pendingClarification={null}
+        pendingRecommendations={[]}
+        pendingPermission={null}
+        pendingDiff={null}
+        pendingRecovery={null}
+        ambiguity={null}
+        completion={null}
+        rejection={null}
+        connection={{ connected: true }}
+        phase="idle"
+        currentStep={null}
+        recordedSteps={[]}
+        pendingSteps={[]}
+        dispatchers={{}}
+      />
+    );
+    expect(screen.getByTestId("aw-thread")).toBeInTheDocument();
+    expect(screen.queryByTestId("llm-empty")).toBeNull();
+  });
+
+  it("renders CardExecution inside aw-thread when phase === 'executing' and currentStep present (regression guard)", () => {
+    render(
+      <LlmThread
+        conversation={[]}
+        plan={null}
+        pendingClarification={null}
+        pendingRecommendations={[]}
+        pendingPermission={null}
+        pendingDiff={null}
+        pendingRecovery={null}
+        ambiguity={null}
+        completion={null}
+        rejection={null}
+        connection={{ connected: true }}
+        phase="executing"
+        currentStep={{ step_id: "s1", intent: "click hero", id: "s1" }}
+        recordedSteps={[]}
+        pendingSteps={[{ step_id: "s1", intent: "click hero", id: "s1" }]}
+        dispatchers={{}}
+      />
+    );
+    expect(screen.getByTestId("aw-thread")).toBeInTheDocument();
+    expect(screen.queryByTestId("llm-empty")).toBeNull();
   });
 });

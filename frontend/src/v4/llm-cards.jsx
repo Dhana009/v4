@@ -984,7 +984,12 @@ export function LlmThread({
   onSeed,
 }) {
   const has = (v) => v != null && (Array.isArray(v) ? v.length > 0 : true);
+  // currentStep deliberately NOT in the empty gate: a draft pending step on
+  // the Steps tab must not suppress the LLM welcome card. currentStep is
+  // still passed through to CardExecution which renders only when phase ===
+  // "executing"; the executing phase short-circuits the empty gate below.
   const empty =
+    phase !== "executing" &&
     !has(conversation) &&
     !has(plan) &&
     !has(pendingClarification) &&
@@ -994,8 +999,7 @@ export function LlmThread({
     !has(pendingRecovery) &&
     !has(ambiguity) &&
     !has(completion) &&
-    !has(rejection) &&
-    !has(currentStep);
+    !has(rejection);
   if (empty) return <LlmEmpty onSeed={onSeed}/>;
 
   return (
