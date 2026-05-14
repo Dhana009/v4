@@ -10,6 +10,7 @@ import pytest
 from runtime.step_metadata import (
     annotate_plan_steps_with_kind,
     classify_step_kind,
+    normalize_plan_steps_children,
 )
 
 
@@ -170,6 +171,115 @@ def test_annotator_does_not_disturb_locator_metadata():
     assert step["locator_kind"] == "ok"
     assert step["locator_strength"] == "strong"
     assert step["locator_reason"] == "uses data-testid"
+
+
+# ---------------------------------------------------------------------------
+# normalize_plan_steps_children (Pass 4b-3)
+# ---------------------------------------------------------------------------
+
+def test_children_preserved_with_existing_operation_id():
+    payload = {
+        "steps": [
+            {
+                "step_id": "sect",
+                "children": [
+                    {"operation_id": "op_a", "type": "click", "description": "click X"},
+                    {"operation_id": "op_b", "type": "assert", "description": "verify Y"},
+                ],
+            }
+        ]
+    }
+    normalize_plan_steps_children(payload)
+    kids = payload["steps"][0]["children"]
+    assert len(kids) == 2
+    assert kids[0]["child_id"] == "op_a"
+    assert kids[1]["child_id"] == "op_b"
+    assert kids[0]["type"] == "click"
+    assert kids[0]["description"] == "click X"
+
+
+def test_children_get_synthetic_child_id_when_missing():
+    payload = {"steps": [{"step_id": "s1", "children": [{"description": "no id"}]}]}
+    normalize_plan_steps_children(payload)
+    assert payload["steps"][0]["children"][0]["child_id"] == "op_1"
+
+
+def test_non_list_children_clamped_to_empty_list():
+    payload = {"steps": [{"step_id": "s1", "children": "not a list"}]}
+    normalize_plan_steps_children(payload)
+    assert payload["steps"][0]["children"] == []
+
+
+def test_malformed_child_entries_dropped():
+    payload = {
+        "steps": [
+            {"step_id": "s1", "children": [None, 42, "bad", {"description": "good"}]}
+        ]
+    }
+    normalize_plan_steps_children(payload)
+    kids = payload["steps"][0]["children"]
+    assert len(kids) == 1
+    assert kids[0]["description"] == "good"
+    assert kids[0]["child_id"] == "op_4"  # original index 3 → fallback op_4
+
+
+def test_missing_children_field_untouched():
+    """No children key at all = atomic step; do not invent empty list."""
+    payload = {"steps": [{"step_id": "s1", "intent": "click"}]}
+    normalize_plan_steps_children(payload)
+    assert "children" not in payload["steps"][0]
+
+
+def test_normalizer_preserves_status_and_target_fields():
+    payload = {
+        "steps": [
+            {
+                "step_id": "s1",
+                "children": [
+                    {
+                        "operation_id": "c1",
+                        "type": "click",
+                        "description": "click submit",
+                        "status": "pending",
+                        "target": "#submit",
+                    }
+                ],
+            }
+        ]
+    }
+    normalize_plan_steps_children(payload)
+    c = payload["steps"][0]["children"][0]
+    assert c["status"] == "pending"
+    assert c["target"] == "#submit"
+
+
+def test_children_normalizer_does_not_disturb_kind_or_locator():
+    payload = {
+        "steps": [
+            {
+                "step_id": "s1",
+                "intent": "Section: Pricing",
+                "step_kind": "section",
+                "locator_kind": "ok",
+                "locator_strength": "strong",
+                "children": [
+                    {"operation_id": "a", "description": "first"},
+                    {"operation_id": "b", "description": "second"},
+                ],
+            }
+        ]
+    }
+    normalize_plan_steps_children(payload)
+    step = payload["steps"][0]
+    assert step["step_kind"] == "section"
+    assert step["locator_kind"] == "ok"
+    assert len(step["children"]) == 2
+
+
+def test_normalizer_safe_on_non_dict_payload():
+    assert normalize_plan_steps_children(None) is None
+    assert normalize_plan_steps_children({}) == {}
+    assert normalize_plan_steps_children({"steps": "nope"}) == {"steps": "nope"}
 
 
 def test_annotator_does_not_emit_other_kinds():

@@ -71,6 +71,54 @@ def classify_step_kind(step: Any) -> str:
     return "unknown"
 
 
+def _normalize_child_op(child: Any, fallback_index: int) -> dict[str, Any] | None:
+    """Coerce one child entry into a stable frontend-facing shape.
+
+    Returns None if the entry is not a dict (frontend must not see fake
+    children). Stable fields: child_id, type, description, status, target.
+    All optional except child_id.
+    """
+    if not isinstance(child, dict):
+        return None
+    out: dict[str, Any] = dict(child)
+    cid_raw = (
+        out.get("child_id")
+        or out.get("operation_id")
+        or out.get("id")
+    )
+    cid = str(cid_raw).strip() if cid_raw not in (None, "") else f"op_{fallback_index + 1}"
+    out["child_id"] = cid
+    return out
+
+
+def normalize_plan_steps_children(payload: dict[str, Any]) -> dict[str, Any]:
+    """Ensure every plan_ready step's `children` is a list of dicts with stable
+    `child_id`. Non-list children become []; malformed entries are dropped.
+    Frontend can iterate `step.children` without defensive checks.
+    """
+    if not isinstance(payload, dict):
+        return payload
+    steps = payload.get("steps")
+    if not isinstance(steps, list):
+        return payload
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        raw = step.get("children")
+        if raw is None:
+            continue  # leave alone; absence means atomic step
+        if not isinstance(raw, list):
+            step["children"] = []
+            continue
+        cleaned: list[dict[str, Any]] = []
+        for i, c in enumerate(raw):
+            norm = _normalize_child_op(c, i)
+            if norm is not None:
+                cleaned.append(norm)
+        step["children"] = cleaned
+    return payload
+
+
 def annotate_plan_steps_with_kind(payload: dict[str, Any]) -> dict[str, Any]:
     """Walk plan_ready payload steps, attach `step_kind`.
 
