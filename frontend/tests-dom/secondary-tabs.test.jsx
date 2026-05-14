@@ -869,6 +869,7 @@ describe("v4 secondary tabs (real DOM render)", () => {
     render(<CodeTab codePreview={null} />);
     expect(screen.getByTestId("code-empty")).toBeInTheDocument();
     expect(screen.getByTestId("code-copy")).toBeDisabled();
+    expect(screen.getByTestId("code-save")).toBeDisabled();
   });
 
   it("CodeTab renders backend code_update and enables copy/save", () => {
@@ -884,6 +885,166 @@ describe("v4 secondary tabs (real DOM render)", () => {
     expect(screen.getByTestId("code-diagnostics")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("code-copy"));
     expect(onCopy).toHaveBeenCalledWith(expect.objectContaining({ type: "copy_code" }));
+  });
+
+  // D-103: New Code Tab tests
+
+  it("D-103: CodeTab — no code displayed before backend code_update (codePreview null)", () => {
+    render(<CodeTab codePreview={null} />);
+    expect(screen.getByTestId("code-empty")).toBeInTheDocument();
+    expect(screen.queryByTestId("code-preview")).not.toBeInTheDocument();
+  });
+
+  it("D-103: CodeTab — malformed code_update payload (code: null) shows code-empty safely", () => {
+    render(<CodeTab codePreview={{ code: null, file: "test.spec.ts" }} />);
+    expect(screen.getByTestId("code-empty")).toBeInTheDocument();
+    expect(screen.queryByTestId("code-preview")).not.toBeInTheDocument();
+    expect(screen.getByTestId("code-copy")).toBeDisabled();
+    expect(screen.getByTestId("code-save")).toBeDisabled();
+  });
+
+  it("D-103: CodeTab — copy button dispatches {type:copy_code} with code text", () => {
+    const onCopy = vi.fn();
+    render(
+      <CodeTab
+        codePreview={{ code: "await page.click('button');" }}
+        onCopy={onCopy}
+      />
+    );
+    expect(screen.getByTestId("code-copy")).not.toBeDisabled();
+    fireEvent.click(screen.getByTestId("code-copy"));
+    expect(onCopy).toHaveBeenCalledWith({
+      type: "copy_code",
+      code: "await page.click('button');",
+    });
+  });
+
+  it("D-103: CodeTab — save button dispatches {type:export_code} via runtime onSave", () => {
+    const onSave = vi.fn();
+    render(
+      <CodeTab
+        codePreview={{ code: "test('export', () => {});" }}
+        onSave={onSave}
+      />
+    );
+    expect(screen.getByTestId("code-save")).not.toBeDisabled();
+    fireEvent.click(screen.getByTestId("code-save"));
+    expect(onSave).toHaveBeenCalledWith({
+      type: "export_code",
+      code: "test('export', () => {});",
+    });
+  });
+
+  it("D-103: CodeTab — code-save disabled when no code present", () => {
+    const onSave = vi.fn();
+    render(<CodeTab codePreview={null} onSave={onSave} />);
+    expect(screen.getByTestId("code-save")).toBeDisabled();
+    fireEvent.click(screen.getByTestId("code-save"));
+    expect(onSave).not.toHaveBeenCalled();
+  });
+
+  it("D-103: CodeTab — diagnostics rows render with code-diagnostic-${i} testids", () => {
+    render(
+      <CodeTab
+        codePreview={{ code: "await page.goto('/');" }}
+        codeDiagnostics={[
+          { level: "warning", message: "Fragile locator — no stable attributes found." },
+          { level: "error", message: "Unsupported action type." },
+        ]}
+      />
+    );
+    expect(screen.getByTestId("code-diagnostics")).toBeInTheDocument();
+    expect(screen.getByTestId("code-diagnostic-0").textContent).toContain("Fragile locator");
+    expect(screen.getByTestId("code-diagnostic-1").textContent).toContain("Unsupported action type");
+  });
+
+  it("D-103: CodeTab — diagnostics panel absent when codeDiagnostics is empty", () => {
+    render(
+      <CodeTab
+        codePreview={{ code: "await page.goto('/');" }}
+        codeDiagnostics={[]}
+      />
+    );
+    expect(screen.queryByTestId("code-diagnostics")).not.toBeInTheDocument();
+  });
+
+  it("D-103: CodeTab — fragile-locator warning renders in diagnostic row", () => {
+    render(
+      <CodeTab
+        codePreview={{ code: "await page.click('.btn');" }}
+        codeDiagnostics={[
+          { level: "warning", message: "Fragile locator — no stable attributes found. Consider adding data-testid." },
+        ]}
+      />
+    );
+    expect(screen.getByTestId("code-diagnostic-0").textContent).toContain("Fragile locator");
+  });
+
+  it("D-103: CodeTab — capability-gap warning renders in diagnostic row", () => {
+    render(
+      <CodeTab
+        codePreview={{ code: "await page.hover('.item');" }}
+        codeDiagnostics={[
+          { level: "warning", message: "capability gap: hover not supported in codegen" },
+        ]}
+      />
+    );
+    expect(screen.getByTestId("code-diagnostic-0").textContent).toContain("capability gap");
+  });
+
+  it("D-103: CodeTab — code-save-result chip renders ok status with data-path", () => {
+    render(
+      <CodeTab
+        codePreview={{ code: "test('x', () => {});" }}
+        codeSaveResult={{ ok: true, path: "/workspace/autoworkbench-output/generated.spec.ts" }}
+      />
+    );
+    const chip = screen.getByTestId("code-save-result");
+    expect(chip).toBeInTheDocument();
+    expect(chip).toHaveAttribute("data-status", "ok");
+    expect(chip).toHaveAttribute("data-path", "/workspace/autoworkbench-output/generated.spec.ts");
+  });
+
+  it("D-103: CodeTab — code-save-result chip renders error status with data-error", () => {
+    render(
+      <CodeTab
+        codePreview={{ code: "test('x', () => {});" }}
+        codeSaveResult={{ ok: false, error: "Permission denied: /workspace/output.spec.ts" }}
+      />
+    );
+    const chip = screen.getByTestId("code-save-result");
+    expect(chip).toBeInTheDocument();
+    expect(chip).toHaveAttribute("data-status", "error");
+    expect(chip).toHaveAttribute("data-error", "Permission denied: /workspace/output.spec.ts");
+  });
+
+  it("D-103: CodeTab — env-var reference renders verbatim in preview (no inline secret)", () => {
+    render(
+      <CodeTab
+        codePreview={{ code: "await emailInput.fill(process.env.SECRET_KEY ?? '');" }}
+      />
+    );
+    const preview = screen.getByTestId("code-preview");
+    expect(preview.textContent).toContain("process.env.SECRET_KEY");
+    // Must not contain a long literal value inline (longer than 8 chars, not a Playwright API)
+    // The rendered text is exactly as received — no transformation
+    expect(preview.textContent).not.toMatch(/fill\('[^']{9,}'\)/);
+  });
+
+  it("D-103: source-pattern — secondary-tabs.jsx contains no TypeScript codegen template strings", () => {
+    const fs = require("fs");
+    const path = require("path");
+    const src = fs.readFileSync(
+      path.resolve(__dirname, "../src/v4/secondary-tabs.jsx"),
+      "utf-8"
+    );
+    // Must not contain template strings that generate TypeScript code
+    expect(src).not.toMatch(/`import \{ test/);
+    expect(src).not.toMatch(/`await page\./);
+    expect(src).not.toMatch(/`await expect\(/);
+    // Must not contain eval or dynamic script injection
+    expect(src).not.toMatch(/\beval\s*\(/);
+    expect(src).not.toMatch(/new Function\s*\(/);
   });
 
   it("TraceTab renders empty state and known vs unknown event tagging", () => {

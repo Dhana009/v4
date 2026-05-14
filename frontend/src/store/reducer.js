@@ -20,6 +20,7 @@ export function createInitialState() {
     pending_recovery: null,
     pending_recommendations: [],
     code_preview: null,
+    code_save_result: null,
     trace_entries: [],
     errors: [],
     interaction_mode: "idle",
@@ -223,6 +224,18 @@ export function reducer(state, event) {
       return {
         ...state,
         code_preview: payload.code ?? payload.content ?? payload,
+        // Clear any prior save result when a new code_update arrives
+        code_save_result: null,
+      };
+    }
+
+    case EVENT_TYPES.export_code_result: {
+      const ok = payload && payload.ok === true;
+      return {
+        ...state,
+        code_save_result: ok
+          ? { ok: true, path: payload.path ?? null }
+          : { ok: false, error: payload?.error ?? "unknown error" },
       };
     }
 
