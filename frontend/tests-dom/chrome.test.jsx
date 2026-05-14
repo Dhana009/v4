@@ -112,3 +112,60 @@ describe("v4 chrome (real DOM render)", () => {
     expect(setTab).toHaveBeenCalledWith("steps");
   });
 });
+
+describe("v4 Header mode toggle (D-105 Manual Mode disabled)", () => {
+  it("renders LLM/Manual mode toggle group", () => {
+    render(<Header />);
+    expect(screen.getByTestId("aw-mode-toggle")).toBeInTheDocument();
+    expect(screen.getByTestId("aw-mode-llm")).toBeInTheDocument();
+    expect(screen.getByTestId("aw-mode-manual")).toBeInTheDocument();
+  });
+
+  it("Manual option is disabled with aria-disabled and disabled attribute", () => {
+    render(<Header />);
+    const manual = screen.getByTestId("aw-mode-manual");
+    expect(manual).toBeDisabled();
+    expect(manual).toHaveAttribute("aria-disabled", "true");
+    expect(manual).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("Manual option title cites Sprint 8 and references the D-105 ticket", () => {
+    render(<Header />);
+    const manual = screen.getByTestId("aw-mode-manual");
+    const title = manual.getAttribute("title") || "";
+    expect(title).toMatch(/Sprint 8/);
+    expect(title).toMatch(/Manual Mode/);
+    expect(title).toMatch(/D-105|BUG-S8-MANUAL-001/);
+  });
+
+  it("clicking disabled Manual does not dispatch any command and does not toggle pressed state", () => {
+    // Sniff: Header receives no dispatcher prop; we assert the click event is
+    // suppressed by the disabled attribute (no state change observable).
+    // The disabled button must not call any handler — there is no onClick wired,
+    // and any future wiring is blocked by `disabled` semantics. We additionally
+    // verify aria-pressed stays "false" after a click.
+    render(<Header />);
+    const manual = screen.getByTestId("aw-mode-manual");
+    fireEvent.click(manual);
+    expect(manual).toHaveAttribute("aria-pressed", "false");
+    // LLM stays the active option after the no-op click.
+    expect(screen.getByTestId("aw-mode-llm")).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("LLM option is active, non-disabled, and remains selectable", () => {
+    render(<Header />);
+    const llm = screen.getByTestId("aw-mode-llm");
+    expect(llm).not.toBeDisabled();
+    expect(llm).toHaveAttribute("aria-pressed", "true");
+    // No exception on interaction.
+    fireEvent.click(llm);
+    expect(llm).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("no manual-mode builder testids leak into the Header render", () => {
+    render(<Header />);
+    expect(screen.queryByTestId("manual-mode-checkbox")).toBeNull();
+    expect(screen.queryByTestId("manual-action-builder")).toBeNull();
+    expect(screen.queryByTestId("manual-assertion-builder")).toBeNull();
+  });
+});
