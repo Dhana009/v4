@@ -26489,6 +26489,33 @@
     const reason = pickFirst2(step?.locator_reason, info?.locator_reason) ?? "";
     return { kind, strength, reason };
   }
+  var _VALID_STEP_KINDS = /* @__PURE__ */ new Set(["atomic", "loop", "section", "unknown"]);
+  var _STEP_KIND_LABELS = {
+    atomic: "Atomic",
+    loop: "Loop",
+    section: "Section",
+    unknown: "Unknown"
+  };
+  function StepKindChip({ step, stepId }) {
+    const raw = step && typeof step === "object" ? step.step_kind : null;
+    if (typeof raw !== "string") return null;
+    const kind = _VALID_STEP_KINDS.has(raw) ? raw : "unknown";
+    const label = _STEP_KIND_LABELS[kind];
+    return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+      "span",
+      {
+        className: `aw-badge-i ${kind === "section" ? "vio" : kind === "loop" ? "info" : kind === "unknown" ? "outline" : "outline"}`,
+        "data-testid": `step-kind-${stepId}`,
+        "data-kind": kind,
+        "data-raw-kind": raw,
+        style: { display: "inline-flex", alignItems: "center", gap: 4, marginTop: 4, marginLeft: 6, fontSize: 11 },
+        children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "ldot" }),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: label })
+        ]
+      }
+    );
+  }
   function StepLocatorChip({ step, stepId }) {
     const meta = readLocatorMetadata(step);
     if (!meta) return null;
@@ -26564,6 +26591,7 @@
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "ide-step-target-summary", "data-testid": `step-target-${stepId}`, children: targetSummary }),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(StepLocatorChip, { step, stepId }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(StepKindChip, { step, stepId }),
         candidates.length > 1 ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
           "select",
           {

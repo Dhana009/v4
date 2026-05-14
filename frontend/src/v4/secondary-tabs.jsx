@@ -48,6 +48,35 @@ function readLocatorMetadata(step) {
   return { kind, strength, reason };
 }
 
+// Pass 4b-2: backend-driven step kind chip. Renders nothing unless backend
+// payload provides `step.step_kind` ∈ {atomic, loop, section, unknown}.
+const _VALID_STEP_KINDS = new Set(["atomic", "loop", "section", "unknown"]);
+const _STEP_KIND_LABELS = {
+  atomic: "Atomic",
+  loop: "Loop",
+  section: "Section",
+  unknown: "Unknown",
+};
+
+function StepKindChip({ step, stepId }) {
+  const raw = step && typeof step === "object" ? step.step_kind : null;
+  if (typeof raw !== "string") return null;
+  const kind = _VALID_STEP_KINDS.has(raw) ? raw : "unknown";
+  const label = _STEP_KIND_LABELS[kind];
+  return (
+    <span
+      className={`aw-badge-i ${kind === "section" ? "vio" : kind === "loop" ? "info" : kind === "unknown" ? "outline" : "outline"}`}
+      data-testid={`step-kind-${stepId}`}
+      data-kind={kind}
+      data-raw-kind={raw}
+      style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 4, marginLeft: 6, fontSize: 11 }}
+    >
+      <span className="ldot" />
+      <span>{label}</span>
+    </span>
+  );
+}
+
 function StepLocatorChip({ step, stepId }) {
   const meta = readLocatorMetadata(step);
   if (!meta) return null;
@@ -129,6 +158,7 @@ function PendingStepEditor({
           {targetSummary}
         </div>
         <StepLocatorChip step={step} stepId={stepId} />
+        <StepKindChip step={step} stepId={stepId} />
         {candidates.length > 1 ? (
           <select
             className="ide-input ide-step-target-select"

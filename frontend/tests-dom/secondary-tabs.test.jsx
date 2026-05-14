@@ -205,6 +205,84 @@ describe("v4 secondary tabs (real DOM render)", () => {
     expect(chip.textContent.toLowerCase()).toContain("unknown");
   });
 
+  // Pass 4b-2 — backend-driven step kind chip
+  it("StepsTab does not render kind chip when backend has not classified", () => {
+    render(<StepsTab pendingSteps={[{ id: "s1", intent: "click Submit" }]} />);
+    expect(screen.queryByTestId("step-kind-s1")).toBeNull();
+  });
+
+  it("StepsTab renders atomic kind chip from step_kind payload", () => {
+    render(
+      <StepsTab
+        pendingSteps={[{ id: "s1", intent: "click Submit", step_kind: "atomic" }]}
+      />
+    );
+    const chip = screen.getByTestId("step-kind-s1");
+    expect(chip).toHaveAttribute("data-kind", "atomic");
+    expect(chip.textContent.toLowerCase()).toContain("atomic");
+  });
+
+  it("StepsTab renders loop kind chip from step_kind payload", () => {
+    render(
+      <StepsTab
+        pendingSteps={[{ id: "s2", intent: "Each pricing card", step_kind: "loop" }]}
+      />
+    );
+    const chip = screen.getByTestId("step-kind-s2");
+    expect(chip).toHaveAttribute("data-kind", "loop");
+    expect(chip.textContent.toLowerCase()).toContain("loop");
+  });
+
+  it("StepsTab renders section kind chip from step_kind payload", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          {
+            id: "s3",
+            intent: "Section: Pricing grid",
+            step_kind: "section",
+            children: [{ description: "a" }, { description: "b" }],
+          },
+        ]}
+      />
+    );
+    const chip = screen.getByTestId("step-kind-s3");
+    expect(chip).toHaveAttribute("data-kind", "section");
+    expect(chip.textContent.toLowerCase()).toContain("section");
+  });
+
+  it("StepsTab normalizes malformed step_kind to unknown without crashing", () => {
+    render(
+      <StepsTab
+        pendingSteps={[{ id: "s4", intent: "click", step_kind: "garbage_value" }]}
+      />
+    );
+    const chip = screen.getByTestId("step-kind-s4");
+    // Original raw value preserved for trace/debug, but data-kind clamped to unknown.
+    expect(chip).toHaveAttribute("data-kind", "unknown");
+    expect(chip).toHaveAttribute("data-raw-kind", "garbage_value");
+    expect(chip.textContent.toLowerCase()).toContain("unknown");
+  });
+
+  it("StepsTab renders locator chip and kind chip together without breaking either", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          {
+            id: "s5",
+            intent: "click Submit",
+            step_kind: "atomic",
+            locator_kind: "ok",
+            locator_strength: "strong",
+            locator_reason: "uses data-testid",
+          },
+        ]}
+      />
+    );
+    expect(screen.getByTestId("step-locator-s5")).toHaveAttribute("data-strength", "strong");
+    expect(screen.getByTestId("step-kind-s5")).toHaveAttribute("data-kind", "atomic");
+  });
+
   it("RecordedTab shows empty state when no recorded steps", () => {
     render(<RecordedTab recordedSteps={[]} />);
     expect(screen.getByTestId("recorded-empty")).toBeInTheDocument();
