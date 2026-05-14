@@ -674,6 +674,96 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 await ws.send_json({"type": "status", "message": "Session reset."})
                 continue
 
+            # D-101: improve_locator command handler
+            # view_candidates maps to same path per spec Sub-area A note.
+            if msg_type in {"improve_locator", "view_candidates"}:
+                current_state = _current_command_state(session)
+                _step_id = str(msg.get("step_id") or "").strip()
+                if not _step_id:
+                    await ws.send_json(
+                        build_runtime_rejection_payload(
+                            "MISSING_STEP_ID",
+                            f"{msg_type} requires 'step_id' field.",
+                            current_state=current_state,
+                            run_id=current_state.get("run_id"),
+                            recoverable=False,
+                            source="server",
+                        )
+                    )
+                    continue
+                _cmd_run_id = str(msg.get("run_id") or "").strip()
+                _active_run_id = current_state.get("run_id") or ""
+                if _cmd_run_id and _active_run_id and _cmd_run_id != _active_run_id:
+                    await ws.send_json(
+                        build_runtime_rejection_payload(
+                            "STALE_RUN_ID",
+                            f"run_id {_cmd_run_id!r} does not match active run.",
+                            current_state=current_state,
+                            run_id=_active_run_id or None,
+                            recoverable=False,
+                            source="server",
+                        )
+                    )
+                    continue
+                _ack = build_backend_event_envelope(
+                    "improve_locator_acknowledged",
+                    {"step_id": _step_id, "status": "queued"},
+                    source="server",
+                )
+                await ws.send_json(_ack)
+                continue
+
+            # D-101: change_locator_scope command handler
+            if msg_type == "change_locator_scope":
+                current_state = _current_command_state(session)
+                _step_id = str(msg.get("step_id") or "").strip()
+                if not _step_id:
+                    await ws.send_json(
+                        build_runtime_rejection_payload(
+                            "MISSING_STEP_ID",
+                            "change_locator_scope requires 'step_id' field.",
+                            current_state=current_state,
+                            run_id=current_state.get("run_id"),
+                            recoverable=False,
+                            source="server",
+                        )
+                    )
+                    continue
+                _scope = str(msg.get("scope") or "").strip()
+                if not _scope:
+                    await ws.send_json(
+                        build_runtime_rejection_payload(
+                            "MISSING_SCOPE",
+                            "change_locator_scope requires 'scope' field (broader|narrower|free-text).",
+                            current_state=current_state,
+                            run_id=current_state.get("run_id"),
+                            recoverable=False,
+                            source="server",
+                        )
+                    )
+                    continue
+                _cmd_run_id = str(msg.get("run_id") or "").strip()
+                _active_run_id = current_state.get("run_id") or ""
+                if _cmd_run_id and _active_run_id and _cmd_run_id != _active_run_id:
+                    await ws.send_json(
+                        build_runtime_rejection_payload(
+                            "STALE_RUN_ID",
+                            f"run_id {_cmd_run_id!r} does not match active run.",
+                            current_state=current_state,
+                            run_id=_active_run_id or None,
+                            recoverable=False,
+                            source="server",
+                        )
+                    )
+                    continue
+                _ack = build_backend_event_envelope(
+                    "change_locator_scope_acknowledged",
+                    {"step_id": _step_id, "scope": _scope, "status": "queued"},
+                    source="server",
+                )
+                await ws.send_json(_ack)
+                continue
+
             current_state = _current_command_state(session)
             if not msg_type:
                 await ws.send_json(

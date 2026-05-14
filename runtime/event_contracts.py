@@ -23,6 +23,10 @@ SUPPORTED_FRONTEND_COMMAND_TYPES = {
     "permission_decision",
     # D-103 — export_code: save generated spec to workspace file
     "export_code",
+    # D-101 — locator cluster commands
+    "improve_locator",
+    "view_candidates",
+    "change_locator_scope",
 }
 
 
