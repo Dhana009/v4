@@ -600,6 +600,206 @@ def build_permission_required_payload(
     )
 
 
+_API_KEY_REQUIRED_REASONS = frozenset({"missing", "invalid", "quota_exhausted"})
+_HUMAN_INPUT_TYPES = frozenset(
+    {"otp", "password", "file_picker", "browser_prompt", "unknown"}
+)
+
+
+def _redact_state_card_section(value: Any) -> Any:
+    """Apply the shared redaction policy to a payload sub-section."""
+    from runtime.redaction_policy import redact_payload
+
+    if value is None:
+        return None
+    return redact_payload(value)
+
+
+def build_no_browser_event(
+    *,
+    reason: str,
+    recoverable: bool = True,
+    current_url: str | None = None,
+    message: str | None = None,
+    suggested_action: str | None = None,
+    source: str | None = "server",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    """E2 (B2) — typed advisory that the backend has no browser context.
+
+    Sprint 7 ships only the builder + frontend card. Emission lives in a
+    later batch once a mid-session detection seam exists (current lifespan
+    raises on startup failure).
+    """
+    reason_text = _coerce_text(reason)
+    if not reason_text:
+        raise ValueError("reason is required")
+
+    payload: dict[str, Any] = {
+        "reason": reason_text,
+        "recoverable": bool(recoverable),
+        "message": _coerce_text(message)
+        or "Browser context is unavailable. Reconnect or relaunch to continue.",
+    }
+    if current_url:
+        payload["current_url"] = _coerce_text(current_url)
+    if suggested_action:
+        payload["suggested_action"] = _coerce_text(suggested_action)
+
+    return build_backend_event_envelope(
+        "no_browser",
+        payload,
+        event_id=event_id or str(uuid4()),
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+def build_api_key_required_event(
+    *,
+    provider: str,
+    reason: str = "missing",
+    purpose: str | None = None,
+    missing_config_keys: list[str] | None = None,
+    message: str | None = None,
+    setup_hint: Mapping[str, Any] | None = None,
+    source: str | None = "server",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    """E2 (B2) — config-required advisory.
+
+    Security (S1): the builder NEVER carries the actual key. The
+    ``setup_hint`` mapping is run through redact_payload so even a
+    mistakenly-passed ``api_key`` field is replaced with the redaction
+    sentinel before emission. ``missing_config_keys`` lists ENV var
+    names only.
+    """
+    provider_text = _coerce_text(provider)
+    if not provider_text:
+        raise ValueError("provider is required")
+
+    if reason not in _API_KEY_REQUIRED_REASONS:
+        raise ValueError(
+            f"reason must be one of {sorted(_API_KEY_REQUIRED_REASONS)}, got {reason!r}"
+        )
+
+    payload: dict[str, Any] = {
+        "provider": provider_text,
+        "reason": reason,
+        "message": _coerce_text(message)
+        or f"Provider {provider_text!r} requires an API key before LLM calls can proceed.",
+    }
+    if purpose:
+        payload["purpose"] = _coerce_text(purpose)
+    if missing_config_keys is not None:
+        payload["missing_config_keys"] = [
+            _coerce_text(k) for k in missing_config_keys if _coerce_text(k)
+        ]
+    if setup_hint is not None:
+        payload["setup_hint"] = _redact_state_card_section(dict(setup_hint))
+
+    return build_backend_event_envelope(
+        "api_key_required",
+        payload,
+        event_id=event_id or str(uuid4()),
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+def build_human_input_required_event(
+    *,
+    input_type: str,
+    prompt: str,
+    correlation_id: str,
+    origin: str | None = None,
+    expires_at: str | None = None,
+    metadata: Mapping[str, Any] | None = None,
+    source: str | None = "server",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    """E2 (B2) — covers OTP / password / file_picker / browser_prompt.
+
+    Security (S2): payload always carries ``sensitive=true`` and
+    ``redaction_required=true`` so the frontend reducer + transport
+    layer refuse to ship the value into any LLM context. Builder runs
+    metadata through redact_payload to strip any smuggled secret.
+    """
+    if input_type not in _HUMAN_INPUT_TYPES:
+        raise ValueError(
+            f"input_type must be one of {sorted(_HUMAN_INPUT_TYPES)}, got {input_type!r}"
+        )
+    prompt_text = _coerce_text(prompt)
+    if not prompt_text:
+        raise ValueError("prompt is required")
+    corr_text = _coerce_text(correlation_id)
+    if not corr_text:
+        raise ValueError("correlation_id is required")
+
+    payload: dict[str, Any] = {
+        "input_type": input_type,
+        "prompt": prompt_text,
+        "correlation_id": corr_text,
+        "sensitive": True,
+        "redaction_required": True,
+    }
+    if origin:
+        payload["origin"] = _coerce_text(origin)
+    if expires_at:
+        payload["expires_at"] = _coerce_text(expires_at)
+    if metadata is not None:
+        payload["metadata"] = _redact_state_card_section(dict(metadata))
+
+    return build_backend_event_envelope(
+        "human_input_required",
+        payload,
+        event_id=event_id or str(uuid4()),
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+def build_e2e_pending_event(
+    *,
+    reason: str,
+    pending_tests: list[str] | None = None,
+    last_result_summary: str | None = None,
+    command_hint: str | None = None,
+    source: str | None = "server",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    """E2 (B2) — advisory that acceptance/E2E status is pending.
+
+    No paired command. Card is informational only and must never claim
+    a result the backend has not produced.
+    """
+    reason_text = _coerce_text(reason)
+    if not reason_text:
+        raise ValueError("reason is required")
+
+    payload: dict[str, Any] = {
+        "reason": reason_text,
+        "pending_tests": [
+            _coerce_text(t) for t in (pending_tests or []) if _coerce_text(t)
+        ],
+        "last_result_summary": _coerce_text(last_result_summary) or None,
+    }
+    if command_hint:
+        payload["command_hint"] = _coerce_text(command_hint)
+
+    return build_backend_event_envelope(
+        "e2e_pending",
+        payload,
+        event_id=event_id or str(uuid4()),
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
 def build_agent_settings_event(
     *,
     extra_agents: list[dict[str, Any]] | None = None,

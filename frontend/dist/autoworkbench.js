@@ -26309,6 +26309,143 @@
       ) })
     ] });
   }
+  function CardNoBrowser({ state, onRelaunchBrowser }) {
+    if (!state || !state.reason) return null;
+    const canRelaunch = typeof onRelaunchBrowser === "function";
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card warn blocking", "data-testid": "card-no-browser", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Plug, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-title", children: "No browser context" }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-state", children: state.recoverable === false ? "Unrecoverable" : "Recoverable" })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-body", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("p", { style: { margin: "0 0 6px" }, "data-testid": "no-browser-message", children: state.message }),
+        state.current_url ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("ul", { className: "aw-dotlist", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("li", { className: "no", "data-testid": "no-browser-url", children: [
+          "last url: ",
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: state.current_url })
+        ] }) }) : null
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "aw-card-foot", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+        "button",
+        {
+          type: "button",
+          className: "aw-btn primary",
+          "data-testid": "no-browser-action",
+          disabled: !canRelaunch || state.recoverable === false,
+          title: canRelaunch ? "Request the backend to relaunch the browser" : "Relaunch command is not yet exposed; restart the backend service to recover",
+          onClick: () => canRelaunch && onRelaunchBrowser({ type: "relaunch_browser" }),
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Sync, {}),
+            "Relaunch browser"
+          ]
+        }
+      ) })
+    ] });
+  }
+  function CardApiKey({ state, onRecheckConfig }) {
+    if (!state || !state.provider) return null;
+    const canRecheck = typeof onRecheckConfig === "function";
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card warn blocking", "data-testid": "card-api-key", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Alert, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-title", children: "Provider key required" }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-state", children: state.reason })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-body", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("p", { style: { margin: "0 0 6px" }, "data-testid": "api-key-message", children: state.message }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("ul", { className: "aw-dotlist", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("li", { className: "no", children: [
+            "provider: ",
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, "data-testid": "api-key-provider", children: state.provider })
+          ] }),
+          Array.isArray(state.missing_config_keys) && state.missing_config_keys.length ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("li", { className: "no", "data-testid": "api-key-missing-keys", children: [
+            "missing env: ",
+            state.missing_config_keys.join(", ")
+          ] }) : null,
+          state.setup_hint && state.setup_hint.url ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("li", { className: "no", "data-testid": "api-key-setup-hint", children: [
+            "setup: ",
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("a", { href: state.setup_hint.url, target: "_blank", rel: "noopener noreferrer", children: state.setup_hint.url })
+          ] }) : null
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "aw-card-foot", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+        "button",
+        {
+          type: "button",
+          className: "aw-btn primary",
+          "data-testid": "api-key-recheck",
+          disabled: !canRecheck,
+          title: canRecheck ? "Ask the backend to re-read its configured providers" : "Re-check command is not yet exposed; update the env and restart the backend",
+          onClick: () => canRecheck && onRecheckConfig({ type: "recheck_config" }),
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Sync, {}),
+            "Re-check config"
+          ]
+        }
+      ) })
+    ] });
+  }
+  function CardOtp({ state, onContinue }) {
+    if (!state || !state.input_type || state.sensitive !== true) return null;
+    const canContinue = typeof onContinue === "function";
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card warn blocking", "data-testid": "card-otp", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Key, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-title", children: state.input_type === "otp" ? "One-time code required" : "Human input required" }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-state", children: state.input_type })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-body", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("p", { style: { margin: "0 0 6px" }, "data-testid": "otp-prompt", children: state.prompt }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("ul", { className: "aw-dotlist", children: [
+          state.origin ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("li", { className: "no", "data-testid": "otp-origin", children: [
+            "origin: ",
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: state.origin })
+          ] }) : null,
+          state.expires_at ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("li", { className: "no", "data-testid": "otp-expires", children: [
+            "expires: ",
+            state.expires_at
+          ] }) : null,
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("li", { className: "no", "data-testid": "otp-safety-note", children: [
+            "Complete this step in the browser. ",
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("b", { children: "Do not paste the code here." })
+          ] })
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "aw-card-foot", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+        "button",
+        {
+          type: "button",
+          className: "aw-btn primary",
+          "data-testid": "otp-continue",
+          disabled: !canContinue,
+          title: canContinue ? "Notify the backend that the step was completed in the browser" : "Continue command is not yet exposed; resume execution from the panel",
+          onClick: () => canContinue && onContinue({ type: "human_input_completed", correlation_id: state.correlation_id }),
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Check, {}),
+            "I completed it in the browser"
+          ]
+        }
+      ) })
+    ] });
+  }
+  function CardE2EPending({ state }) {
+    if (!state || !state.reason) return null;
+    return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card info", "data-testid": "card-e2e-pending", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Info, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-title", children: "Acceptance pending" }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-state", children: state.reason })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-body", children: [
+        Array.isArray(state.pending_tests) && state.pending_tests.length ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("ul", { className: "aw-dotlist", "data-testid": "e2e-pending-list", children: state.pending_tests.map((tid) => /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("li", { className: "no", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: tid }) }, tid)) }) : null,
+        state.last_result_summary ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("p", { style: { margin: "6px 0 0" }, "data-testid": "e2e-pending-status", children: [
+          "last: ",
+          state.last_result_summary
+        ] }) : null,
+        state.command_hint ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("p", { style: { margin: "4px 0 0" }, "data-testid": "e2e-pending-hint", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: state.command_hint }) }) : null
+      ] })
+    ] });
+  }
   function CardSchemaError({ rejection, onAskRepair }) {
     if (!rejection) return null;
     return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card warn blocking", "data-testid": "card-schema-error", children: [
@@ -26429,11 +26566,18 @@
     currentStep,
     recordedSteps = [],
     pendingSteps = [],
+    // E2 (B2) — backend-driven state cards. Each is null until the
+    // matching event arrives; LlmThread renders the card only then.
+    noBrowserState = null,
+    apiKeyRequiredState = null,
+    humanInputState = null,
+    e2ePendingState = null,
     dispatchers = {},
     onSeed
   }) {
     const has = (v) => v != null && (Array.isArray(v) ? v.length > 0 : true);
-    const empty = phase !== "executing" && !has(conversation) && !has(plan) && !has(pendingClarification) && !has(pendingRecommendations) && !has(pendingPermission) && !has(pendingDiff) && !has(pendingRecovery) && !has(ambiguity) && !has(completion) && !has(rejection);
+    const empty = phase !== "executing" && !has(conversation) && !has(plan) && !has(pendingClarification) && !has(pendingRecommendations) && !has(pendingPermission) && !has(pendingDiff) && !has(pendingRecovery) && !has(ambiguity) && !has(completion) && !has(rejection) && // E2 (B2) — state cards keep the thread non-empty when active.
+    !noBrowserState && !apiKeyRequiredState && !humanInputState && !e2ePendingState;
     if (empty) return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(LlmEmpty, { onSeed });
     return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-thread", "data-testid": "aw-thread", children: [
       asArray(conversation).map((m, i) => {
@@ -26444,6 +26588,10 @@
         return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Sys, { time: m.timestamp ?? m.time, children: m.text ?? "" }, m.id ?? `s-${i}`);
       }),
       connection && !connection.connected ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(CardOffline, { connection, onReconnect: dispatchers.onReconnect }) : null,
+      noBrowserState ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(CardNoBrowser, { state: noBrowserState, onRelaunchBrowser: dispatchers.onRelaunchBrowser }) : null,
+      apiKeyRequiredState ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(CardApiKey, { state: apiKeyRequiredState, onRecheckConfig: dispatchers.onRecheckConfig }) : null,
+      humanInputState ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(CardOtp, { state: humanInputState, onContinue: dispatchers.onHumanInputCompleted }) : null,
+      e2ePendingState ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(CardE2EPending, { state: e2ePendingState }) : null,
       pendingClarification ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
         CardClarification,
         {
@@ -28257,6 +28405,10 @@
           currentStep,
           recordedSteps,
           pendingSteps,
+          noBrowserState: runtime.storeState?.no_browser_state ?? null,
+          apiKeyRequiredState: runtime.storeState?.api_key_required_state ?? null,
+          humanInputState: runtime.storeState?.human_input_required_state ?? null,
+          e2ePendingState: runtime.storeState?.e2e_pending_state ?? null,
           dispatchers,
           onSeed: (text) => dispatchers.onSendUserMessage({ type: "user_message", message_text: text })
         }
@@ -28602,7 +28754,12 @@
       status: "status",
       error: "error",
       // E1 (B1) — backend agent registry + control mode for AgentsPopover.
-      agent_settings: "agent_settings"
+      agent_settings: "agent_settings",
+      // E2 (B2) — state-card events.
+      no_browser: "no_browser",
+      api_key_required: "api_key_required",
+      human_input_required: "human_input_required",
+      e2e_pending: "e2e_pending"
     }
   );
 
@@ -28631,7 +28788,13 @@
       // state in the interim.
       agents: null,
       agents_version: 0,
-      agents_control_mode: "read_only"
+      agents_control_mode: "read_only",
+      // E2 (B2) — backend-driven state cards. Each slice is null until
+      // the corresponding event arrives so cards never render fake state.
+      no_browser_state: null,
+      api_key_required_state: null,
+      human_input_required_state: null,
+      e2e_pending_state: null
     };
   }
   function isStaleRunId(state, payload) {
@@ -28806,6 +28969,30 @@
           // Clear any prior save result when a new code_update arrives
           code_save_result: null
         };
+      }
+      case EVENT_TYPES.no_browser: {
+        if (!payload || !payload.reason) {
+          return { ...state, no_browser_state: null };
+        }
+        return { ...state, no_browser_state: payload };
+      }
+      case EVENT_TYPES.api_key_required: {
+        if (!payload || !payload.provider) {
+          return { ...state, api_key_required_state: null };
+        }
+        return { ...state, api_key_required_state: payload };
+      }
+      case EVENT_TYPES.human_input_required: {
+        if (!payload || !payload.input_type || payload.sensitive !== true) {
+          return { ...state, human_input_required_state: null };
+        }
+        return { ...state, human_input_required_state: payload };
+      }
+      case EVENT_TYPES.e2e_pending: {
+        if (!payload || !payload.reason) {
+          return { ...state, e2e_pending_state: null };
+        }
+        return { ...state, e2e_pending_state: payload };
       }
       case EVENT_TYPES.agent_settings: {
         const incomingVersion = Number(payload?.version ?? 0);

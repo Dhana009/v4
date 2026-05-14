@@ -372,6 +372,10 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange, dock: dockProp, onDoc
         currentStep={currentStep}
         recordedSteps={recordedSteps}
         pendingSteps={pendingSteps}
+        noBrowserState={runtime.storeState?.no_browser_state ?? null}
+        apiKeyRequiredState={runtime.storeState?.api_key_required_state ?? null}
+        humanInputState={runtime.storeState?.human_input_required_state ?? null}
+        e2ePendingState={runtime.storeState?.e2e_pending_state ?? null}
         dispatchers={dispatchers}
         onSeed={(text) => dispatchers.onSendUserMessage({ type: "user_message", message_text: text })}
       />

@@ -32,6 +32,12 @@ export function createInitialState() {
     agents: null,
     agents_version: 0,
     agents_control_mode: "read_only",
+    // E2 (B2) — backend-driven state cards. Each slice is null until
+    // the corresponding event arrives so cards never render fake state.
+    no_browser_state: null,
+    api_key_required_state: null,
+    human_input_required_state: null,
+    e2e_pending_state: null,
   };
 }
 
@@ -233,6 +239,40 @@ export function reducer(state, event) {
         // Clear any prior save result when a new code_update arrives
         code_save_result: null,
       };
+    }
+
+    case EVENT_TYPES.no_browser: {
+      // E2 (B2) — payload-driven; absent reason means clear card.
+      if (!payload || !payload.reason) {
+        return { ...state, no_browser_state: null };
+      }
+      return { ...state, no_browser_state: payload };
+    }
+
+    case EVENT_TYPES.api_key_required: {
+      // E2 (B2) — never reflect a key into state. Builder already
+      // strips secret fields; the reducer trusts the typed payload.
+      if (!payload || !payload.provider) {
+        return { ...state, api_key_required_state: null };
+      }
+      return { ...state, api_key_required_state: payload };
+    }
+
+    case EVENT_TYPES.human_input_required: {
+      // E2 (B2) — sensitive flag is mandatory; ignore payloads that
+      // do not carry it so a downstream bug cannot accidentally
+      // disable redaction.
+      if (!payload || !payload.input_type || payload.sensitive !== true) {
+        return { ...state, human_input_required_state: null };
+      }
+      return { ...state, human_input_required_state: payload };
+    }
+
+    case EVENT_TYPES.e2e_pending: {
+      if (!payload || !payload.reason) {
+        return { ...state, e2e_pending_state: null };
+      }
+      return { ...state, e2e_pending_state: payload };
     }
 
     case EVENT_TYPES.agent_settings: {

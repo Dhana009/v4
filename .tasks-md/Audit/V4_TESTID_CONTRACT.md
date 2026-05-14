@@ -148,6 +148,25 @@ Design reference (NOT production truth):
 | Offline | reconnect | `offline-reconnect` | `llm-cards.jsx:851` | `llm-cards.test.jsx:178` | — | ACTIVE | — |
 | SchemaError | card root | `card-schema-error` | `llm-cards.jsx:865` | — | — | ACTIVE | — |
 | SchemaError | repair | `schema-repair` | `llm-cards.jsx:887` | — | — | ACTIVE | — |
+| NoBrowser (E2/B2) | card root | `card-no-browser` | `llm-cards.jsx::CardNoBrowser` | `state-cards.test.jsx` | — | ACTIVE | renders only when `no_browser_state` populated |
+| NoBrowser | message | `no-browser-message` | `llm-cards.jsx::CardNoBrowser` | `state-cards.test.jsx` | — | ACTIVE | — |
+| NoBrowser | last url | `no-browser-url` | `llm-cards.jsx::CardNoBrowser` | `state-cards.test.jsx` | — | ACTIVE | optional |
+| NoBrowser | relaunch action | `no-browser-action` | `llm-cards.jsx::CardNoBrowser` | `state-cards.test.jsx` | — | ACTIVE | disabled when no `onRelaunchBrowser` dispatcher or `recoverable===false` |
+| ApiKey (E2/B2) | card root | `card-api-key` | `llm-cards.jsx::CardApiKey` | `state-cards.test.jsx` | — | ACTIVE | renders only when `api_key_required_state.provider` set |
+| ApiKey | provider name | `api-key-provider` | `llm-cards.jsx::CardApiKey` | `state-cards.test.jsx` | — | ACTIVE | — |
+| ApiKey | missing env vars | `api-key-missing-keys` | `llm-cards.jsx::CardApiKey` | `state-cards.test.jsx` | — | ACTIVE | NAMES only — never values |
+| ApiKey | setup hint link | `api-key-setup-hint` | `llm-cards.jsx::CardApiKey` | — | — | ACTIVE | external URL only |
+| ApiKey | recheck action | `api-key-recheck` | `llm-cards.jsx::CardApiKey` | `state-cards.test.jsx` | — | ACTIVE | disabled until safe seam wired |
+| Otp / HumanInput (E2/B2) | card root | `card-otp` | `llm-cards.jsx::CardOtp` | `state-cards.test.jsx` | — | ACTIVE | renders ONLY when `sensitive===true` |
+| Otp | prompt | `otp-prompt` | `llm-cards.jsx::CardOtp` | `state-cards.test.jsx` | — | ACTIVE | — |
+| Otp | origin | `otp-origin` | `llm-cards.jsx::CardOtp` | `state-cards.test.jsx` | — | ACTIVE | safe origin string only |
+| Otp | expiry | `otp-expires` | `llm-cards.jsx::CardOtp` | — | — | ACTIVE | optional |
+| Otp | safety note | `otp-safety-note` | `llm-cards.jsx::CardOtp` | `state-cards.test.jsx` | — | ACTIVE | tells user NOT to paste here |
+| Otp | continue action | `otp-continue` | `llm-cards.jsx::CardOtp` | `state-cards.test.jsx` | — | ACTIVE | dispatches `human_input_completed` (correlation_id only — no value) |
+| E2EPending (E2/B2) | card root | `card-e2e-pending` | `llm-cards.jsx::CardE2EPending` | `state-cards.test.jsx` | — | ACTIVE | advisory only, no action button |
+| E2EPending | pending list | `e2e-pending-list` | `llm-cards.jsx::CardE2EPending` | — | — | ACTIVE | test ids only |
+| E2EPending | last status | `e2e-pending-status` | `llm-cards.jsx::CardE2EPending` | `state-cards.test.jsx` | — | ACTIVE | — |
+| E2EPending | command hint | `e2e-pending-hint` | `llm-cards.jsx::CardE2EPending` | `state-cards.test.jsx` | — | ACTIVE | — |
 | Composer | container | `aw-composer` | `llm-cards.jsx:930` | — | — | ACTIVE | — |
 | Composer | input | `aw-composer-input` | `llm-cards.jsx:933` | — | — | ACTIVE | — |
 | Composer | pick element | `aw-composer-pick` | `llm-cards.jsx:946` | `llm-cards.test.jsx` | — | ACTIVE (D-107) | dispatches `{ type: "arm_picker" }` via `onPickElement`; auto-creates blank pending step via `handleComposerPick` in main.jsx; disabled when offline |

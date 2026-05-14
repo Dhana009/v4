@@ -215,10 +215,10 @@ Per D-106: all rows are EMPTY when backend has no `agent_settings` event. Toggle
 ### Missing cards entirely
 | Card | Status |
 |---|---|
-| CardNoBrowser | ❌ MISSING — `BUG-S8-NO-BROWSER-CARD-001` |
-| CardApiKey | ❌ MISSING — `BUG-S8-API-KEY-CARD-001` |
-| CardOtp | ❌ MISSING — `BUG-S8-OTP-CARD-001` |
-| CardE2EPending | ❌ MISSING — `BUG-S8-E2E-PENDING-CARD-001` |
+| CardNoBrowser | ✅ ACTIVE (E2/B2) — backend builder ships; auto-emission deferred to a later batch. `llm-cards.jsx::CardNoBrowser`. |
+| CardApiKey | ✅ ACTIVE (E2/B2) — backend builder ships with secret-strip; no key collection in frontend. `llm-cards.jsx::CardApiKey`. |
+| CardOtp | ✅ ACTIVE (E2/B2) — sensitive-gated render; no value input field. `llm-cards.jsx::CardOtp`. |
+| CardE2EPending | ✅ ACTIVE (E2/B2) — advisory-only card. `llm-cards.jsx::CardE2EPending`. |
 
 ---
 

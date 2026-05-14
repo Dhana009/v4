@@ -45,6 +45,11 @@ export const EVENT_TYPES = /** @type {const} */ ({
   error: "error",
   // E1 (B1) — backend agent registry + control mode for AgentsPopover.
   agent_settings: "agent_settings",
+  // E2 (B2) — state-card events.
+  no_browser: "no_browser",
+  api_key_required: "api_key_required",
+  human_input_required: "human_input_required",
+  e2e_pending: "e2e_pending",
 });
 
 export const COMMAND_TYPES = /** @type {const} */ ({

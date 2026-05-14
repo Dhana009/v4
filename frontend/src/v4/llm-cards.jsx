@@ -857,6 +857,202 @@ export function CardOffline({ connection, onReconnect }) {
   );
 }
 
+// — E2 (B2) backend-driven state cards ——————————————————
+
+// CardNoBrowser: renders only when reducer holds a no_browser payload.
+// Sprint 7 does not collect a relaunch command yet (no safe WS seam
+// exists); the action is disabled with a real reason instead of a
+// fake button. Pass dispatchers.onRelaunchBrowser to enable wiring
+// in a later batch.
+export function CardNoBrowser({ state, onRelaunchBrowser }) {
+  if (!state || !state.reason) return null;
+  const canRelaunch = typeof onRelaunchBrowser === "function";
+  return (
+    <div className="aw-card warn blocking" data-testid="card-no-browser">
+      <div className="aw-card-head">
+        <span className="aw-card-icon"><I.Plug /></span>
+        <span className="aw-card-title">No browser context</span>
+        <span className="aw-card-state">{state.recoverable === false ? "Unrecoverable" : "Recoverable"}</span>
+      </div>
+      <div className="aw-card-body">
+        <p style={{ margin: "0 0 6px" }} data-testid="no-browser-message">
+          {state.message}
+        </p>
+        {state.current_url ? (
+          <ul className="aw-dotlist">
+            <li className="no" data-testid="no-browser-url">
+              last url: <span style={{ fontFamily: "var(--ff-mono)" }}>{state.current_url}</span>
+            </li>
+          </ul>
+        ) : null}
+      </div>
+      <div className="aw-card-foot">
+        <button
+          type="button"
+          className="aw-btn primary"
+          data-testid="no-browser-action"
+          disabled={!canRelaunch || state.recoverable === false}
+          title={
+            canRelaunch
+              ? "Request the backend to relaunch the browser"
+              : "Relaunch command is not yet exposed; restart the backend service to recover"
+          }
+          onClick={() => canRelaunch && onRelaunchBrowser({ type: "relaunch_browser" })}
+        >
+          <I.Sync />Relaunch browser
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// CardApiKey: renders only when api_key_required event is in store.
+// Sprint 7 deliberately does NOT collect the key in the frontend — no
+// secure storage policy exists. The card surfaces config metadata
+// (provider, missing env var NAMES, setup hint URLs) and a disabled
+// "Re-check config" action stub; an existing safe seam would replace
+// the disabled state with a real dispatch.
+export function CardApiKey({ state, onRecheckConfig }) {
+  if (!state || !state.provider) return null;
+  const canRecheck = typeof onRecheckConfig === "function";
+  return (
+    <div className="aw-card warn blocking" data-testid="card-api-key">
+      <div className="aw-card-head">
+        <span className="aw-card-icon"><I.Alert /></span>
+        <span className="aw-card-title">Provider key required</span>
+        <span className="aw-card-state">{state.reason}</span>
+      </div>
+      <div className="aw-card-body">
+        <p style={{ margin: "0 0 6px" }} data-testid="api-key-message">
+          {state.message}
+        </p>
+        <ul className="aw-dotlist">
+          <li className="no">
+            provider: <span style={{ fontFamily: "var(--ff-mono)" }} data-testid="api-key-provider">{state.provider}</span>
+          </li>
+          {Array.isArray(state.missing_config_keys) && state.missing_config_keys.length ? (
+            <li className="no" data-testid="api-key-missing-keys">
+              missing env: {state.missing_config_keys.join(", ")}
+            </li>
+          ) : null}
+          {state.setup_hint && state.setup_hint.url ? (
+            <li className="no" data-testid="api-key-setup-hint">
+              setup: <a href={state.setup_hint.url} target="_blank" rel="noopener noreferrer">{state.setup_hint.url}</a>
+            </li>
+          ) : null}
+        </ul>
+      </div>
+      <div className="aw-card-foot">
+        <button
+          type="button"
+          className="aw-btn primary"
+          data-testid="api-key-recheck"
+          disabled={!canRecheck}
+          title={
+            canRecheck
+              ? "Ask the backend to re-read its configured providers"
+              : "Re-check command is not yet exposed; update the env and restart the backend"
+          }
+          onClick={() => canRecheck && onRecheckConfig({ type: "recheck_config" })}
+        >
+          <I.Sync />Re-check config
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// CardOtp / CardHumanInput: covers otp / password / browser_prompt /
+// file_picker. Sprint 7 does NOT collect the value in the frontend —
+// no secure store exists. The card instructs the user to complete the
+// step in the browser and a "Continue" button only dispatches when a
+// safe seam is provided.
+export function CardOtp({ state, onContinue }) {
+  if (!state || !state.input_type || state.sensitive !== true) return null;
+  const canContinue = typeof onContinue === "function";
+  return (
+    <div className="aw-card warn blocking" data-testid="card-otp">
+      <div className="aw-card-head">
+        <span className="aw-card-icon"><I.Key /></span>
+        <span className="aw-card-title">
+          {state.input_type === "otp" ? "One-time code required" : "Human input required"}
+        </span>
+        <span className="aw-card-state">{state.input_type}</span>
+      </div>
+      <div className="aw-card-body">
+        <p style={{ margin: "0 0 6px" }} data-testid="otp-prompt">{state.prompt}</p>
+        <ul className="aw-dotlist">
+          {state.origin ? (
+            <li className="no" data-testid="otp-origin">
+              origin: <span style={{ fontFamily: "var(--ff-mono)" }}>{state.origin}</span>
+            </li>
+          ) : null}
+          {state.expires_at ? (
+            <li className="no" data-testid="otp-expires">expires: {state.expires_at}</li>
+          ) : null}
+          <li className="no" data-testid="otp-safety-note">
+            Complete this step in the browser. <b>Do not paste the code here.</b>
+          </li>
+        </ul>
+      </div>
+      <div className="aw-card-foot">
+        <button
+          type="button"
+          className="aw-btn primary"
+          data-testid="otp-continue"
+          disabled={!canContinue}
+          title={
+            canContinue
+              ? "Notify the backend that the step was completed in the browser"
+              : "Continue command is not yet exposed; resume execution from the panel"
+          }
+          onClick={() =>
+            canContinue && onContinue({ type: "human_input_completed", correlation_id: state.correlation_id })
+          }
+        >
+          <I.Check />I completed it in the browser
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// CardE2EPending: pure advisory; no command path. Will not claim
+// acceptance status that the backend has not produced.
+export function CardE2EPending({ state }) {
+  if (!state || !state.reason) return null;
+  return (
+    <div className="aw-card info" data-testid="card-e2e-pending">
+      <div className="aw-card-head">
+        <span className="aw-card-icon"><I.Info /></span>
+        <span className="aw-card-title">Acceptance pending</span>
+        <span className="aw-card-state">{state.reason}</span>
+      </div>
+      <div className="aw-card-body">
+        {Array.isArray(state.pending_tests) && state.pending_tests.length ? (
+          <ul className="aw-dotlist" data-testid="e2e-pending-list">
+            {state.pending_tests.map((tid) => (
+              <li key={tid} className="no">
+                <span style={{ fontFamily: "var(--ff-mono)" }}>{tid}</span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+        {state.last_result_summary ? (
+          <p style={{ margin: "6px 0 0" }} data-testid="e2e-pending-status">
+            last: {state.last_result_summary}
+          </p>
+        ) : null}
+        {state.command_hint ? (
+          <p style={{ margin: "4px 0 0" }} data-testid="e2e-pending-hint">
+            <span style={{ fontFamily: "var(--ff-mono)" }}>{state.command_hint}</span>
+          </p>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 // — Schema / runtime rejected ——————————————————————————
 
 export function CardSchemaError({ rejection, onAskRepair }) {
@@ -980,6 +1176,12 @@ export function LlmThread({
   currentStep,
   recordedSteps = [],
   pendingSteps = [],
+  // E2 (B2) — backend-driven state cards. Each is null until the
+  // matching event arrives; LlmThread renders the card only then.
+  noBrowserState = null,
+  apiKeyRequiredState = null,
+  humanInputState = null,
+  e2ePendingState = null,
   dispatchers = {},
   onSeed,
 }) {
@@ -999,7 +1201,12 @@ export function LlmThread({
     !has(pendingRecovery) &&
     !has(ambiguity) &&
     !has(completion) &&
-    !has(rejection);
+    !has(rejection) &&
+    // E2 (B2) — state cards keep the thread non-empty when active.
+    !noBrowserState &&
+    !apiKeyRequiredState &&
+    !humanInputState &&
+    !e2ePendingState;
   if (empty) return <LlmEmpty onSeed={onSeed}/>;
 
   return (
@@ -1016,6 +1223,20 @@ export function LlmThread({
 
       {connection && !connection.connected ? (
         <CardOffline connection={connection} onReconnect={dispatchers.onReconnect}/>
+      ) : null}
+
+      {/* E2 (B2) — state cards render only from real backend events. */}
+      {noBrowserState ? (
+        <CardNoBrowser state={noBrowserState} onRelaunchBrowser={dispatchers.onRelaunchBrowser} />
+      ) : null}
+      {apiKeyRequiredState ? (
+        <CardApiKey state={apiKeyRequiredState} onRecheckConfig={dispatchers.onRecheckConfig} />
+      ) : null}
+      {humanInputState ? (
+        <CardOtp state={humanInputState} onContinue={dispatchers.onHumanInputCompleted} />
+      ) : null}
+      {e2ePendingState ? (
+        <CardE2EPending state={e2ePendingState} />
       ) : null}
 
       {pendingClarification ? (

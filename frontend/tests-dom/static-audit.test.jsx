@@ -52,6 +52,13 @@ const FORBIDDEN_IDENTIFIERS = [
   "MOCK_RECORDED",
   "MOCK_AGENTS",
   "MOCK_TRACE",
+  // E2 (B2) state-card secret guards.
+  "SAMPLE_API_KEY",
+  "MOCK_API_KEY",
+  "DEFAULT_API_KEY",
+  "SAMPLE_OTP",
+  "MOCK_OTP",
+  "DEFAULT_OTP",
   "FAKE_PLAN",
   "FAKE_STEPS",
   "FAKE_RECORDED",
