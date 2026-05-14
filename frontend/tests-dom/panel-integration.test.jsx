@@ -220,4 +220,75 @@ describe("v4 panel ↔ store integration (real DOM render)", () => {
     rerender(<IDEPanel state="idle" tab="steps" runtime={runtime} onTabChange={setTab} />);
     expect(screen.getByTestId("steps-tab")).toBeInTheDocument();
   });
+
+  it("Steps tab deep workflow: intent edit, outcome chip, attach, and run dispatch through runtime", () => {
+    const state = createInitialState();
+    const runtime = buildRuntime({
+      ...state,
+      connected: true,
+      pending_steps: [
+        { id: "stp_1", intent: "click Get started", expected_outcome: null },
+        { id: "stp_2", intent: "verify hero", expected_outcome: { type: "navigation" } },
+      ],
+    });
+    render(<IDEPanel state="idle" tab="steps" runtime={runtime} onTabChange={() => {}} />);
+
+    expect(screen.getByTestId("steps-tab")).toBeInTheDocument();
+    expect(screen.getByTestId("step-row-stp_1")).toBeInTheDocument();
+    expect(screen.getByTestId("step-row-stp_2")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByTestId("step-input-stp_1"), {
+      target: { value: "click Sign up" },
+    });
+    expect(runtime.updatePendingStepIntent).toHaveBeenCalledWith("stp_1", "click Sign up");
+
+    fireEvent.click(screen.getByTestId("step-outcome-chip-navigation-stp_1"));
+    expect(runtime.updatePendingStepExpectedOutcome).toHaveBeenCalledWith(
+      "stp_1",
+      expect.objectContaining({ type: "navigation", source: "user" })
+    );
+
+    fireEvent.click(screen.getByTestId("step-attach-stp_1"));
+    expect(runtime.handleAttachElement).toHaveBeenCalledWith("stp_1");
+
+    fireEvent.click(screen.getByTestId("steps-run-all"));
+    expect(runtime.handleRunPendingSteps).toHaveBeenCalled();
+  });
+
+  it("Steps tab Run-all is disabled and shows blocker copy when blocked by pending recovery", () => {
+    const state = createInitialState();
+    const runtime = buildRuntime({
+      ...state,
+      connected: true,
+      pending_steps: [{ id: "stp_a", intent: "click Sign in" }],
+      pending_recovery: {
+        step_id: "stp_a",
+        failure_reason: "click_failed",
+        options: [{ id: "retry", label: "Retry" }],
+      },
+    });
+    render(<IDEPanel state="recovery" tab="steps" runtime={runtime} onTabChange={() => {}} />);
+
+    expect(screen.getByTestId("steps-tab")).toBeInTheDocument();
+    expect(screen.getByTestId("steps-run-all")).toBeDisabled();
+    expect(screen.getByTestId("steps-blocked").textContent).toMatch(/recovery/i);
+
+    fireEvent.click(screen.getByTestId("steps-run-all"));
+    expect(runtime.handleRunPendingSteps).not.toHaveBeenCalled();
+  });
+
+  it("Steps tab renders safely when a pending step has no stable id", () => {
+    const state = createInitialState();
+    const runtime = buildRuntime({
+      ...state,
+      connected: true,
+      // Malformed step: no `id` / `step_id`. Must not crash.
+      pending_steps: [{ intent: "click somewhere" }],
+    });
+    render(<IDEPanel state="idle" tab="steps" runtime={runtime} onTabChange={() => {}} />);
+
+    expect(screen.getByTestId("steps-tab")).toBeInTheDocument();
+    // Empty state must NOT render for a present (if malformed) step.
+    expect(screen.queryByTestId("steps-empty")).toBeNull();
+  });
 });
