@@ -354,6 +354,73 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   opacity: 0.55;
 }
 
+/* FE-REF-002: ROOT mode-switch — ROOT uses `.aw-mode-switch` (segmented
+   pill). Keep the legacy `.aw-mode-toggle` rules above for tests that
+   reference the class name; this alias matches the ROOT design tokens
+   while the inner `.aw-mode-opt` rules remain shared. */
+.aw-mode-switch {
+  display: inline-flex; align-items: center;
+  height: 20px; flex-shrink: 0;
+  border: 1px solid var(--br); border-radius: 999px;
+  background: var(--bg-card);
+  padding: 1px;
+  overflow: hidden;
+}
+
+/* FE-REF-002: ROOT token pill — Spark + tabular numeric, accent gradient. */
+.aw-token-pill {
+  background: linear-gradient(180deg, #FFFEFA 0%, #FBF7EF 100%);
+  border-color: var(--neu-edge);
+  padding-left: 7px;
+}
+.aw-token-pill svg { opacity: .85; }
+
+/* FE-REF-002: ROOT dock-position dropdown — single trigger button opens a
+   portal-rendered menu listing the four dock variants + collapse option. */
+.aw-dock-wrap { position: relative; flex-shrink: 0; }
+.aw-dock-scrim {
+  position: fixed; inset: 0; z-index: 998;
+  background: transparent;
+}
+.aw-dock-menu {
+  position: fixed;
+  z-index: 999;
+  background: var(--bg-card);
+  border: 1px solid var(--br-strong);
+  border-radius: 11px;
+  box-shadow: 0 16px 40px -10px rgba(20,18,12,.30), 0 1px 0 rgba(255,255,255,.6) inset;
+  padding: 5px;
+  min-width: 230px;
+  display: flex; flex-direction: column;
+  gap: 1px;
+}
+.aw-dock-menu-label {
+  font-size: 9.5px; font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--tx-3);
+  padding: 7px 9px 4px;
+}
+.aw-dock-menu-sep {
+  height: 1px; background: var(--br-soft); margin: 4px 6px;
+}
+.aw-dock-opt {
+  appearance: none; background: transparent; border: 0;
+  display: flex; align-items: flex-start; gap: 9px;
+  padding: 8px 9px;
+  border-radius: 7px;
+  font: inherit; color: var(--tx);
+  text-align: left;
+  cursor: pointer;
+}
+.aw-dock-opt:hover { background: var(--bg-soft); }
+.aw-dock-opt.active { background: var(--acc-tint); }
+.aw-dock-opt.active .aw-dock-opt-t { color: var(--acc-2); font-weight: 600; }
+.aw-dock-opt.active .aw-dock-opt-d { color: var(--acc-2); opacity: .75; }
+.aw-dock-opt > svg { width: 15px; height: 15px; flex: 0 0 15px; margin-top: 1px; color: var(--tx-2); }
+.aw-dock-opt.active > svg { color: var(--acc-2); }
+.aw-dock-opt-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.aw-dock-opt-t { font-size: 12.5px; font-weight: 500; line-height: 1.2; color: var(--tx); }
+.aw-dock-opt-d { font-size: 10.5px; color: var(--tx-3); line-height: 1.3; }
+
 @keyframes aw-pulse {
   0%,100% { opacity: 1; }
   50% { opacity: .35; }

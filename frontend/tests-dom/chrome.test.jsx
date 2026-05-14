@@ -17,9 +17,11 @@ describe("v4 chrome (real DOM render)", () => {
     expect(screen.getByTestId("aw-status-pill")).toHaveAttribute("data-status", "connected");
   });
 
-  it("Header dock buttons dispatch setDock", () => {
+  it("Header dock dropdown dispatches setDock (FE-REF-002: ROOT dock pattern)", () => {
     const setDock = vi.fn();
     render(<Header dock="right" setDock={setDock} />);
+    // Open the portal dock-menu, then click the desired option.
+    fireEvent.click(screen.getByTestId("aw-dock-toggle"));
     fireEvent.click(screen.getByTestId("aw-dock-left"));
     expect(setDock).toHaveBeenCalledWith("left");
   });

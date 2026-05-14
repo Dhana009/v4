@@ -1,7 +1,48 @@
-// frontend/src/v4/chrome.jsx — ES module port of v4/chrome.jsx
-// Header / TabStrip / NowStrip / Footer / AgentsPopover wired via props.
-import React from "react";
+// frontend/src/v4/chrome.jsx — ES module port of the panel shell chrome.
+//
+// Source of truth (FE-REF-002): the authoritative visual reference declared
+// in `frontend/REFERENCE_SOURCE.md`. Older design checkpoints documented
+// there are explicitly NOT the target.
+//
+// Live-mode rules:
+//   - Backend is runtime truth.
+//   - All visible content (status, agents, plan, page url, token usage,
+//     run state, footer phase/event/blocker) is rendered from props only.
+//   - No DEFAULT_AGENTS, no fabricated mock rows, no lifecycle invention.
+//   - NowStrip CTA labels and Footer strings come from props or honest "—".
+//
+// Exports: Header, TabStrip, NowStrip, Footer, AgentsPopover, CollapsedRail.
+import React, { useLayoutEffect, useRef, useState } from "react";
+import ReactDOM from "react-dom";
 import { I } from "./icons.jsx";
+
+// PortalMenu: dropdown rendered into document.body so the menu is never
+// clipped by panel-body / header overflow or the shadow host's overflow rules.
+// Pin position to the bottom-right edge of `triggerRef`.
+function PortalMenu({ triggerRef, open, onClose, width = 230, children, testId }) {
+  const [pos, setPos] = useState({ top: -9999, left: -9999 });
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return;
+    const r = triggerRef.current.getBoundingClientRect();
+    const left = Math.max(8, Math.min(r.right - width, window.innerWidth - width - 8));
+    setPos({ top: r.bottom + 4, left });
+  }, [open, triggerRef, width]);
+  if (!open) return null;
+  return ReactDOM.createPortal(
+    <>
+      <div className="aw-dock-scrim" onClick={onClose} data-testid={testId ? `${testId}-scrim` : undefined} />
+      <div
+        className="aw-dock-menu"
+        role="menu"
+        data-testid={testId}
+        style={{ position: "fixed", top: pos.top, left: pos.left, minWidth: width, right: "auto" }}
+      >
+        {children}
+      </div>
+    </>,
+    document.body,
+  );
+}
 
 const STATUS_MAP = {
   connected: { cls: "ok", label: "Connected" },
@@ -10,6 +51,20 @@ const STATUS_MAP = {
   offline: { cls: "err", label: "Offline" },
   error: { cls: "err", label: "LLM error" },
 };
+
+function dockIconFor(kind) {
+  if (kind === "left") return I.DockL;
+  if (kind === "top") return I.DockTop;
+  if (kind === "float") return I.Float;
+  return I.Dock;
+}
+
+const DOCK_OPTIONS = [
+  { kind: "right", Icon: I.Dock, label: "Dock right", desc: "Beside the page on the right" },
+  { kind: "left", Icon: I.DockL, label: "Dock left", desc: "Beside the page on the left" },
+  { kind: "top", Icon: I.DockTop, label: "Dock top", desc: "Above the page, full width" },
+  { kind: "float", Icon: I.Float, label: "Floating", desc: "Overlay on top of the page" },
+];
 
 export function Header({
   status = "connected",
@@ -24,17 +79,9 @@ export function Header({
   agentsSummary = [],
   pageUrl = "",
 }) {
-  const dockBtn = (kind, Icon, title) => (
-    <button type="button"
-      className={"aw-icon-btn " + (dock === kind ? "active" : "")}
-      onClick={() => setDock(kind)}
-      title={title}
-      aria-label={title}
-      data-testid={`aw-dock-${kind}`}
-    >
-      <Icon />
-    </button>
-  );
+  const [dockMenu, setDockMenu] = useState(false);
+  const dockTriggerRef = useRef(null);
+  const DockIcon = dockIconFor(dock);
   const s = STATUS_MAP[status] || STATUS_MAP.connected;
   const pageLabel = pageUrl ? pageUrl.replace(/^[^/]+/, "") : "—";
 
@@ -48,15 +95,20 @@ export function Header({
         <span className="aw-brand-divider" />
         <span
           className={"aw-status-pill " + s.cls}
-          title="Backend connection"
+          title={"Backend " + s.label + " · Complete LLM Mode"}
           data-testid="aw-status-pill"
           data-status={status}
         >
           <span className="aw-dot" />
           {s.label}
         </span>
+        {/*
+          ROOT visual class is .aw-mode-switch (segmented control). Manual
+          stays disabled with explicit Sprint-8 reason — backend seam not yet
+          implemented. data-testid stays "aw-mode-toggle" for test stability.
+        */}
         <span
-          className="aw-mode-toggle"
+          className="aw-mode-switch"
           role="group"
           aria-label="Interaction mode"
           data-testid="aw-mode-toggle"
@@ -68,7 +120,6 @@ export function Header({
             title="Complete LLM Mode (active)"
             data-testid="aw-mode-llm"
           >
-            <span className="aw-dot" />
             LLM
           </button>
           <button
@@ -85,7 +136,8 @@ export function Header({
             Manual
           </button>
         </span>
-        <button type="button"
+        <button
+          type="button"
           className={"aw-agents-btn " + (agentsOpen ? "open" : "")}
           onClick={() => setAgentsOpen(!agentsOpen)}
           title="Agent Control Center"
@@ -94,9 +146,7 @@ export function Header({
           <I.Layers style={{ width: 11, height: 11 }} />
           <span>Agents</span>
           {agentsSummary.length === 0 ? (
-            // No backend agent payload yet (BUG-S8-AGENT-001). Render an
-            // honest placeholder instead of fabricating dots. The popover
-            // (D-106) renders the full disabled-empty state.
+            // BUG-S8-AGENT-001: no fabricated dots when payload empty.
             <span
               className="aw-agents-setup"
               data-testid="aw-agents-setup"
@@ -121,25 +171,99 @@ export function Header({
         </span>
         <span className="aw-spacer" />
         <span
-          className="aw-status-pill"
-          title={`run ${runState} · ${tokenInfo.tok} tokens · $${tokenInfo.cost}`}
+          className="aw-status-pill aw-token-pill"
+          title={`Session: ${tokenInfo.tok} tokens · $${tokenInfo.cost} · run ${runState}`}
           data-testid="aw-run-pill"
         >
+          <I.Spark style={{ width: 10, height: 10, color: "var(--acc-2)" }} />
           <span className="v">{tokenInfo.tok}</span>
           <span className="k">·</span>
-          <span className="v">${tokenInfo.cost}</span>
+          <span className="v" style={{ color: "var(--tx-2)" }}>${tokenInfo.cost}</span>
         </span>
-        {dockBtn("right", I.Dock, "Dock right")}
-        {dockBtn("left", I.DockL, "Dock left")}
-        {dockBtn("top", I.DockTop, "Dock top")}
-        {dockBtn("float", I.Float, "Float")}
-        <button type="button"
+        <div className="aw-dock-wrap">
+          <button
+            type="button"
+            ref={dockTriggerRef}
+            className={"aw-icon-btn " + (dockMenu ? "active" : "")}
+            onClick={() => setDockMenu((v) => !v)}
+            title="Dock position"
+            aria-label="Dock position"
+            data-testid="aw-dock-toggle"
+            aria-expanded={dockMenu ? "true" : "false"}
+          >
+            <DockIcon />
+          </button>
+          <PortalMenu
+            triggerRef={dockTriggerRef}
+            open={dockMenu}
+            onClose={() => setDockMenu(false)}
+            width={230}
+            testId="aw-dock-menu"
+          >
+            <div className="aw-dock-menu-label">Dock position</div>
+            {DOCK_OPTIONS.map((d) => (
+              <button
+                type="button"
+                key={d.kind}
+                className={"aw-dock-opt " + (dock === d.kind ? "active" : "")}
+                onClick={() => {
+                  setDock(d.kind);
+                  setDockMenu(false);
+                }}
+                data-testid={`aw-dock-${d.kind}`}
+              >
+                <d.Icon />
+                <span className="aw-dock-opt-main">
+                  <span className="aw-dock-opt-t">{d.label}</span>
+                  <span className="aw-dock-opt-d">{d.desc}</span>
+                </span>
+                {dock === d.kind ? (
+                  <I.Check style={{ width: 12, height: 12, color: "var(--acc-2)", flex: "0 0 12px" }} />
+                ) : null}
+              </button>
+            ))}
+            <div className="aw-dock-menu-sep" />
+            <button
+              type="button"
+              className="aw-dock-opt"
+              onClick={() => {
+                setCollapsed(!collapsed);
+                setDockMenu(false);
+              }}
+              data-testid="aw-dock-collapse"
+            >
+              <I.Min />
+              <span className="aw-dock-opt-main">
+                <span className="aw-dock-opt-t">{collapsed ? "Expand panel" : "Collapse to rail"}</span>
+                <span className="aw-dock-opt-d">Slim icon rail beside page</span>
+              </span>
+            </button>
+          </PortalMenu>
+        </div>
+        <button
+          type="button"
           className="aw-icon-btn"
           onClick={() => setCollapsed(!collapsed)}
           title="Collapse"
+          aria-label="Collapse"
           data-testid="aw-collapse"
         >
           <I.Min />
+        </button>
+        <button
+          type="button"
+          className="aw-icon-btn"
+          onClick={() => {
+            // ROOT pattern: ask the host (and same-window listeners) to open
+            // the Tweaks panel. The host page may ignore this; that is fine.
+            try { window.postMessage({ type: "__activate_edit_mode" }, "*"); } catch (_) {}
+            try { window.parent.postMessage({ type: "__activate_edit_mode" }, "*"); } catch (_) {}
+          }}
+          title="Settings & Tweaks"
+          aria-label="Settings & Tweaks"
+          data-testid="aw-settings"
+        >
+          <I.Settings />
         </button>
       </div>
     </header>
@@ -157,7 +281,8 @@ export function TabStrip({ tab, setTab, counts = {} }) {
   return (
     <nav className="aw-tabs" role="tablist" data-testid="aw-tabs">
       {tabs.map((t) => (
-        <button type="button"
+        <button
+          type="button"
           key={t.id}
           role="tab"
           aria-selected={tab === t.id}
@@ -167,7 +292,7 @@ export function TabStrip({ tab, setTab, counts = {} }) {
         >
           <t.Icon style={{ width: 13, height: 13 }} />
           {t.label}
-          {t.badge != null && <span className="aw-badge">{t.badge}</span>}
+          {t.badge != null ? <span className="aw-badge">{t.badge}</span> : null}
         </button>
       ))}
     </nav>
@@ -191,7 +316,8 @@ export function NowStrip({ kind = "idle", state, task, refLabel, primaryLabel, p
       </div>
       {primaryLabel ? (
         <div className="aw-now-actions">
-          <button type="button"
+          <button
+            type="button"
             className="aw-btn primary"
             onClick={() => typeof onPrimary === "function" && onPrimary()}
             data-testid="aw-now-primary"
@@ -244,12 +370,12 @@ const READ_ONLY_TOGGLE_TITLE =
   "Read-only registry — set_agent_enabled ships in a later batch";
 
 export function AgentsPopover({ onClose, agents, controlMode = "read_only" }) {
-  // E1 (B1): backend now emits agent_settings on every WS connect. The
-  // popover renders directly from that payload — no DEFAULT_AGENTS, no
-  // hardcoded mock list. When payload is missing (pre-connect or stale
-  // session), we keep the honest empty state. Sprint 7 ships in
-  // read-only mode (controlMode === "read_only"); the toggle stays
-  // disabled with a real reason instead of a Sprint-8 deferral note.
+  // E1 (B1): backend emits agent_settings on every WS connect. The popover
+  // renders directly from that payload — no DEFAULT_AGENTS, no hardcoded
+  // mock list. When payload is missing (pre-connect or stale session) the
+  // honest empty state is shown. Sprint 7 ships in read-only mode
+  // (controlMode === "read_only"); the toggle stays disabled with a real
+  // reason instead of a Sprint-8 deferral note.
   const list = Array.isArray(agents) ? agents : [];
   const hasPayload = list.length > 0;
   const readOnly = controlMode !== "writable";
@@ -372,7 +498,8 @@ export function CollapsedRail({ tab, setTab, setCollapsed }) {
       </button>
       <div className="aw-rail-sep" />
       {items.map((it) => (
-        <button type="button"
+        <button
+          type="button"
           key={it.id}
           className={"aw-icon-btn " + (tab === it.id ? "active" : "")}
           onClick={() => setTab(it.id)}

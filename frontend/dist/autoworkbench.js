@@ -1084,7 +1084,7 @@
             }
             return dispatcher.useContext(Context);
           }
-          function useState5(initialState) {
+          function useState6(initialState) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useState(initialState);
           }
@@ -1092,7 +1092,7 @@
             var dispatcher = resolveDispatcher();
             return dispatcher.useReducer(reducer2, initialArg, init);
           }
-          function useRef3(initialValue) {
+          function useRef4(initialValue) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useRef(initialValue);
           }
@@ -1104,7 +1104,7 @@
             var dispatcher = resolveDispatcher();
             return dispatcher.useInsertionEffect(create, deps);
           }
-          function useLayoutEffect2(create, deps) {
+          function useLayoutEffect3(create, deps) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useLayoutEffect(create, deps);
           }
@@ -1883,11 +1883,11 @@
           exports.useId = useId;
           exports.useImperativeHandle = useImperativeHandle;
           exports.useInsertionEffect = useInsertionEffect;
-          exports.useLayoutEffect = useLayoutEffect2;
+          exports.useLayoutEffect = useLayoutEffect3;
           exports.useMemo = useMemo4;
           exports.useReducer = useReducer;
-          exports.useRef = useRef3;
-          exports.useState = useState5;
+          exports.useRef = useRef4;
+          exports.useState = useState6;
           exports.useSyncExternalStore = useSyncExternalStore;
           exports.useTransition = useTransition;
           exports.version = ReactVersion;
@@ -24710,6 +24710,7 @@
 
   // src/v4/chrome.jsx
   var import_react2 = __toESM(require_react());
+  var import_react_dom = __toESM(require_react_dom());
 
   // src/v4/icons.jsx
   var import_react = __toESM(require_react());
@@ -24868,6 +24869,32 @@
 
   // src/v4/chrome.jsx
   var import_jsx_runtime3 = __toESM(require_jsx_runtime());
+  function PortalMenu({ triggerRef, open, onClose, width = 230, children, testId }) {
+    const [pos, setPos] = (0, import_react2.useState)({ top: -9999, left: -9999 });
+    (0, import_react2.useLayoutEffect)(() => {
+      if (!open || !triggerRef.current) return;
+      const r = triggerRef.current.getBoundingClientRect();
+      const left = Math.max(8, Math.min(r.right - width, window.innerWidth - width - 8));
+      setPos({ top: r.bottom + 4, left });
+    }, [open, triggerRef, width]);
+    if (!open) return null;
+    return import_react_dom.default.createPortal(
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(import_jsx_runtime3.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "aw-dock-scrim", onClick: onClose, "data-testid": testId ? `${testId}-scrim` : void 0 }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+          "div",
+          {
+            className: "aw-dock-menu",
+            role: "menu",
+            "data-testid": testId,
+            style: { position: "fixed", top: pos.top, left: pos.left, minWidth: width, right: "auto" },
+            children
+          }
+        )
+      ] }),
+      document.body
+    );
+  }
   var STATUS_MAP = {
     connected: { cls: "ok", label: "Connected" },
     busy: { cls: "busy", label: "Running" },
@@ -24875,6 +24902,18 @@
     offline: { cls: "err", label: "Offline" },
     error: { cls: "err", label: "LLM error" }
   };
+  function dockIconFor(kind) {
+    if (kind === "left") return I.DockL;
+    if (kind === "top") return I.DockTop;
+    if (kind === "float") return I.Float;
+    return I.Dock;
+  }
+  var DOCK_OPTIONS = [
+    { kind: "right", Icon: I.Dock, label: "Dock right", desc: "Beside the page on the right" },
+    { kind: "left", Icon: I.DockL, label: "Dock left", desc: "Beside the page on the left" },
+    { kind: "top", Icon: I.DockTop, label: "Dock top", desc: "Above the page, full width" },
+    { kind: "float", Icon: I.Float, label: "Floating", desc: "Overlay on top of the page" }
+  ];
   function Header({
     status = "connected",
     dock = "right",
@@ -24891,18 +24930,9 @@
     agentsSummary = [],
     pageUrl = ""
   }) {
-    const dockBtn = (kind, Icon, title) => /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
-      "button",
-      {
-        type: "button",
-        className: "aw-icon-btn " + (dock === kind ? "active" : ""),
-        onClick: () => setDock(kind),
-        title,
-        "aria-label": title,
-        "data-testid": `aw-dock-${kind}`,
-        children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(Icon, {})
-      }
-    );
+    const [dockMenu, setDockMenu] = (0, import_react2.useState)(false);
+    const dockTriggerRef = (0, import_react2.useRef)(null);
+    const DockIcon = dockIconFor(dock);
     const s = STATUS_MAP[status] || STATUS_MAP.connected;
     const pageLabel = pageUrl ? pageUrl.replace(/^[^/]+/, "") : "\u2014";
     return /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("header", { className: "aw-header", "data-testid": "aw-header", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "aw-header-main", children: [
@@ -24915,7 +24945,7 @@
         "span",
         {
           className: "aw-status-pill " + s.cls,
-          title: "Backend connection",
+          title: "Backend " + s.label + " \xB7 Complete LLM Mode",
           "data-testid": "aw-status-pill",
           "data-status": status,
           children: [
@@ -24927,12 +24957,12 @@
       /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
         "span",
         {
-          className: "aw-mode-toggle",
+          className: "aw-mode-switch",
           role: "group",
           "aria-label": "Interaction mode",
           "data-testid": "aw-mode-toggle",
           children: [
-            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
               "button",
               {
                 type: "button",
@@ -24940,10 +24970,7 @@
                 "aria-pressed": "true",
                 title: "Complete LLM Mode (active)",
                 "data-testid": "aw-mode-llm",
-                children: [
-                  /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "aw-dot" }),
-                  "LLM"
-                ]
+                children: "LLM"
               }
             ),
             /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
@@ -24976,9 +25003,7 @@
             /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(I.Layers, { style: { width: 11, height: 11 } }),
             /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { children: "Agents" }),
             agentsSummary.length === 0 ? (
-              // No backend agent payload yet (BUG-S8-AGENT-001). Render an
-              // honest placeholder instead of fabricating dots. The popover
-              // (D-106) renders the full disabled-empty state.
+              // BUG-S8-AGENT-001: no fabricated dots when payload empty.
               /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
                 "span",
                 {
@@ -25007,23 +25032,90 @@
       /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
         "span",
         {
-          className: "aw-status-pill",
-          title: `run ${runState} \xB7 ${tokenInfo.tok} tokens \xB7 $${tokenInfo.cost}`,
+          className: "aw-status-pill aw-token-pill",
+          title: `Session: ${tokenInfo.tok} tokens \xB7 $${tokenInfo.cost} \xB7 run ${runState}`,
           "data-testid": "aw-run-pill",
           children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(I.Spark, { style: { width: 10, height: 10, color: "var(--acc-2)" } }),
             /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "v", children: tokenInfo.tok }),
             /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "k", children: "\xB7" }),
-            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "v", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "v", style: { color: "var(--tx-2)" }, children: [
               "$",
               tokenInfo.cost
             ] })
           ]
         }
       ),
-      dockBtn("right", I.Dock, "Dock right"),
-      dockBtn("left", I.DockL, "Dock left"),
-      dockBtn("top", I.DockTop, "Dock top"),
-      dockBtn("float", I.Float, "Float"),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "aw-dock-wrap", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+          "button",
+          {
+            type: "button",
+            ref: dockTriggerRef,
+            className: "aw-icon-btn " + (dockMenu ? "active" : ""),
+            onClick: () => setDockMenu((v) => !v),
+            title: "Dock position",
+            "aria-label": "Dock position",
+            "data-testid": "aw-dock-toggle",
+            "aria-expanded": dockMenu ? "true" : "false",
+            children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(DockIcon, {})
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
+          PortalMenu,
+          {
+            triggerRef: dockTriggerRef,
+            open: dockMenu,
+            onClose: () => setDockMenu(false),
+            width: 230,
+            testId: "aw-dock-menu",
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "aw-dock-menu-label", children: "Dock position" }),
+              DOCK_OPTIONS.map((d) => /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
+                "button",
+                {
+                  type: "button",
+                  className: "aw-dock-opt " + (dock === d.kind ? "active" : ""),
+                  onClick: () => {
+                    setDock(d.kind);
+                    setDockMenu(false);
+                  },
+                  "data-testid": `aw-dock-${d.kind}`,
+                  children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(d.Icon, {}),
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "aw-dock-opt-main", children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "aw-dock-opt-t", children: d.label }),
+                      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "aw-dock-opt-d", children: d.desc })
+                    ] }),
+                    dock === d.kind ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(I.Check, { style: { width: 12, height: 12, color: "var(--acc-2)", flex: "0 0 12px" } }) : null
+                  ]
+                },
+                d.kind
+              )),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "aw-dock-menu-sep" }),
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
+                "button",
+                {
+                  type: "button",
+                  className: "aw-dock-opt",
+                  onClick: () => {
+                    setCollapsed(!collapsed);
+                    setDockMenu(false);
+                  },
+                  "data-testid": "aw-dock-collapse",
+                  children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(I.Min, {}),
+                    /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "aw-dock-opt-main", children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "aw-dock-opt-t", children: collapsed ? "Expand panel" : "Collapse to rail" }),
+                      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "aw-dock-opt-d", children: "Slim icon rail beside page" })
+                    ] })
+                  ]
+                }
+              )
+            ]
+          }
+        )
+      ] }),
       /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
         "button",
         {
@@ -25031,8 +25123,30 @@
           className: "aw-icon-btn",
           onClick: () => setCollapsed(!collapsed),
           title: "Collapse",
+          "aria-label": "Collapse",
           "data-testid": "aw-collapse",
           children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(I.Min, {})
+        }
+      ),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+        "button",
+        {
+          type: "button",
+          className: "aw-icon-btn",
+          onClick: () => {
+            try {
+              window.postMessage({ type: "__activate_edit_mode" }, "*");
+            } catch (_) {
+            }
+            try {
+              window.parent.postMessage({ type: "__activate_edit_mode" }, "*");
+            } catch (_) {
+            }
+          },
+          title: "Settings & Tweaks",
+          "aria-label": "Settings & Tweaks",
+          "data-testid": "aw-settings",
+          children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(I.Settings, {})
         }
       )
     ] }) });
@@ -25057,7 +25171,7 @@
         children: [
           /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(t.Icon, { style: { width: 13, height: 13 } }),
           t.label,
-          t.badge != null && /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "aw-badge", children: t.badge })
+          t.badge != null ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "aw-badge", children: t.badge }) : null
         ]
       },
       t.id
