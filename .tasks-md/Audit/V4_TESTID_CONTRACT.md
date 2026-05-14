@@ -231,11 +231,32 @@ Design reference (NOT production truth):
 | Element / control | data-testid | Source | jsdom | E2E | Status | Notes |
 |---|---|---|---|---|---|---|
 | Tab root | `trace-tab` | `secondary-tabs.jsx:473` | — | `test_v4_panel_smoke.py:74`, `test_mvp_001_lifecycle_smoke.py:72` | ACTIVE | — |
-| Filter input | `trace-filter` | `secondary-tabs.jsx:477` | — | — | ACTIVE | — |
-| Category chip | `trace-filter-${k}` | `secondary-tabs.jsx:485` | — | — | ACTIVE | k ∈ event category |
+| Filter input | `trace-filter` | `secondary-tabs.jsx:477` | `secondary-tabs.test.jsx:D-104` | — | ACTIVE | — |
+| Category chip (all/llm/step/permission/error/code) | `trace-filter-${k}` | `secondary-tabs.jsx:485` | `secondary-tabs.test.jsx:D-104` | — | ACTIVE | k ∈ event category |
+| Category chip — gap (new, D-104) | `trace-filter-gap` | `secondary-tabs.jsx` | `secondary-tabs.test.jsx:D-104` | — | ACTIVE | exact-match predicate: type === "capability_gap_recorded" |
 | Empty notice | `trace-empty` | `secondary-tabs.jsx:493` | `secondary-tabs.test.jsx:120` | — | ACTIVE | — |
-| Row | `trace-row-${i}` | `secondary-tabs.jsx:508` | `secondary-tabs.test.jsx:130,131` | — | ACTIVE | — |
-| Failure detail panel | (none yet) | — | — | — | PLANNED_D104 | — |
+| Row | `trace-row-${i}` | `secondary-tabs.jsx:508` | `secondary-tabs.test.jsx:130,131` | — | ACTIVE | click-to-expand for step_failed / llm / gap rows |
+| Failure detail wrapper | `trace-failure-detail-${i}` | `secondary-tabs.jsx` | `secondary-tabs.test.jsx:D-104` | — | ACTIVE | rendered on expand when type === step_failed |
+| Failure step_id | `trace-failure-step-${i}` | `secondary-tabs.jsx` | `secondary-tabs.test.jsx:D-104` | — | ACTIVE | conditional on payload.step_id |
+| Failure error text | `trace-failure-error-${i}` | `secondary-tabs.jsx` | `secondary-tabs.test.jsx:D-104` | — | ACTIVE | always when panel shown |
+| Failure status badge | `trace-failure-status-${i}` | `secondary-tabs.jsx` | `secondary-tabs.test.jsx:D-104` | — | ACTIVE | always when panel shown |
+| Failure operation_id | `trace-failure-op-${i}` | `secondary-tabs.jsx` | `secondary-tabs.test.jsx:D-104` | — | ACTIVE | only if operation_id in payload |
+| LLM telemetry section | `trace-llm-telemetry-${i}` | `secondary-tabs.jsx` | `secondary-tabs.test.jsx:D-104` | — | ACTIVE | rendered when any telemetry field present |
+| LLM model id | `trace-llm-model-${i}` | `secondary-tabs.jsx` | `secondary-tabs.test.jsx:D-104` | — | ACTIVE | conditional on payload.model |
+| LLM input tokens | `trace-llm-input-tokens-${i}` | `secondary-tabs.jsx` | `secondary-tabs.test.jsx:D-104` | — | ACTIVE | conditional on payload.input_tokens |
+| LLM output tokens | `trace-llm-output-tokens-${i}` | `secondary-tabs.jsx` | `secondary-tabs.test.jsx:D-104` | — | ACTIVE | conditional on payload.output_tokens |
+| LLM cost estimate | `trace-llm-cost-${i}` | `secondary-tabs.jsx` | — | — | ACTIVE | conditional on payload.estimated_cost |
+| LLM latency | `trace-llm-latency-${i}` | `secondary-tabs.jsx` | — | — | ACTIVE | conditional on payload.latency_ms |
+| LLM unavailable notice | `trace-llm-unavailable-${i}` | `secondary-tabs.jsx` | `secondary-tabs.test.jsx:D-104` | — | ACTIVE | when no telemetry fields present |
+| Artifact list | `trace-artifact-list-${i}` | `secondary-tabs.jsx` | `secondary-tabs.test.jsx:D-104` | — | ACTIVE | rendered when r.artifacts.length > 0 |
+| Artifact item | `trace-artifact-${i}-${key}` | `secondary-tabs.jsx` | `secondary-tabs.test.jsx:D-104` | — | ACTIVE | data-artifact-href only when path present |
+| Artifact status chip | `trace-artifact-status-${i}-${key}` | `secondary-tabs.jsx` | — | — | ACTIVE | conditional on artifact.status |
+| Redaction status chip | `trace-redaction-chip-${i}` | `secondary-tabs.jsx` | `secondary-tabs.test.jsx:D-104` | — | ACTIVE | only when r.redactionStatus non-empty |
+| Redaction warning | `trace-redaction-warning-${i}` | `secondary-tabs.jsx` | — | — | ACTIVE | only when r.redactionWarning non-empty |
+| Capability-gap card | `trace-gap-card-${i}` | `secondary-tabs.jsx` | `secondary-tabs.test.jsx:D-104` | — | ACTIVE | rendered on expand when type === capability_gap_recorded |
+| Gap id | `trace-gap-id-${i}` | `secondary-tabs.jsx` | `secondary-tabs.test.jsx:D-104` | — | ACTIVE | conditional on payload.gap_id |
+| Gap capability needed | `trace-gap-capability-${i}` | `secondary-tabs.jsx` | `secondary-tabs.test.jsx:D-104` | — | ACTIVE | conditional on payload.needed_capability |
+| Gap path | `trace-gap-path-${i}` | `secondary-tabs.jsx` | `secondary-tabs.test.jsx:D-104` | — | ACTIVE | conditional on payload.path |
 
 ## 10. Legacy Selector Mapping
 

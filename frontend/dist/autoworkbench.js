@@ -27457,20 +27457,210 @@
     "runtime_rejected",
     "session_state",
     "schema_error",
-    "error"
+    "error",
+    "capability_gap_recorded"
   ]);
+  function matchesKind(type, kind) {
+    if (kind === "all") return true;
+    if (kind === "gap") return type === "capability_gap_recorded";
+    return type.startsWith(kind);
+  }
+  function TraceFailureDetail({ entry, rowIndex }) {
+    const payload = entry?.raw?.payload ?? entry?.raw ?? {};
+    const stepId = payload.step_id ?? null;
+    const error = entry.summary ?? payload.error ?? null;
+    const status = payload.status ?? null;
+    const operationId = payload.operation_id ?? null;
+    return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+      "div",
+      {
+        className: "aw-trace-detail",
+        "data-testid": `trace-failure-detail-${rowIndex}`,
+        style: { marginTop: 6, padding: "8px 10px", background: "var(--bg-inset)", borderRadius: 6, fontSize: 12 },
+        children: [
+          stepId != null && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { "data-testid": `trace-failure-step-${rowIndex}`, style: { marginBottom: 4 }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { color: "var(--tx-3)" }, children: "step_id: " }),
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: String(stepId) })
+          ] }),
+          error != null && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { "data-testid": `trace-failure-error-${rowIndex}`, style: { marginBottom: 4 }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { color: "var(--tx-3)" }, children: "error: " }),
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { color: "var(--red)" }, children: String(error) })
+          ] }),
+          status != null && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { "data-testid": `trace-failure-status-${rowIndex}`, style: { marginBottom: 4 }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { color: "var(--tx-3)" }, children: "status: " }),
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+              "span",
+              {
+                className: `aw-badge-i ${status === "failed" ? "err" : "outline"}`,
+                style: { display: "inline-flex", gap: 4 },
+                children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "ldot" }),
+                  String(status)
+                ]
+              }
+            )
+          ] }),
+          operationId != null && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { "data-testid": `trace-failure-op-${rowIndex}`, style: { marginBottom: 4 }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { color: "var(--tx-3)" }, children: "operation_id: " }),
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: String(operationId) })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { marginTop: 4, color: "var(--tx-3)", fontStyle: "italic", fontSize: 11 }, children: "Recovery entered \u2014 see Recovery card" })
+        ]
+      }
+    );
+  }
+  var LLM_TYPES = /* @__PURE__ */ new Set(["llm_thinking", "llm_result", "agent_trace"]);
+  function TraceLlmTelemetry({ entry, rowIndex }) {
+    const isLlmType = LLM_TYPES.has(entry.type ?? "") || (entry.type ?? "").startsWith("llm");
+    if (!isLlmType) return null;
+    const payload = entry?.raw?.payload ?? entry?.raw ?? {};
+    const model = payload.model ?? null;
+    const inputTokens = payload.input_tokens ?? payload.total_input_tokens ?? null;
+    const outputTokens = payload.output_tokens ?? null;
+    const estimatedCost = payload.estimated_cost ?? null;
+    const latencyMs = payload.latency_ms ?? null;
+    const hasAnyTelemetry = model != null || inputTokens != null || outputTokens != null || estimatedCost != null || latencyMs != null;
+    if (!hasAnyTelemetry) {
+      return /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+        "div",
+        {
+          "data-testid": `trace-llm-unavailable-${rowIndex}`,
+          style: { marginTop: 6, fontSize: 11, color: "var(--tx-3)", fontStyle: "italic" },
+          children: "LLM telemetry not in this event payload"
+        }
+      );
+    }
+    return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+      "div",
+      {
+        "data-testid": `trace-llm-telemetry-${rowIndex}`,
+        style: { marginTop: 6, fontSize: 11, display: "flex", flexWrap: "wrap", gap: 6 },
+        children: [
+          model != null && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { "data-testid": `trace-llm-model-${rowIndex}`, children: [
+            "model: ",
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("b", { children: String(model) })
+          ] }),
+          inputTokens != null && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { "data-testid": `trace-llm-input-tokens-${rowIndex}`, children: [
+            "in: ",
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("b", { children: String(inputTokens) })
+          ] }),
+          outputTokens != null && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { "data-testid": `trace-llm-output-tokens-${rowIndex}`, children: [
+            "out: ",
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("b", { children: String(outputTokens) })
+          ] }),
+          estimatedCost != null && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { "data-testid": `trace-llm-cost-${rowIndex}`, children: [
+            "cost: ",
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("b", { children: [
+              "$",
+              String(estimatedCost)
+            ] })
+          ] }),
+          latencyMs != null && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { "data-testid": `trace-llm-latency-${rowIndex}`, children: [
+            "latency: ",
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("b", { children: [
+              String(latencyMs),
+              "ms"
+            ] })
+          ] })
+        ]
+      }
+    );
+  }
+  function TraceArtifactList({ entry, rowIndex }) {
+    const artifacts = Array.isArray(entry.artifacts) ? entry.artifacts : [];
+    if (artifacts.length === 0) return null;
+    return /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+      "div",
+      {
+        "data-testid": `trace-artifact-list-${rowIndex}`,
+        style: { marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6 },
+        children: artifacts.map((a) => {
+          if (!a) return null;
+          const key = a.key ?? a.kind ?? a.name ?? "artifact";
+          const label = a.label ?? a.title ?? key;
+          const path = a.path ?? null;
+          return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+            "span",
+            {
+              "data-testid": `trace-artifact-${rowIndex}-${key}`,
+              ...path != null ? { "data-artifact-href": path } : {},
+              style: { fontSize: 11, display: "inline-flex", alignItems: "center", gap: 3 },
+              children: [
+                path != null ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("a", { href: path, target: "_blank", rel: "noreferrer", style: { color: "var(--blu)" }, children: label }) : /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { color: "var(--tx-3)" }, children: label }),
+                a.status != null && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+                  "span",
+                  {
+                    "data-testid": `trace-artifact-status-${rowIndex}-${key}`,
+                    "data-status": a.status,
+                    className: `aw-badge-i ${a.status === "err" ? "err" : "outline"}`,
+                    style: { fontSize: 10 },
+                    children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "ldot" }),
+                      a.status
+                    ]
+                  }
+                )
+              ]
+            },
+            key
+          );
+        })
+      }
+    );
+  }
+  function TraceGapCard({ entry, rowIndex }) {
+    const payload = entry?.raw?.payload ?? entry?.raw ?? {};
+    const gapId = payload.gap_id ?? null;
+    const neededCapability = payload.needed_capability ?? null;
+    const path = payload.path ?? null;
+    return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+      "div",
+      {
+        "data-testid": `trace-gap-card-${rowIndex}`,
+        style: { marginTop: 6, padding: "8px 10px", background: "var(--bg-inset)", borderRadius: 6, fontSize: 12 },
+        children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { style: { fontWeight: 600, marginBottom: 4, color: "var(--tx-2)" }, children: "Capability gap logged \u2014 non-blocking" }),
+          gapId != null && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { "data-testid": `trace-gap-id-${rowIndex}`, style: { marginBottom: 3 }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { color: "var(--tx-3)" }, children: "gap_id: " }),
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: String(gapId) })
+          ] }),
+          neededCapability != null && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { "data-testid": `trace-gap-capability-${rowIndex}`, style: { marginBottom: 3 }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { color: "var(--tx-3)" }, children: "needed: " }),
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: String(neededCapability) })
+          ] }),
+          path != null && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { "data-testid": `trace-gap-path-${rowIndex}`, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { color: "var(--tx-3)" }, children: "path: " }),
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: String(path) })
+          ] })
+        ]
+      }
+    );
+  }
   function TraceTab({ traceEntries = [] }) {
     const [filter, setFilter] = (0, import_react4.useState)("");
     const [kind, setKind] = (0, import_react4.useState)("all");
+    const [expandedRows, setExpandedRows] = (0, import_react4.useState)(() => /* @__PURE__ */ new Set());
     const list = asArray2(traceEntries);
     const filtered = list.filter((row) => {
       const type = row.type ?? "";
-      if (kind !== "all" && !type.startsWith(kind)) return false;
-      if (filter && !((row.text ?? row.description ?? "") + type).toLowerCase().includes(filter.toLowerCase())) {
-        return false;
+      if (!matchesKind(type, kind)) return false;
+      if (filter) {
+        const searchable = ((row.summary ?? row.text ?? row.description ?? row.message ?? "") + " " + type).toLowerCase();
+        if (!searchable.includes(filter.toLowerCase())) return false;
       }
       return true;
     });
+    const toggleRow = (i) => {
+      setExpandedRows((prev) => {
+        const next = new Set(prev);
+        if (next.has(i)) {
+          next.delete(i);
+        } else {
+          next.add(i);
+        }
+        return next;
+      });
+    };
     return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { "data-testid": "trace-tab", children: [
       /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-list-toolbar", children: [
         /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: "aw-search", style: { flex: 1, maxWidth: 240 }, children: [
@@ -27485,7 +27675,7 @@
             }
           )
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { display: "flex", gap: 4 }, children: ["all", "llm", "step", "permission", "error", "code"].map((k) => /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { display: "flex", gap: 4 }, children: ["all", "llm", "step", "permission", "error", "code", "gap"].map((k) => /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
           "span",
           {
             className: "aw-badge-i " + (kind === k ? "info" : "outline"),
@@ -27507,6 +27697,12 @@
         const type = r.type ?? "unknown";
         const known = KNOWN_TYPES.has(type) || ["session", "plan", "step", "llm", "code", "permission", "locator", "recover", "redact", "page", "e2e", "run"].some((p) => type.startsWith(p));
         const cls = r.severity === "err" || r.severity === "error" ? "err" : r.severity === "warn" ? "warn" : type.includes("ok") || type === "step.recorded" || type === "run_completed" ? "ok" : known ? "" : "unknown";
+        const isExpanded = expandedRows.has(i);
+        const isStepFailed = type === "step_failed";
+        const isLlmType = LLM_TYPES.has(type) || type.startsWith("llm");
+        const isGap = type === "capability_gap_recorded";
+        const hasArtifacts = Array.isArray(r.artifacts) && r.artifacts.length > 0;
+        const hasRedaction = typeof r.redactionStatus === "string" && r.redactionStatus !== "";
         return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
           "div",
           {
@@ -27514,14 +27710,43 @@
             "data-testid": `trace-row-${i}`,
             "data-type": type,
             "data-known": known ? "1" : "0",
+            style: { cursor: isStepFailed || isLlmType || isGap ? "pointer" : "default" },
+            onClick: () => {
+              if (isStepFailed || isLlmType || isGap) toggleRow(i);
+            },
             children: [
               /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "t", children: r.timestamp ?? r.t ?? "" }),
               /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "aw-trace-icon", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Info, { style: { width: 10, height: 10 } }) }),
               /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "type", children: type }),
               /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: "desc", children: [
-                r.text ?? r.description ?? r.message ?? "",
+                r.summary ?? r.text ?? r.description ?? r.message ?? "",
                 !known ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { marginLeft: 8, color: "var(--tx-4)" }, children: "(unknown event \xB7 diagnostic only)" }) : null
-              ] })
+              ] }),
+              hasRedaction && /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+                "span",
+                {
+                  className: `aw-badge-i ${r.redactionStatus === "warn" || r.redactionStatus === "redacted" ? "warn" : "ok"}`,
+                  "data-testid": `trace-redaction-chip-${i}`,
+                  "data-status": r.redactionStatus,
+                  style: { marginLeft: 6, fontSize: 10 },
+                  children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "ldot" }),
+                    r.redactionStatus
+                  ]
+                }
+              ),
+              r.redactionWarning && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+                "span",
+                {
+                  "data-testid": `trace-redaction-warning-${i}`,
+                  style: { marginLeft: 6, fontSize: 11, color: "var(--ylw)" },
+                  children: r.redactionWarning
+                }
+              ),
+              hasArtifacts && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(TraceArtifactList, { entry: r, rowIndex: i }),
+              isExpanded && isStepFailed && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(TraceFailureDetail, { entry: r, rowIndex: i }),
+              isExpanded && isLlmType && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(TraceLlmTelemetry, { entry: r, rowIndex: i }),
+              isExpanded && isGap && /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(TraceGapCard, { entry: r, rowIndex: i })
             ]
           },
           r.id ?? i
