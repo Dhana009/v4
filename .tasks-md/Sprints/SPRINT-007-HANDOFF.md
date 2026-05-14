@@ -6,7 +6,8 @@
 **Wrap-Up Batch D start HEAD:** `45071df`
 **Wrap-Up Batch D end HEAD:** `8fc23f4`
 **Post-Batch-D regression-fix pass HEAD:** `c71c569` (3 fix/test commits cherry-picked from worktree `worktree-agent-aef70c9917bc1c05a`)
-**Local ahead of `origin/s7/clusters-6-11-complete-llm-mode`:** 58 commits (unpushed)
+**Post-debug LLM-empty fix HEAD:** `568b8fa` (`fix(v4): render LLM empty state with draft pending steps`)
+**Local ahead of `origin/s7/clusters-6-11-complete-llm-mode`:** 61 commits (unpushed)
 
 ---
 
@@ -51,7 +52,7 @@ by any prior pass:
 |---|---|---|
 | R1 — Mode toggle CSS missing | `aw-mode-toggle` / `aw-mode-opt` classes added by D-105 (commit `781e717`) had no CSS rules anywhere in `frontend/`; buttons rendered block-default, overlapping the Connected pill. | `frontend/v4.css` — added segmented-pill styles (.aw-mode-toggle / .aw-mode-opt / .active / [disabled] / [aria-disabled]) using existing v4 design tokens. Commit `a438971`. |
 | R2 — Fake agent dots in header | `frontend/aw-ide-panel.jsx:294` `agentsSummary` `useMemo` fabricated a 5-element `["on","run"\|"on",...]` array from phase regardless of backend payload — exact pattern D-106/D-108 was supposed to eliminate. D-108 grep missed it because `useMemo` does not match `DEFAULT_*`/`SAMPLE_*` prefixes. | Replaced `agentsSummary` with derivation from `runtime.storeState?.agents` / `runtime.agents`; empty array when no payload. `chrome.jsx` default arg flipped from 5-on-array to `[]`; renders muted `aw-agents-setup` placeholder cite-ing Sprint 8 when empty, real dots only when backend provides them. Commit `95c181f`. |
-| R3 — LLM tab empty body | Verified — `llm-cards.jsx::LlmEmpty` already renders honest welcome card; original blank-body symptom was cascade from R1 mode-toggle layout breakage. No code change. |
+| R3 — LLM tab empty body | **Initial verdict (layout cascade) WAS WRONG.** Subsequent systematic-debugging pass found a real logic bug: `LlmThread.empty` gate at `frontend/src/v4/llm-cards.jsx:987-998` included `!has(currentStep)`. `selectCurrentStep` in `aw-ide-panel.jsx:155-161` returns the first un-recorded pending step whenever `pendingSteps.length > 0`. Any draft pending step on the Steps tab therefore flipped `empty=false` and suppressed `LlmEmpty`; the fallback `aw-thread` then rendered an empty div because every child card was null-gated. Fix (H1, commit `568b8fa`): dropped `currentStep` from the empty gate; short-circuited the gate when `phase === "executing"` so `CardExecution` still renders during a run. Two new jsdom regression tests in `llm-cards.test.jsx` cover both branches (idle+draft → LlmEmpty, executing+currentStep → aw-thread). |
 
 Guard extension: `frontend/tests-dom/static-audit.test.jsx` now also flags
 phase-ternary `useMemo` patterns and length>2 literal arrays of `"on"|"off"|"run"`
@@ -140,8 +141,9 @@ Deferred to Sprint 8:
 | Agents popover (D-106) | DISABLED_WITH_REASON | `DEFAULT_AGENTS` deleted; `aw-agents-empty` honest empty state; non-required toggles `disabled` w/ Sprint 8 title; required toggles `disabled` with "Required — always on"; `aw-agents-sprint8-badge` instead of fabricated count |
 | Static-audit guard (D-108) | INTEGRATED | `frontend/tests-dom/static-audit.test.jsx` |
 
-jsdom tests at HEAD: **409 passed** across 5 test files (Batch D handoff
-recorded 403; post-Batch-D regression-fix pass added 6 R2/R1 guard tests).
+jsdom tests at HEAD: **412 passed** across 5 test files (Batch D handoff
+recorded 403; post-Batch-D regression-fix pass added 6 R2/R1 guard tests;
+post-debug LLM-empty fix added 3 LlmThread gate tests).
 `npm run build`: clean (1.4 MB JS, 81.4 KB CSS, 5 unchanged warnings).
 
 ---
