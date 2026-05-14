@@ -26516,6 +26516,112 @@
       }
     );
   }
+  var _VALID_BLOCKED_REASONS = /* @__PURE__ */ new Set([
+    "missing_data",
+    "wrong_page",
+    "locator_unstable",
+    "permission_required",
+    "unknown"
+  ]);
+  var _BLOCKED_REASON_LABELS = {
+    missing_data: "Blocked \u2014 missing data",
+    wrong_page: "Blocked \u2014 wrong current page",
+    locator_unstable: "Blocked \u2014 locator unstable",
+    permission_required: "Blocked \u2014 permission required",
+    unknown: "Blocked"
+  };
+  function readBlockedMetadata(step) {
+    const raw = step && typeof step === "object" ? step.blocked : null;
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    const rawReason = typeof raw.reason === "string" ? raw.reason : "unknown";
+    const reason = _VALID_BLOCKED_REASONS.has(rawReason) ? rawReason : "unknown";
+    const refs = Array.isArray(raw.refs) ? raw.refs : [];
+    return {
+      reason,
+      rawReason,
+      refs,
+      message: typeof raw.message === "string" ? raw.message : "",
+      action_label: typeof raw.action_label === "string" ? raw.action_label : ""
+    };
+  }
+  function StepBlockedStrip({ step, stepId }) {
+    const meta = readBlockedMetadata(step);
+    if (!meta) return null;
+    const { reason, rawReason, refs, message, action_label } = meta;
+    const palette = reason === "missing_data" ? { bg: "#FBEEEA", br: "#E8B9AE", tx: "#8A3A2E" } : reason === "wrong_page" || reason === "locator_unstable" ? { bg: "#FBF1D2", br: "#ECD89A", tx: "#7A5A0E" } : reason === "permission_required" ? { bg: "#EEEFFF", br: "#C6CAF5", tx: "#3F46AD" } : { bg: "#F4F1EC", br: "#D9D2C5", tx: "#5C5448" };
+    return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+      "div",
+      {
+        className: "aw-info-strip aw-step-blocked",
+        "data-testid": `step-blocked-${stepId}`,
+        "data-reason": reason,
+        "data-raw-reason": rawReason,
+        role: "alert",
+        style: {
+          background: palette.bg,
+          borderColor: palette.br,
+          color: palette.tx,
+          marginTop: 6,
+          padding: "6px 10px",
+          borderRadius: 6,
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          fontSize: 12
+        },
+        children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Alert, { style: { width: 12, height: 12, color: palette.tx } }),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+            "span",
+            {
+              className: "aw-step-blocked-reason",
+              "data-testid": `step-blocked-reason-${stepId}`,
+              children: [
+                _BLOCKED_REASON_LABELS[reason],
+                message ? `: ${message}` : ""
+              ]
+            }
+          ),
+          refs.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+            "span",
+            {
+              className: "aw-step-blocked-refs",
+              "data-testid": `step-blocked-refs-${stepId}`,
+              style: { marginLeft: 8, display: "inline-flex", gap: 4, flexWrap: "wrap" },
+              children: refs.map((r, idx) => {
+                const refId = String(
+                  (r && typeof r === "object" ? r.id ?? r.ref_id ?? r.name : r) ?? `ref_${idx + 1}`
+                );
+                const refLabel = typeof r === "string" ? r : refId;
+                return /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+                  "span",
+                  {
+                    className: "scope",
+                    "data-testid": `step-blocked-ref-${stepId}-${refId}`,
+                    style: { fontFamily: "var(--ff-mono)", fontSize: 11 },
+                    children: refLabel
+                  },
+                  `${idx}-${refId}`
+                );
+              })
+            }
+          ) : null,
+          action_label ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+            "button",
+            {
+              type: "button",
+              className: "aw-link",
+              "data-testid": `step-blocked-action-${stepId}`,
+              disabled: true,
+              title: "Resolve command not yet wired (Pass 4b-4.1)",
+              style: { marginLeft: "auto", color: palette.tx, opacity: 0.6, cursor: "not-allowed" },
+              children: action_label
+            }
+          ) : null
+        ]
+      }
+    );
+  }
   function StepChildrenList({ step, stepId }) {
     const raw = step && typeof step === "object" ? step.children : null;
     if (!Array.isArray(raw) || raw.length === 0) return null;
@@ -26639,8 +26745,9 @@
     const expectedDesc = expectedOutcome?.description ?? "";
     const isPicking = activePickerStepId === stepId;
     const needsOutcome = isClickLikeIntent(intent) && !expectedType;
-    const ready = !!intent.trim() && (!isClickLikeIntent(intent) || expectedType);
-    const status = isPicking ? "picking\u2026" : needsOutcome ? "needs outcome" : ready ? "ready" : "draft";
+    const blockedMeta = readBlockedMetadata(step);
+    const ready = !blockedMeta && !!intent.trim() && (!isClickLikeIntent(intent) || expectedType);
+    const status = blockedMeta ? "blocked" : isPicking ? "picking\u2026" : needsOutcome ? "needs outcome" : ready ? "ready" : "draft";
     const targetSummary = elementInfo ? elementInfo.text ?? elementInfo.label ?? elementInfo.tag ?? "(element)" : intent.trim() ? "No element attached." : "Draft step.";
     return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-step-row ide-step-card", "data-testid": `step-row-${stepId}`, children: [
       /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "aw-step-handle", children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Drag, {}) }),
@@ -26670,6 +26777,7 @@
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "ide-step-target-summary", "data-testid": `step-target-${stepId}`, children: targetSummary }),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(StepLocatorChip, { step, stepId }),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(StepKindChip, { step, stepId }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(StepBlockedStrip, { step, stepId }),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(StepChildrenList, { step, stepId }),
         candidates.length > 1 ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
           "select",

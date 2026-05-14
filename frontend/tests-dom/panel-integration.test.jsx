@@ -277,6 +277,29 @@ describe("v4 panel ↔ store integration (real DOM render)", () => {
     expect(runtime.handleRunPendingSteps).not.toHaveBeenCalled();
   });
 
+  it("Steps tab surfaces backend-driven step.blocked strip from store payload", () => {
+    const state = createInitialState();
+    const runtime = buildRuntime({
+      ...state,
+      connected: true,
+      pending_steps: [
+        {
+          id: "stp_blocked",
+          intent: "fill salary form",
+          blocked: {
+            reason: "missing_data",
+            message: "salaries.csv not uploaded",
+            refs: ["salaries.csv"],
+          },
+        },
+      ],
+    });
+    render(<IDEPanel state="idle" tab="steps" runtime={runtime} onTabChange={() => {}} />);
+    const strip = screen.getByTestId("step-blocked-stp_blocked");
+    expect(strip).toHaveAttribute("data-reason", "missing_data");
+    expect(screen.getByTestId("step-status-stp_blocked").textContent.toLowerCase()).toContain("blocked");
+  });
+
   it("Steps tab renders safely when a pending step has no stable id", () => {
     const state = createInitialState();
     const runtime = buildRuntime({

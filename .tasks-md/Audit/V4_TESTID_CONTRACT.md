@@ -180,6 +180,11 @@ Design reference (NOT production truth):
 | Step child row | `step-child-${stepId}-${childId}` | `secondary-tabs.jsx::StepChildrenList` | `secondary-tabs.test.jsx` | — | ACTIVE | Pass 4b-3. Carries `data-op-type` and `data-op-status`. `childId` falls back to `op_${idx+1}` if backend omits it. |
 | Step child label | `step-child-label-${stepId}-${childId}` | `secondary-tabs.jsx::StepChildrenList` | `secondary-tabs.test.jsx` | — | ACTIVE | Pass 4b-3. Text from `child.description ?? child.text ?? child.label`. |
 | Step child status | `step-child-status-${stepId}-${childId}` | `secondary-tabs.jsx::StepChildrenList` | `secondary-tabs.test.jsx` | — | ACTIVE | Pass 4b-3. Only rendered when backend provides `child.status`. `data-status` carries the raw value. |
+| Step blocked strip | `step-blocked-${stepId}` | `secondary-tabs.jsx::StepBlockedStrip` | `secondary-tabs.test.jsx` (6 tests) + `panel-integration.test.jsx` (1) | — | ACTIVE | Pass 4b-4. Carries `data-reason` (clamped to allowed set) + `data-raw-reason` (original backend value). Renders only when `step.blocked` is a dict; backend `normalize_plan_steps_blocked` ensures valid shape. Step status badge reads "blocked" instead of "ready" while a blocked strip is rendered. |
+| Step blocked reason text | `step-blocked-reason-${stepId}` | `secondary-tabs.jsx::StepBlockedStrip` | `secondary-tabs.test.jsx` | — | ACTIVE | Pass 4b-4. Carries reason label + optional message. |
+| Step blocked refs group | `step-blocked-refs-${stepId}` | `secondary-tabs.jsx::StepBlockedStrip` | `secondary-tabs.test.jsx` | — | ACTIVE | Pass 4b-4. |
+| Step blocked ref | `step-blocked-ref-${stepId}-${refId}` | `secondary-tabs.jsx::StepBlockedStrip` | `secondary-tabs.test.jsx` | — | ACTIVE | Pass 4b-4. `refId` = string ref directly, or `r.id` / `r.ref_id` / `r.name` if ref is a dict, falling back to `ref_${idx+1}`. |
+| Step blocked action | `step-blocked-action-${stepId}` | `secondary-tabs.jsx::StepBlockedStrip` | `secondary-tabs.test.jsx` | — | ACTIVE (DISABLED) | Pass 4b-4. Only rendered when `blocked.action_label` is a string. Currently rendered as a disabled link with `title="Resolve command not yet wired (Pass 4b-4.1)"`; will be enabled in Pass 4b-4.1 when typed resolve commands land. |
 
 ## 7. Recorded Tab Inventory
 

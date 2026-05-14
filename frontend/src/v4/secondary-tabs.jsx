@@ -77,6 +77,116 @@ function StepKindChip({ step, stepId }) {
   );
 }
 
+// Pass 4b-4: backend-driven blocked-step strip. Renders only when
+// `step.blocked` is a dict with a valid reason (backend normalizer guarantees
+// this on plan_ready). No frontend inference of blocked state.
+const _VALID_BLOCKED_REASONS = new Set([
+  "missing_data",
+  "wrong_page",
+  "locator_unstable",
+  "permission_required",
+  "unknown",
+]);
+const _BLOCKED_REASON_LABELS = {
+  missing_data: "Blocked — missing data",
+  wrong_page: "Blocked — wrong current page",
+  locator_unstable: "Blocked — locator unstable",
+  permission_required: "Blocked — permission required",
+  unknown: "Blocked",
+};
+
+function readBlockedMetadata(step) {
+  const raw = step && typeof step === "object" ? step.blocked : null;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const rawReason = typeof raw.reason === "string" ? raw.reason : "unknown";
+  const reason = _VALID_BLOCKED_REASONS.has(rawReason) ? rawReason : "unknown";
+  const refs = Array.isArray(raw.refs) ? raw.refs : [];
+  return {
+    reason,
+    rawReason,
+    refs,
+    message: typeof raw.message === "string" ? raw.message : "",
+    action_label: typeof raw.action_label === "string" ? raw.action_label : "",
+  };
+}
+
+function StepBlockedStrip({ step, stepId }) {
+  const meta = readBlockedMetadata(step);
+  if (!meta) return null;
+  const { reason, rawReason, refs, message, action_label } = meta;
+  const palette =
+    reason === "missing_data" ? { bg: "#FBEEEA", br: "#E8B9AE", tx: "#8A3A2E" } :
+    reason === "wrong_page" || reason === "locator_unstable" ? { bg: "#FBF1D2", br: "#ECD89A", tx: "#7A5A0E" } :
+    reason === "permission_required" ? { bg: "#EEEFFF", br: "#C6CAF5", tx: "#3F46AD" } :
+    { bg: "#F4F1EC", br: "#D9D2C5", tx: "#5C5448" };
+  return (
+    <div
+      className="aw-info-strip aw-step-blocked"
+      data-testid={`step-blocked-${stepId}`}
+      data-reason={reason}
+      data-raw-reason={rawReason}
+      role="alert"
+      style={{
+        background: palette.bg,
+        borderColor: palette.br,
+        color: palette.tx,
+        marginTop: 6,
+        padding: "6px 10px",
+        borderRadius: 6,
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        fontSize: 12,
+      }}
+    >
+      <I.Alert style={{ width: 12, height: 12, color: palette.tx }} />
+      <span
+        className="aw-step-blocked-reason"
+        data-testid={`step-blocked-reason-${stepId}`}
+      >
+        {_BLOCKED_REASON_LABELS[reason]}
+        {message ? `: ${message}` : ""}
+      </span>
+      {refs.length > 0 ? (
+        <span
+          className="aw-step-blocked-refs"
+          data-testid={`step-blocked-refs-${stepId}`}
+          style={{ marginLeft: 8, display: "inline-flex", gap: 4, flexWrap: "wrap" }}
+        >
+          {refs.map((r, idx) => {
+            const refId = String(
+              (r && typeof r === "object" ? (r.id ?? r.ref_id ?? r.name) : r) ?? `ref_${idx + 1}`
+            );
+            const refLabel = typeof r === "string" ? r : refId;
+            return (
+              <span
+                key={`${idx}-${refId}`}
+                className="scope"
+                data-testid={`step-blocked-ref-${stepId}-${refId}`}
+                style={{ fontFamily: "var(--ff-mono)", fontSize: 11 }}
+              >
+                {refLabel}
+              </span>
+            );
+          })}
+        </span>
+      ) : null}
+      {action_label ? (
+        <button
+          type="button"
+          className="aw-link"
+          data-testid={`step-blocked-action-${stepId}`}
+          disabled
+          title="Resolve command not yet wired (Pass 4b-4.1)"
+          style={{ marginLeft: "auto", color: palette.tx, opacity: 0.6, cursor: "not-allowed" }}
+        >
+          {action_label}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 // Pass 4b-3: backend-driven section child-op list. Renders only when the
 // step has a non-empty `children` array of dicts. Each child shows its
 // description / type and (when present) status. No frontend invention of
@@ -209,8 +319,12 @@ function PendingStepEditor({
   const expectedDesc = expectedOutcome?.description ?? "";
   const isPicking = activePickerStepId === stepId;
   const needsOutcome = isClickLikeIntent(intent) && !expectedType;
-  const ready = !!intent.trim() && (!isClickLikeIntent(intent) || expectedType);
-  const status = isPicking ? "picking…" : needsOutcome ? "needs outcome" : ready ? "ready" : "draft";
+  const blockedMeta = readBlockedMetadata(step);
+  const ready =
+    !blockedMeta && !!intent.trim() && (!isClickLikeIntent(intent) || expectedType);
+  const status = blockedMeta
+    ? "blocked"
+    : isPicking ? "picking…" : needsOutcome ? "needs outcome" : ready ? "ready" : "draft";
   const targetSummary = elementInfo
     ? (elementInfo.text ?? elementInfo.label ?? elementInfo.tag ?? "(element)")
     : intent.trim()
@@ -243,6 +357,7 @@ function PendingStepEditor({
         </div>
         <StepLocatorChip step={step} stepId={stepId} />
         <StepKindChip step={step} stepId={stepId} />
+        <StepBlockedStrip step={step} stepId={stepId} />
         <StepChildrenList step={step} stepId={stepId} />
         {candidates.length > 1 ? (
           <select

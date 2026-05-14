@@ -383,6 +383,93 @@ describe("v4 secondary tabs (real DOM render)", () => {
     expect(screen.queryByTestId("step-children-s1")).toBeNull();
   });
 
+  // Pass 4b-4 — backend-driven blocked step strip
+  it("StepsTab does not render blocked strip when step has no blocked payload", () => {
+    render(<StepsTab pendingSteps={[{ id: "s1", intent: "click" }]} />);
+    expect(screen.queryByTestId("step-blocked-s1")).toBeNull();
+  });
+
+  it("StepsTab renders blocked strip with reason and message from payload", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          {
+            id: "s1",
+            intent: "fill salary form",
+            blocked: {
+              reason: "missing_data",
+              message: "salaries.csv not uploaded",
+              refs: ["salaries.csv"],
+              action_label: "Upload now",
+            },
+          },
+        ]}
+      />
+    );
+    const strip = screen.getByTestId("step-blocked-s1");
+    expect(strip).toHaveAttribute("data-reason", "missing_data");
+    expect(screen.getByTestId("step-blocked-reason-s1").textContent).toContain("missing data");
+    expect(screen.getByTestId("step-blocked-reason-s1").textContent).toContain("salaries.csv not uploaded");
+    expect(screen.getByTestId("step-blocked-ref-s1-salaries.csv")).toBeInTheDocument();
+    const action = screen.getByTestId("step-blocked-action-s1");
+    expect(action).toBeDisabled();
+    expect(action).toHaveAttribute("title", expect.stringMatching(/not yet wired/i));
+  });
+
+  it("StepsTab clamps invalid blocked reason to unknown but preserves raw value", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          { id: "s2", blocked: { reason: "totally_bogus" } },
+        ]}
+      />
+    );
+    const strip = screen.getByTestId("step-blocked-s2");
+    expect(strip).toHaveAttribute("data-reason", "unknown");
+    expect(strip).toHaveAttribute("data-raw-reason", "totally_bogus");
+  });
+
+  it("StepsTab ignores malformed blocked value (string) without crashing", () => {
+    render(<StepsTab pendingSteps={[{ id: "s3", blocked: "not a dict" }]} />);
+    expect(screen.queryByTestId("step-blocked-s3")).toBeNull();
+  });
+
+  it("StepsTab blocked step status badge reads 'blocked', never 'ready'", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          {
+            id: "s4",
+            intent: "click Sign in",
+            expected_outcome: { type: "navigation" },
+            blocked: { reason: "missing_data" },
+          },
+        ]}
+      />
+    );
+    const status = screen.getByTestId("step-status-s4");
+    expect(status.textContent.toLowerCase()).toContain("blocked");
+    expect(status.textContent.toLowerCase()).not.toContain("ready");
+  });
+
+  it("StepsTab blocked strip carries refs as separate testid rows", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          {
+            id: "s5",
+            blocked: {
+              reason: "missing_data",
+              refs: ["users.json", { id: "doc-1", name: "policy.pdf" }],
+            },
+          },
+        ]}
+      />
+    );
+    expect(screen.getByTestId("step-blocked-ref-s5-users.json")).toBeInTheDocument();
+    expect(screen.getByTestId("step-blocked-ref-s5-doc-1")).toBeInTheDocument();
+  });
+
   it("StepsTab renders locator chip, kind chip, and children list together", () => {
     render(
       <StepsTab
