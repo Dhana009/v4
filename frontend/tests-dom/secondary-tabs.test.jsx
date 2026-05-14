@@ -645,6 +645,194 @@ describe("v4 secondary tabs (real DOM render)", () => {
     expect(screen.getByTestId("recorded-empty")).toBeInTheDocument();
   });
 
+  // Pass 5 (D-102) — Recorded tab evidence view
+  it("RecordedTab disables Replay all when no backend onReplayAll is wired", () => {
+    render(
+      <RecordedTab
+        recordedSteps={[{ step_id: "r1", description: "x", state: "recorded" }]}
+      />
+    );
+    expect(screen.getByTestId("recorded-replay-all")).toBeDisabled();
+  });
+
+  it("RecordedTab renders expected and observed outcomes from payload only", () => {
+    render(
+      <RecordedTab
+        recordedSteps={[
+          {
+            step_id: "rec",
+            description: "Click pricing",
+            state: "recorded",
+            expected_outcome: { type: "navigation", description: "/pricing" },
+            observed_outcome: { type: "navigation", description: "/pricing" },
+          },
+        ]}
+      />
+    );
+    const exp = screen.getByTestId("recorded-expected-rec");
+    expect(exp).toHaveAttribute("data-expected-type", "navigation");
+    expect(exp.textContent.toLowerCase()).toContain("navigation");
+    expect(exp.textContent).toContain("/pricing");
+    const obs = screen.getByTestId("recorded-observed-rec");
+    expect(obs).toHaveAttribute("data-observed-type", "navigation");
+    expect(obs.textContent).toContain("/pricing");
+  });
+
+  it("RecordedTab does not render outcomes when payload omits them", () => {
+    render(
+      <RecordedTab recordedSteps={[{ step_id: "rec", state: "recorded" }]} />
+    );
+    expect(screen.queryByTestId("recorded-expected-rec")).toBeNull();
+    expect(screen.queryByTestId("recorded-observed-rec")).toBeNull();
+  });
+
+  it("RecordedTab renders locator with locator_kind attribute from payload", () => {
+    render(
+      <RecordedTab
+        recordedSteps={[
+          {
+            step_id: "rec",
+            description: "click",
+            state: "recorded",
+            locator: 'getByRole("button")',
+            locator_kind: "ok",
+          },
+        ]}
+      />
+    );
+    const loc = screen.getByTestId("recorded-locator-rec");
+    expect(loc).toHaveAttribute("data-locator-kind", "ok");
+    expect(loc.textContent).toContain('getByRole("button")');
+  });
+
+  it("RecordedTab status badge reflects backend state for failed records (no fake success)", () => {
+    render(
+      <RecordedTab
+        recordedSteps={[{ step_id: "rec", state: "failed", description: "click" }]}
+      />
+    );
+    const status = screen.getByTestId("recorded-status-rec");
+    expect(status).toHaveAttribute("data-status", "failed");
+    expect(status.textContent.toLowerCase()).toContain("failed");
+    expect(status.className).toContain("err");
+  });
+
+  it("RecordedTab unresolved status renders with unresolved badge", () => {
+    render(
+      <RecordedTab
+        recordedSteps={[{ step_id: "rec", state: "unresolved" }]}
+      />
+    );
+    const status = screen.getByTestId("recorded-status-rec");
+    expect(status).toHaveAttribute("data-status", "unresolved");
+  });
+
+  it("RecordedTab unknown status renders with unknown badge instead of fake recorded", () => {
+    render(<RecordedTab recordedSteps={[{ step_id: "rec" }]} />);
+    const status = screen.getByTestId("recorded-status-rec");
+    expect(status).toHaveAttribute("data-status", "unknown");
+  });
+
+  it("RecordedTab replay button is disabled and titled when step has no backend id", () => {
+    const onReplayOne = vi.fn();
+    render(
+      <RecordedTab
+        recordedSteps={[{ description: "no id", state: "recorded" }]}
+        onReplayOne={onReplayOne}
+      />
+    );
+    const btn = screen.getByTestId("recorded-replay-r-0");
+    expect(btn).toBeDisabled();
+    expect(btn).toHaveAttribute("title", expect.stringMatching(/no backend step id/i));
+    fireEvent.click(btn);
+    expect(onReplayOne).not.toHaveBeenCalled();
+  });
+
+  it("RecordedTab replay button dispatches typed replay_one when backend id and handler exist", () => {
+    const onReplayOne = vi.fn();
+    render(
+      <RecordedTab
+        recordedSteps={[
+          { step_id: "rec_a", description: "x", state: "recorded" },
+        ]}
+        onReplayOne={onReplayOne}
+      />
+    );
+    const btn = screen.getByTestId("recorded-replay-rec_a");
+    expect(btn).not.toBeDisabled();
+    fireEvent.click(btn);
+    expect(onReplayOne).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "replay_one", step_id: "rec_a" })
+    );
+  });
+
+  it("RecordedTab renders child operations with stable testids and op-status", () => {
+    render(
+      <RecordedTab
+        recordedSteps={[
+          {
+            step_id: "rec",
+            state: "recorded",
+            children: [
+              { child_id: "op_a", operation: "click", description: "click cta", status: "passed" },
+              { child_id: "op_b", operation: "assert", description: "verify", status: "failed" },
+            ],
+          },
+        ]}
+      />
+    );
+    const list = screen.getByTestId("recorded-child-list-rec");
+    expect(list).toHaveAttribute("data-count", "2");
+    expect(screen.getByTestId("recorded-child-rec-op_a")).toHaveAttribute("data-op-type", "click");
+    expect(screen.getByTestId("recorded-child-rec-op_a")).toHaveAttribute("data-op-status", "passed");
+    expect(screen.getByTestId("recorded-child-rec-op_b")).toHaveAttribute("data-op-status", "failed");
+  });
+
+  it("RecordedTab drops malformed child entries without crashing", () => {
+    render(
+      <RecordedTab
+        recordedSteps={[
+          {
+            step_id: "rec",
+            state: "recorded",
+            children: [null, 42, "bad", { child_id: "good", description: "real" }],
+          },
+        ]}
+      />
+    );
+    const list = screen.getByTestId("recorded-child-list-rec");
+    expect(list).toHaveAttribute("data-count", "1");
+    expect(screen.getByTestId("recorded-child-rec-good")).toBeInTheDocument();
+  });
+
+  it("RecordedTab renders artifacts as links with stable testids when payload provides them", () => {
+    render(
+      <RecordedTab
+        recordedSteps={[
+          {
+            step_id: "rec",
+            state: "recorded",
+            artifacts: [
+              "screenshots/rec.png",
+              { id: "log-1", label: "trace.log", url: "/artifacts/trace.log" },
+            ],
+          },
+        ]}
+      />
+    );
+    const a1 = screen.getByTestId("recorded-artifact-rec-screenshots/rec.png");
+    expect(a1.getAttribute("href")).toContain("screenshots/rec.png");
+    const a2 = screen.getByTestId("recorded-artifact-rec-log-1");
+    expect(a2.getAttribute("href")).toBe("/artifacts/trace.log");
+    expect(a2.textContent).toContain("trace.log");
+  });
+
+  it("RecordedTab tolerates malformed step entry without rendering fake evidence", () => {
+    render(<RecordedTab recordedSteps={[null, 42, { step_id: "ok", state: "recorded", description: "x" }]} />);
+    // Only the valid one renders evidence.
+    expect(screen.getByTestId("recorded-item-ok")).toBeInTheDocument();
+  });
+
   it("RecordedTab renders backend evidence including repaired diff", () => {
     render(
       <RecordedTab

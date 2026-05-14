@@ -27091,8 +27091,28 @@
       ))
     ] });
   }
+  function readRecordedStatus(s) {
+    const raw = s && typeof s === "object" ? s.state ?? s.status : null;
+    if (typeof raw !== "string") return "unknown";
+    return raw.toLowerCase();
+  }
+  function readRecordedOutcome(s, kind) {
+    if (!s || typeof s !== "object") return null;
+    const field = kind === "expected" ? "expected_outcome" : "observed_outcome";
+    const obj = s[field];
+    if (obj && typeof obj === "object" && !Array.isArray(obj)) {
+      const text = typeof obj.description === "string" ? obj.description : typeof obj.text === "string" ? obj.text : typeof obj.value === "string" ? obj.value : "";
+      const type = typeof obj.type === "string" ? obj.type : "";
+      if (!text && !type) return null;
+      return { type, text };
+    }
+    const fallback = kind === "expected" ? s.expected_text : s.observed_text;
+    if (typeof fallback === "string" && fallback) return { type: "", text: fallback };
+    return null;
+  }
   function RecordedTab({ recordedSteps = [], onReplayOne, onReplayAll }) {
-    const list = asArray2(recordedSteps);
+    const list = asArray2(recordedSteps).filter((s) => s && typeof s === "object");
+    const replayAllEnabled = list.length > 0 && typeof onReplayAll === "function";
     return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { "data-testid": "recorded-tab", children: [
       /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-info-strip", children: [
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Camera, {}),
@@ -27100,7 +27120,7 @@
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "aw-spacer" }),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: "ide-stat", "data-testid": "recorded-count", children: [
           "recorded: ",
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "ide-stat-num", children: list.filter((s) => (s.state ?? s.status) !== "skipped").length })
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "ide-stat-num", children: list.filter((s) => readRecordedStatus(s) !== "skipped" && readRecordedStatus(s) !== "unresolved").length })
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
           "button",
@@ -27109,7 +27129,7 @@
             className: "aw-btn",
             style: { padding: "4px 10px" },
             "data-testid": "recorded-replay-all",
-            disabled: list.length === 0 || typeof onReplayAll !== "function",
+            disabled: !replayAllEnabled,
             onClick: () => typeof onReplayAll === "function" && onReplayAll({ type: "replay_all" }),
             children: [
               /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Repeat, {}),
@@ -27122,31 +27142,42 @@
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Info, {}),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: "No recorded steps yet. They appear here after `step_recorded` events." })
       ] }) : list.map((s, i) => {
-        const id = pickFirst2(s.step_id, s.id, `r-${i}`);
-        const state = (s.state ?? s.status ?? "recorded").toLowerCase();
+        const backendId = s.step_id ?? s.id;
+        const hasBackendId = typeof backendId === "string" && backendId.trim() !== "";
+        const id = hasBackendId ? backendId : `r-${i}`;
+        const state = readRecordedStatus(s);
         const repaired = state === "repaired";
         const skipped = state === "skipped";
         const failed = state === "failed";
-        const passed = !skipped && !failed;
+        const unresolved = state === "unresolved";
+        const passed = !skipped && !failed && !unresolved && state !== "unknown";
         const title = s.description ?? s.title ?? id;
         const locator = s.locator ?? s.selector ?? "";
+        const locatorKind = s.locator_kind ?? null;
+        const expected = readRecordedOutcome(s, "expected");
+        const observed = readRecordedOutcome(s, "observed");
+        const children = asArray2(s.children);
+        const artifacts = asArray2(s.artifacts);
+        const durationMs = s.duration_ms;
         return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
           "div",
           {
             className: "aw-rec-item ide-recorded-step",
             "data-testid": `recorded-item-${id}`,
             "data-state": state,
+            "data-has-backend-id": hasBackendId ? "1" : "0",
             children: [
               /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-rec-head", children: [
                 /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
                   "span",
                   {
                     className: "aw-step-idx ok",
+                    "data-testid": `recorded-row-${id}`,
                     style: {
-                      background: passed ? "var(--grn)" : repaired ? "var(--ylw)" : "var(--bg-inset)",
-                      color: passed ? "#fff" : repaired ? "#fff" : "var(--tx-3)"
+                      background: passed ? "var(--grn)" : repaired ? "var(--ylw)" : failed ? "var(--red)" : "var(--bg-inset)",
+                      color: passed || repaired || failed ? "#fff" : "var(--tx-3)"
                     },
-                    children: skipped ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Skip, { style: { width: 11, height: 11 } }) : repaired ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Sync, { style: { width: 11, height: 11 } }) : /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Check, { style: { width: 11, height: 11 } })
+                    children: skipped ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Skip, { style: { width: 11, height: 11 } }) : repaired ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Sync, { style: { width: 11, height: 11 } }) : failed ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Alert, { style: { width: 11, height: 11 } }) : /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Check, { style: { width: 11, height: 11 } })
                   }
                 ),
                 /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { flex: 1 }, children: [
@@ -27155,44 +27186,159 @@
                     /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { fontFamily: "var(--ff-mono)", fontSize: 10, color: "var(--tx-4)", marginLeft: 6 }, children: id })
                   ] }),
                   /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-step-meta", style: { marginTop: 3 }, children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { className: `aw-badge-i ${passed ? "ok" : repaired ? "warn" : "outline"}`, children: [
-                      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "ldot" }),
-                      state
-                    ] }),
-                    locator ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { children: [
-                      "locator: ",
-                      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: locator })
-                    ] }) : null,
-                    s.duration_ms ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { children: [
+                    /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+                      "span",
+                      {
+                        className: `aw-badge-i ${passed ? "ok" : repaired ? "warn" : failed ? "err" : "outline"}`,
+                        "data-testid": `recorded-status-${id}`,
+                        "data-status": state,
+                        children: [
+                          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "ldot" }),
+                          state
+                        ]
+                      }
+                    ),
+                    locator ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+                      "span",
+                      {
+                        "data-testid": `recorded-locator-${id}`,
+                        "data-locator-kind": locatorKind ?? "",
+                        children: [
+                          "locator: ",
+                          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: locator })
+                        ]
+                      }
+                    ) : null,
+                    typeof durationMs === "number" ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { children: [
                       "\xB7 ",
-                      s.duration_ms,
+                      durationMs,
                       "ms"
                     ] }) : null
-                  ] })
+                  ] }),
+                  expected ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+                    "div",
+                    {
+                      className: "aw-rec-expected",
+                      "data-testid": `recorded-expected-${id}`,
+                      "data-expected-type": expected.type,
+                      style: { marginTop: 3, fontSize: 11.5, color: "var(--tx-3)" },
+                      children: [
+                        "expected: ",
+                        expected.type ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("b", { children: expected.type }) : null,
+                        " ",
+                        expected.text
+                      ]
+                    }
+                  ) : null,
+                  observed ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+                    "div",
+                    {
+                      className: "aw-rec-observed",
+                      "data-testid": `recorded-observed-${id}`,
+                      "data-observed-type": observed.type,
+                      style: { marginTop: 2, fontSize: 11.5, color: passed ? "var(--tx-3)" : "var(--red)" },
+                      children: [
+                        "observed: ",
+                        observed.type ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("b", { children: observed.type }) : null,
+                        " ",
+                        observed.text
+                      ]
+                    }
+                  ) : null
                 ] }),
-                typeof onReplayOne === "function" ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
                   "button",
                   {
                     type: "button",
                     className: "aw-icon-btn",
-                    title: "Replay",
+                    title: hasBackendId ? typeof onReplayOne === "function" ? "Replay" : "Replay command not yet wired" : "No backend step id",
                     "data-testid": `recorded-replay-${id}`,
-                    onClick: () => onReplayOne({ type: "replay_one", step_id: id }),
+                    disabled: !hasBackendId || typeof onReplayOne !== "function",
+                    onClick: () => {
+                      if (hasBackendId && typeof onReplayOne === "function") {
+                        onReplayOne({ type: "replay_one", step_id: id });
+                      }
+                    },
                     children: /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Repeat, {})
                   }
-                ) : null
+                )
               ] }),
-              asArray2(s.children).length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+              children.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
                 "div",
                 {
                   className: "aw-step-ops",
                   style: { borderLeft: "2px solid var(--grn-soft)", marginTop: 6, paddingLeft: 10 },
-                  "data-testid": `recorded-children-${id}`,
-                  children: asArray2(s.children).map((child, j) => /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-step-op", children: [
-                    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "op-tag", children: child.operation ?? child.kind ?? "op" }),
-                    /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "ide-plan-child-desc", children: child.description ?? child.text ?? "" }),
-                    child.generated_line ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("code", { style: { marginLeft: 6, fontFamily: "var(--ff-mono)", fontSize: 11, color: "var(--tx-3)" }, children: child.generated_line }) : null
-                  ] }, j))
+                  "data-testid": `recorded-child-list-${id}`,
+                  "data-count": String(children.filter((c) => c && typeof c === "object").length),
+                  children: children.map((child, j) => {
+                    if (!child || typeof child !== "object") return null;
+                    const childId = String(child.child_id ?? child.operation_id ?? child.id ?? `op_${j + 1}`);
+                    const op = child.operation ?? child.kind ?? child.type ?? "op";
+                    const desc = child.description ?? child.text ?? "";
+                    const childStatus = typeof child.status === "string" ? child.status : null;
+                    return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+                      "div",
+                      {
+                        className: "aw-step-op",
+                        "data-testid": `recorded-child-${id}-${childId}`,
+                        "data-op-type": op,
+                        "data-op-status": childStatus ?? "",
+                        children: [
+                          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "op-tag", children: op }),
+                          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "ide-plan-child-desc", children: desc }),
+                          child.generated_line ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("code", { style: { marginLeft: 6, fontFamily: "var(--ff-mono)", fontSize: 11, color: "var(--tx-3)" }, children: child.generated_line }) : null,
+                          childStatus ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+                            "span",
+                            {
+                              className: `aw-badge-i ${childStatus === "passed" || childStatus === "recorded" || childStatus === "ok" ? "ok" : childStatus === "failed" ? "err" : childStatus === "skipped" ? "outline" : "outline"}`,
+                              style: { marginLeft: 6, fontSize: 10 },
+                              "data-status": childStatus,
+                              children: [
+                                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "ldot" }),
+                                childStatus
+                              ]
+                            }
+                          ) : null
+                        ]
+                      },
+                      childId
+                    );
+                  })
+                }
+              ) : null,
+              artifacts.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+                "div",
+                {
+                  className: "aw-rec-artifacts",
+                  "data-testid": `recorded-artifact-list-${id}`,
+                  style: { marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" },
+                  children: artifacts.map((a, j) => {
+                    if (!a) return null;
+                    const isStr = typeof a === "string";
+                    const artifactId = String(
+                      isStr ? a : a.id ?? a.artifact_id ?? a.name ?? `art_${j + 1}`
+                    );
+                    const href = isStr ? a : typeof a === "object" ? a.url ?? a.href ?? a.path ?? "" : "";
+                    const label = isStr ? a : typeof a === "object" ? a.label ?? a.name ?? artifactId : String(a);
+                    return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+                      "a",
+                      {
+                        href: href || void 0,
+                        target: href ? "_blank" : void 0,
+                        rel: href ? "noreferrer" : void 0,
+                        className: "aw-link",
+                        "data-testid": `recorded-artifact-${id}-${artifactId}`,
+                        "data-artifact-href": href,
+                        style: { fontSize: 11 },
+                        children: [
+                          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Camera, { style: { width: 10, height: 10 } }),
+                          " ",
+                          label
+                        ]
+                      },
+                      artifactId
+                    );
+                  })
                 }
               ) : null,
               repaired && (s.repaired_from || s.repaired_to) ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-diff", style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 1 }, children: [

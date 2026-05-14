@@ -635,8 +635,38 @@ export function StepsTab({
 
 // — Recorded tab ————————————————————————————————————————
 
+// Pass 5 (D-102): backend evidence read helpers. Frontend never invents
+// recorded state — it surfaces what the backend's step_recorded /
+// recorded_steps payload contains.
+function readRecordedStatus(s) {
+  const raw = s && typeof s === "object" ? (s.state ?? s.status) : null;
+  if (typeof raw !== "string") return "unknown";
+  return raw.toLowerCase();
+}
+
+function readRecordedOutcome(s, kind) {
+  if (!s || typeof s !== "object") return null;
+  const field = kind === "expected" ? "expected_outcome" : "observed_outcome";
+  const obj = s[field];
+  if (obj && typeof obj === "object" && !Array.isArray(obj)) {
+    const text = typeof obj.description === "string" ? obj.description :
+                 typeof obj.text === "string" ? obj.text :
+                 typeof obj.value === "string" ? obj.value : "";
+    const type = typeof obj.type === "string" ? obj.type : "";
+    if (!text && !type) return null;
+    return { type, text };
+  }
+  // Fallback: plain string field (some backends emit "observed_text").
+  const fallback = kind === "expected" ? s.expected_text : s.observed_text;
+  if (typeof fallback === "string" && fallback) return { type: "", text: fallback };
+  return null;
+}
+
 export function RecordedTab({ recordedSteps = [], onReplayOne, onReplayAll }) {
-  const list = asArray(recordedSteps);
+  // Filter malformed entries up front so the frontend never invents a
+  // "recorded item" row for non-objects (per D-102 honesty rule).
+  const list = asArray(recordedSteps).filter((s) => s && typeof s === "object");
+  const replayAllEnabled = list.length > 0 && typeof onReplayAll === "function";
   return (
     <div data-testid="recorded-tab">
       <div className="aw-info-strip">
@@ -644,11 +674,11 @@ export function RecordedTab({ recordedSteps = [], onReplayOne, onReplayAll }) {
         <span>Backend-emitted evidence only. Skipped or unresolved steps are not shown as recorded.</span>
         <span className="aw-spacer"/>
         <span className="ide-stat" data-testid="recorded-count">
-          recorded: <span className="ide-stat-num">{list.filter((s) => (s.state ?? s.status) !== "skipped").length}</span>
+          recorded: <span className="ide-stat-num">{list.filter((s) => readRecordedStatus(s) !== "skipped" && readRecordedStatus(s) !== "unresolved").length}</span>
         </span>
         <button type="button" className="aw-btn" style={{ padding: "4px 10px" }}
                 data-testid="recorded-replay-all"
-                disabled={list.length === 0 || typeof onReplayAll !== "function"}
+                disabled={!replayAllEnabled}
                 onClick={() => typeof onReplayAll === "function" && onReplayAll({ type: "replay_all" })}>
           <I.Repeat/>Replay all
         </button>
@@ -660,27 +690,41 @@ export function RecordedTab({ recordedSteps = [], onReplayOne, onReplayAll }) {
         </div>
       ) : (
         list.map((s, i) => {
-          const id = pickFirst(s.step_id, s.id, `r-${i}`);
-          const state = (s.state ?? s.status ?? "recorded").toLowerCase();
+          // Stable id only when backend provided one. Synthetic `r-${i}`
+          // marks "no backend id" — frontend must not pretend to replay it.
+          const backendId = s.step_id ?? s.id;
+          const hasBackendId = typeof backendId === "string" && backendId.trim() !== "";
+          const id = hasBackendId ? backendId : `r-${i}`;
+          const state = readRecordedStatus(s);
           const repaired = state === "repaired";
           const skipped = state === "skipped";
           const failed = state === "failed";
-          const passed = !skipped && !failed;
+          const unresolved = state === "unresolved";
+          const passed = !skipped && !failed && !unresolved && state !== "unknown";
           const title = s.description ?? s.title ?? id;
           const locator = s.locator ?? s.selector ?? "";
+          const locatorKind = s.locator_kind ?? null;
+          const expected = readRecordedOutcome(s, "expected");
+          const observed = readRecordedOutcome(s, "observed");
+          const children = asArray(s.children);
+          const artifacts = asArray(s.artifacts);
+          const durationMs = s.duration_ms;
           return (
             <div key={id}
                  className="aw-rec-item ide-recorded-step"
                  data-testid={`recorded-item-${id}`}
-                 data-state={state}>
+                 data-state={state}
+                 data-has-backend-id={hasBackendId ? "1" : "0"}>
               <div className="aw-rec-head">
                 <span className="aw-step-idx ok"
+                      data-testid={`recorded-row-${id}`}
                       style={{
-                        background: passed ? "var(--grn)" : repaired ? "var(--ylw)" : "var(--bg-inset)",
-                        color: passed ? "#fff" : (repaired ? "#fff" : "var(--tx-3)"),
+                        background: passed ? "var(--grn)" : repaired ? "var(--ylw)" : failed ? "var(--red)" : "var(--bg-inset)",
+                        color: passed || repaired || failed ? "#fff" : "var(--tx-3)",
                       }}>
                   {skipped ? <I.Skip style={{ width: 11, height: 11 }}/> :
                    repaired ? <I.Sync style={{ width: 11, height: 11 }}/> :
+                   failed ? <I.Alert style={{ width: 11, height: 11 }}/> :
                               <I.Check style={{ width: 11, height: 11 }}/>}
                 </span>
                 <div style={{ flex: 1 }}>
@@ -691,36 +735,135 @@ export function RecordedTab({ recordedSteps = [], onReplayOne, onReplayAll }) {
                     </span>
                   </div>
                   <div className="aw-step-meta" style={{ marginTop: 3 }}>
-                    <span className={`aw-badge-i ${passed ? "ok" : repaired ? "warn" : "outline"}`}>
+                    <span
+                      className={`aw-badge-i ${passed ? "ok" : repaired ? "warn" : failed ? "err" : "outline"}`}
+                      data-testid={`recorded-status-${id}`}
+                      data-status={state}
+                    >
                       <span className="ldot"/>{state}
                     </span>
-                    {locator ? <span>locator: <span style={{ fontFamily: "var(--ff-mono)" }}>{locator}</span></span> : null}
-                    {s.duration_ms ? <span>· {s.duration_ms}ms</span> : null}
+                    {locator ? (
+                      <span
+                        data-testid={`recorded-locator-${id}`}
+                        data-locator-kind={locatorKind ?? ""}
+                      >
+                        locator: <span style={{ fontFamily: "var(--ff-mono)" }}>{locator}</span>
+                      </span>
+                    ) : null}
+                    {typeof durationMs === "number" ? <span>· {durationMs}ms</span> : null}
                   </div>
+                  {expected ? (
+                    <div
+                      className="aw-rec-expected"
+                      data-testid={`recorded-expected-${id}`}
+                      data-expected-type={expected.type}
+                      style={{ marginTop: 3, fontSize: 11.5, color: "var(--tx-3)" }}
+                    >
+                      expected: {expected.type ? <b>{expected.type}</b> : null} {expected.text}
+                    </div>
+                  ) : null}
+                  {observed ? (
+                    <div
+                      className="aw-rec-observed"
+                      data-testid={`recorded-observed-${id}`}
+                      data-observed-type={observed.type}
+                      style={{ marginTop: 2, fontSize: 11.5, color: passed ? "var(--tx-3)" : "var(--red)" }}
+                    >
+                      observed: {observed.type ? <b>{observed.type}</b> : null} {observed.text}
+                    </div>
+                  ) : null}
                 </div>
-                {typeof onReplayOne === "function" ? (
-                  <button type="button" className="aw-icon-btn" title="Replay"
-                          data-testid={`recorded-replay-${id}`}
-                          onClick={() => onReplayOne({ type: "replay_one", step_id: id })}>
-                    <I.Repeat/>
-                  </button>
-                ) : null}
+                <button
+                  type="button"
+                  className="aw-icon-btn"
+                  title={hasBackendId
+                    ? (typeof onReplayOne === "function" ? "Replay" : "Replay command not yet wired")
+                    : "No backend step id"
+                  }
+                  data-testid={`recorded-replay-${id}`}
+                  disabled={!hasBackendId || typeof onReplayOne !== "function"}
+                  onClick={() => {
+                    if (hasBackendId && typeof onReplayOne === "function") {
+                      onReplayOne({ type: "replay_one", step_id: id });
+                    }
+                  }}
+                >
+                  <I.Repeat/>
+                </button>
               </div>
-              {asArray(s.children).length > 0 ? (
+              {children.length > 0 ? (
                 <div className="aw-step-ops"
                      style={{ borderLeft: "2px solid var(--grn-soft)", marginTop: 6, paddingLeft: 10 }}
-                     data-testid={`recorded-children-${id}`}>
-                  {asArray(s.children).map((child, j) => (
-                    <div key={j} className="aw-step-op">
-                      <span className="op-tag">{child.operation ?? child.kind ?? "op"}</span>
-                      <span className="ide-plan-child-desc">{child.description ?? child.text ?? ""}</span>
-                      {child.generated_line ? (
-                        <code style={{ marginLeft: 6, fontFamily: "var(--ff-mono)", fontSize: 11, color: "var(--tx-3)" }}>
-                          {child.generated_line}
-                        </code>
-                      ) : null}
-                    </div>
-                  ))}
+                     data-testid={`recorded-child-list-${id}`}
+                     data-count={String(children.filter((c) => c && typeof c === "object").length)}>
+                  {children.map((child, j) => {
+                    if (!child || typeof child !== "object") return null;
+                    const childId = String(child.child_id ?? child.operation_id ?? child.id ?? `op_${j + 1}`);
+                    const op = child.operation ?? child.kind ?? child.type ?? "op";
+                    const desc = child.description ?? child.text ?? "";
+                    const childStatus = typeof child.status === "string" ? child.status : null;
+                    return (
+                      <div
+                        key={childId}
+                        className="aw-step-op"
+                        data-testid={`recorded-child-${id}-${childId}`}
+                        data-op-type={op}
+                        data-op-status={childStatus ?? ""}
+                      >
+                        <span className="op-tag">{op}</span>
+                        <span className="ide-plan-child-desc">{desc}</span>
+                        {child.generated_line ? (
+                          <code style={{ marginLeft: 6, fontFamily: "var(--ff-mono)", fontSize: 11, color: "var(--tx-3)" }}>
+                            {child.generated_line}
+                          </code>
+                        ) : null}
+                        {childStatus ? (
+                          <span
+                            className={`aw-badge-i ${
+                              childStatus === "passed" || childStatus === "recorded" || childStatus === "ok" ? "ok" :
+                              childStatus === "failed" ? "err" :
+                              childStatus === "skipped" ? "outline" : "outline"
+                            }`}
+                            style={{ marginLeft: 6, fontSize: 10 }}
+                            data-status={childStatus}
+                          >
+                            <span className="ldot"/>{childStatus}
+                          </span>
+                        ) : null}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
+              {artifacts.length > 0 ? (
+                <div
+                  className="aw-rec-artifacts"
+                  data-testid={`recorded-artifact-list-${id}`}
+                  style={{ marginTop: 6, display: "flex", gap: 6, flexWrap: "wrap" }}
+                >
+                  {artifacts.map((a, j) => {
+                    if (!a) return null;
+                    const isStr = typeof a === "string";
+                    const artifactId = String(
+                      isStr ? a : (a.id ?? a.artifact_id ?? a.name ?? `art_${j + 1}`)
+                    );
+                    const href = isStr ? a : (typeof a === "object" ? (a.url ?? a.href ?? a.path ?? "") : "");
+                    const label = isStr ? a : (typeof a === "object" ? (a.label ?? a.name ?? artifactId) : String(a));
+                    return (
+                      <a
+                        key={artifactId}
+                        href={href || undefined}
+                        target={href ? "_blank" : undefined}
+                        rel={href ? "noreferrer" : undefined}
+                        className="aw-link"
+                        data-testid={`recorded-artifact-${id}-${artifactId}`}
+                        data-artifact-href={href}
+                        style={{ fontSize: 11 }}
+                      >
+                        <I.Camera style={{ width: 10, height: 10 }} /> {label}
+                      </a>
+                    );
+                  })}
                 </div>
               ) : null}
               {repaired && (s.repaired_from || s.repaired_to) ? (
