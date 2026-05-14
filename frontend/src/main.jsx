@@ -2318,24 +2318,43 @@ function useAutoWorkbenchTransport(config) {
     );
   }, [sendPayload]);
 
-  // D-101 state-cluster commands
+  // D-101 state-cluster commands.
+  // Backend handlers (server.py change_precondition / navigate_to_expected,
+  // and the routed correction / permission_decision / skip_step paths)
+  // require run_id. Pull it from the active plan so the envelope is valid.
+  const getActiveRunId = useCallback(() => {
+    const currentPlan = planRef.current && typeof planRef.current === "object" ? planRef.current : null;
+    const rawPlan = currentPlan && typeof currentPlan.raw === "object" ? currentPlan.raw : {};
+    return firstNonEmptyText(rawPlan.run_id, rawPlan.runId);
+  }, []);
+
   const handleResolveBlocked = useCallback((cmd) => {
     if (!cmd || !cmd.type) return;
-    const envelope = buildFrontendCommandEnvelope(cmd.type, cmd);
+    const runId = firstNonEmptyText(cmd.run_id, getActiveRunId());
+    const payload = runId ? { ...cmd, run_id: runId } : { ...cmd };
+    const envelope = buildFrontendCommandEnvelope(cmd.type, payload);
     sendPayload(envelope, "WebSocket not connected — cannot dispatch resolve_blocked.");
-  }, [sendPayload]);
+  }, [getActiveRunId, sendPayload]);
 
   const handleChangePrecondition = useCallback((cmd) => {
     if (!cmd || !cmd.step_id) return;
-    const envelope = buildFrontendCommandEnvelope("change_precondition", cmd);
+    const runId = firstNonEmptyText(cmd.run_id, getActiveRunId());
+    if (!runId) return;
+    const payload = { ...cmd, run_id: runId };
+    const envelope = buildFrontendCommandEnvelope("change_precondition", payload);
     sendPayload(envelope, "WebSocket not connected — cannot dispatch change_precondition.");
-  }, [sendPayload]);
+  }, [getActiveRunId, sendPayload]);
 
   const handleNavigateToExpected = useCallback((cmd) => {
     if (!cmd || !cmd.step_id) return;
-    const envelope = buildFrontendCommandEnvelope("navigate_to_expected", cmd);
+    const runId = firstNonEmptyText(cmd.run_id, getActiveRunId());
+    if (!runId) return;
+    // Spec (S7-WRAP-D101 §C): payload is { step_id, run_id } only — backend
+    // reads the expected URL from step metadata, not from the frontend payload.
+    const payload = { step_id: cmd.step_id, run_id: runId };
+    const envelope = buildFrontendCommandEnvelope("navigate_to_expected", payload);
     sendPayload(envelope, "WebSocket not connected — cannot dispatch navigate_to_expected.");
-  }, [sendPayload]);
+  }, [getActiveRunId, sendPayload]);
 
   const handleConfirmPlan = useCallback(() => {
     const currentPlan = planRef.current && typeof planRef.current === "object" ? planRef.current : null;

@@ -30578,21 +30578,34 @@
         "WebSocket not connected."
       );
     }, [sendPayload]);
+    const getActiveRunId = (0, import_react6.useCallback)(() => {
+      const currentPlan = planRef.current && typeof planRef.current === "object" ? planRef.current : null;
+      const rawPlan = currentPlan && typeof currentPlan.raw === "object" ? currentPlan.raw : {};
+      return firstNonEmptyText(rawPlan.run_id, rawPlan.runId);
+    }, []);
     const handleResolveBlocked = (0, import_react6.useCallback)((cmd) => {
       if (!cmd || !cmd.type) return;
-      const envelope = buildFrontendCommandEnvelope(cmd.type, cmd);
+      const runId = firstNonEmptyText(cmd.run_id, getActiveRunId());
+      const payload = runId ? { ...cmd, run_id: runId } : { ...cmd };
+      const envelope = buildFrontendCommandEnvelope(cmd.type, payload);
       sendPayload(envelope, "WebSocket not connected \u2014 cannot dispatch resolve_blocked.");
-    }, [sendPayload]);
+    }, [getActiveRunId, sendPayload]);
     const handleChangePrecondition = (0, import_react6.useCallback)((cmd) => {
       if (!cmd || !cmd.step_id) return;
-      const envelope = buildFrontendCommandEnvelope("change_precondition", cmd);
+      const runId = firstNonEmptyText(cmd.run_id, getActiveRunId());
+      if (!runId) return;
+      const payload = { ...cmd, run_id: runId };
+      const envelope = buildFrontendCommandEnvelope("change_precondition", payload);
       sendPayload(envelope, "WebSocket not connected \u2014 cannot dispatch change_precondition.");
-    }, [sendPayload]);
+    }, [getActiveRunId, sendPayload]);
     const handleNavigateToExpected = (0, import_react6.useCallback)((cmd) => {
       if (!cmd || !cmd.step_id) return;
-      const envelope = buildFrontendCommandEnvelope("navigate_to_expected", cmd);
+      const runId = firstNonEmptyText(cmd.run_id, getActiveRunId());
+      if (!runId) return;
+      const payload = { step_id: cmd.step_id, run_id: runId };
+      const envelope = buildFrontendCommandEnvelope("navigate_to_expected", payload);
       sendPayload(envelope, "WebSocket not connected \u2014 cannot dispatch navigate_to_expected.");
-    }, [sendPayload]);
+    }, [getActiveRunId, sendPayload]);
     const handleConfirmPlan = (0, import_react6.useCallback)(() => {
       const currentPlan = planRef.current && typeof planRef.current === "object" ? planRef.current : null;
       const rawPlan = currentPlan && typeof currentPlan.raw === "object" ? currentPlan.raw : {};
