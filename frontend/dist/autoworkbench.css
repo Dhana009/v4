@@ -2652,6 +2652,58 @@ a:focus-visible,
   font-weight: 500;
   font-variant-numeric: tabular-nums;
 }
+.aw-mode-toggle {
+  display: inline-flex;
+  align-items: stretch;
+  height: 20px;
+  border: 1px solid var(--br);
+  border-radius: 999px;
+  background: var(--bg-card);
+  overflow: hidden;
+  flex-shrink: 0;
+  padding: 0;
+}
+.aw-mode-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 8px;
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--tx-2);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+  white-space: nowrap;
+  line-height: 1;
+}
+.aw-mode-opt + .aw-mode-opt {
+  border-left: 1px solid var(--br);
+}
+.aw-mode-opt:hover:not([disabled]):not([aria-disabled=true]) {
+  color: var(--tx);
+}
+.aw-mode-opt.active {
+  background: var(--acc-tint);
+  color: var(--acc-2);
+}
+.aw-mode-opt.active .aw-dot {
+  background: var(--acc);
+}
+.aw-mode-opt .aw-dot {
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--tx-4);
+  flex-shrink: 0;
+}
+.aw-mode-opt[disabled],
+.aw-mode-opt[aria-disabled=true] {
+  color: var(--tx-4);
+  cursor: not-allowed;
+  opacity: 0.55;
+}
 @keyframes aw-pulse {
   0%, 100% {
     opacity: 1;
@@ -4132,6 +4184,13 @@ a:focus-visible,
 .aw-agents-btn .dots i.off {
   background: var(--br-strong);
   opacity: .6;
+}
+.aw-agents-btn .aw-agents-setup {
+  color: var(--tx-4);
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1;
+  padding: 0 2px;
 }
 .aw-agents-pop {
   position: absolute;

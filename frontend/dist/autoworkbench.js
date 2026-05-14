@@ -24888,7 +24888,7 @@
     agentsOpen = false,
     setAgentsOpen = () => {
     },
-    agentsSummary = ["on", "on", "on", "off", "off"],
+    agentsSummary = [],
     pageUrl = ""
   }) {
     const dockBtn = (kind, Icon, title) => /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
@@ -24975,7 +24975,20 @@
           children: [
             /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(I.Layers, { style: { width: 11, height: 11 } }),
             /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { children: "Agents" }),
-            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dots", children: agentsSummary.map((c, i) => /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("i", { className: c }, i)) })
+            agentsSummary.length === 0 ? (
+              // No backend agent payload yet (BUG-S8-AGENT-001). Render an
+              // honest placeholder instead of fabricating dots. The popover
+              // (D-106) renders the full disabled-empty state.
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+                "span",
+                {
+                  className: "aw-agents-setup",
+                  "data-testid": "aw-agents-setup",
+                  title: "Agent registry not yet wired (Sprint 8 / BUG-S8-AGENT-001)",
+                  children: "\u2014"
+                }
+              )
+            ) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "dots", "data-testid": "aw-agents-dots", children: agentsSummary.map((c, i) => /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("i", { className: c }, i)) })
           ]
         }
       ),
@@ -28174,15 +28187,15 @@
     }, [runtime]);
     const runIdLabel = runtime.storeState?.run_id ?? runtime.run_id ?? "\u2014";
     const agentsSummary = (0, import_react5.useMemo)(() => {
-      const phase = runtime.storeState?.phase ?? state ?? "idle";
-      return [
-        "on",
-        phase === "planning" ? "run" : "on",
-        phase === "executing" ? "run" : "on",
-        phase === "recovery" ? "on" : "off",
-        "off"
-      ];
-    }, [runtime, state]);
+      const list = runtime.storeState?.agents ?? runtime.agents ?? null;
+      if (!Array.isArray(list)) return [];
+      return list.map((a) => {
+        const s = a?.status ?? "";
+        if (s === "running") return "run";
+        if (s === "active" || s === "on") return "on";
+        return "off";
+      });
+    }, [runtime]);
     const handleToggleStepSelect = (0, import_react5.useCallback)(
       (stepId) => setSelectedStepIds(
         (cur) => cur.includes(stepId) ? cur.filter((x) => x !== stepId) : [...cur, stepId]

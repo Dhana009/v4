@@ -95,6 +95,35 @@ describe("D-108 static mock-data gating audit", () => {
         expect(src).not.toMatch(/\?\?\s*DEFAULT_AGENTS/);
       }
     });
+
+    // Regression R2 (post-D-108): a useMemo synthesized a fake agents array
+    // from runtime phase, bypassing the identifier-name guards above.
+    // Scan for hardcoded length>2 arrays of dot-state literals
+    // (["on"|"off"|"run"]) in production runtime sources.
+    it("no production source declares a hardcoded ['on'/'off'/'run'] array of length > 2", () => {
+      for (const rel of PRODUCTION_SOURCES) {
+        const src = readSrc(rel);
+        const codeOnly = src
+          .split("\n")
+          .map((line) => line.replace(/\/\/.*$/, ""))
+          .join("\n")
+          .replace(/\/\*[\s\S]*?\*\//g, "");
+        // Match arrays with 3+ string literals all in {on,off,run}
+        const arrayRe =
+          /\[\s*(?:"(?:on|off|run)"|'(?:on|off|run)')\s*(?:,\s*(?:"(?:on|off|run)"|'(?:on|off|run)')\s*){2,}\]/g;
+        const matches = codeOnly.match(arrayRe);
+        expect(matches, `${rel} contains fabricated agent dot array: ${matches?.[0]}`).toBeNull();
+      }
+    });
+
+    // Even stricter: catch the original useMemo phase-fabrication pattern.
+    it("aw-ide-panel.jsx does not synthesize agentsSummary from phase", () => {
+      const src = readSrc("aw-ide-panel.jsx");
+      // No ternary on phase that yields a dot-state literal
+      expect(src).not.toMatch(/phase\s*===\s*["']planning["']\s*\?\s*["']run["']/);
+      expect(src).not.toMatch(/phase\s*===\s*["']executing["']\s*\?\s*["']run["']/);
+      expect(src).not.toMatch(/phase\s*===\s*["']recovery["']\s*\?\s*["']on["']/);
+    });
   });
 
   describe("reducer initial state is honest empty", () => {

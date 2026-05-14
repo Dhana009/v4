@@ -169,3 +169,33 @@ describe("v4 Header mode toggle (D-105 Manual Mode disabled)", () => {
     expect(screen.queryByTestId("manual-assertion-builder")).toBeNull();
   });
 });
+
+describe("v4 Header agent dots honesty (regression R2)", () => {
+  it("renders setup placeholder (not fabricated dots) when no agents payload", () => {
+    render(<Header />);
+    expect(screen.getByTestId("aw-agents-setup")).toBeInTheDocument();
+    expect(screen.queryByTestId("aw-agents-dots")).toBeNull();
+  });
+
+  it("renders setup placeholder when agentsSummary is explicitly empty", () => {
+    render(<Header agentsSummary={[]} />);
+    expect(screen.getByTestId("aw-agents-setup")).toBeInTheDocument();
+    expect(screen.queryByTestId("aw-agents-dots")).toBeNull();
+  });
+
+  it("renders dots only from injected payload (no fabrication)", () => {
+    render(<Header agentsSummary={["on", "run"]} />);
+    const dots = screen.getByTestId("aw-agents-dots");
+    expect(dots).toBeInTheDocument();
+    // Exactly two <i> children — one per array entry, no padding.
+    expect(dots.querySelectorAll("i")).toHaveLength(2);
+    expect(screen.queryByTestId("aw-agents-setup")).toBeNull();
+  });
+
+  it("Agents toggle button remains clickable in setup mode", () => {
+    const setAgentsOpen = vi.fn();
+    render(<Header setAgentsOpen={setAgentsOpen} />);
+    fireEvent.click(screen.getByTestId("aw-agents-toggle"));
+    expect(setAgentsOpen).toHaveBeenCalledWith(true);
+  });
+});
