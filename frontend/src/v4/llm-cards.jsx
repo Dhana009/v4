@@ -906,7 +906,7 @@ export function LlmEmpty({ onSeed }) {
         I'll plan a flow, ask before running, and record evidence on the way.
       </p>
       <div className="aw-suggestions">
-        {["Validate this pricing page", "Smoke test the login flow", "Repair my flaky checkout spec"].map((c) => (
+        {["Validate this pricing page", "Smoke test the login flow", "Repair my flaky checkout spec", "Record an Add-to-cart journey"].map((c) => (
           <span key={c} className="aw-chip" data-testid={`llm-seed-${c.split(" ")[0].toLowerCase()}`}
                 onClick={() => typeof onSeed === "function" && onSeed(c)}>
             {c}

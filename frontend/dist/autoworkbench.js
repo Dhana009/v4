@@ -26344,7 +26344,7 @@
       /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "ic", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Spark, {}) }),
       /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("h3", { children: "Describe what you want to automate or validate." }),
       /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("p", { children: "Tell me about a page, attach a selection from the page, or paste a Playwright snippet. I'll plan a flow, ask before running, and record evidence on the way." }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "aw-suggestions", children: ["Validate this pricing page", "Smoke test the login flow", "Repair my flaky checkout spec"].map((c) => /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "aw-suggestions", children: ["Validate this pricing page", "Smoke test the login flow", "Repair my flaky checkout spec", "Record an Add-to-cart journey"].map((c) => /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
         "span",
         {
           className: "aw-chip",
@@ -27036,7 +27036,17 @@
               style: { flex: 1 }
             }
           ),
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: `ide-badge ${ready ? "b-ready" : "b-await"}`, "data-testid": `step-status-${stepId}`, children: status })
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: `ide-badge ${ready ? "b-ready" : "b-await"}`, "data-testid": `step-status-${stepId}`, children: status }),
+          stepId ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+            "span",
+            {
+              className: "id",
+              "data-testid": `step-id-${stepId}`,
+              style: { fontFamily: "var(--ff-mono)", fontSize: 10, color: "var(--tx-4)", flexShrink: 0 },
+              title: `step id: ${stepId}`,
+              children: stepId
+            }
+          ) : null
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "ide-step-target-summary", "data-testid": `step-target-${stepId}`, children: targetSummary }),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(StepLocatorChip, { step, stepId, onImproveLocator, onViewCandidates }),

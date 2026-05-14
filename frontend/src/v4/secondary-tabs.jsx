@@ -561,6 +561,16 @@ function PendingStepEditor({
           <span className={`ide-badge ${ready ? "b-ready" : "b-await"}`} data-testid={`step-status-${stepId}`}>
             {status}
           </span>
+          {stepId ? (
+            <span
+              className="id"
+              data-testid={`step-id-${stepId}`}
+              style={{ fontFamily: "var(--ff-mono)", fontSize: 10, color: "var(--tx-4)", flexShrink: 0 }}
+              title={`step id: ${stepId}`}
+            >
+              {stepId}
+            </span>
+          ) : null}
         </div>
         <div className="ide-step-target-summary" data-testid={`step-target-${stepId}`}>
           {targetSummary}

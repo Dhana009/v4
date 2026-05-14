@@ -306,3 +306,73 @@ uses v4 testids is green.
 - No selector based on incidental CSS class.
 - No live website / no paid LLM in tests.
 - Tests fail closed on missing payload, not by waiting for legacy markup.
+
+---
+
+## Sprint 8 design-parity tickets (from Phase 2A triage)
+
+Origin: `.tasks-md/Audit/FRONTEND_DESIGN_AUDIT.md` Phase 2A. Each ticket is
+deferred because production cannot render the state without a backend event
+the backend does not yet emit (architecture invariant: no fake runtime
+truth).
+
+### BUG-S8-NO-BROWSER-CARD-001
+Backend emits no `no_browser` event. Sprint 8 must add typed event when
+Playwright context attach fails or is missing; frontend then renders
+`CardNoBrowser` per design `yui (1)/v4/llm-tab.jsx:593-617`.
+
+### BUG-S8-API-KEY-CARD-001
+Backend redacts API keys in error text but emits no typed `api_key_missing`
+event. Sprint 8: add `api_key_missing` typed event when Main Orchestrator
+needs a key and none configured; frontend renders `CardApiKey` per design
+`yui (1)/v4/llm-tab.jsx:619-644`.
+
+### BUG-S8-OTP-CARD-001
+Backend emits no `human_input_required` / `otp_required` event. Sprint 8:
+add typed `human_input_required {kind: "otp" | "captcha" | ..., step_id,
+redaction_policy}` event; frontend renders `CardOtp` per design
+`yui (1)/v4/llm-tab.jsx:646-673`. Redaction policy must hide entered code
+from screenshots and trace.
+
+### BUG-S8-E2E-PENDING-CARD-001
+Backend emits no `e2e_pending` / `e2e_passed` event. Sprint 8: add typed
+events from paid-E2E scheduler; frontend renders `CardE2EPending` per
+design `yui (1)/v4/llm-tab.jsx:675-700`.
+
+### BUG-S8-LLM-THINKING-RENDER-001
+Backend emits `llm_thinking` per `02_LLM_RUNTIME.md:1583` but production
+reducer does not surface its payload as a `Reason` block (think-head +
+bullet list of reasoning steps). Sprint 8: store `llm_thinking` content in
+conversation entries; LlmThread renders `<Reason head=... ><li>...</li>`
+per design `yui (1)/v4/llm-tab.jsx:27-37`.
+
+### BUG-S8-COMPOSER-CONTEXT-CHIPS-001
+Composer should show context chips for current page URL, attached element
+count, and attached file(s) per design `yui (1)/v4/llm-tab.jsx:727-734`.
+Production composer has none. Source from `runtime.storeState.page_url`,
+picker selection state, and a future attachments list. Render only when
+backend payload present; no fake chips.
+
+### BUG-S8-COMPOSER-ATTACH-001
+Composer paperclip button to attach files/CSVs/JSON for test data
+(`yui (1)/v4/llm-tab.jsx:740`). Requires backend file-attach typed seam +
+workspace store path. None exists today.
+
+### BUG-S8-RECORDED-REPAIR-DIFF-001
+Recorded tab does not render the LLM-repair diff (-toHaveText / +toContainText)
+and repair reason text shown in design `yui (1)/v4/secondary-tabs.jsx:227-233`.
+Backend emits `step_recorded` with optional `repair` object (per
+`02_LLM_RUNTIME.md::recovery`); frontend should read `recorded_step.repair.before`
+and `.after` and render `aw-diff` block when present.
+
+### BUG-S8-RECORDED-SCREENSHOT-TILE-001
+Recorded tab should render a visual screenshot strip (`aw-rec-shot` gradient
+tile) when artifact path present, per design `yui (1)/v4/secondary-tabs.jsx:209`.
+Production shows text link only. Verify Shadow DOM CSP allows `<img src=
+"blob:..." />` or `<img src="data:image/...">` for the artifact URL.
+
+### BUG-S8-CODE-SYNTAX-HIGHLIGHT-001
+Code tab renders raw `code_update` string; design tokenizes with classes
+`com / kw / var / pun / fn / str / num` per `yui (1)/v4/secondary-tabs.jsx:300-327`.
+Sprint 8: add a minimal client-side TS tokenizer or use prism / shiki. Pure
+visual polish; no architectural impact. Code remains backend-authored.
