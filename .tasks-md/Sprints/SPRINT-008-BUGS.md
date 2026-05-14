@@ -207,3 +207,77 @@ the full class-A path needed to actually enable Manual Mode.
 - No fake Manual Mode behaviour, no dead clickable controls.
 - Same Step Runner / Recorder / Codegen path as LLM steps.
 - No paid LLM in tests. No live website in tests.
+
+---
+
+## BUG-S8-E2E-001 — Migrate legacy flow E2E tests to v4 testid contract
+
+**Filed by:** Sprint 7 Wrap-Up Batch D (final E2E run at HEAD `45071df`).
+**Status:** OPEN.
+**Supersedes:** BUG-S7-V4-001 (same scope; widened to all 5 legacy flow tests).
+**PRD/contract references:** `.tasks-md/Audit/V4_TESTID_CONTRACT.md`,
+`SPRINT-007-WRAP-UP-MASTER-SPEC.md §10`.
+
+### Failing tests at Sprint 7 close
+
+All 5 tests below time out on legacy selectors that no longer exist in the v4
+panel. Backend, websocket, picker, and element-pick stages all succeed —
+this is **pure selector drift**, not a product regression. The smoke gate
+(`test_v4_panel_smoke.py`, `test_mvp_001_lifecycle_smoke.py`) which already
+uses v4 testids is green.
+
+| Test | Last green stage | First failing selector | Classification |
+|---|---|---|---|
+| `tests/e2e/test_basic_click_flow.py` | `pending_step_added` | `get_by_role("button", name="Run Pending Steps")` | SELECTOR_DRIFT |
+| `tests/e2e/test_exact_text_assertion_flow.py` | `exact_text_element_picked` | `.ide-step-topline .ide-badge.b-ready` | SELECTOR_DRIFT |
+| `tests/e2e/test_visible_assertion_flow.py` | `visible_assertion_pending_step_added` | `get_by_role("button", name="Run Pending Steps")` | SELECTOR_DRIFT |
+| `tests/e2e/test_correction_assert_then_click_flow.py` | `pending_step_added` | `get_by_role("button", name="Run Pending Steps")` | SELECTOR_DRIFT |
+| `tests/e2e/test_llm_required_ambiguous_action_flow.py` | `pending_step_added` | `get_by_role("button", name="Run Pending Steps")` | SELECTOR_DRIFT |
+
+### Legacy → v4 selector mapping (use `V4_TESTID_CONTRACT.md`)
+
+| Legacy selector | v4 replacement |
+|---|---|
+| `get_by_role("button", name="Run Pending Steps")` | `[data-testid="steps-run-all"]` |
+| `.ide-step-topline .ide-badge.b-ready` | `[data-testid^="aw-step-row-"] [data-testid^="step-kind-"]` (or status-ready signal) |
+| `.ide-step-input` | `[data-testid^="step-input-"]` |
+| `.ide-step-outcome` | `[data-testid^="step-outcome-chip-"]` |
+| `.ide-step-target-summary` | per-row target summary inside `aw-step-row-${id}` |
+| `get_by_role("button", name="Attach Element")` | `[data-testid^="step-attach-"]` |
+| `get_by_role("button", name="Click page element…")` | picker armed indicator (verify against `chrome.jsx`) |
+| `get_by_role("button", name="Confirm Plan")` | `[data-testid="plan-confirm"]` |
+| `get_by_role("button", name="Send Correction")` | `[data-testid="plan-edit"]` → correction composer |
+| `.ide-card` filter "// plan review" | `[data-testid="card-plan-ready"]` / `[data-testid="card-plan-diff"]` |
+| `.ide-clarification-question` | `[data-testid="clarification-question"]` (verify in `llm-cards.jsx`) |
+| `.ide-recorded-step` | `[data-testid^="recorded-row-"]` |
+| `.ide-recorded-step-title` | per-row title inside `recorded-row-${id}` |
+| `.ide-plan-child-desc` | `[data-testid^="step-child-label-"]` / `[data-testid^="recorded-child-"]` |
+| `.ide-stat-num` | footer/count badge — verify in `chrome.jsx` |
+
+### Acceptance criteria
+
+1. Each of the 5 tests passes locally at the Sprint 8 baseline HEAD against
+   the v4 panel using local fixtures + fake LLM (no paid LLM, no live web).
+2. No assertion is weakened. Replays, recordings, child-op counts, and
+   clarification flows are still asserted in full.
+3. Selectors must target `data-testid` per V4_TESTID_CONTRACT.md. Class
+   selectors `ide-*` may not be reintroduced.
+4. If a legacy test asserts behavior that the v4 + backend pipeline does
+   not yet produce (real product gap), that gap is split off as a separate
+   product ticket — do **not** weaken the assertion or skip the test.
+5. Update `.tasks-md/Audit/V4_TESTID_CONTRACT.md §10` mapping table with
+   any new aliases added during migration.
+
+### Out of scope
+
+- Adding new product behavior to make a test green. Any real product gap
+  becomes a separate ticket.
+- Changing the v4 panel testid contract. The contract is frozen; tests
+  migrate to it.
+
+### Architecture invariants (must hold)
+
+- No assertion weakening.
+- No selector based on incidental CSS class.
+- No live website / no paid LLM in tests.
+- Tests fail closed on missing payload, not by waiting for legacy markup.
