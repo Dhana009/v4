@@ -202,8 +202,15 @@ Design reference (NOT production truth):
 | Recorded item | `recorded-item-${id}` | `secondary-tabs.jsx:299` | `secondary-tabs.test.jsx:92-94`, `panel-integration.test.jsx:148,149` | — | ACTIVE | also carries `data-state` (`recorded\|repaired\|skipped\|failed`) |
 | Recorded title | `recorded-title-${id}` | `secondary-tabs.jsx:312` | — | — | ACTIVE | — |
 | Replay single | `recorded-replay-${id}` | `secondary-tabs.jsx:328` | — | — | ACTIVE | — |
-| Children container | `recorded-children-${id}` | `secondary-tabs.jsx:337` | — | — | ACTIVE | — |
-| Per-row evidence panel | (none yet) | — | — | — | PLANNED_D102 | locator-used / validation / screenshot rows pending |
+| Recorded row badge | `recorded-row-${id}` | `secondary-tabs.jsx::RecordedTab` | `secondary-tabs.test.jsx` | — | ACTIVE | Pass 5 (D-102). Status icon container. |
+| Recorded status badge | `recorded-status-${id}` | `secondary-tabs.jsx::RecordedTab` | `secondary-tabs.test.jsx` | — | ACTIVE | Pass 5. `data-status` ∈ {recorded, repaired, skipped, failed, unresolved, unknown}. |
+| Recorded locator | `recorded-locator-${id}` | `secondary-tabs.jsx::RecordedTab` | `secondary-tabs.test.jsx` | — | ACTIVE | Pass 5. `data-locator-kind` from backend payload. |
+| Recorded expected outcome | `recorded-expected-${id}` | `secondary-tabs.jsx::RecordedTab` | `secondary-tabs.test.jsx` | — | ACTIVE | Pass 5. Renders only when `expected_outcome` payload present. |
+| Recorded observed outcome | `recorded-observed-${id}` | `secondary-tabs.jsx::RecordedTab` | `secondary-tabs.test.jsx` | — | ACTIVE | Pass 5. Renders only when `observed_outcome` payload present. |
+| Recorded child list | `recorded-child-list-${id}` | `secondary-tabs.jsx::RecordedTab` | `secondary-tabs.test.jsx` | — | ACTIVE | Pass 5. `data-count` = valid children count. Replaces legacy `recorded-children-${id}`. |
+| Recorded child row | `recorded-child-${stepId}-${childId}` | `secondary-tabs.jsx::RecordedTab` | `secondary-tabs.test.jsx` | — | ACTIVE | Pass 5. `data-op-type` + `data-op-status`. |
+| Recorded artifact list | `recorded-artifact-list-${id}` | `secondary-tabs.jsx::RecordedTab` | — | — | ACTIVE | Pass 5. |
+| Recorded artifact link | `recorded-artifact-${stepId}-${artifactId}` | `secondary-tabs.jsx::RecordedTab` | `secondary-tabs.test.jsx` | — | ACTIVE | Pass 5. `data-artifact-href`. |
 
 ## 8. Code Tab Inventory
 
