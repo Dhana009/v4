@@ -27,6 +27,9 @@ SUPPORTED_FRONTEND_COMMAND_TYPES = {
     "improve_locator",
     "view_candidates",
     "change_locator_scope",
+    # D-101 — state-cluster commands: precondition + navigation
+    "change_precondition",
+    "navigate_to_expected",
 }
 
 

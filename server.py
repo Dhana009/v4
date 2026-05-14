@@ -660,6 +660,146 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 await session.control_queue.put(dict(msg))
                 continue
 
+            # D-101: change_precondition command handler — PRD-05-Replay-Precondition-Guard-v1
+            if msg_type == "change_precondition":
+                current_state = _current_command_state(session)
+                command, rejection = normalize_frontend_command(msg, current_state=current_state)
+                if rejection is not None:
+                    await ws.send_json(rejection)
+                    continue
+                _step_id = str(msg.get("step_id") or "").strip()
+                _cmd_run_id = str(msg.get("run_id") or "").strip()
+                _expected_url = str(msg.get("expected_url") or "").strip()
+                _new_precondition = msg.get("new_precondition")
+                if not _step_id:
+                    await ws.send_json(
+                        build_runtime_rejection_payload(
+                            "MALFORMED_COMMAND",
+                            "change_precondition requires step_id.",
+                            current_state=current_state,
+                            run_id=current_state.get("run_id"),
+                            recoverable=False,
+                            source="server",
+                        )
+                    )
+                    continue
+                if not _cmd_run_id:
+                    await ws.send_json(
+                        build_runtime_rejection_payload(
+                            "MALFORMED_COMMAND",
+                            "change_precondition requires run_id.",
+                            current_state=current_state,
+                            run_id=current_state.get("run_id"),
+                            recoverable=False,
+                            source="server",
+                        )
+                    )
+                    continue
+                if not _expected_url and not _new_precondition:
+                    await ws.send_json(
+                        build_runtime_rejection_payload(
+                            "MALFORMED_COMMAND",
+                            "change_precondition requires expected_url or new_precondition.",
+                            current_state=current_state,
+                            run_id=current_state.get("run_id"),
+                            recoverable=False,
+                            source="server",
+                        )
+                    )
+                    continue
+                # Route through correction pipeline (precondition change is structurally
+                # a plan correction). Package as typed correction envelope.
+                _correction_envelope = {
+                    "type": "correction",
+                    "step_id": _step_id,
+                    "run_id": _cmd_run_id,
+                    "expected_url": _expected_url,
+                    "message": f"Update precondition for step {_step_id}: expected_url={_expected_url}",
+                    "source": "frontend",
+                }
+                await session.control_queue.put(_correction_envelope)
+                _precondition_updated_event = build_backend_event_envelope(
+                    "step_precondition_updated",
+                    {
+                        "step_id": _step_id,
+                        "new_precondition": _new_precondition or {"expected_url": _expected_url, "status": "pending"},
+                    },
+                    source="server",
+                    run_id=_cmd_run_id or None,
+                )
+                await ws.send_json(_precondition_updated_event)
+                continue
+
+            # D-101: navigate_to_expected command handler — PRD-05-Replay-Precondition-Guard-v1
+            if msg_type == "navigate_to_expected":
+                current_state = _current_command_state(session)
+                command, rejection = normalize_frontend_command(msg, current_state=current_state)
+                if rejection is not None:
+                    await ws.send_json(rejection)
+                    continue
+                _step_id = str(msg.get("step_id") or "").strip()
+                _cmd_run_id = str(msg.get("run_id") or "").strip()
+                _active_run_id = current_state.get("run_id") or ""
+                if not _step_id:
+                    await ws.send_json(
+                        build_runtime_rejection_payload(
+                            "MALFORMED_COMMAND",
+                            "navigate_to_expected requires step_id.",
+                            current_state=current_state,
+                            run_id=_active_run_id or None,
+                            recoverable=False,
+                            source="server",
+                        )
+                    )
+                    continue
+                if not _cmd_run_id:
+                    await ws.send_json(
+                        build_runtime_rejection_payload(
+                            "MALFORMED_COMMAND",
+                            "navigate_to_expected requires run_id.",
+                            current_state=current_state,
+                            run_id=_active_run_id or None,
+                            recoverable=False,
+                            source="server",
+                        )
+                    )
+                    continue
+                # Stale run_id check (navigation must target the active run)
+                if _cmd_run_id and _active_run_id and _cmd_run_id != _active_run_id:
+                    await ws.send_json(
+                        build_runtime_rejection_payload(
+                            "STALE_RUN_ID",
+                            f"run_id {_cmd_run_id!r} does not match active run.",
+                            current_state=current_state,
+                            run_id=_active_run_id or None,
+                            recoverable=False,
+                            source="server",
+                        )
+                    )
+                    continue
+                # Emit acknowledged event and queue for agent replay-precondition flow.
+                # Navigation permission policy: navigate_to_expected is generally allowed
+                # (non-destructive URL restoration per Replay Precondition Guard v1).
+                _nav_ack_event = build_backend_event_envelope(
+                    "navigate_to_expected_acknowledged",
+                    {
+                        "step_id": _step_id,
+                        "run_id": _cmd_run_id or _active_run_id or "",
+                        "status": "accepted",
+                    },
+                    source="server",
+                    run_id=_cmd_run_id or _active_run_id or None,
+                )
+                await ws.send_json(_nav_ack_event)
+                # Delegate navigation intent to the agent's replay-precondition flow
+                # via the control queue.
+                await session.control_queue.put({
+                    "type": "navigate_to_expected",
+                    "step_id": _step_id,
+                    "run_id": _cmd_run_id or _active_run_id,
+                })
+                continue
+
             if msg_type == "arm_picker":
                 step_id = str(msg.get("step_id") or "").strip()
                 if not step_id:
