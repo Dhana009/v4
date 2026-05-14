@@ -26530,10 +26530,12 @@
       message: typeof raw.message === "string" ? raw.message : ""
     };
   }
-  function StepPreconditionStrip({ step, stepId }) {
+  function StepPreconditionStrip({ step, stepId, onChangePrecondition, onNavigateToExpected }) {
     const meta = readPreconditionMetadata(step);
     if (!meta || meta.status !== "failed") return null;
     const { rawStatus, expected_url, current_url, message } = meta;
+    const canChangePrec = !!stepId && typeof onChangePrecondition === "function";
+    const canNavigate = !!stepId && typeof expected_url === "string" && expected_url.length > 0 && typeof onNavigateToExpected === "function";
     return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
       "div",
       {
@@ -26592,12 +26594,30 @@
               type: "button",
               className: "aw-link",
               "data-testid": `step-precondition-action-${stepId}`,
-              disabled: true,
-              title: "Change precondition command not yet wired (Pass 4b-5.1)",
-              style: { marginLeft: "auto", color: "#7A5A0E", opacity: 0.6, cursor: "not-allowed" },
+              disabled: !canChangePrec,
+              title: canChangePrec ? "Update the expected precondition URL for this step" : "Change precondition handler not wired",
+              style: {
+                marginLeft: "auto",
+                color: "#7A5A0E",
+                opacity: canChangePrec ? 1 : 0.6,
+                cursor: canChangePrec ? "pointer" : "not-allowed"
+              },
+              onClick: canChangePrec ? () => onChangePrecondition({ type: "change_precondition", step_id: stepId, expected_url: expected_url || "" }) : void 0,
               children: "Change precondition"
             }
-          )
+          ),
+          canNavigate ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+            "button",
+            {
+              type: "button",
+              className: "aw-link",
+              "data-testid": `step-navigate-expected-${stepId}`,
+              title: `Navigate browser to ${expected_url}`,
+              style: { color: "#7A5A0E", cursor: "pointer" },
+              onClick: () => onNavigateToExpected({ type: "navigate_to_expected", step_id: stepId, expected_url }),
+              children: "Navigate there"
+            }
+          ) : null
         ]
       }
     );
@@ -26654,11 +26674,28 @@
       action_label: typeof raw.action_label === "string" ? raw.action_label : ""
     };
   }
-  function StepBlockedStrip({ step, stepId }) {
+  function _blockedActionCommand(reason, stepId) {
+    switch (reason) {
+      case "missing_data":
+        return { type: "correction", step_id: stepId, message: `Provide missing data for step ${stepId}` };
+      case "permission_required":
+        return { type: "permission_decision", decision: "allow_once", step_id: stepId };
+      case "locator_unstable":
+        return { type: "improve_locator", step_id: stepId };
+      case "wrong_page":
+        return { type: "navigate_to_expected", step_id: stepId };
+      case "unknown":
+      default:
+        return { type: "skip_step", step_id: stepId };
+    }
+  }
+  function StepBlockedStrip({ step, stepId, onResolveBlocked }) {
     const meta = readBlockedMetadata(step);
     if (!meta) return null;
     const { reason, rawReason, refs, message, action_label } = meta;
     const palette = reason === "missing_data" ? { bg: "#FBEEEA", br: "#E8B9AE", tx: "#8A3A2E" } : reason === "wrong_page" || reason === "locator_unstable" ? { bg: "#FBF1D2", br: "#ECD89A", tx: "#7A5A0E" } : reason === "permission_required" ? { bg: "#EEEFFF", br: "#C6CAF5", tx: "#3F46AD" } : { bg: "#F4F1EC", br: "#D9D2C5", tx: "#5C5448" };
+    const canDispatch = !!stepId && typeof onResolveBlocked === "function";
+    const actionTitle = canDispatch ? `${action_label || "Resolve"} \u2014 dispatches ${_blockedActionCommand(reason, stepId).type}` : !stepId ? "Cannot resolve: step_id is missing" : "Resolve handler not wired";
     return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
       "div",
       {
@@ -26722,9 +26759,15 @@
               type: "button",
               className: "aw-link",
               "data-testid": `step-blocked-action-${stepId}`,
-              disabled: true,
-              title: "Resolve command not yet wired (Pass 4b-4.1)",
-              style: { marginLeft: "auto", color: palette.tx, opacity: 0.6, cursor: "not-allowed" },
+              disabled: !canDispatch,
+              title: actionTitle,
+              style: {
+                marginLeft: "auto",
+                color: palette.tx,
+                opacity: canDispatch ? 1 : 0.6,
+                cursor: canDispatch ? "pointer" : "not-allowed"
+              },
+              onClick: canDispatch ? () => onResolveBlocked(_blockedActionCommand(reason, stepId)) : void 0,
               children: action_label
             }
           ) : null
@@ -26810,30 +26853,62 @@
       }
     );
   }
-  function StepLocatorChip({ step, stepId }) {
+  var _NON_STRONG_LOCATOR_KINDS = /* @__PURE__ */ new Set(["warn", "med", "unknown"]);
+  function StepLocatorChip({ step, stepId, onImproveLocator, onViewCandidates }) {
     const meta = readLocatorMetadata(step);
     if (!meta) return null;
     const { kind, strength, reason } = meta;
     const label = strength === "strong" ? "strong locator" : strength === "medium" ? "medium locator" : strength === "weak" ? "weak locator" : "locator unknown";
-    return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
-      "div",
-      {
-        className: `aw-badge-i ${kind === "warn" ? "warn" : kind === "med" ? "outline" : kind === "ok" ? "ok" : "outline"}`,
-        "data-testid": `step-locator-${stepId}`,
-        "data-kind": kind,
-        "data-strength": strength,
-        title: reason || label,
-        style: { display: "inline-flex", alignItems: "center", gap: 4, marginTop: 4, fontSize: 11 },
-        children: [
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "ldot" }),
-          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: label }),
-          reason ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { style: { color: "var(--tx-3)" }, children: [
-            "\xB7 ",
-            reason
-          ] }) : null
-        ]
-      }
-    );
+    const showActions = !!stepId && _NON_STRONG_LOCATOR_KINDS.has(kind);
+    return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { style: { display: "inline-flex", flexWrap: "wrap", alignItems: "center", gap: 4, marginTop: 4 }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+        "div",
+        {
+          className: `aw-badge-i ${kind === "warn" ? "warn" : kind === "med" ? "outline" : kind === "ok" ? "ok" : "outline"}`,
+          "data-testid": `step-locator-${stepId}`,
+          "data-kind": kind,
+          "data-strength": strength,
+          title: reason || label,
+          style: { display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11 },
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "ldot" }),
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: label }),
+            reason ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { style: { color: "var(--tx-3)" }, children: [
+              "\xB7 ",
+              reason
+            ] }) : null
+          ]
+        }
+      ),
+      showActions ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(import_jsx_runtime5.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn subtle",
+            "data-testid": `step-improve-locator-${stepId}`,
+            disabled: typeof onImproveLocator !== "function",
+            title: typeof onImproveLocator === "function" ? "Ask LLM to improve this locator" : "Improve locator \u2014 runtime not connected",
+            style: { fontSize: 10, padding: "1px 6px" },
+            onClick: () => typeof onImproveLocator === "function" && onImproveLocator({ type: "improve_locator", step_id: stepId }),
+            children: "Improve locator"
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn subtle",
+            "data-testid": `step-view-candidates-${stepId}`,
+            disabled: typeof onViewCandidates !== "function",
+            title: typeof onViewCandidates === "function" ? "View locator candidates for this step" : "View candidates \u2014 runtime not connected",
+            style: { fontSize: 10, padding: "1px 6px" },
+            onClick: () => typeof onViewCandidates === "function" && onViewCandidates({ type: "view_candidates", step_id: stepId }),
+            children: "View candidates"
+          }
+        )
+      ] }) : null
+    ] });
   }
   function PendingStepEditor({
     step,
@@ -26843,7 +26918,12 @@
     onChangeExpectedOutcome,
     onChangeElementTarget,
     onAttachElement,
-    onDelete
+    onDelete,
+    onImproveLocator,
+    onViewCandidates,
+    onResolveBlocked,
+    onChangePrecondition,
+    onNavigateToExpected
   }) {
     const stepId = step.id ?? step.step_id;
     const intent = step.intent ?? step.text ?? step.description ?? "";
@@ -26885,11 +26965,11 @@
           /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: `ide-badge ${ready ? "b-ready" : "b-await"}`, "data-testid": `step-status-${stepId}`, children: status })
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "ide-step-target-summary", "data-testid": `step-target-${stepId}`, children: targetSummary }),
-        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(StepLocatorChip, { step, stepId }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(StepLocatorChip, { step, stepId, onImproveLocator, onViewCandidates }),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(StepKindChip, { step, stepId }),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(StepChildCountBadge, { step, stepId }),
-        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(StepBlockedStrip, { step, stepId }),
-        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(StepPreconditionStrip, { step, stepId }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(StepBlockedStrip, { step, stepId, onResolveBlocked }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(StepPreconditionStrip, { step, stepId, onChangePrecondition, onNavigateToExpected }),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(StepChildrenList, { step, stepId }),
         candidates.length > 1 ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
           "select",
@@ -26965,7 +27045,12 @@
     onChangeElementTarget,
     onAttachElement,
     blocked = false,
-    blockedReason = ""
+    blockedReason = "",
+    onImproveLocator,
+    onViewCandidates,
+    onResolveBlocked,
+    onChangePrecondition,
+    onNavigateToExpected
   }) {
     const list = asArray2(pendingSteps);
     const [filter, setFilter] = (0, import_react4.useState)("");
@@ -27085,7 +27170,12 @@
           onChangeExpectedOutcome,
           onChangeElementTarget,
           onAttachElement: onAttachElement ?? onPickElement,
-          onDelete: (stepId) => typeof onDelete === "function" && onDelete({ type: "delete_step", step_id: stepId })
+          onDelete: (stepId) => typeof onDelete === "function" && onDelete({ type: "delete_step", step_id: stepId }),
+          onImproveLocator,
+          onViewCandidates,
+          onResolveBlocked,
+          onChangePrecondition,
+          onNavigateToExpected
         },
         s.id ?? s.step_id ?? i
       ))
@@ -27939,6 +28029,8 @@
       onChooseLocatorCandidate: loggedDispatcher("choose_locator_candidate", runtime?.onChooseLocatorCandidate ?? runtime?.handleChooseLocatorCandidate),
       onAskLocatorLLM: loggedDispatcher("ask_locator_llm", runtime?.onAskLocatorLLM),
       onChangeLocatorScope: loggedDispatcher("change_locator_scope", runtime?.onChangeLocatorScope),
+      onImproveLocator: loggedDispatcher("improve_locator", runtime?.onImproveLocator),
+      onViewCandidates: loggedDispatcher("view_candidates", runtime?.onViewCandidates),
       onApplyRecoveryLLM: loggedDispatcher("apply_recovery_llm", runtime?.handleSendRecoveryInstruction ?? runtime?.onApplyRecoveryLLM),
       onRetryRecovery: loggedDispatcher("retry_recovery", runtime?.onRetryRecovery),
       onChooseLocator: loggedDispatcher("choose_locator", runtime?.onChooseLocator),
@@ -27950,7 +28042,11 @@
       onDownloadTrace: loggedDispatcher("download_trace", runtime?.onDownloadTrace),
       onReconnect: loggedDispatcher("reconnect", runtime?.onReconnect),
       onRepairPlan: loggedDispatcher("repair_plan", runtime?.onRepairPlan),
-      onRunSelected: loggedDispatcher("run_selected", runtime?.handleRunPendingSteps ?? runtime?.onRunSelected)
+      onRunSelected: loggedDispatcher("run_selected", runtime?.handleRunPendingSteps ?? runtime?.onRunSelected),
+      // D-101 state-cluster commands
+      onResolveBlocked: loggedDispatcher("resolve_blocked", runtime?.onResolveBlocked ?? runtime?.handleResolveBlocked),
+      onChangePrecondition: loggedDispatcher("change_precondition", runtime?.onChangePrecondition ?? runtime?.handleChangePrecondition),
+      onNavigateToExpected: loggedDispatcher("navigate_to_expected", runtime?.onNavigateToExpected ?? runtime?.handleNavigateToExpected)
     };
   }
   function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
@@ -28079,8 +28175,13 @@
           onReorder: runtime.onReorderPendingStep,
           onDuplicate: runtime.onDuplicatePendingStep,
           onDelete: runtime.removePendingStep ?? runtime.onDeletePendingStep,
+          onResolveBlocked: dispatchers.onResolveBlocked,
+          onChangePrecondition: dispatchers.onChangePrecondition,
+          onNavigateToExpected: dispatchers.onNavigateToExpected,
           blocked: !!runtime.storePendingRecovery || !!runtime.storePendingPermission,
-          blockedReason: runtime.storePendingRecovery ? "Run blocked while recovery is open" : runtime.storePendingPermission ? "Run blocked while permission is pending" : ""
+          blockedReason: runtime.storePendingRecovery ? "Run blocked while recovery is open" : runtime.storePendingPermission ? "Run blocked while permission is pending" : "",
+          onImproveLocator: dispatchers.onImproveLocator,
+          onViewCandidates: dispatchers.onViewCandidates
         }
       );
     } else if (activeTab === "rec") {
@@ -30341,6 +30442,40 @@
       },
       [appendTimeline, sendPayload]
     );
+    const handleImproveLocator = (0, import_react6.useCallback)(
+      ({ step_id } = {}) => {
+        const stepIdStr = typeof step_id === "string" ? step_id.trim() : "";
+        if (!stepIdStr) {
+          appendTimeline("Improve locator: step_id required.", "warn");
+          return;
+        }
+        const sent = sendPayload(
+          { type: "improve_locator", step_id: stepIdStr },
+          "WebSocket not connected \u2014 cannot request locator improvement."
+        );
+        if (sent) {
+          appendTimeline(`Requesting locator improvement for step ${stepIdStr}\u2026`, "active");
+        }
+      },
+      [appendTimeline, sendPayload]
+    );
+    const handleViewCandidates = (0, import_react6.useCallback)(
+      ({ step_id } = {}) => {
+        const stepIdStr = typeof step_id === "string" ? step_id.trim() : "";
+        if (!stepIdStr) {
+          appendTimeline("View candidates: step_id required.", "warn");
+          return;
+        }
+        const sent = sendPayload(
+          { type: "view_candidates", step_id: stepIdStr },
+          "WebSocket not connected \u2014 cannot request locator candidates."
+        );
+        if (sent) {
+          appendTimeline(`Requesting locator candidates for step ${stepIdStr}\u2026`, "active");
+        }
+      },
+      [appendTimeline, sendPayload]
+    );
     const handleCopyCodeToClipboard = (0, import_react6.useCallback)(
       ({ code } = {}) => {
         const codeStr = typeof code === "string" ? code : codePreview;
@@ -30442,6 +30577,21 @@
         },
         "WebSocket not connected."
       );
+    }, [sendPayload]);
+    const handleResolveBlocked = (0, import_react6.useCallback)((cmd) => {
+      if (!cmd || !cmd.type) return;
+      const envelope = buildFrontendCommandEnvelope(cmd.type, cmd);
+      sendPayload(envelope, "WebSocket not connected \u2014 cannot dispatch resolve_blocked.");
+    }, [sendPayload]);
+    const handleChangePrecondition = (0, import_react6.useCallback)((cmd) => {
+      if (!cmd || !cmd.step_id) return;
+      const envelope = buildFrontendCommandEnvelope("change_precondition", cmd);
+      sendPayload(envelope, "WebSocket not connected \u2014 cannot dispatch change_precondition.");
+    }, [sendPayload]);
+    const handleNavigateToExpected = (0, import_react6.useCallback)((cmd) => {
+      if (!cmd || !cmd.step_id) return;
+      const envelope = buildFrontendCommandEnvelope("navigate_to_expected", cmd);
+      sendPayload(envelope, "WebSocket not connected \u2014 cannot dispatch navigate_to_expected.");
     }, [sendPayload]);
     const handleConfirmPlan = (0, import_react6.useCallback)(() => {
       const currentPlan = planRef.current && typeof planRef.current === "object" ? planRef.current : null;
@@ -31196,6 +31346,10 @@
       handleExportCode,
       onCopyCode: handleCopyCodeToClipboard,
       handleCopyCodeToClipboard,
+      onImproveLocator: handleImproveLocator,
+      handleImproveLocator,
+      onViewCandidates: handleViewCandidates,
+      handleViewCandidates,
       setPlanCorrectionText,
       setClarificationQuestion,
       setClarificationOptions,
@@ -31212,6 +31366,13 @@
       updatePendingStepElementTarget,
       handleRunPendingSteps,
       handleSaveSnapshot,
+      // D-101 state-cluster handlers
+      onResolveBlocked: handleResolveBlocked,
+      handleResolveBlocked,
+      onChangePrecondition: handleChangePrecondition,
+      handleChangePrecondition,
+      onNavigateToExpected: handleNavigateToExpected,
+      handleNavigateToExpected,
       handleConfirmPlan,
       handleSendPlanCorrection,
       handleSendClarificationAnswer,
@@ -31221,7 +31382,9 @@
       handleCopyRecordedStep,
       handleExportCode,
       handleCopyCodeToClipboard,
-      handleComposerPick
+      handleComposerPick,
+      handleImproveLocator,
+      handleViewCandidates
     };
   }
   function AutoWorkbenchRuntime({ config }) {
