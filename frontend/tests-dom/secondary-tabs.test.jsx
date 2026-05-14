@@ -413,7 +413,8 @@ describe("v4 secondary tabs (real DOM render)", () => {
     expect(screen.getByTestId("step-blocked-ref-s1-salaries.csv")).toBeInTheDocument();
     const action = screen.getByTestId("step-blocked-action-s1");
     expect(action).toBeDisabled();
-    expect(action).toHaveAttribute("title", expect.stringMatching(/not yet wired/i));
+    // D-101: title updated from old "not yet wired" placeholder to reason-specific text
+    expect(action).toHaveAttribute("title", expect.stringMatching(/handler not wired/i));
   });
 
   it("StepsTab clamps invalid blocked reason to unknown but preserves raw value", () => {
@@ -512,7 +513,8 @@ describe("v4 secondary tabs (real DOM render)", () => {
     expect(screen.getByTestId("step-precondition-current-s1").textContent).toContain("/pricing");
     const action = screen.getByTestId("step-precondition-action-s1");
     expect(action).toBeDisabled();
-    expect(action).toHaveAttribute("title", expect.stringMatching(/not yet wired/i));
+    // D-101: title updated from old "not yet wired" placeholder to reason-specific text
+    expect(action).toHaveAttribute("title", expect.stringMatching(/handler not wired/i));
   });
 
   it("StepsTab ignores malformed precondition without crashing", () => {
@@ -1478,5 +1480,292 @@ describe("v4 secondary tabs (real DOM render)", () => {
     );
     // No inline change-locator-scope button on StepLocatorChip (DISABLE_WITH_REASON)
     expect(screen.queryByTestId("step-change-locator-scope-s1")).toBeNull();
+  });
+
+  // D-101 — blocked-action routing: step-blocked-action-${stepId} dispatches
+  // correct underlying command per blocked.reason (resolve_blocked has NO new
+  // standalone handler; button dispatches existing typed commands directly).
+
+  it("StepBlockedStrip action button dispatches correction for reason=missing_data", () => {
+    const onResolveBlocked = vi.fn();
+    render(
+      <StepsTab
+        pendingSteps={[
+          {
+            id: "sb1",
+            intent: "fill salary form",
+            blocked: {
+              reason: "missing_data",
+              message: "data missing",
+              action_label: "Provide data",
+            },
+          },
+        ]}
+        onResolveBlocked={onResolveBlocked}
+      />
+    );
+    const btn = screen.getByTestId("step-blocked-action-sb1");
+    expect(btn).not.toBeDisabled();
+    fireEvent.click(btn);
+    expect(onResolveBlocked).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "correction", step_id: "sb1" })
+    );
+  });
+
+  it("StepBlockedStrip action button dispatches permission_decision for reason=permission_required", () => {
+    const onResolveBlocked = vi.fn();
+    render(
+      <StepsTab
+        pendingSteps={[
+          {
+            id: "sb2",
+            intent: "write file",
+            blocked: {
+              reason: "permission_required",
+              message: "needs permission",
+              action_label: "Grant permission",
+            },
+          },
+        ]}
+        onResolveBlocked={onResolveBlocked}
+      />
+    );
+    const btn = screen.getByTestId("step-blocked-action-sb2");
+    expect(btn).not.toBeDisabled();
+    fireEvent.click(btn);
+    expect(onResolveBlocked).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "permission_decision", step_id: "sb2" })
+    );
+  });
+
+  it("StepBlockedStrip action button dispatches skip_step for reason=unknown", () => {
+    const onResolveBlocked = vi.fn();
+    render(
+      <StepsTab
+        pendingSteps={[
+          {
+            id: "sb3",
+            blocked: {
+              reason: "unknown",
+              action_label: "Skip step",
+            },
+          },
+        ]}
+        onResolveBlocked={onResolveBlocked}
+      />
+    );
+    const btn = screen.getByTestId("step-blocked-action-sb3");
+    expect(btn).not.toBeDisabled();
+    fireEvent.click(btn);
+    expect(onResolveBlocked).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "skip_step", step_id: "sb3" })
+    );
+  });
+
+  it("StepBlockedStrip action button dispatches improve_locator for reason=locator_unstable", () => {
+    const onResolveBlocked = vi.fn();
+    render(
+      <StepsTab
+        pendingSteps={[
+          {
+            id: "sb4",
+            blocked: {
+              reason: "locator_unstable",
+              action_label: "Improve locator",
+            },
+          },
+        ]}
+        onResolveBlocked={onResolveBlocked}
+      />
+    );
+    const btn = screen.getByTestId("step-blocked-action-sb4");
+    expect(btn).not.toBeDisabled();
+    fireEvent.click(btn);
+    expect(onResolveBlocked).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "improve_locator", step_id: "sb4" })
+    );
+  });
+
+  it("StepBlockedStrip action button dispatches navigate_to_expected for reason=wrong_page", () => {
+    const onResolveBlocked = vi.fn();
+    render(
+      <StepsTab
+        pendingSteps={[
+          {
+            id: "sb5",
+            blocked: {
+              reason: "wrong_page",
+              action_label: "Navigate there",
+            },
+          },
+        ]}
+        onResolveBlocked={onResolveBlocked}
+      />
+    );
+    const btn = screen.getByTestId("step-blocked-action-sb5");
+    expect(btn).not.toBeDisabled();
+    fireEvent.click(btn);
+    expect(onResolveBlocked).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "navigate_to_expected", step_id: "sb5" })
+    );
+  });
+
+  it("StepBlockedStrip action button stays disabled when no step_id", () => {
+    const onResolveBlocked = vi.fn();
+    render(
+      <StepsTab
+        pendingSteps={[
+          {
+            // id intentionally omitted — stepId will be undefined
+            blocked: { reason: "missing_data", action_label: "Fix it" },
+          },
+        ]}
+        onResolveBlocked={onResolveBlocked}
+      />
+    );
+    // When step_id is undefined the action button must stay disabled
+    const btn = screen.queryByTestId("step-blocked-action-undefined");
+    if (btn) {
+      expect(btn).toBeDisabled();
+      fireEvent.click(btn);
+      expect(onResolveBlocked).not.toHaveBeenCalled();
+    }
+    // If button is not rendered at all, that is also acceptable
+  });
+
+  it("StepBlockedStrip action button has descriptive title per reason (not old placeholder)", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          {
+            id: "sb6",
+            blocked: {
+              reason: "missing_data",
+              action_label: "Provide data",
+            },
+          },
+        ]}
+        onResolveBlocked={vi.fn()}
+      />
+    );
+    const btn = screen.getByTestId("step-blocked-action-sb6");
+    // Title must NOT contain the old placeholder text
+    expect(btn.getAttribute("title") ?? "").not.toMatch(/not yet wired/i);
+  });
+
+  // D-101 — precondition-action wiring: step-precondition-action-${stepId}
+  // dispatches change_precondition; was DISABLED, now ACTIVE.
+
+  it("StepPreconditionStrip change-precondition button is enabled and dispatches change_precondition", () => {
+    const onChangePrecondition = vi.fn();
+    render(
+      <StepsTab
+        pendingSteps={[
+          {
+            id: "sp1",
+            precondition: {
+              status: "failed",
+              expected_url: "/docs",
+              current_url: "/pricing",
+            },
+          },
+        ]}
+        onChangePrecondition={onChangePrecondition}
+      />
+    );
+    const btn = screen.getByTestId("step-precondition-action-sp1");
+    expect(btn).not.toBeDisabled();
+    // Title must NOT contain the old placeholder text
+    expect(btn.getAttribute("title") ?? "").not.toMatch(/not yet wired/i);
+    fireEvent.click(btn);
+    expect(onChangePrecondition).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "change_precondition", step_id: "sp1" })
+    );
+  });
+
+  it("StepPreconditionStrip navigate button renders only when status=failed AND expected_url is string", () => {
+    const onNavigateToExpected = vi.fn();
+    render(
+      <StepsTab
+        pendingSteps={[
+          {
+            id: "sp2",
+            precondition: {
+              status: "failed",
+              expected_url: "/docs",
+              current_url: "/pricing",
+            },
+          },
+        ]}
+        onNavigateToExpected={onNavigateToExpected}
+      />
+    );
+    const btn = screen.getByTestId("step-navigate-expected-sp2");
+    expect(btn).toBeInTheDocument();
+    expect(btn).not.toBeDisabled();
+    fireEvent.click(btn);
+    expect(onNavigateToExpected).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "navigate_to_expected", step_id: "sp2", expected_url: "/docs" })
+    );
+  });
+
+  it("StepPreconditionStrip navigate button does NOT render when expected_url is absent", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          {
+            id: "sp3",
+            precondition: {
+              status: "failed",
+              // expected_url intentionally omitted
+              current_url: "/pricing",
+            },
+          },
+        ]}
+        onNavigateToExpected={vi.fn()}
+      />
+    );
+    expect(screen.queryByTestId("step-navigate-expected-sp3")).toBeNull();
+  });
+
+  it("StepPreconditionStrip navigate button does NOT render when status is not failed", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          {
+            id: "sp4",
+            precondition: {
+              status: "passed",
+              expected_url: "/docs",
+            },
+          },
+        ]}
+        onNavigateToExpected={vi.fn()}
+      />
+    );
+    expect(screen.queryByTestId("step-navigate-expected-sp4")).toBeNull();
+  });
+
+  it("StepPreconditionStrip handles malformed blocked/precondition metadata safely", () => {
+    // Neither null, string, nor nested-invalid values should crash the render.
+    expect(() => {
+      render(
+        <StepsTab
+          pendingSteps={[
+            { id: "m1", blocked: null, precondition: null },
+            { id: "m2", blocked: "string", precondition: "string" },
+            { id: "m3", blocked: { reason: null }, precondition: { status: null } },
+          ]}
+          onResolveBlocked={vi.fn()}
+          onChangePrecondition={vi.fn()}
+          onNavigateToExpected={vi.fn()}
+        />
+      );
+    }).not.toThrow();
+    // None of the strips should render for null/string payloads
+    expect(screen.queryByTestId("step-blocked-m1")).toBeNull();
+    expect(screen.queryByTestId("step-precondition-m1")).toBeNull();
+    expect(screen.queryByTestId("step-blocked-m2")).toBeNull();
+    expect(screen.queryByTestId("step-precondition-m2")).toBeNull();
   });
 });
