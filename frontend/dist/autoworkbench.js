@@ -26516,6 +26516,116 @@
       }
     );
   }
+  var _VALID_PRECONDITION_STATUS = /* @__PURE__ */ new Set(["passed", "failed", "unknown"]);
+  function readPreconditionMetadata(step) {
+    const raw = step && typeof step === "object" ? step.precondition : null;
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    const rawStatus = typeof raw.status === "string" ? raw.status : "unknown";
+    const status = _VALID_PRECONDITION_STATUS.has(rawStatus) ? rawStatus : "unknown";
+    return {
+      status,
+      rawStatus,
+      expected_url: typeof raw.expected_url === "string" ? raw.expected_url : "",
+      current_url: typeof raw.current_url === "string" ? raw.current_url : "",
+      message: typeof raw.message === "string" ? raw.message : ""
+    };
+  }
+  function StepPreconditionStrip({ step, stepId }) {
+    const meta = readPreconditionMetadata(step);
+    if (!meta || meta.status !== "failed") return null;
+    const { rawStatus, expected_url, current_url, message } = meta;
+    return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+      "div",
+      {
+        className: "aw-info-strip aw-step-precondition",
+        "data-testid": `step-precondition-${stepId}`,
+        "data-status": "failed",
+        "data-raw-status": rawStatus,
+        role: "alert",
+        style: {
+          background: "#FBF1D2",
+          borderColor: "#ECD89A",
+          color: "#7A5A0E",
+          marginTop: 6,
+          padding: "6px 10px",
+          borderRadius: 6,
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          flexWrap: "wrap",
+          fontSize: 12
+        },
+        children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Alert, { style: { width: 12, height: 12, color: "#7A5A0E" } }),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: "Wrong current page" }),
+          expected_url ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+            "span",
+            {
+              className: "scope",
+              "data-testid": `step-precondition-expected-${stepId}`,
+              style: { fontFamily: "var(--ff-mono)", fontSize: 11 },
+              children: [
+                "expected: ",
+                expected_url
+              ]
+            }
+          ) : null,
+          current_url ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+            "span",
+            {
+              className: "scope",
+              "data-testid": `step-precondition-current-${stepId}`,
+              style: { fontFamily: "var(--ff-mono)", fontSize: 11 },
+              children: [
+                "current: ",
+                current_url
+              ]
+            }
+          ) : null,
+          message ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { children: [
+            "\xB7 ",
+            message
+          ] }) : null,
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+            "button",
+            {
+              type: "button",
+              className: "aw-link",
+              "data-testid": `step-precondition-action-${stepId}`,
+              disabled: true,
+              title: "Change precondition command not yet wired (Pass 4b-5.1)",
+              style: { marginLeft: "auto", color: "#7A5A0E", opacity: 0.6, cursor: "not-allowed" },
+              children: "Change precondition"
+            }
+          )
+        ]
+      }
+    );
+  }
+  function StepChildCountBadge({ step, stepId }) {
+    if (!step || typeof step !== "object") return null;
+    const raw = step.child_op_count;
+    if (typeof raw !== "number" || !Number.isFinite(raw) || raw < 0 || Number.isInteger(raw) === false) {
+      return null;
+    }
+    return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+      "span",
+      {
+        className: "aw-badge-i info",
+        "data-testid": `step-child-count-${stepId}`,
+        "data-count": String(raw),
+        style: { display: "inline-flex", alignItems: "center", gap: 4, marginTop: 4, marginLeft: 6, fontSize: 11 },
+        children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "ldot" }),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { children: [
+            raw,
+            " child op",
+            raw === 1 ? "" : "s"
+          ] })
+        ]
+      }
+    );
+  }
   var _VALID_BLOCKED_REASONS = /* @__PURE__ */ new Set([
     "missing_data",
     "wrong_page",
@@ -26777,7 +26887,9 @@
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "ide-step-target-summary", "data-testid": `step-target-${stepId}`, children: targetSummary }),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(StepLocatorChip, { step, stepId }),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(StepKindChip, { step, stepId }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(StepChildCountBadge, { step, stepId }),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(StepBlockedStrip, { step, stepId }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(StepPreconditionStrip, { step, stepId }),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(StepChildrenList, { step, stepId }),
         candidates.length > 1 ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
           "select",

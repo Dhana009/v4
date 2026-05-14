@@ -185,6 +185,11 @@ Design reference (NOT production truth):
 | Step blocked refs group | `step-blocked-refs-${stepId}` | `secondary-tabs.jsx::StepBlockedStrip` | `secondary-tabs.test.jsx` | — | ACTIVE | Pass 4b-4. |
 | Step blocked ref | `step-blocked-ref-${stepId}-${refId}` | `secondary-tabs.jsx::StepBlockedStrip` | `secondary-tabs.test.jsx` | — | ACTIVE | Pass 4b-4. `refId` = string ref directly, or `r.id` / `r.ref_id` / `r.name` if ref is a dict, falling back to `ref_${idx+1}`. |
 | Step blocked action | `step-blocked-action-${stepId}` | `secondary-tabs.jsx::StepBlockedStrip` | `secondary-tabs.test.jsx` | — | ACTIVE (DISABLED) | Pass 4b-4. Only rendered when `blocked.action_label` is a string. Currently rendered as a disabled link with `title="Resolve command not yet wired (Pass 4b-4.1)"`; will be enabled in Pass 4b-4.1 when typed resolve commands land. |
+| Step precondition strip | `step-precondition-${stepId}` | `secondary-tabs.jsx::StepPreconditionStrip` | `secondary-tabs.test.jsx` (5 tests) | — | ACTIVE | Pass 4b-5. Carries `data-status="failed"` (only rendered when backend says failed) + `data-raw-status`. Frontend never claims failure without explicit `status="failed"` from backend. Backend `normalize_plan_steps_precondition` validates status against {passed, failed, unknown}. |
+| Step precondition expected URL | `step-precondition-expected-${stepId}` | `secondary-tabs.jsx::StepPreconditionStrip` | `secondary-tabs.test.jsx` | — | ACTIVE | Pass 4b-5. |
+| Step precondition current URL | `step-precondition-current-${stepId}` | `secondary-tabs.jsx::StepPreconditionStrip` | `secondary-tabs.test.jsx` | — | ACTIVE | Pass 4b-5. |
+| Step precondition action | `step-precondition-action-${stepId}` | `secondary-tabs.jsx::StepPreconditionStrip` | `secondary-tabs.test.jsx` | — | ACTIVE (DISABLED) | Pass 4b-5. Currently disabled with `title="Change precondition command not yet wired (Pass 4b-5.1)"`. |
+| Step child count badge | `step-child-count-${stepId}` | `secondary-tabs.jsx::StepChildCountBadge` | `secondary-tabs.test.jsx` (5 tests) | — | ACTIVE | Pass 4b-6. Carries `data-count`. Renders only when `step.child_op_count` is a non-negative finite integer. Backend `normalize_plan_steps_child_count` derives from `len(children)` when backend omits explicit count. |
 
 ## 7. Recorded Tab Inventory
 

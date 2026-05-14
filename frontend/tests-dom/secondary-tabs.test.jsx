@@ -470,6 +470,152 @@ describe("v4 secondary tabs (real DOM render)", () => {
     expect(screen.getByTestId("step-blocked-ref-s5-doc-1")).toBeInTheDocument();
   });
 
+  // Pass 4b-5 — backend-driven precondition strip
+  it("StepsTab does not render precondition strip without payload", () => {
+    render(<StepsTab pendingSteps={[{ id: "s1", intent: "click" }]} />);
+    expect(screen.queryByTestId("step-precondition-s1")).toBeNull();
+  });
+
+  it("StepsTab does not render precondition strip when status=passed", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          {
+            id: "s1",
+            precondition: { status: "passed", expected_url: "/docs", current_url: "/docs" },
+          },
+        ]}
+      />
+    );
+    expect(screen.queryByTestId("step-precondition-s1")).toBeNull();
+  });
+
+  it("StepsTab renders precondition strip with expected/current URLs when status=failed", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          {
+            id: "s1",
+            precondition: {
+              status: "failed",
+              expected_url: "/docs",
+              current_url: "/pricing",
+              message: "Navigate to /docs first",
+            },
+          },
+        ]}
+      />
+    );
+    const strip = screen.getByTestId("step-precondition-s1");
+    expect(strip).toHaveAttribute("data-status", "failed");
+    expect(screen.getByTestId("step-precondition-expected-s1").textContent).toContain("/docs");
+    expect(screen.getByTestId("step-precondition-current-s1").textContent).toContain("/pricing");
+    const action = screen.getByTestId("step-precondition-action-s1");
+    expect(action).toBeDisabled();
+    expect(action).toHaveAttribute("title", expect.stringMatching(/not yet wired/i));
+  });
+
+  it("StepsTab ignores malformed precondition without crashing", () => {
+    render(
+      <StepsTab pendingSteps={[{ id: "s2", precondition: "not a dict" }]} />
+    );
+    expect(screen.queryByTestId("step-precondition-s2")).toBeNull();
+  });
+
+  it("StepsTab does not render precondition strip when status=unknown", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          { id: "s3", precondition: { status: "garbage", expected_url: "/x" } },
+        ]}
+      />
+    );
+    // Frontend never claims failure without explicit backend status="failed".
+    expect(screen.queryByTestId("step-precondition-s3")).toBeNull();
+  });
+
+  // Pass 4b-6 — backend-driven child operation count badge
+  it("StepsTab does not render child count badge without payload", () => {
+    render(<StepsTab pendingSteps={[{ id: "s1", intent: "click" }]} />);
+    expect(screen.queryByTestId("step-child-count-s1")).toBeNull();
+  });
+
+  it("StepsTab renders child count badge from payload", () => {
+    render(<StepsTab pendingSteps={[{ id: "s1", child_op_count: 3 }]} />);
+    const badge = screen.getByTestId("step-child-count-s1");
+    expect(badge).toHaveAttribute("data-count", "3");
+    expect(badge.textContent).toContain("3 child ops");
+  });
+
+  it("StepsTab pluralizes child count correctly for 1", () => {
+    render(<StepsTab pendingSteps={[{ id: "s1", child_op_count: 1 }]} />);
+    expect(screen.getByTestId("step-child-count-s1").textContent).toContain("1 child op");
+    expect(screen.getByTestId("step-child-count-s1").textContent).not.toContain("1 child ops");
+  });
+
+  it("StepsTab does not render child count badge for invalid values", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          { id: "s1", child_op_count: -1 },
+          { id: "s2", child_op_count: "many" },
+          { id: "s3", child_op_count: 2.5 },
+          { id: "s4", child_op_count: null },
+        ]}
+      />
+    );
+    expect(screen.queryByTestId("step-child-count-s1")).toBeNull();
+    expect(screen.queryByTestId("step-child-count-s2")).toBeNull();
+    expect(screen.queryByTestId("step-child-count-s3")).toBeNull();
+    expect(screen.queryByTestId("step-child-count-s4")).toBeNull();
+  });
+
+  it("StepsTab child count badge and children list coexist cleanly", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          {
+            id: "sect",
+            step_kind: "section",
+            child_op_count: 2,
+            children: [
+              { child_id: "a", description: "first" },
+              { child_id: "b", description: "second" },
+            ],
+          },
+        ]}
+      />
+    );
+    expect(screen.getByTestId("step-child-count-sect")).toHaveAttribute("data-count", "2");
+    expect(screen.getByTestId("step-children-sect")).toHaveAttribute("data-count", "2");
+  });
+
+  it("StepsTab renders locator/kind/blocked/precondition/children/count together without breaking", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          {
+            id: "fat",
+            intent: "Section: Pricing",
+            step_kind: "section",
+            locator_kind: "ok",
+            locator_strength: "strong",
+            blocked: { reason: "missing_data" },
+            precondition: { status: "failed", expected_url: "/docs", current_url: "/pricing" },
+            child_op_count: 2,
+            children: [{ child_id: "a" }, { child_id: "b" }],
+          },
+        ]}
+      />
+    );
+    expect(screen.getByTestId("step-locator-fat")).toHaveAttribute("data-strength", "strong");
+    expect(screen.getByTestId("step-kind-fat")).toHaveAttribute("data-kind", "section");
+    expect(screen.getByTestId("step-child-count-fat")).toHaveAttribute("data-count", "2");
+    expect(screen.getByTestId("step-blocked-fat")).toHaveAttribute("data-reason", "missing_data");
+    expect(screen.getByTestId("step-precondition-fat")).toHaveAttribute("data-status", "failed");
+    expect(screen.getByTestId("step-children-fat")).toHaveAttribute("data-count", "2");
+  });
+
   it("StepsTab renders locator chip, kind chip, and children list together", () => {
     render(
       <StepsTab

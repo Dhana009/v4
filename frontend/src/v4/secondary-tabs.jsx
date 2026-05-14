@@ -77,6 +77,107 @@ function StepKindChip({ step, stepId }) {
   );
 }
 
+// Pass 4b-5: backend-driven precondition strip. Renders only when
+// `step.precondition.status === "failed"`. Frontend never infers wrong-page
+// state from text or URL comparison.
+const _VALID_PRECONDITION_STATUS = new Set(["passed", "failed", "unknown"]);
+
+function readPreconditionMetadata(step) {
+  const raw = step && typeof step === "object" ? step.precondition : null;
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+  const rawStatus = typeof raw.status === "string" ? raw.status : "unknown";
+  const status = _VALID_PRECONDITION_STATUS.has(rawStatus) ? rawStatus : "unknown";
+  return {
+    status,
+    rawStatus,
+    expected_url: typeof raw.expected_url === "string" ? raw.expected_url : "",
+    current_url: typeof raw.current_url === "string" ? raw.current_url : "",
+    message: typeof raw.message === "string" ? raw.message : "",
+  };
+}
+
+function StepPreconditionStrip({ step, stepId }) {
+  const meta = readPreconditionMetadata(step);
+  if (!meta || meta.status !== "failed") return null;
+  const { rawStatus, expected_url, current_url, message } = meta;
+  return (
+    <div
+      className="aw-info-strip aw-step-precondition"
+      data-testid={`step-precondition-${stepId}`}
+      data-status="failed"
+      data-raw-status={rawStatus}
+      role="alert"
+      style={{
+        background: "#FBF1D2",
+        borderColor: "#ECD89A",
+        color: "#7A5A0E",
+        marginTop: 6,
+        padding: "6px 10px",
+        borderRadius: 6,
+        display: "flex",
+        alignItems: "center",
+        gap: 6,
+        flexWrap: "wrap",
+        fontSize: 12,
+      }}
+    >
+      <I.Alert style={{ width: 12, height: 12, color: "#7A5A0E" }} />
+      <span>Wrong current page</span>
+      {expected_url ? (
+        <span
+          className="scope"
+          data-testid={`step-precondition-expected-${stepId}`}
+          style={{ fontFamily: "var(--ff-mono)", fontSize: 11 }}
+        >
+          expected: {expected_url}
+        </span>
+      ) : null}
+      {current_url ? (
+        <span
+          className="scope"
+          data-testid={`step-precondition-current-${stepId}`}
+          style={{ fontFamily: "var(--ff-mono)", fontSize: 11 }}
+        >
+          current: {current_url}
+        </span>
+      ) : null}
+      {message ? <span>· {message}</span> : null}
+      <button
+        type="button"
+        className="aw-link"
+        data-testid={`step-precondition-action-${stepId}`}
+        disabled
+        title="Change precondition command not yet wired (Pass 4b-5.1)"
+        style={{ marginLeft: "auto", color: "#7A5A0E", opacity: 0.6, cursor: "not-allowed" }}
+      >
+        Change precondition
+      </button>
+    </div>
+  );
+}
+
+// Pass 4b-6: backend-driven child operation count badge. Renders only when
+// `step.child_op_count` is a non-negative integer in payload (backend
+// normalizer guarantees this from explicit value or len(children)).
+function StepChildCountBadge({ step, stepId }) {
+  if (!step || typeof step !== "object") return null;
+  const raw = step.child_op_count;
+  if (typeof raw !== "number" || !Number.isFinite(raw) || raw < 0 || Number.isInteger(raw) === false) {
+    return null;
+  }
+  return (
+    <span
+      className="aw-badge-i info"
+      data-testid={`step-child-count-${stepId}`}
+      data-count={String(raw)}
+      style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 4, marginLeft: 6, fontSize: 11 }}
+    >
+      <span className="ldot" />
+      <span>{raw} child op{raw === 1 ? "" : "s"}</span>
+    </span>
+  );
+}
+
 // Pass 4b-4: backend-driven blocked-step strip. Renders only when
 // `step.blocked` is a dict with a valid reason (backend normalizer guarantees
 // this on plan_ready). No frontend inference of blocked state.
@@ -357,7 +458,9 @@ function PendingStepEditor({
         </div>
         <StepLocatorChip step={step} stepId={stepId} />
         <StepKindChip step={step} stepId={stepId} />
+        <StepChildCountBadge step={step} stepId={stepId} />
         <StepBlockedStrip step={step} stepId={stepId} />
+        <StepPreconditionStrip step={step} stepId={stepId} />
         <StepChildrenList step={step} stepId={stepId} />
         {candidates.length > 1 ? (
           <select
