@@ -77,6 +77,90 @@ function StepKindChip({ step, stepId }) {
   );
 }
 
+// Pass 4b-3: backend-driven section child-op list. Renders only when the
+// step has a non-empty `children` array of dicts. Each child shows its
+// description / type and (when present) status. No frontend invention of
+// children from prose.
+function StepChildrenList({ step, stepId }) {
+  const raw = step && typeof step === "object" ? step.children : null;
+  if (!Array.isArray(raw) || raw.length === 0) return null;
+  const valid = raw.filter((c) => c && typeof c === "object");
+  if (valid.length === 0) return null;
+  return (
+    <div
+      className="aw-step-children"
+      data-testid={`step-children-${stepId}`}
+      data-count={String(valid.length)}
+      style={{
+        marginTop: 6,
+        borderLeft: "2px solid var(--vio-soft)",
+        paddingLeft: 10,
+        display: "flex",
+        flexDirection: "column",
+        gap: 4,
+      }}
+    >
+      {valid.map((child, idx) => {
+        const childId = String(child.child_id ?? child.operation_id ?? child.id ?? `op_${idx + 1}`);
+        const opType = typeof child.type === "string" && child.type ? child.type : "op";
+        const label =
+          (typeof child.description === "string" && child.description) ||
+          (typeof child.text === "string" && child.text) ||
+          (typeof child.label === "string" && child.label) ||
+          "";
+        const status =
+          typeof child.status === "string" && child.status ? child.status : null;
+        const opTag = `${idx + 1}`.padStart(1, "0");
+        return (
+          <div
+            key={childId}
+            className="aw-step-op"
+            data-testid={`step-child-${stepId}-${childId}`}
+            data-op-type={opType}
+            data-op-status={status ?? ""}
+            style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}
+          >
+            <span
+              className="op-tag"
+              style={{
+                background: "var(--vio-soft)",
+                color: "var(--vio)",
+                padding: "1px 6px",
+                borderRadius: 4,
+                fontSize: 10,
+                fontFamily: "var(--ff-mono)",
+              }}
+            >
+              {opTag}
+            </span>
+            <span
+              className="aw-step-op-label"
+              data-testid={`step-child-label-${stepId}-${childId}`}
+            >
+              {label || `(${opType})`}
+            </span>
+            {status ? (
+              <span
+                className={`aw-badge-i ${
+                  status === "passed" || status === "recorded" || status === "ok" ? "ok" :
+                  status === "failed" ? "err" :
+                  status === "skipped" ? "outline" : "outline"
+                }`}
+                data-testid={`step-child-status-${stepId}-${childId}`}
+                data-status={status}
+                style={{ fontSize: 10 }}
+              >
+                <span className="ldot" />
+                {status}
+              </span>
+            ) : null}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function StepLocatorChip({ step, stepId }) {
   const meta = readLocatorMetadata(step);
   if (!meta) return null;
@@ -159,6 +243,7 @@ function PendingStepEditor({
         </div>
         <StepLocatorChip step={step} stepId={stepId} />
         <StepKindChip step={step} stepId={stepId} />
+        <StepChildrenList step={step} stepId={stepId} />
         {candidates.length > 1 ? (
           <select
             className="ide-input ide-step-target-select"

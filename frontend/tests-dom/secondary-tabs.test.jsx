@@ -283,6 +283,130 @@ describe("v4 secondary tabs (real DOM render)", () => {
     expect(screen.getByTestId("step-kind-s5")).toHaveAttribute("data-kind", "atomic");
   });
 
+  // Pass 4b-3 — backend-driven section child-op list
+  it("StepsTab does not render children list when step has no children payload", () => {
+    render(<StepsTab pendingSteps={[{ id: "s1", intent: "click" }]} />);
+    expect(screen.queryByTestId("step-children-s1")).toBeNull();
+  });
+
+  it("StepsTab does not render children list when children is empty array", () => {
+    render(<StepsTab pendingSteps={[{ id: "s1", intent: "section", children: [] }]} />);
+    expect(screen.queryByTestId("step-children-s1")).toBeNull();
+  });
+
+  it("StepsTab renders section child operations from backend payload with stable child_ids", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          {
+            id: "sect",
+            intent: "Section: Pricing grid",
+            step_kind: "section",
+            children: [
+              { child_id: "op_a", type: "click", description: "click Pro card" },
+              { child_id: "op_b", type: "assert", description: "verify price" },
+              { child_id: "op_c", type: "click", description: "click CTA" },
+            ],
+          },
+        ]}
+      />
+    );
+    const list = screen.getByTestId("step-children-sect");
+    expect(list).toBeInTheDocument();
+    expect(list).toHaveAttribute("data-count", "3");
+    expect(screen.getByTestId("step-child-sect-op_a")).toHaveAttribute("data-op-type", "click");
+    expect(screen.getByTestId("step-child-label-sect-op_a").textContent).toContain("click Pro card");
+    expect(screen.getByTestId("step-child-sect-op_b")).toHaveAttribute("data-op-type", "assert");
+    expect(screen.getByTestId("step-child-label-sect-op_c").textContent).toContain("click CTA");
+  });
+
+  it("StepsTab child status renders only when payload provides status", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          {
+            id: "sect",
+            children: [
+              { child_id: "a", type: "click", description: "first", status: "recorded" },
+              { child_id: "b", type: "click", description: "second" },
+            ],
+          },
+        ]}
+      />
+    );
+    const aStatus = screen.getByTestId("step-child-status-sect-a");
+    expect(aStatus).toHaveAttribute("data-status", "recorded");
+    expect(aStatus.textContent).toContain("recorded");
+    expect(screen.queryByTestId("step-child-status-sect-b")).toBeNull();
+  });
+
+  it("StepsTab uses safe fallback child_id when backend omits it", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          {
+            id: "sect",
+            children: [
+              { type: "click", description: "no id child" },
+              { type: "assert", description: "also no id" },
+            ],
+          },
+        ]}
+      />
+    );
+    const list = screen.getByTestId("step-children-sect");
+    expect(list).toHaveAttribute("data-count", "2");
+    // Frontend falls back to op_1, op_2 when child_id missing.
+    expect(screen.getByTestId("step-child-sect-op_1")).toBeInTheDocument();
+    expect(screen.getByTestId("step-child-sect-op_2")).toBeInTheDocument();
+  });
+
+  it("StepsTab drops malformed (non-dict) child entries without crashing", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          {
+            id: "sect",
+            children: [null, 42, "bad", { child_id: "good", description: "real op" }],
+          },
+        ]}
+      />
+    );
+    const list = screen.getByTestId("step-children-sect");
+    // Only the one valid dict child renders.
+    expect(list).toHaveAttribute("data-count", "1");
+    expect(screen.getByTestId("step-child-sect-good")).toBeInTheDocument();
+  });
+
+  it("StepsTab tolerates non-array children payload by rendering nothing", () => {
+    render(<StepsTab pendingSteps={[{ id: "s1", children: "not a list" }]} />);
+    expect(screen.queryByTestId("step-children-s1")).toBeNull();
+  });
+
+  it("StepsTab renders locator chip, kind chip, and children list together", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          {
+            id: "sect",
+            intent: "Section: Pricing",
+            step_kind: "section",
+            locator_kind: "ok",
+            locator_strength: "strong",
+            locator_reason: "uses data-testid",
+            children: [
+              { child_id: "c1", description: "first op" },
+              { child_id: "c2", description: "second op" },
+            ],
+          },
+        ]}
+      />
+    );
+    expect(screen.getByTestId("step-locator-sect")).toHaveAttribute("data-strength", "strong");
+    expect(screen.getByTestId("step-kind-sect")).toHaveAttribute("data-kind", "section");
+    expect(screen.getByTestId("step-children-sect")).toHaveAttribute("data-count", "2");
+  });
+
   it("RecordedTab shows empty state when no recorded steps", () => {
     render(<RecordedTab recordedSteps={[]} />);
     expect(screen.getByTestId("recorded-empty")).toBeInTheDocument();

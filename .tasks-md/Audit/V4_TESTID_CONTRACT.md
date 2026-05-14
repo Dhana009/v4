@@ -176,6 +176,10 @@ Design reference (NOT production truth):
 | Step delete | `step-delete-${stepId}` | `secondary-tabs.jsx:143` | — | — | ACTIVE | — |
 | Step locator chip | `step-locator-${stepId}` | `secondary-tabs.jsx::StepLocatorChip` | `secondary-tabs.test.jsx` (4 tests) | — | ACTIVE | Pass 4b-1. Carries `data-kind` (`ok\|med\|warn\|unknown`) and `data-strength` (`strong\|medium\|weak\|unknown`). Renders only when backend (`plan_ready` annotator or `element_picked`) provides `locator_kind` on step or `step.element_info`. Frontend never infers strength. |
 | Step kind chip | `step-kind-${stepId}` | `secondary-tabs.jsx::StepKindChip` | `secondary-tabs.test.jsx` (6 tests) | — | ACTIVE | Pass 4b-2. Carries `data-kind` (`atomic\|loop\|section\|unknown`, clamped) and `data-raw-kind` (the original backend value, preserved for trace). Renders only when backend provides `step.step_kind`. Frontend never classifies; unknown values are clamped to `unknown` but never silently changed to atomic. |
+| Step children list | `step-children-${stepId}` | `secondary-tabs.jsx::StepChildrenList` | `secondary-tabs.test.jsx` (8 tests) | — | ACTIVE | Pass 4b-3. Carries `data-count` (number of valid children). Renders only when `step.children` is a non-empty array containing at least one dict. Backend `runtime/step_metadata.py::normalize_plan_steps_children` guarantees this shape on plan_ready. |
+| Step child row | `step-child-${stepId}-${childId}` | `secondary-tabs.jsx::StepChildrenList` | `secondary-tabs.test.jsx` | — | ACTIVE | Pass 4b-3. Carries `data-op-type` and `data-op-status`. `childId` falls back to `op_${idx+1}` if backend omits it. |
+| Step child label | `step-child-label-${stepId}-${childId}` | `secondary-tabs.jsx::StepChildrenList` | `secondary-tabs.test.jsx` | — | ACTIVE | Pass 4b-3. Text from `child.description ?? child.text ?? child.label`. |
+| Step child status | `step-child-status-${stepId}-${childId}` | `secondary-tabs.jsx::StepChildrenList` | `secondary-tabs.test.jsx` | — | ACTIVE | Pass 4b-3. Only rendered when backend provides `child.status`. `data-status` carries the raw value. |
 
 ## 7. Recorded Tab Inventory
 

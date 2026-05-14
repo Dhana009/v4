@@ -26516,6 +26516,84 @@
       }
     );
   }
+  function StepChildrenList({ step, stepId }) {
+    const raw = step && typeof step === "object" ? step.children : null;
+    if (!Array.isArray(raw) || raw.length === 0) return null;
+    const valid = raw.filter((c) => c && typeof c === "object");
+    if (valid.length === 0) return null;
+    return /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+      "div",
+      {
+        className: "aw-step-children",
+        "data-testid": `step-children-${stepId}`,
+        "data-count": String(valid.length),
+        style: {
+          marginTop: 6,
+          borderLeft: "2px solid var(--vio-soft)",
+          paddingLeft: 10,
+          display: "flex",
+          flexDirection: "column",
+          gap: 4
+        },
+        children: valid.map((child, idx) => {
+          const childId = String(child.child_id ?? child.operation_id ?? child.id ?? `op_${idx + 1}`);
+          const opType = typeof child.type === "string" && child.type ? child.type : "op";
+          const label = typeof child.description === "string" && child.description || typeof child.text === "string" && child.text || typeof child.label === "string" && child.label || "";
+          const status = typeof child.status === "string" && child.status ? child.status : null;
+          const opTag = `${idx + 1}`.padStart(1, "0");
+          return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+            "div",
+            {
+              className: "aw-step-op",
+              "data-testid": `step-child-${stepId}-${childId}`,
+              "data-op-type": opType,
+              "data-op-status": status ?? "",
+              style: { display: "flex", alignItems: "center", gap: 6, fontSize: 12 },
+              children: [
+                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+                  "span",
+                  {
+                    className: "op-tag",
+                    style: {
+                      background: "var(--vio-soft)",
+                      color: "var(--vio)",
+                      padding: "1px 6px",
+                      borderRadius: 4,
+                      fontSize: 10,
+                      fontFamily: "var(--ff-mono)"
+                    },
+                    children: opTag
+                  }
+                ),
+                /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
+                  "span",
+                  {
+                    className: "aw-step-op-label",
+                    "data-testid": `step-child-label-${stepId}-${childId}`,
+                    children: label || `(${opType})`
+                  }
+                ),
+                status ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+                  "span",
+                  {
+                    className: `aw-badge-i ${status === "passed" || status === "recorded" || status === "ok" ? "ok" : status === "failed" ? "err" : status === "skipped" ? "outline" : "outline"}`,
+                    "data-testid": `step-child-status-${stepId}-${childId}`,
+                    "data-status": status,
+                    style: { fontSize: 10 },
+                    children: [
+                      /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "ldot" }),
+                      status
+                    ]
+                  }
+                ) : null
+              ]
+            },
+            childId
+          );
+        })
+      }
+    );
+  }
   function StepLocatorChip({ step, stepId }) {
     const meta = readLocatorMetadata(step);
     if (!meta) return null;
@@ -26592,6 +26670,7 @@
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "ide-step-target-summary", "data-testid": `step-target-${stepId}`, children: targetSummary }),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(StepLocatorChip, { step, stepId }),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(StepKindChip, { step, stepId }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(StepChildrenList, { step, stepId }),
         candidates.length > 1 ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
           "select",
           {
