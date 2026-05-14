@@ -21,6 +21,8 @@ SUPPORTED_FRONTEND_COMMAND_TYPES = {
     "save_session",
     "load_session",
     "permission_decision",
+    # D-103 — export_code: save generated spec to workspace file
+    "export_code",
 }
 
 

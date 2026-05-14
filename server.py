@@ -315,6 +315,42 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 run_task.add_done_callback(_clear_session_when_done)
                 continue
 
+            if msg_type == "export_code":
+                # D-103: write generated spec to workspace file; emit export_code_result.
+                # Backend owns the file-write; frontend never writes the filesystem.
+                code_str = str(msg.get("code") or "").strip()
+                explicit_path = str(msg.get("path") or "").strip() or None
+                if not code_str:
+                    export_event = build_backend_event_envelope(
+                        "export_code_result",
+                        {"ok": False, "error": "code is required and must be a non-empty string"},
+                        source="server",
+                    )
+                else:
+                    _workspace = os.getenv("AUTOWORKBENCH_WORKSPACE", os.getcwd())
+                    if explicit_path:
+                        target_path = explicit_path
+                    else:
+                        _output_dir = os.path.join(_workspace, "autoworkbench-output")
+                        os.makedirs(_output_dir, exist_ok=True)
+                        target_path = os.path.join(_output_dir, "generated.spec.ts")
+                    try:
+                        with open(target_path, "w", encoding="utf-8") as _f:
+                            _f.write(code_str)
+                        export_event = build_backend_event_envelope(
+                            "export_code_result",
+                            {"ok": True, "path": target_path},
+                            source="server",
+                        )
+                    except OSError as _exc:
+                        export_event = build_backend_event_envelope(
+                            "export_code_result",
+                            {"ok": False, "error": str(_exc)},
+                            source="server",
+                        )
+                await ws.send_json(export_event)
+                continue
+
             if msg_type == "save_snapshot":
                 try:
                     snapshot = session.agent._build_spec_snapshot()
