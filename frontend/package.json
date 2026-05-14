@@ -4,6 +4,7 @@
   "scripts": {
     "clean": "rm -rf dist",
     "build": "npm run clean && esbuild src/main.jsx --bundle --platform=browser --format=iife --outfile=dist/autoworkbench.js --loader:.css=css --jsx=automatic",
+    "check:dist": "node scripts/check-dist-fresh.mjs",
     "test": "vitest run",
     "test:watch": "vitest"
   },

@@ -21,6 +21,7 @@ import { StepsTab, RecordedTab, CodeTab, TraceTab } from "../src/v4/secondary-ta
 import { AgentsPopover } from "../src/v4/chrome.jsx";
 
 const REPO_FRONTEND = path.resolve(__dirname, "..");
+const REPO_ROOT = path.resolve(REPO_FRONTEND, "..");
 
 const PRODUCTION_SOURCES = [
   "aw-ide-panel.jsx",
@@ -194,5 +195,78 @@ describe("D-108 static mock-data gating audit", () => {
       expect(screen.getByTestId("aw-agents-empty")).toBeInTheDocument();
       expect(screen.queryAllByTestId(/^aw-agent-row-/).length).toBe(0);
     });
+  });
+});
+
+// FE-REF-001: Lock authoritative visual reference and dist freshness guard.
+//
+// Repeat mistake risk: porting UI from `yui (1)/v4/` (older checkpoint) instead
+// of `yui (1)/` ROOT (newer source matching AutoWorkbench.html). This block
+// pins the reference contract and asserts the build-freshness tooling exists.
+describe("FE-REF-001 visual reference + dist freshness baseline", () => {
+  const REF_DOC = path.join(REPO_FRONTEND, "REFERENCE_SOURCE.md");
+  const FRESH_SCRIPT = path.join(REPO_FRONTEND, "scripts", "check-dist-fresh.mjs");
+  const PKG_JSON = path.join(REPO_FRONTEND, "package.json");
+
+  const YUI_ROOT_FILES = [
+    "index.html",
+    "app.jsx",
+    "chrome.jsx",
+    "icons.jsx",
+    "llm-tab.jsx",
+    "secondary-tabs.jsx",
+    "tweaks-panel.jsx",
+    "website.jsx",
+    "styles.css",
+  ];
+
+  it("AutoWorkbench.html exists at repo root (visual reference)", () => {
+    expect(fs.existsSync(path.join(REPO_ROOT, "AutoWorkbench.html"))).toBe(true);
+  });
+
+  it("yui (1)/ ROOT design source files all present", () => {
+    const root = path.join(REPO_ROOT, "yui (1)");
+    expect(fs.existsSync(root)).toBe(true);
+    for (const f of YUI_ROOT_FILES) {
+      expect(fs.existsSync(path.join(root, f)), `missing yui ROOT file: ${f}`).toBe(true);
+    }
+  });
+
+  it("yui (1)/v4/ subdir exists but is NOT the authoritative design source", () => {
+    const v4 = path.join(REPO_ROOT, "yui (1)", "v4");
+    expect(fs.existsSync(v4)).toBe(true);
+    expect(fs.existsSync(REF_DOC), "REFERENCE_SOURCE.md must exist to lock ROOT as authoritative").toBe(true);
+    const doc = fs.readFileSync(REF_DOC, "utf-8");
+    expect(doc, "REFERENCE_SOURCE.md must name yui (1)/ ROOT as authoritative").toMatch(/yui \(1\)\/?[\s`*_-]*ROOT/);
+    expect(doc, "REFERENCE_SOURCE.md must explicitly state v4 subdir is NOT the target").toMatch(/NOT(\s|-)+(the\s+)?(target|design\s+source|authoritative)/i);
+    expect(doc, "REFERENCE_SOURCE.md must reference AutoWorkbench.html").toMatch(/AutoWorkbench\.html/);
+  });
+
+  it("no production source claims yui v4 subdir is the visual target", () => {
+    const offending = /yui[^\n]*\(1\)[^\n]*\/v4|yui\/v4|"v4"\s+(?:is|=)\s+(?:the\s+)?(?:target|design|authoritative)/i;
+    for (const rel of PRODUCTION_SOURCES) {
+      const src = readSrc(rel);
+      expect(src, `${rel} must not name yui/v4 as visual target`).not.toMatch(offending);
+    }
+  });
+
+  it("frontend/scripts/check-dist-fresh.mjs exists", () => {
+    expect(fs.existsSync(FRESH_SCRIPT)).toBe(true);
+  });
+
+  it("frontend/package.json declares check:dist script", () => {
+    const pkg = JSON.parse(fs.readFileSync(PKG_JSON, "utf-8"));
+    expect(pkg.scripts).toBeDefined();
+    expect(pkg.scripts["check:dist"], "package.json must define check:dist").toBe(
+      "node scripts/check-dist-fresh.mjs",
+    );
+  });
+
+  it("check-dist-fresh.mjs only checks autoworkbench.js and autoworkbench.css", () => {
+    const src = fs.readFileSync(FRESH_SCRIPT, "utf-8");
+    expect(src).toMatch(/autoworkbench\.js/);
+    expect(src).toMatch(/autoworkbench\.css/);
+    // Must not silently scan unrelated dist outputs.
+    expect(src).not.toMatch(/legacy\/\*\*|tests-dom\/\*\*/);
   });
 });
