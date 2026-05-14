@@ -42,6 +42,135 @@ def classify_locator_strength(attrs: dict[str, Any]) -> LocatorStrength:
 
 
 # ---------------------------------------------------------------------------
+# Selector-string classification (Pass 4b-1)
+#
+# Deterministic, no LLM. Used to annotate plan_ready step.locator_kind so the
+# frontend Steps tab / Plan-ready card can render strong/weak/unknown chips
+# from backend truth instead of inferring.
+# ---------------------------------------------------------------------------
+
+@dataclass
+class LocatorStrengthAssessment:
+    strength: LocatorStrength | None  # None = unknown / no locator
+    kind: str  # "ok" (strong), "med" (medium), "warn" (weak), "unknown"
+    reason: str  # short backend-generated explanation
+
+
+_STRONG_SELECTOR_PATTERNS = (
+    ("data-testid=", "uses data-testid"),
+    ("[data-testid", "uses data-testid"),
+    ("data-cy=", "uses data-cy"),
+    ("[data-cy", "uses data-cy"),
+    ("getByTestId(", "uses getByTestId"),
+    ("getByRole(", "uses role+name"),
+    ("getByLabel(", "uses accessible label"),
+    ("getByAltText(", "uses alt text"),
+    ("getByPlaceholder(", "uses placeholder"),
+    ("getByTitle(", "uses title"),
+)
+
+_MEDIUM_SELECTOR_PATTERNS = (
+    ("aria-label", "uses aria-label"),
+    ("aria-labelledby", "uses aria-labelledby"),
+    ("placeholder=", "uses placeholder"),
+    ("name=", "uses name attribute"),
+    ("getByText(", "matches visible text"),
+    (":has-text(", "matches visible text"),
+)
+
+_WEAK_SELECTOR_MARKERS = (
+    (":nth-child", "positional CSS — breaks if siblings change"),
+    (":nth-of-type", "positional CSS — breaks if siblings change"),
+    (">", "deep descendant chain — fragile"),
+    ("//", "absolute xpath — fragile"),
+    ("xpath=", "xpath selector — fragile"),
+)
+
+
+def classify_locator_strength_from_selector(selector: Any) -> LocatorStrengthAssessment:
+    """Classify a locator string (CSS / Playwright getBy / xpath) by structural cues.
+
+    Deterministic. No DOM access. Conservative — defaults to MEDIUM when the
+    selector looks reasonable but lacks a strong identifier.
+    """
+    if selector is None:
+        return LocatorStrengthAssessment(strength=None, kind="unknown", reason="no locator")
+    text = str(selector).strip()
+    if not text:
+        return LocatorStrengthAssessment(strength=None, kind="unknown", reason="no locator")
+
+    for marker, reason in _STRONG_SELECTOR_PATTERNS:
+        if marker in text:
+            return LocatorStrengthAssessment(strength=LocatorStrength.STRONG, kind="ok", reason=reason)
+
+    for marker, reason in _WEAK_SELECTOR_MARKERS:
+        if marker in text:
+            return LocatorStrengthAssessment(strength=LocatorStrength.WEAK, kind="warn", reason=reason)
+
+    for marker, reason in _MEDIUM_SELECTOR_PATTERNS:
+        if marker in text:
+            return LocatorStrengthAssessment(strength=LocatorStrength.MEDIUM, kind="med", reason=reason)
+
+    if text.startswith("#") and " " not in text:
+        return LocatorStrengthAssessment(strength=LocatorStrength.STRONG, kind="ok", reason="uses id")
+
+    if text.startswith(".") and " " not in text and ">" not in text:
+        return LocatorStrengthAssessment(
+            strength=LocatorStrength.WEAK,
+            kind="warn",
+            reason="class-only — likely shared by other elements",
+        )
+
+    return LocatorStrengthAssessment(
+        strength=LocatorStrength.MEDIUM,
+        kind="med",
+        reason="generic selector",
+    )
+
+
+def annotate_plan_steps_with_locator_kind(payload: dict[str, Any]) -> dict[str, Any]:
+    """Walk plan_ready payload steps, classify each step's locator, attach metadata.
+
+    Adds three fields per step (when a locator string is present):
+      - locator_strength: "strong" | "medium" | "weak"
+      - locator_kind:     "ok" | "med" | "warn"   (frontend chip class)
+      - locator_reason:   short human-readable reason
+    Steps without a locator string get locator_kind="unknown" and locator_strength=None.
+    Returns the same payload object for chaining.
+    """
+    if not isinstance(payload, dict):
+        return payload
+    steps = payload.get("steps")
+    if not isinstance(steps, list):
+        return payload
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        locator = step.get("locator")
+        if isinstance(locator, dict):
+            value = locator.get("value") or locator.get("selector")
+        else:
+            value = locator
+        if value is None:
+            value = step.get("selector") or (
+                step.get("element_info", {}).get("locator")
+                if isinstance(step.get("element_info"), dict)
+                else None
+            )
+        assessment = classify_locator_strength_from_selector(value)
+        # Don't clobber explicit backend-provided values.
+        if "locator_kind" not in step:
+            step["locator_kind"] = assessment.kind
+        if "locator_strength" not in step:
+            step["locator_strength"] = (
+                assessment.strength.value if assessment.strength else "unknown"
+            )
+        if "locator_reason" not in step:
+            step["locator_reason"] = assessment.reason
+    return payload
+
+
+# ---------------------------------------------------------------------------
 # Locator candidate
 # ---------------------------------------------------------------------------
 

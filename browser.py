@@ -829,6 +829,28 @@ async def _ensure_picker_binding(page: Page) -> None:
         send = _picker_send
         _picker_send = None
 
+        try:
+            from runtime.locator_intelligence import (
+                LocatorStrength,
+                classify_locator_strength,
+            )
+
+            attrs = payload.get("attributes") if isinstance(payload, dict) else None
+            if isinstance(attrs, dict):
+                strength = classify_locator_strength(attrs)
+                kind_map = {
+                    LocatorStrength.STRONG: ("ok", "uses strong identifier"),
+                    LocatorStrength.MEDIUM: ("med", "uses accessible label / role"),
+                    LocatorStrength.WEAK: ("warn", "no strong identifier — relies on class / tag"),
+                }
+                kind, reason = kind_map[strength]
+                payload.setdefault("locator_kind", kind)
+                payload.setdefault("locator_strength", strength.value)
+                payload.setdefault("locator_reason", reason)
+        except Exception:
+            # Classification is metadata only; never block the pick.
+            pass
+
         await send(
             {
                 "type": "element_picked",
