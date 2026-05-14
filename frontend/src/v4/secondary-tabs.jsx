@@ -96,10 +96,14 @@ function readPreconditionMetadata(step) {
   };
 }
 
-function StepPreconditionStrip({ step, stepId }) {
+function StepPreconditionStrip({ step, stepId, onChangePrecondition, onNavigateToExpected }) {
   const meta = readPreconditionMetadata(step);
   if (!meta || meta.status !== "failed") return null;
   const { rawStatus, expected_url, current_url, message } = meta;
+
+  const canChangePrec = !!stepId && typeof onChangePrecondition === "function";
+  const canNavigate = !!stepId && typeof expected_url === "string" && expected_url.length > 0 && typeof onNavigateToExpected === "function";
+
   return (
     <div
       className="aw-info-strip aw-step-precondition"
@@ -146,12 +150,30 @@ function StepPreconditionStrip({ step, stepId }) {
         type="button"
         className="aw-link"
         data-testid={`step-precondition-action-${stepId}`}
-        disabled
-        title="Change precondition command not yet wired (Pass 4b-5.1)"
-        style={{ marginLeft: "auto", color: "#7A5A0E", opacity: 0.6, cursor: "not-allowed" }}
+        disabled={!canChangePrec}
+        title={canChangePrec ? "Update the expected precondition URL for this step" : "Change precondition handler not wired"}
+        style={{
+          marginLeft: "auto",
+          color: "#7A5A0E",
+          opacity: canChangePrec ? 1 : 0.6,
+          cursor: canChangePrec ? "pointer" : "not-allowed",
+        }}
+        onClick={canChangePrec ? () => onChangePrecondition({ type: "change_precondition", step_id: stepId, expected_url: expected_url || "" }) : undefined}
       >
         Change precondition
       </button>
+      {canNavigate ? (
+        <button
+          type="button"
+          className="aw-link"
+          data-testid={`step-navigate-expected-${stepId}`}
+          title={`Navigate browser to ${expected_url}`}
+          style={{ color: "#7A5A0E", cursor: "pointer" }}
+          onClick={() => onNavigateToExpected({ type: "navigate_to_expected", step_id: stepId, expected_url: expected_url })}
+        >
+          Navigate there
+        </button>
+      ) : null}
     </div>
   );
 }
@@ -211,7 +233,26 @@ function readBlockedMetadata(step) {
   };
 }
 
-function StepBlockedStrip({ step, stepId }) {
+// D-101: Map blocked reason to the underlying typed command to dispatch.
+// resolve_blocked has NO standalone backend handler; the button dispatches
+// existing typed commands directly per reason.
+function _blockedActionCommand(reason, stepId) {
+  switch (reason) {
+    case "missing_data":
+      return { type: "correction", step_id: stepId, message: `Provide missing data for step ${stepId}` };
+    case "permission_required":
+      return { type: "permission_decision", decision: "allow_once", step_id: stepId };
+    case "locator_unstable":
+      return { type: "improve_locator", step_id: stepId };
+    case "wrong_page":
+      return { type: "navigate_to_expected", step_id: stepId };
+    case "unknown":
+    default:
+      return { type: "skip_step", step_id: stepId };
+  }
+}
+
+function StepBlockedStrip({ step, stepId, onResolveBlocked }) {
   const meta = readBlockedMetadata(step);
   if (!meta) return null;
   const { reason, rawReason, refs, message, action_label } = meta;
@@ -220,6 +261,15 @@ function StepBlockedStrip({ step, stepId }) {
     reason === "wrong_page" || reason === "locator_unstable" ? { bg: "#FBF1D2", br: "#ECD89A", tx: "#7A5A0E" } :
     reason === "permission_required" ? { bg: "#EEEFFF", br: "#C6CAF5", tx: "#3F46AD" } :
     { bg: "#F4F1EC", br: "#D9D2C5", tx: "#5C5448" };
+
+  // Determine if action can be dispatched (requires a valid stepId and a callback)
+  const canDispatch = !!stepId && typeof onResolveBlocked === "function";
+  const actionTitle = canDispatch
+    ? `${action_label || "Resolve"} — dispatches ${_blockedActionCommand(reason, stepId).type}`
+    : !stepId
+    ? "Cannot resolve: step_id is missing"
+    : "Resolve handler not wired";
+
   return (
     <div
       className="aw-info-strip aw-step-blocked"
@@ -277,9 +327,15 @@ function StepBlockedStrip({ step, stepId }) {
           type="button"
           className="aw-link"
           data-testid={`step-blocked-action-${stepId}`}
-          disabled
-          title="Resolve command not yet wired (Pass 4b-4.1)"
-          style={{ marginLeft: "auto", color: palette.tx, opacity: 0.6, cursor: "not-allowed" }}
+          disabled={!canDispatch}
+          title={actionTitle}
+          style={{
+            marginLeft: "auto",
+            color: palette.tx,
+            opacity: canDispatch ? 1 : 0.6,
+            cursor: canDispatch ? "pointer" : "not-allowed",
+          }}
+          onClick={canDispatch ? () => onResolveBlocked(_blockedActionCommand(reason, stepId)) : undefined}
         >
           {action_label}
         </button>
@@ -456,6 +512,9 @@ function PendingStepEditor({
   onDelete,
   onImproveLocator,
   onViewCandidates,
+  onResolveBlocked,
+  onChangePrecondition,
+  onNavigateToExpected,
 }) {
   const stepId = step.id ?? step.step_id;
   const intent = step.intent ?? step.text ?? step.description ?? "";
@@ -509,8 +568,8 @@ function PendingStepEditor({
         <StepLocatorChip step={step} stepId={stepId} onImproveLocator={onImproveLocator} onViewCandidates={onViewCandidates} />
         <StepKindChip step={step} stepId={stepId} />
         <StepChildCountBadge step={step} stepId={stepId} />
-        <StepBlockedStrip step={step} stepId={stepId} />
-        <StepPreconditionStrip step={step} stepId={stepId} />
+        <StepBlockedStrip step={step} stepId={stepId} onResolveBlocked={onResolveBlocked} />
+        <StepPreconditionStrip step={step} stepId={stepId} onChangePrecondition={onChangePrecondition} onNavigateToExpected={onNavigateToExpected} />
         <StepChildrenList step={step} stepId={stepId} />
         {candidates.length > 1 ? (
           <select
@@ -597,6 +656,9 @@ export function StepsTab({
   blockedReason = "",
   onImproveLocator,
   onViewCandidates,
+  onResolveBlocked,
+  onChangePrecondition,
+  onNavigateToExpected,
 }) {
   const list = asArray(pendingSteps);
   const [filter, setFilter] = useState("");
@@ -680,6 +742,9 @@ export function StepsTab({
             }
             onImproveLocator={onImproveLocator}
             onViewCandidates={onViewCandidates}
+            onResolveBlocked={onResolveBlocked}
+            onChangePrecondition={onChangePrecondition}
+            onNavigateToExpected={onNavigateToExpected}
           />
         ))
       )}
