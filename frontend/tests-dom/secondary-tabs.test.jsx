@@ -903,4 +903,246 @@ describe("v4 secondary tabs (real DOM render)", () => {
     expect(known).toHaveAttribute("data-known", "1");
     expect(unknown).toHaveAttribute("data-known", "0");
   });
+
+  // D-104 trace filters, failure detail, telemetry, artifacts, capability-gap
+
+  it("D-104: filter chip default is 'all' and all rows are visible", () => {
+    render(
+      <TraceTab
+        traceEntries={[
+          { id: "e1", type: "step_failed", summary: "step failed" },
+          { id: "e2", type: "llm_thinking", summary: "llm thinking" },
+          { id: "e3", type: "code_update", summary: "code updated" },
+        ]}
+      />
+    );
+    const allChip = screen.getByTestId("trace-filter-all");
+    expect(allChip.className).toMatch(/info/);
+    expect(screen.getByTestId("trace-row-0")).toBeInTheDocument();
+    expect(screen.getByTestId("trace-row-1")).toBeInTheDocument();
+    expect(screen.getByTestId("trace-row-2")).toBeInTheDocument();
+  });
+
+  it("D-104: filter chip 'step' shows only step_* type entries", () => {
+    render(
+      <TraceTab
+        traceEntries={[
+          { id: "e1", type: "step_failed", summary: "step failed" },
+          { id: "e2", type: "llm_thinking", summary: "llm" },
+          { id: "e3", type: "step_recorded", summary: "step recorded" },
+        ]}
+      />
+    );
+    fireEvent.click(screen.getByTestId("trace-filter-step"));
+    expect(screen.getByTestId("trace-row-0")).toBeInTheDocument();
+    expect(screen.getByTestId("trace-row-1")).toBeInTheDocument();
+    expect(screen.queryByTestId("trace-row-2")).toBeNull();
+  });
+
+  it("D-104: filter chip 'gap' renders and filters to capability_gap_recorded only", () => {
+    render(
+      <TraceTab
+        traceEntries={[
+          { id: "e1", type: "capability_gap_recorded", summary: "gap found" },
+          { id: "e2", type: "step_failed", summary: "fail" },
+        ]}
+      />
+    );
+    const gapChip = screen.getByTestId("trace-filter-gap");
+    expect(gapChip).toBeInTheDocument();
+    fireEvent.click(gapChip);
+    expect(screen.getByTestId("trace-row-0")).toBeInTheDocument();
+    expect(screen.queryByTestId("trace-row-1")).toBeNull();
+  });
+
+  it("D-104: text filter input narrows rows by summary text", () => {
+    render(
+      <TraceTab
+        traceEntries={[
+          { id: "e1", type: "step_failed", summary: "network timeout error" },
+          { id: "e2", type: "step_recorded", summary: "click submit button" },
+        ]}
+      />
+    );
+    const input = screen.getByTestId("trace-filter");
+    fireEvent.change(input, { target: { value: "network" } });
+    expect(screen.getByTestId("trace-row-0")).toBeInTheDocument();
+    expect(screen.queryByTestId("trace-row-1")).toBeNull();
+  });
+
+  it("D-104: step_failed row is expandable and failure detail panel shows step_id, error, status", () => {
+    render(
+      <TraceTab
+        traceEntries={[
+          {
+            id: "e1",
+            type: "step_failed",
+            summary: "selector timed out",
+            raw: { payload: { step_id: "stp_001", run_id: "run_1", error: "selector timed out", status: "failed" } },
+          },
+        ]}
+      />
+    );
+    const row = screen.getByTestId("trace-row-0");
+    fireEvent.click(row);
+    expect(screen.getByTestId("trace-failure-detail-0")).toBeInTheDocument();
+    expect(screen.getByTestId("trace-failure-step-0").textContent).toContain("stp_001");
+    expect(screen.getByTestId("trace-failure-error-0").textContent).toContain("selector timed out");
+    expect(screen.getByTestId("trace-failure-status-0").textContent).toContain("failed");
+  });
+
+  it("D-104: failure detail panel does not fabricate locator_tried or expected_vs_observed fields", () => {
+    render(
+      <TraceTab
+        traceEntries={[
+          {
+            id: "e1",
+            type: "step_failed",
+            summary: "step failed",
+            raw: { payload: { step_id: "stp_001", run_id: "run_1", error: "err", status: "failed" } },
+          },
+        ]}
+      />
+    );
+    fireEvent.click(screen.getByTestId("trace-row-0"));
+    expect(screen.queryByTestId("trace-failure-locator-tried-0")).toBeNull();
+    expect(screen.queryByTestId("trace-failure-expected-observed-0")).toBeNull();
+  });
+
+  it("D-104: telemetry unavailable state renders when no token fields in llm_thinking payload", () => {
+    render(
+      <TraceTab
+        traceEntries={[
+          {
+            id: "e1",
+            type: "llm_thinking",
+            summary: "planning step",
+            raw: { payload: {} },
+          },
+        ]}
+      />
+    );
+    fireEvent.click(screen.getByTestId("trace-row-0"));
+    expect(screen.getByTestId("trace-llm-unavailable-0")).toBeInTheDocument();
+  });
+
+  it("D-104: telemetry section renders model and token fields when payload provides them", () => {
+    render(
+      <TraceTab
+        traceEntries={[
+          {
+            id: "e1",
+            type: "llm_result",
+            summary: "llm responded",
+            raw: {
+              payload: {
+                model: "claude-3-5-haiku",
+                input_tokens: 1200,
+                output_tokens: 80,
+              },
+            },
+          },
+        ]}
+      />
+    );
+    fireEvent.click(screen.getByTestId("trace-row-0"));
+    expect(screen.getByTestId("trace-llm-model-0").textContent).toContain("claude-3-5-haiku");
+    expect(screen.getByTestId("trace-llm-input-tokens-0").textContent).toContain("1200");
+    expect(screen.getByTestId("trace-llm-output-tokens-0").textContent).toContain("80");
+  });
+
+  it("D-104: artifact list renders with data-artifact-href when path present", () => {
+    render(
+      <TraceTab
+        traceEntries={[
+          {
+            id: "e1",
+            type: "trace_summary",
+            summary: "run complete",
+            artifacts: [
+              { key: "redaction_report", label: "redaction-report.json", path: "/tmp/r.json" },
+            ],
+          },
+        ]}
+      />
+    );
+    const artList = screen.getByTestId("trace-artifact-list-0");
+    expect(artList).toBeInTheDocument();
+    const artItem = screen.getByTestId("trace-artifact-0-redaction_report");
+    expect(artItem).toHaveAttribute("data-artifact-href", "/tmp/r.json");
+  });
+
+  it("D-104: artifact list renders label only without href when path absent", () => {
+    render(
+      <TraceTab
+        traceEntries={[
+          {
+            id: "e1",
+            type: "trace_summary",
+            summary: "run complete",
+            artifacts: [
+              { key: "manifest", label: "manifest.json" },
+            ],
+          },
+        ]}
+      />
+    );
+    const artItem = screen.getByTestId("trace-artifact-0-manifest");
+    expect(artItem).toBeInTheDocument();
+    expect(artItem).not.toHaveAttribute("data-artifact-href");
+  });
+
+  it("D-104: redaction chip renders when redactionStatus is present", () => {
+    render(
+      <TraceTab
+        traceEntries={[
+          {
+            id: "e1",
+            type: "step_recorded",
+            summary: "step done",
+            redactionStatus: "clean",
+          },
+        ]}
+      />
+    );
+    const chip = screen.getByTestId("trace-redaction-chip-0");
+    expect(chip).toHaveAttribute("data-status", "clean");
+  });
+
+  it("D-104: redaction chip absent when redactionStatus missing on step_recorded", () => {
+    render(
+      <TraceTab
+        traceEntries={[
+          { id: "e1", type: "step_recorded", summary: "recorded" },
+        ]}
+      />
+    );
+    expect(screen.queryByTestId("trace-redaction-chip-0")).toBeNull();
+  });
+
+  it("D-104: capability-gap card renders with gap_id and needed_capability on expand", () => {
+    render(
+      <TraceTab
+        traceEntries={[
+          {
+            id: "e1",
+            type: "capability_gap_recorded",
+            summary: "hover not supported",
+            raw: {
+              payload: {
+                gap_id: "g1",
+                needed_capability: "hover",
+                path: "/locator/check",
+              },
+            },
+          },
+        ]}
+      />
+    );
+    fireEvent.click(screen.getByTestId("trace-row-0"));
+    expect(screen.getByTestId("trace-gap-card-0")).toBeInTheDocument();
+    expect(screen.getByTestId("trace-gap-id-0").textContent).toContain("g1");
+    expect(screen.getByTestId("trace-gap-capability-0").textContent).toContain("hover");
+    expect(screen.getByTestId("trace-gap-path-0").textContent).toContain("/locator/check");
+  });
 });
