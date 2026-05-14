@@ -78,7 +78,7 @@ export function Header({
             aria-disabled="true"
             disabled
             tabIndex={-1}
-            title="Manual Mode not available — backend seam required. Coming in Sprint 8 (D-105 / BUG-S8-MANUAL-001)."
+            title="Manual Mode unavailable — backend seam not implemented yet."
             data-testid="aw-mode-manual"
             data-disabled-reason="sprint-8"
           >
@@ -140,9 +140,6 @@ export function Header({
           data-testid="aw-collapse"
         >
           <I.Min />
-        </button>
-        <button type="button" className="aw-icon-btn" title="Settings">
-          <I.Settings />
         </button>
       </div>
     </header>

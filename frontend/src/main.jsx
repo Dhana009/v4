@@ -11,10 +11,10 @@ import "../aw-ide-panel.jsx";
 // Cluster 4 layout modules — thin wiring
 import { createHost, unmountHost, SHADOW_HOST_ID, SHADOW_MOUNT_ID } from "./host/host.jsx";
 import { log as awLog, logError as awLogError, attachGlobalHandlers as awAttachGlobalHandlers } from "./log.js";
-import { getDockMode, applyDock } from "./layout/dock-controller.js";
+import { getDockMode, setDockMode, applyDock } from "./layout/dock-controller.js";
 import { getPanelMode, applyMode } from "./layout/panel-modes.js";
-import { applyCompensation, removeCompensation } from "./layout/compensation.js";
-import { getStoredSize } from "./layout/resize-controller.js";
+import { applyCompensation, removeCompensation, updateCompensation } from "./layout/compensation.js";
+import { getStoredSize, createResizeController } from "./layout/resize-controller.js";
 
 // Cluster 5 store — thin wiring (reducer used by useFrontendEventStore)
 import { reducer, createInitialState } from "./store/reducer.js";
@@ -3215,10 +3215,39 @@ function useAutoWorkbenchTransport(config) {
   };
 }
 
+// Maps Header dock labels (right/left/top/float) <-> dock-controller modes
+// (dock-right/dock-left/dock-bottom/floating).
+const HEADER_TO_CTRL_DOCK = {
+  right: "dock-right",
+  left: "dock-left",
+  top: "dock-bottom",
+  float: "floating",
+};
+const CTRL_TO_HEADER_DOCK = {
+  "dock-right": "right",
+  "dock-left": "left",
+  "dock-bottom": "top",
+  floating: "float",
+};
+
 function AutoWorkbenchRuntime({ config }) {
   const normalized = normalizeConfig(config);
   const transport = useFrontendEventStore(config);
   const [tab, setTab] = useState(normalized.tab);
+  const [dock, setDockLocal] = useState(() => CTRL_TO_HEADER_DOCK[getDockMode()] || "right");
+  const [panelWidth, setPanelWidth] = useState(() => {
+    const stored = getStoredSize();
+    return (stored && stored.width) || normalized.panelWidth || 460;
+  });
+
+  const setDock = useCallback((nextHeaderMode) => {
+    const ctrlMode = HEADER_TO_CTRL_DOCK[nextHeaderMode] || "dock-right";
+    setDockLocal(nextHeaderMode);
+    if (currentHostNode) applyDock(currentHostNode, ctrlMode);
+    setDockMode(ctrlMode);
+    const width = (typeof normalized.panelWidth === "number" ? normalized.panelWidth : 460);
+    updateCompensation(ctrlMode, { width });
+  }, [normalized.panelWidth]);
 
   useEffect(() => {
     setTab(normalized.tab);
@@ -3239,32 +3268,57 @@ function AutoWorkbenchRuntime({ config }) {
   const panelState = toPanelState(transport.runState || normalized.panelState);
   const IDEPanel = window.IDEPanel;
 
+  const outerStyle = (() => {
+    const base = {
+      position: "fixed",
+      inset: 0,
+      zIndex: 2147483647,
+      display: "flex",
+      padding: 16,
+      boxSizing: "border-box",
+      pointerEvents: "none",
+    };
+    if (dock === "left") return { ...base, justifyContent: "flex-start" };
+    if (dock === "top") return { ...base, flexDirection: "column", justifyContent: "flex-start" };
+    if (dock === "float") return { ...base, justifyContent: "flex-end", alignItems: "flex-start" };
+    return { ...base, justifyContent: "flex-end" };
+  })();
+  const innerStyle = (() => {
+    if (dock === "top") {
+      return {
+        width: "100%",
+        height: 460,
+        pointerEvents: "auto",
+        boxShadow: "0 12px 36px rgba(0,0,0,0.28)",
+        position: "relative",
+      };
+    }
+    return {
+      width: panelWidth,
+      height: "100%",
+      pointerEvents: "auto",
+      position: "relative",
+      boxShadow:
+        dock === "left"
+          ? "12px 0 36px rgba(0,0,0,0.28)"
+          : "-12px 0 36px rgba(0,0,0,0.28)",
+    };
+  })();
+
+  const onResize = useCallback(({ width, height }) => {
+    if (typeof width === "number" && Number.isFinite(width)) setPanelWidth(width);
+  }, []);
+
   return (
-    <div
-      style={{
-        position: "fixed",
-        inset: 0,
-        zIndex: 2147483647,
-        display: "flex",
-        justifyContent: "flex-end",
-        padding: 16,
-        boxSizing: "border-box",
-        pointerEvents: "none",
-      }}
-    >
-      <div
-        className={`aw-density-${normalized.density}`}
-        style={{
-          width: normalized.panelWidth,
-          height: "100%",
-          pointerEvents: "auto",
-          boxShadow: "-12px 0 36px rgba(0,0,0,0.28)",
-        }}
-      >
+    <div style={outerStyle} data-aw-dock={dock}>
+      <div className={`aw-density-${normalized.density}`} style={innerStyle}>
         {IDEPanel ? (
           <IDEPanel
             state={panelState}
             tab={tab}
+            dock={dock}
+            onDockChange={setDock}
+            onResize={onResize}
             runtime={{
               live: true,
               ...transport,

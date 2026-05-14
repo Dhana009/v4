@@ -24955,7 +24955,7 @@
                 "aria-disabled": "true",
                 disabled: true,
                 tabIndex: -1,
-                title: "Manual Mode not available \u2014 backend seam required. Coming in Sprint 8 (D-105 / BUG-S8-MANUAL-001).",
+                title: "Manual Mode unavailable \u2014 backend seam not implemented yet.",
                 "data-testid": "aw-mode-manual",
                 "data-disabled-reason": "sprint-8",
                 children: "Manual"
@@ -25034,8 +25034,7 @@
           "data-testid": "aw-collapse",
           children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(I.Min, {})
         }
-      ),
-      /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { type: "button", className: "aw-icon-btn", title: "Settings", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(I.Settings, {}) })
+      )
     ] }) });
   }
   function TabStrip({ tab, setTab, counts = {} }) {
@@ -28125,9 +28124,41 @@
       onNavigateToExpected: loggedDispatcher("navigate_to_expected", runtime?.onNavigateToExpected ?? runtime?.handleNavigateToExpected)
     };
   }
-  function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
-    const [dock, setDock] = (0, import_react5.useState)("right");
+  function IDEPanel({ state, tab, runtime = {}, onTabChange, dock: dockProp, onDockChange, onResize }) {
+    const [dockLocal, setDockLocal] = (0, import_react5.useState)("right");
+    const dock = typeof dockProp === "string" ? dockProp : dockLocal;
+    const setDock = (0, import_react5.useCallback)(
+      (next) => {
+        if (typeof onDockChange === "function") onDockChange(next);
+        else setDockLocal(next);
+      },
+      [onDockChange]
+    );
     const [collapsed, setCollapsed] = (0, import_react5.useState)(false);
+    const onResizeMouseDown = (0, import_react5.useCallback)(
+      (e) => {
+        if (typeof onResize !== "function") return;
+        if (dock === "top") return;
+        const panelEl = e.currentTarget.parentElement;
+        const wrapperEl = panelEl ? panelEl.parentElement : null;
+        const startX = e.clientX;
+        const startW = wrapperEl ? wrapperEl.getBoundingClientRect().width : panelEl ? panelEl.offsetWidth : 460;
+        const dir = dock === "left" ? 1 : -1;
+        const onMove = (ev) => {
+          const dx = (ev.clientX - startX) * dir;
+          const next = Math.max(300, Math.min(window.innerWidth * 0.8, startW + dx));
+          onResize({ width: next });
+        };
+        const onUp = () => {
+          document.removeEventListener("mousemove", onMove);
+          document.removeEventListener("mouseup", onUp);
+        };
+        document.addEventListener("mousemove", onMove);
+        document.addEventListener("mouseup", onUp);
+        e.preventDefault();
+      },
+      [dock, onResize]
+    );
     const [agentsOpen, setAgentsOpen] = (0, import_react5.useState)(false);
     const [selectedStepIds, setSelectedStepIds] = (0, import_react5.useState)([]);
     const activeTab = normalizeTab(tab);
@@ -28299,7 +28330,17 @@
             "data-wide": dock === "top" ? "1" : "0",
             style: { width: "100%", height: "100%" },
             children: [
-              /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "aw-resize" }),
+              /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+                "div",
+                {
+                  className: "aw-resize",
+                  "data-testid": "aw-resize",
+                  onMouseDown: onResizeMouseDown,
+                  role: "separator",
+                  "aria-orientation": "vertical",
+                  "aria-label": "Resize panel"
+                }
+              ),
               !collapsed ? /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(import_jsx_runtime6.Fragment, { children: [
                 /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
                   Header,
@@ -28422,6 +28463,14 @@
     }
     return DEFAULT_DOCK_MODE;
   }
+  function setDockMode(mode) {
+    if (!VALID_DOCK_MODES.includes(mode)) return false;
+    try {
+      localStorage.setItem(DOCK_STORAGE_KEY, mode);
+    } catch (_) {
+    }
+    return true;
+  }
   function applyDock(hostElement, mode) {
     if (!hostElement) return;
     const targetMode = VALID_DOCK_MODES.includes(mode) ? mode : DEFAULT_DOCK_MODE;
@@ -28507,6 +28556,10 @@
       restoreOriginalStyle(body, prop);
       restoreOriginalStyle(html, prop);
     });
+  }
+  function updateCompensation(dockMode, panelSize) {
+    removeCompensation();
+    applyCompensation(dockMode, panelSize);
   }
 
   // src/layout/resize-controller.js
@@ -31492,10 +31545,35 @@
       handleViewCandidates
     };
   }
+  var HEADER_TO_CTRL_DOCK = {
+    right: "dock-right",
+    left: "dock-left",
+    top: "dock-bottom",
+    float: "floating"
+  };
+  var CTRL_TO_HEADER_DOCK = {
+    "dock-right": "right",
+    "dock-left": "left",
+    "dock-bottom": "top",
+    floating: "float"
+  };
   function AutoWorkbenchRuntime({ config }) {
     const normalized = normalizeConfig(config);
     const transport = useFrontendEventStore(config);
     const [tab, setTab] = (0, import_react7.useState)(normalized.tab);
+    const [dock, setDockLocal] = (0, import_react7.useState)(() => CTRL_TO_HEADER_DOCK[getDockMode()] || "right");
+    const [panelWidth, setPanelWidth] = (0, import_react7.useState)(() => {
+      const stored = getStoredSize();
+      return stored && stored.width || normalized.panelWidth || 460;
+    });
+    const setDock = (0, import_react7.useCallback)((nextHeaderMode) => {
+      const ctrlMode = HEADER_TO_CTRL_DOCK[nextHeaderMode] || "dock-right";
+      setDockLocal(nextHeaderMode);
+      if (currentHostNode) applyDock(currentHostNode, ctrlMode);
+      setDockMode(ctrlMode);
+      const width = typeof normalized.panelWidth === "number" ? normalized.panelWidth : 460;
+      updateCompensation(ctrlMode, { width });
+    }, [normalized.panelWidth]);
     (0, import_react7.useEffect)(() => {
       setTab(normalized.tab);
     }, [normalized.tab]);
@@ -31507,62 +31585,74 @@
     });
     const panelState = toPanelState(transport.runState || normalized.panelState);
     const IDEPanel2 = window.IDEPanel;
-    return /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
-      "div",
-      {
-        style: {
-          position: "fixed",
-          inset: 0,
-          zIndex: 2147483647,
-          display: "flex",
-          justifyContent: "flex-end",
-          padding: 16,
-          boxSizing: "border-box",
-          pointerEvents: "none"
-        },
-        children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
-          "div",
-          {
-            className: `aw-density-${normalized.density}`,
-            style: {
-              width: normalized.panelWidth,
-              height: "100%",
-              pointerEvents: "auto",
-              boxShadow: "-12px 0 36px rgba(0,0,0,0.28)"
-            },
-            children: IDEPanel2 ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
-              IDEPanel2,
-              {
-                state: panelState,
-                tab,
-                runtime: {
-                  live: true,
-                  ...transport,
-                  storeState: transport.storeState,
-                  connected: transport.storeState?.connected ?? false,
-                  run_id: transport.storeState?.run_id ?? null,
-                  phase: transport.storeState?.phase ?? "idle",
-                  storePlan: transport.storeState?.plan ?? null,
-                  storePendingSteps: transport.storeState?.pending_steps ?? [],
-                  storeRecordedSteps: transport.storeState?.recorded_steps ?? [],
-                  storeCodePreview: transport.storeState?.code_preview ?? null,
-                  storeCodeSaveResult: transport.storeState?.code_save_result ?? null,
-                  storeTraceEntries: transport.storeState?.trace_entries ?? [],
-                  storeErrors: transport.storeState?.errors ?? [],
-                  storeLastError: transport.storeState?.last_error ?? null,
-                  storeInteractionMode: transport.storeState?.interaction_mode ?? "idle",
-                  storePendingClarification: transport.storeState?.pending_clarification ?? null,
-                  storePendingPermission: transport.storeState?.pending_permission ?? null,
-                  storePendingRecovery: transport.storeState?.pending_recovery ?? null,
-                  storePendingRecommendations: transport.storeState?.pending_recommendations ?? []
-                },
-                onTabChange: setTab
-              }
-            ) : null
-          }
-        )
+    const outerStyle = (() => {
+      const base = {
+        position: "fixed",
+        inset: 0,
+        zIndex: 2147483647,
+        display: "flex",
+        padding: 16,
+        boxSizing: "border-box",
+        pointerEvents: "none"
+      };
+      if (dock === "left") return { ...base, justifyContent: "flex-start" };
+      if (dock === "top") return { ...base, flexDirection: "column", justifyContent: "flex-start" };
+      if (dock === "float") return { ...base, justifyContent: "flex-end", alignItems: "flex-start" };
+      return { ...base, justifyContent: "flex-end" };
+    })();
+    const innerStyle = (() => {
+      if (dock === "top") {
+        return {
+          width: "100%",
+          height: 460,
+          pointerEvents: "auto",
+          boxShadow: "0 12px 36px rgba(0,0,0,0.28)",
+          position: "relative"
+        };
       }
-    );
+      return {
+        width: panelWidth,
+        height: "100%",
+        pointerEvents: "auto",
+        position: "relative",
+        boxShadow: dock === "left" ? "12px 0 36px rgba(0,0,0,0.28)" : "-12px 0 36px rgba(0,0,0,0.28)"
+      };
+    })();
+    const onResize = (0, import_react7.useCallback)(({ width, height }) => {
+      if (typeof width === "number" && Number.isFinite(width)) setPanelWidth(width);
+    }, []);
+    return /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { style: outerStyle, "data-aw-dock": dock, children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: `aw-density-${normalized.density}`, style: innerStyle, children: IDEPanel2 ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+      IDEPanel2,
+      {
+        state: panelState,
+        tab,
+        dock,
+        onDockChange: setDock,
+        onResize,
+        runtime: {
+          live: true,
+          ...transport,
+          storeState: transport.storeState,
+          connected: transport.storeState?.connected ?? false,
+          run_id: transport.storeState?.run_id ?? null,
+          phase: transport.storeState?.phase ?? "idle",
+          storePlan: transport.storeState?.plan ?? null,
+          storePendingSteps: transport.storeState?.pending_steps ?? [],
+          storeRecordedSteps: transport.storeState?.recorded_steps ?? [],
+          storeCodePreview: transport.storeState?.code_preview ?? null,
+          storeCodeSaveResult: transport.storeState?.code_save_result ?? null,
+          storeTraceEntries: transport.storeState?.trace_entries ?? [],
+          storeErrors: transport.storeState?.errors ?? [],
+          storeLastError: transport.storeState?.last_error ?? null,
+          storeInteractionMode: transport.storeState?.interaction_mode ?? "idle",
+          storePendingClarification: transport.storeState?.pending_clarification ?? null,
+          storePendingPermission: transport.storeState?.pending_permission ?? null,
+          storePendingRecovery: transport.storeState?.pending_recovery ?? null,
+          storePendingRecommendations: transport.storeState?.pending_recommendations ?? []
+        },
+        onTabChange: setTab
+      }
+    ) : null }) });
   }
   function useFrontendEventStore(config) {
     const [storeState, storeDispatch] = import_react7.default.useReducer(reducer, null, createInitialState);

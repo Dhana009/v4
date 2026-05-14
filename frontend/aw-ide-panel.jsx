@@ -218,9 +218,42 @@ function buildDispatchers(runtime) {
   };
 }
 
-function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
-  const [dock, setDock] = useState("right");
+function IDEPanel({ state, tab, runtime = {}, onTabChange, dock: dockProp, onDockChange, onResize }) {
+  const [dockLocal, setDockLocal] = useState("right");
+  const dock = typeof dockProp === "string" ? dockProp : dockLocal;
+  const setDock = useCallback(
+    (next) => {
+      if (typeof onDockChange === "function") onDockChange(next);
+      else setDockLocal(next);
+    },
+    [onDockChange]
+  );
   const [collapsed, setCollapsed] = useState(false);
+
+  const onResizeMouseDown = useCallback(
+    (e) => {
+      if (typeof onResize !== "function") return;
+      if (dock === "top") return; // resize handle hidden for top dock
+      const panelEl = e.currentTarget.parentElement; // .aw-panel
+      const wrapperEl = panelEl ? panelEl.parentElement : null; // density wrapper from main.jsx
+      const startX = e.clientX;
+      const startW = wrapperEl ? wrapperEl.getBoundingClientRect().width : (panelEl ? panelEl.offsetWidth : 460);
+      const dir = dock === "left" ? 1 : -1; // dragging right increases width when docked-left
+      const onMove = (ev) => {
+        const dx = (ev.clientX - startX) * dir;
+        const next = Math.max(300, Math.min(window.innerWidth * 0.8, startW + dx));
+        onResize({ width: next });
+      };
+      const onUp = () => {
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+      };
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
+      e.preventDefault();
+    },
+    [dock, onResize]
+  );
   const [agentsOpen, setAgentsOpen] = useState(false);
   const [selectedStepIds, setSelectedStepIds] = useState([]);
 
@@ -419,7 +452,14 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
         data-wide={dock === "top" ? "1" : "0"}
         style={{ width: "100%", height: "100%" }}
       >
-        <div className="aw-resize" />
+        <div
+          className="aw-resize"
+          data-testid="aw-resize"
+          onMouseDown={onResizeMouseDown}
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="Resize panel"
+        />
         {!collapsed ? (
           <>
             <Header

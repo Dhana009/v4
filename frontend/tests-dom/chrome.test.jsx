@@ -129,13 +129,12 @@ describe("v4 Header mode toggle (D-105 Manual Mode disabled)", () => {
     expect(manual).toHaveAttribute("aria-pressed", "false");
   });
 
-  it("Manual option title cites Sprint 8 and references the D-105 ticket", () => {
+  it("Manual option title says Manual Mode is unavailable (no Sprint mention)", () => {
     render(<Header />);
     const manual = screen.getByTestId("aw-mode-manual");
     const title = manual.getAttribute("title") || "";
-    expect(title).toMatch(/Sprint 8/);
     expect(title).toMatch(/Manual Mode/);
-    expect(title).toMatch(/D-105|BUG-S8-MANUAL-001/);
+    expect(title).toMatch(/unavailable|not implemented/i);
   });
 
   it("clicking disabled Manual does not dispatch any command and does not toggle pressed state", () => {
