@@ -33106,6 +33106,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
     const transport = useFrontendEventStore(config);
     const [tab, setTab] = (0, import_react9.useState)(normalized.tab);
     const [dock, setDockLocal] = (0, import_react9.useState)(() => CTRL_TO_HEADER_DOCK[getDockMode()] || "right");
+    const inStage = config?.inStage === true;
     const [panelWidth, setPanelWidth] = (0, import_react9.useState)(() => {
       const stored = getStoredSize();
       return stored && stored.width || normalized.panelWidth || 460;
@@ -33130,36 +33131,67 @@ test('pricing page \xB7 sanity', async ({ page }) => {
     const panelState = toPanelState(transport.runState || normalized.panelState);
     const IDEPanel2 = window.IDEPanel;
     const outerStyle = (() => {
+      if (inStage) {
+        return {
+          position: "relative",
+          width: "100%",
+          height: "100%",
+          display: "flex",
+          pointerEvents: "auto",
+          boxSizing: "border-box"
+        };
+      }
       const base = {
         position: "fixed",
-        inset: 0,
         zIndex: 2147483647,
         display: "flex",
-        padding: 16,
         boxSizing: "border-box",
         pointerEvents: "none"
       };
-      if (dock === "left") return { ...base, justifyContent: "flex-start" };
-      if (dock === "top") return { ...base, flexDirection: "column", justifyContent: "flex-start" };
-      if (dock === "float") return { ...base, justifyContent: "flex-end", alignItems: "flex-start" };
-      return { ...base, justifyContent: "flex-end" };
+      if (dock === "top") {
+        return { ...base, top: 0, left: 0, right: 0, height: 460 };
+      }
+      if (dock === "float") {
+        return { ...base, top: 16, right: 16, bottom: 16, left: "auto", width: panelWidth };
+      }
+      if (dock === "left") {
+        return { ...base, top: 0, left: 0, bottom: 0, width: panelWidth };
+      }
+      return { ...base, top: 0, right: 0, bottom: 0, width: panelWidth };
     })();
     const innerStyle = (() => {
-      if (dock === "top") {
+      if (inStage) {
         return {
           width: "100%",
-          height: 460,
+          height: "100%",
           pointerEvents: "auto",
-          boxShadow: "0 12px 36px rgba(0,0,0,0.28)",
           position: "relative"
         };
       }
+      if (dock === "top") {
+        return {
+          width: "100%",
+          height: "100%",
+          pointerEvents: "auto",
+          position: "relative"
+        };
+      }
+      if (dock === "float") {
+        return {
+          width: "100%",
+          height: "100%",
+          pointerEvents: "auto",
+          position: "relative",
+          boxShadow: "0 16px 40px -10px rgba(20,18,12,0.30)",
+          borderRadius: 14,
+          overflow: "hidden"
+        };
+      }
       return {
-        width: panelWidth,
+        width: "100%",
         height: "100%",
         pointerEvents: "auto",
-        position: "relative",
-        boxShadow: dock === "left" ? "12px 0 36px rgba(0,0,0,0.28)" : "-12px 0 36px rgba(0,0,0,0.28)"
+        position: "relative"
       };
     })();
     const onResize = (0, import_react9.useCallback)(({ width, height }) => {
@@ -33294,44 +33326,71 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       if (panelHostRef.current.__awMounted) return;
       mount(panelHostRef.current, {
         demo: true,
+        inStage: true,
         panelWidth: tweaks.panelWidth
       });
       panelHostRef.current.__awMounted = true;
     }, []);
-    return /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { "data-testid": "aw-preview-shell", style: { position: "fixed", inset: 0 }, children: [
-      tweaks.showWebsite ? /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(
-        "div",
-        {
-          "data-testid": "aw-preview-website",
-          style: {
-            position: "fixed",
-            top: 0,
-            left: 0,
-            bottom: 0,
-            right: tweaks.dock === "right" ? tweaks.panelWidth : 0,
-            background: "var(--bg-website, #FAF5EB)"
-          },
-          children: /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(WebsitePreview, { highlight: tweaks.highlight })
-        }
-      ) : null,
-      /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(
-        "div",
-        {
-          ref: panelHostRef,
-          "data-testid": "aw-preview-panel-host",
-          style: {
-            position: "fixed",
-            top: 0,
-            bottom: 0,
-            right: tweaks.dock === "right" ? 0 : "auto",
-            left: tweaks.dock === "left" ? 0 : "auto",
-            width: tweaks.panelWidth,
-            boxShadow: "-8px 0 24px rgba(20,18,12,0.12)"
-          }
-        }
-      ),
-      /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(TweaksPanel, { value: tweaks, onChange: setTweaks, defaultOpen: false })
-    ] });
+    const dock = tweaks.dock;
+    const collapsed = tweaks.collapsed === true;
+    const stageClass = "aw-stage aw-stage--dock-" + (dock === "left" || dock === "top" || dock === "float" ? dock : "right") + (collapsed ? " aw-stage--collapsed" : "");
+    const cellStyle = dock === "top" ? { height: 460, width: "100%", flex: "0 0 auto" } : { width: collapsed ? 44 : tweaks.panelWidth, height: "100%", flex: "0 0 auto" };
+    if (dock === "float") {
+      cellStyle.boxShadow = "0 16px 40px -10px rgba(20,18,12,0.30)";
+      cellStyle.borderRadius = 14;
+      cellStyle.overflow = "hidden";
+      cellStyle.position = "absolute";
+      cellStyle.right = 16;
+      cellStyle.top = 16;
+      cellStyle.bottom = 16;
+    }
+    return /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)(
+      "div",
+      {
+        "data-testid": "aw-preview-stage",
+        className: stageClass,
+        style: {
+          position: "relative",
+          width: "100vw",
+          height: "100vh",
+          display: "flex",
+          flexDirection: dock === "top" ? "column-reverse" : "row",
+          overflow: "hidden",
+          background: "var(--bg-page, #E9E3D2)"
+        },
+        children: [
+          tweaks.showWebsite && dock !== "float" ? /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(
+            "div",
+            {
+              "data-testid": "aw-website-region",
+              className: "aw-website-region",
+              style: {
+                flex: "1 1 0",
+                minWidth: 0,
+                minHeight: 0,
+                overflow: "auto",
+                background: "var(--bg-website, #FAF5EB)",
+                order: dock === "left" ? 2 : 1
+              },
+              children: /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(WebsitePreview, { highlight: tweaks.highlight })
+            }
+          ) : null,
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(
+            "div",
+            {
+              ref: panelHostRef,
+              "data-testid": "aw-panel-cell",
+              className: "aw-panel-cell",
+              style: {
+                ...cellStyle,
+                order: dock === "left" ? 1 : 2
+              }
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(TweaksPanel, { value: tweaks, onChange: setTweaks, defaultOpen: false })
+        ]
+      }
+    );
   }
   function mountDemo(container = document.body) {
     const root = document.createElement("div");

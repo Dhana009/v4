@@ -166,6 +166,57 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
 .aw-stage.collapsed .aw-panel .aw-footer,
 .aw-stage.collapsed .aw-panel .aw-header-main { display: none; }
 
+/* FE-LAYOUT-001 — BEM variants used by PreviewShell. Flush docked modes:
+   no padding, no boxShadow on cell. Floating mode keeps shadow+radius. */
+.aw-stage--dock-right { flex-direction: row; }
+.aw-stage--dock-left  { flex-direction: row-reverse; }
+.aw-stage--dock-top   { flex-direction: column-reverse; }
+.aw-stage--dock-float { display: block; }
+.aw-stage--collapsed .aw-panel-cell { width: 44px !important; }
+.aw-stage--collapsed .aw-panel-cell .aw-panel-body,
+.aw-stage--collapsed .aw-panel-cell .aw-tabs,
+.aw-stage--collapsed .aw-panel-cell .aw-footer,
+.aw-stage--collapsed .aw-panel-cell .aw-header-main { display: none; }
+
+.aw-panel-cell {
+  position: relative;
+  background: var(--bg-soft, #F3ECD7);
+  border-left: 1px solid var(--br-edge, #DCDECF);
+  display: block;
+}
+.aw-stage--dock-left .aw-panel-cell {
+  border-left: none;
+  border-right: 1px solid var(--br-edge, #DCDECF);
+}
+.aw-stage--dock-top .aw-panel-cell {
+  border-left: none;
+  border-bottom: 1px solid var(--br-edge, #DCDECF);
+}
+.aw-stage--dock-float .aw-panel-cell {
+  border: 1px solid var(--br-edge, #DCDECF);
+}
+.aw-website-region {
+  position: relative;
+  background: var(--bg-website, #FAF5EB);
+}
+
+/* FE-LAYOUT-001 — shadow-root marker divs must propagate height so the
+   inner IDEPanel (width/height:100%) fills the panel-cell. The mount
+   marker carries the React tree; the host marker is a lookup hook only
+   and must NOT take vertical flow (otherwise it pushes the mount down). */
+#aw-shadow-host {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+#aw-shadow-mount {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .aw-site {
   flex: 1 1 auto;
   min-width: 0;

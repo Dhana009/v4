@@ -3263,6 +3263,9 @@ function AutoWorkbenchRuntime({ config }) {
   const transport = useFrontendEventStore(config);
   const [tab, setTab] = useState(normalized.tab);
   const [dock, setDockLocal] = useState(() => CTRL_TO_HEADER_DOCK[getDockMode()] || "right");
+  // FE-LAYOUT-001 — when mounted inside the preview flex stage, the host cell
+  // owns width/height. The runtime's outer wrapper becomes relative+100%.
+  const inStage = config?.inStage === true;
   const [panelWidth, setPanelWidth] = useState(() => {
     const stored = getStoredSize();
     return (stored && stored.width) || normalized.panelWidth || 460;
@@ -3296,40 +3299,76 @@ function AutoWorkbenchRuntime({ config }) {
   const panelState = toPanelState(transport.runState || normalized.panelState);
   const IDEPanel = window.IDEPanel;
 
+  // FE-LAYOUT-001 — outerStyle now branches on inStage.
+  //   inStage=true  → relative wrapper that fills the preview flex cell.
+  //                   No padding, no boxShadow, no fixed positioning. The
+  //                   cell already sized us; we just fill it.
+  //   inStage=false → live runtime: a fixed-anchored shell flush to the
+  //                   chosen edge of the host page (no 16px gap). The host
+  //                   page itself remains untouched (we're inside a Shadow
+  //                   DOM injected by browser.py).
   const outerStyle = (() => {
+    if (inStage) {
+      return {
+        position: "relative",
+        width: "100%",
+        height: "100%",
+        display: "flex",
+        pointerEvents: "auto",
+        boxSizing: "border-box",
+      };
+    }
     const base = {
       position: "fixed",
-      inset: 0,
       zIndex: 2147483647,
       display: "flex",
-      padding: 16,
       boxSizing: "border-box",
       pointerEvents: "none",
     };
-    if (dock === "left") return { ...base, justifyContent: "flex-start" };
-    if (dock === "top") return { ...base, flexDirection: "column", justifyContent: "flex-start" };
-    if (dock === "float") return { ...base, justifyContent: "flex-end", alignItems: "flex-start" };
-    return { ...base, justifyContent: "flex-end" };
+    if (dock === "top") {
+      return { ...base, top: 0, left: 0, right: 0, height: 460 };
+    }
+    if (dock === "float") {
+      return { ...base, top: 16, right: 16, bottom: 16, left: "auto", width: panelWidth };
+    }
+    if (dock === "left") {
+      return { ...base, top: 0, left: 0, bottom: 0, width: panelWidth };
+    }
+    return { ...base, top: 0, right: 0, bottom: 0, width: panelWidth };
   })();
   const innerStyle = (() => {
-    if (dock === "top") {
+    if (inStage) {
       return {
         width: "100%",
-        height: 460,
+        height: "100%",
         pointerEvents: "auto",
-        boxShadow: "0 12px 36px rgba(0,0,0,0.28)",
         position: "relative",
       };
     }
+    if (dock === "top") {
+      return {
+        width: "100%",
+        height: "100%",
+        pointerEvents: "auto",
+        position: "relative",
+      };
+    }
+    if (dock === "float") {
+      return {
+        width: "100%",
+        height: "100%",
+        pointerEvents: "auto",
+        position: "relative",
+        boxShadow: "0 16px 40px -10px rgba(20,18,12,0.30)",
+        borderRadius: 14,
+        overflow: "hidden",
+      };
+    }
     return {
-      width: panelWidth,
+      width: "100%",
       height: "100%",
       pointerEvents: "auto",
       position: "relative",
-      boxShadow:
-        dock === "left"
-          ? "12px 0 36px rgba(0,0,0,0.28)"
-          : "-12px 0 36px rgba(0,0,0,0.28)",
     };
   })();
 
@@ -3495,37 +3534,83 @@ function unmount() {
   unmountHost();
 }
 
-// FE-VBATCH-002 — Preview/demo entry point. Mounts the WebsitePreview
-// behind, the AutoWorkbench panel docked right, and the TweaksPanel side
-// overlay. Wires TweaksPanel edits to preview-local state only — never
-// reaches the backend (live mode doesn't even import these modules).
-function PreviewShell({ container }) {
+// FE-LAYOUT-001 — Preview/demo flex-stage shell.
+//
+// Renders the ROOT-style `.aw-stage` flex container with website + panel
+// siblings. The panel cell IS the Shadow DOM host (panelHostRef →
+// createHost), so width/dock changes flow through CSS without remounting
+// the React tree inside the shadow root.
+//
+// Hard constraint: this component is never imported by live runtime.
+// `mount()` is called with `{demo:true, inStage:true}` so the inner
+// AutoWorkbenchRuntime selects a relative (100%/100%) outer wrapper that
+// fills the cell — no third fixed layer, no top gap, no floating-card
+// shadow in docked modes.
+export function PreviewShell({ container }) {
   const [tweaks, setTweaks] = React.useState(DEFAULT_TWEAKS);
-  // FE-VBATCH-002 fix — do NOT auto-open the Tweaks side panel; it covers
-  // the locator-ambiguity card and confuses the first impression. The
-  // user can open it via the header Settings cog (postMessage path).
   const panelHostRef = React.useRef(null);
   React.useEffect(() => {
     if (!panelHostRef.current) return;
     if (panelHostRef.current.__awMounted) return;
     mount(panelHostRef.current, {
       demo: true,
+      inStage: true,
       panelWidth: tweaks.panelWidth,
     });
     panelHostRef.current.__awMounted = true;
   }, []);
+
+  const dock = tweaks.dock;
+  const collapsed = tweaks.collapsed === true;
+  const stageClass =
+    "aw-stage" +
+    " aw-stage--dock-" +
+    (dock === "left" || dock === "top" || dock === "float" ? dock : "right") +
+    (collapsed ? " aw-stage--collapsed" : "");
+
+  // Top dock: panel becomes a fixed-height row; right/left: fixed width.
+  const cellStyle =
+    dock === "top"
+      ? { height: 460, width: "100%", flex: "0 0 auto" }
+      : { width: collapsed ? 44 : tweaks.panelWidth, height: "100%", flex: "0 0 auto" };
+
+  // Float dock keeps the floating-card affordance (drop shadow + radius)
+  // applied to the panel-cell; docked modes are flush (no shadow/radius).
+  if (dock === "float") {
+    cellStyle.boxShadow = "0 16px 40px -10px rgba(20,18,12,0.30)";
+    cellStyle.borderRadius = 14;
+    cellStyle.overflow = "hidden";
+    cellStyle.position = "absolute";
+    cellStyle.right = 16;
+    cellStyle.top = 16;
+    cellStyle.bottom = 16;
+  }
+
   return (
-    <div data-testid="aw-preview-shell" style={{ position: "fixed", inset: 0 }}>
-      {tweaks.showWebsite ? (
+    <div
+      data-testid="aw-preview-stage"
+      className={stageClass}
+      style={{
+        position: "relative",
+        width: "100vw",
+        height: "100vh",
+        display: "flex",
+        flexDirection: dock === "top" ? "column-reverse" : "row",
+        overflow: "hidden",
+        background: "var(--bg-page, #E9E3D2)",
+      }}
+    >
+      {tweaks.showWebsite && dock !== "float" ? (
         <div
-          data-testid="aw-preview-website"
+          data-testid="aw-website-region"
+          className="aw-website-region"
           style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            bottom: 0,
-            right: tweaks.dock === "right" ? tweaks.panelWidth : 0,
+            flex: "1 1 0",
+            minWidth: 0,
+            minHeight: 0,
+            overflow: "auto",
             background: "var(--bg-website, #FAF5EB)",
+            order: dock === "left" ? 2 : 1,
           }}
         >
           <WebsitePreview highlight={tweaks.highlight} />
@@ -3533,15 +3618,11 @@ function PreviewShell({ container }) {
       ) : null}
       <div
         ref={panelHostRef}
-        data-testid="aw-preview-panel-host"
+        data-testid="aw-panel-cell"
+        className="aw-panel-cell"
         style={{
-          position: "fixed",
-          top: 0,
-          bottom: 0,
-          right: tweaks.dock === "right" ? 0 : "auto",
-          left: tweaks.dock === "left" ? 0 : "auto",
-          width: tweaks.panelWidth,
-          boxShadow: "-8px 0 24px rgba(20,18,12,0.12)",
+          ...cellStyle,
+          order: dock === "left" ? 1 : 2,
         }}
       />
       <TweaksPanel value={tweaks} onChange={setTweaks} defaultOpen={false} />
