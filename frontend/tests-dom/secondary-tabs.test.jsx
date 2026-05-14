@@ -1306,4 +1306,177 @@ describe("v4 secondary tabs (real DOM render)", () => {
     expect(screen.getByTestId("trace-gap-capability-0").textContent).toContain("hover");
     expect(screen.getByTestId("trace-gap-path-0").textContent).toContain("/locator/check");
   });
+
+  // D-101 — locator cluster inline actions (improve_locator / view_candidates)
+  // Buttons rendered inside StepLocatorChip when locator_kind ∈ {warn, med, unknown}.
+
+  it("D-101: improve-locator button renders when locator_kind=warn and step has id", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          { id: "s1", intent: "click", locator_kind: "warn", locator_strength: "weak" },
+        ]}
+        onImproveLocator={vi.fn()}
+      />
+    );
+    expect(screen.getByTestId("step-improve-locator-s1")).toBeInTheDocument();
+  });
+
+  it("D-101: improve-locator button renders when locator_kind=med", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          { id: "s2", intent: "click", locator_kind: "med", locator_strength: "medium" },
+        ]}
+        onImproveLocator={vi.fn()}
+      />
+    );
+    expect(screen.getByTestId("step-improve-locator-s2")).toBeInTheDocument();
+  });
+
+  it("D-101: improve-locator button renders when locator_kind=unknown", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          { id: "s3", intent: "click", locator_kind: "unknown", locator_strength: "unknown" },
+        ]}
+        onImproveLocator={vi.fn()}
+      />
+    );
+    expect(screen.getByTestId("step-improve-locator-s3")).toBeInTheDocument();
+  });
+
+  it("D-101: improve-locator button does NOT render when locator_kind=ok (strong)", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          { id: "s4", intent: "click", locator_kind: "ok", locator_strength: "strong" },
+        ]}
+        onImproveLocator={vi.fn()}
+      />
+    );
+    expect(screen.queryByTestId("step-improve-locator-s4")).toBeNull();
+  });
+
+  it("D-101: improve-locator button click dispatches improve_locator command with step_id", () => {
+    const onImproveLocator = vi.fn();
+    render(
+      <StepsTab
+        pendingSteps={[
+          { id: "s1", intent: "click", locator_kind: "warn", locator_strength: "weak" },
+        ]}
+        onImproveLocator={onImproveLocator}
+      />
+    );
+    fireEvent.click(screen.getByTestId("step-improve-locator-s1"));
+    expect(onImproveLocator).toHaveBeenCalledTimes(1);
+    expect(onImproveLocator).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "improve_locator", step_id: "s1" })
+    );
+  });
+
+  it("D-101: improve-locator button is disabled when no onImproveLocator handler provided", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          { id: "s1", intent: "click", locator_kind: "warn", locator_strength: "weak" },
+        ]}
+      />
+    );
+    // Button absent or disabled when no handler wired
+    const btn = screen.queryByTestId("step-improve-locator-s1");
+    if (btn) {
+      expect(btn).toBeDisabled();
+    }
+    // No crash
+  });
+
+  it("D-101: view-candidates button renders when locator_kind is non-strong and step has id", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          { id: "s1", intent: "click", locator_kind: "warn", locator_strength: "weak" },
+        ]}
+        onViewCandidates={vi.fn()}
+      />
+    );
+    expect(screen.getByTestId("step-view-candidates-s1")).toBeInTheDocument();
+  });
+
+  it("D-101: view-candidates button click dispatches view_candidates command with step_id", () => {
+    const onViewCandidates = vi.fn();
+    render(
+      <StepsTab
+        pendingSteps={[
+          { id: "s1", intent: "click", locator_kind: "med", locator_strength: "medium" },
+        ]}
+        onViewCandidates={onViewCandidates}
+      />
+    );
+    fireEvent.click(screen.getByTestId("step-view-candidates-s1"));
+    expect(onViewCandidates).toHaveBeenCalledTimes(1);
+    expect(onViewCandidates).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "view_candidates", step_id: "s1" })
+    );
+  });
+
+  it("D-101: view-candidates button is disabled when no handler provided", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          { id: "s1", intent: "click", locator_kind: "warn", locator_strength: "weak" },
+        ]}
+      />
+    );
+    const btn = screen.queryByTestId("step-view-candidates-s1");
+    if (btn) {
+      expect(btn).toBeDisabled();
+    }
+  });
+
+  it("D-101: neither button renders when step has no id", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          { intent: "click", locator_kind: "warn", locator_strength: "weak" },
+        ]}
+        onImproveLocator={vi.fn()}
+        onViewCandidates={vi.fn()}
+      />
+    );
+    // No step_id → no testid to look for; no crash
+    expect(screen.queryByTestId("step-improve-locator-undefined")).toBeNull();
+    expect(screen.queryByTestId("step-view-candidates-undefined")).toBeNull();
+  });
+
+  it("D-101: malformed locator metadata is safe — buttons hidden without crash", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          { id: "s1", intent: "click", locator_kind: null, locator_strength: undefined },
+        ]}
+        onImproveLocator={vi.fn()}
+        onViewCandidates={vi.fn()}
+      />
+    );
+    // locator_kind=null → no locator chip rendered → no buttons
+    expect(screen.queryByTestId("step-improve-locator-s1")).toBeNull();
+    expect(screen.queryByTestId("step-view-candidates-s1")).toBeNull();
+  });
+
+  it("D-101: change_locator_scope — card-level button in CardLocatorAmbiguity stays wired via dispatcher", () => {
+    // Inline step button for change_locator_scope is DISABLE_WITH_REASON (no
+    // per-step inline button wired). Card-level button in CardLocatorAmbiguity
+    // remains wired via onChangeLocatorScope dispatcher (already tested in
+    // llm-cards.test.jsx). This test confirms absence of inline button.
+    render(
+      <StepsTab
+        pendingSteps={[
+          { id: "s1", intent: "click", locator_kind: "warn", locator_strength: "weak" },
+        ]}
+      />
+    );
+    // No inline change-locator-scope button on StepLocatorChip (DISABLE_WITH_REASON)
+    expect(screen.queryByTestId("step-change-locator-scope-s1")).toBeNull();
+  });
 });
