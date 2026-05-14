@@ -232,6 +232,7 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
   const pendingSteps = runtime.pendingSteps ?? runtime.storePendingSteps ?? [];
   const codePreview = runtime.codePreview ?? runtime.storeCodePreview ?? null;
   const codeDiagnostics = runtime.codeDiagnostics ?? [];
+  const codeSaveResult = runtime.codeSaveResult ?? runtime.storeState?.code_save_result ?? null;
   const traceEntries = runtime.traceEntries ?? runtime.storeTraceEntries ?? [];
   const conversation = runtime.conversation ?? [];
   const plan = runtime.plan ?? runtime.storePlan ?? null;
@@ -376,8 +377,9 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
       <CodeTab
         codePreview={codePreview}
         codeDiagnostics={codeDiagnostics}
-        onCopy={runtime.handleCopyRecordedStep ?? runtime.onCopyCode}
-        onSave={runtime.onExportCode}
+        onCopy={runtime.handleCopyCodeToClipboard ?? runtime.onCopyCode ?? runtime.handleCopyRecordedStep}
+        onSave={runtime.onExportCode ?? runtime.handleExportCode}
+        codeSaveResult={codeSaveResult}
       />
     );
   } else if (activeTab === "trace") {

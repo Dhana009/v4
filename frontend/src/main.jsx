@@ -651,6 +651,7 @@ const KNOWN_TRACE_EVENT_TYPES = new Set([
   "llm_result",
   "step_recorded",
   "code_update",
+  "export_code_result",
   "replay_started",
   "replay_result",
   "capability_gap_recorded",
@@ -1781,6 +1782,7 @@ function useAutoWorkbenchTransport(config) {
   const [recordedSteps, setRecordedSteps] = useState(() => normalizeRecordedSteps(config.recordedSteps));
   const [lastReplayByStepId, setLastReplayByStepId] = useState({});
   const [codeDiagnostics, setCodeDiagnostics] = useState(() => normalizeCodeDiagnostics(config.codeDiagnostics));
+  const [codeSaveResult, setCodeSaveResult] = useState(null);
   const [interactionMode, setInteractionModeRaw] = useState(
     () => normalizeInteractionMode(config.interactionMode ?? config.mode ?? config.runState ?? config.state) || "idle"
   );
@@ -2137,6 +2139,43 @@ function useAutoWorkbenchTransport(config) {
       appendTimeline("Copy not available.", "warn");
     },
     [appendTimeline]
+  );
+
+  const handleExportCode = useCallback(
+    ({ code, path } = {}) => {
+      const codeStr = typeof code === "string" ? code : "";
+      if (!codeStr) {
+        appendTimeline("Export code: no code to save.", "warn");
+        return;
+      }
+      const payload = { type: "export_code", code: codeStr };
+      if (path) payload.path = path;
+      const sent = sendPayload(payload, "WebSocket not connected — cannot save code.");
+      if (sent) {
+        appendTimeline("Exporting code to workspace…", "active");
+      }
+    },
+    [appendTimeline, sendPayload]
+  );
+
+  const handleCopyCodeToClipboard = useCallback(
+    ({ code } = {}) => {
+      const codeStr = typeof code === "string" ? code : codePreview;
+      const text = typeof codeStr === "string" ? codeStr : "";
+      if (!text) {
+        appendTimeline("No code to copy.", "warn");
+        return;
+      }
+      if (navigator?.clipboard?.writeText) {
+        navigator.clipboard
+          .writeText(text)
+          .then(() => appendTimeline("Code copied to clipboard.", "ok"))
+          .catch(() => appendTimeline("Clipboard copy not available.", "warn"));
+        return;
+      }
+      appendTimeline("Clipboard copy not available.", "warn");
+    },
+    [appendTimeline, codePreview]
   );
 
   const handleAttachElement = useCallback(
@@ -2614,6 +2653,8 @@ function useAutoWorkbenchTransport(config) {
           setCodeDiagnostics(
             normalizeCodeDiagnostics(payload && typeof payload === "object" ? payload.diagnostics : [])
           );
+          // Clear prior save result when a new code_update arrives
+          setCodeSaveResult(null);
           acknowledgePendingCommands(type, {
             backend_event: type,
           });
@@ -2760,6 +2801,25 @@ function useAutoWorkbenchTransport(config) {
                 "err"
               );
             }
+          }
+          break;
+        }
+        case "export_code_result": {
+          const isOk = payload && typeof payload === "object" && payload.ok === true;
+          if (isOk) {
+            const savedPath = firstNonEmptyText(
+              payload && typeof payload === "object" ? payload.path : "",
+              "workspace"
+            );
+            setCodeSaveResult({ ok: true, path: payload.path ?? null });
+            appendTimeline(`Code saved to ${savedPath}`, "ok");
+          } else {
+            const errorText = firstNonEmptyText(
+              payload && typeof payload === "object" ? payload.error : "",
+              "Code save failed"
+            );
+            setCodeSaveResult({ ok: false, error: errorText });
+            appendTimeline(errorText, "err");
           }
           break;
         }
@@ -2971,6 +3031,7 @@ function useAutoWorkbenchTransport(config) {
     recordedSteps,
     lastReplayByStepId,
     codeDiagnostics,
+    codeSaveResult,
     planCorrectionText,
     clarificationQuestion,
     clarificationOptions,
@@ -3004,6 +3065,10 @@ function useAutoWorkbenchTransport(config) {
     onReplayRecordedStep: handleReplayRecordedStep,
     onReplayAllRecordedSteps: handleReplayAllRecordedSteps,
     onCopyRecordedStep: handleCopyRecordedStep,
+    onExportCode: handleExportCode,
+    handleExportCode,
+    onCopyCode: handleCopyCodeToClipboard,
+    handleCopyCodeToClipboard,
     setPlanCorrectionText,
     setClarificationQuestion,
     setClarificationOptions,
@@ -3027,6 +3092,8 @@ function useAutoWorkbenchTransport(config) {
     handleReplayRecordedStep,
     handleReplayAllRecordedSteps,
     handleCopyRecordedStep,
+    handleExportCode,
+    handleCopyCodeToClipboard,
   };
 }
 
@@ -3079,6 +3146,7 @@ function AutoWorkbenchRuntime({ config }) {
               storePendingSteps: transport.storeState?.pending_steps ?? [],
               storeRecordedSteps: transport.storeState?.recorded_steps ?? [],
               storeCodePreview: transport.storeState?.code_preview ?? null,
+              storeCodeSaveResult: transport.storeState?.code_save_result ?? null,
               storeTraceEntries: transport.storeState?.trace_entries ?? [],
               storeErrors: transport.storeState?.errors ?? [],
               storeLastError: transport.storeState?.last_error ?? null,

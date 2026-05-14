@@ -886,7 +886,7 @@ export function RecordedTab({ recordedSteps = [], onReplayOne, onReplayAll }) {
 
 // — Code tab ————————————————————————————————————————————
 
-export function CodeTab({ codePreview, codeDiagnostics = [], onCopy, onSave }) {
+export function CodeTab({ codePreview, codeDiagnostics = [], onCopy, onSave, codeSaveResult }) {
   const text = useMemo(() => {
     if (!codePreview) return "";
     if (typeof codePreview === "string") return codePreview;
@@ -932,6 +932,32 @@ export function CodeTab({ codePreview, codeDiagnostics = [], onCopy, onSave }) {
           <I.Download/>Save
         </button>
       </div>
+
+      {codeSaveResult ? (
+        codeSaveResult.ok ? (
+          <div
+            className="aw-info-strip"
+            data-testid="code-save-result"
+            data-status="ok"
+            data-path={codeSaveResult.path ?? ""}
+            style={{ background: "var(--grn-tint,#f0faf3)", borderColor: "#b2dfcc" }}
+          >
+            <I.Check style={{ color: "var(--grn,#22863a)" }}/>
+            <span>Saved to <span style={{ fontFamily: "var(--ff-mono)" }}>{codeSaveResult.path}</span></span>
+          </div>
+        ) : (
+          <div
+            className="aw-info-strip"
+            data-testid="code-save-result"
+            data-status="error"
+            data-error={codeSaveResult.error ?? ""}
+            style={{ background: "var(--red-tint,#fff0f0)", borderColor: "#ffb3b3" }}
+          >
+            <I.Info style={{ color: "var(--red,#d73a49)" }}/>
+            <span>Save failed: {codeSaveResult.error}</span>
+          </div>
+        )
+      ) : null}
 
       {!hasCode ? (
         <div className="aw-info-strip" data-testid="code-empty">
