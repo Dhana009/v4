@@ -211,6 +211,10 @@ function buildDispatchers(runtime) {
     onReconnect: loggedDispatcher("reconnect", runtime?.onReconnect),
     onRepairPlan: loggedDispatcher("repair_plan", runtime?.onRepairPlan),
     onRunSelected: loggedDispatcher("run_selected", runtime?.handleRunPendingSteps ?? runtime?.onRunSelected),
+    // D-101 state-cluster commands
+    onResolveBlocked: loggedDispatcher("resolve_blocked", runtime?.onResolveBlocked ?? runtime?.handleResolveBlocked),
+    onChangePrecondition: loggedDispatcher("change_precondition", runtime?.onChangePrecondition ?? runtime?.handleChangePrecondition),
+    onNavigateToExpected: loggedDispatcher("navigate_to_expected", runtime?.onNavigateToExpected ?? runtime?.handleNavigateToExpected),
   };
 }
 
@@ -356,6 +360,9 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
         onReorder={runtime.onReorderPendingStep}
         onDuplicate={runtime.onDuplicatePendingStep}
         onDelete={runtime.removePendingStep ?? runtime.onDeletePendingStep}
+        onResolveBlocked={dispatchers.onResolveBlocked}
+        onChangePrecondition={dispatchers.onChangePrecondition}
+        onNavigateToExpected={dispatchers.onNavigateToExpected}
         blocked={!!runtime.storePendingRecovery || !!runtime.storePendingPermission}
         blockedReason={
           runtime.storePendingRecovery

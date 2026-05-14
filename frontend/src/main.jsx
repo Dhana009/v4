@@ -2318,6 +2318,25 @@ function useAutoWorkbenchTransport(config) {
     );
   }, [sendPayload]);
 
+  // D-101 state-cluster commands
+  const handleResolveBlocked = useCallback((cmd) => {
+    if (!cmd || !cmd.type) return;
+    const envelope = buildFrontendCommandEnvelope(cmd.type, cmd);
+    sendPayload(envelope, "WebSocket not connected — cannot dispatch resolve_blocked.");
+  }, [sendPayload]);
+
+  const handleChangePrecondition = useCallback((cmd) => {
+    if (!cmd || !cmd.step_id) return;
+    const envelope = buildFrontendCommandEnvelope("change_precondition", cmd);
+    sendPayload(envelope, "WebSocket not connected — cannot dispatch change_precondition.");
+  }, [sendPayload]);
+
+  const handleNavigateToExpected = useCallback((cmd) => {
+    if (!cmd || !cmd.step_id) return;
+    const envelope = buildFrontendCommandEnvelope("navigate_to_expected", cmd);
+    sendPayload(envelope, "WebSocket not connected — cannot dispatch navigate_to_expected.");
+  }, [sendPayload]);
+
   const handleConfirmPlan = useCallback(() => {
     const currentPlan = planRef.current && typeof planRef.current === "object" ? planRef.current : null;
     const rawPlan = currentPlan && typeof currentPlan.raw === "object" ? currentPlan.raw : {};
@@ -3154,6 +3173,13 @@ function useAutoWorkbenchTransport(config) {
     updatePendingStepElementTarget,
     handleRunPendingSteps,
     handleSaveSnapshot,
+    // D-101 state-cluster handlers
+    onResolveBlocked: handleResolveBlocked,
+    handleResolveBlocked,
+    onChangePrecondition: handleChangePrecondition,
+    handleChangePrecondition,
+    onNavigateToExpected: handleNavigateToExpected,
+    handleNavigateToExpected,
     handleConfirmPlan,
     handleSendPlanCorrection,
     handleSendClarificationAnswer,
