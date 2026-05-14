@@ -201,17 +201,13 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
 }
 
 /* FE-LAYOUT-001 — shadow-root marker divs must propagate height so the
-   inner IDEPanel (width/height:100%) fills the panel-cell. The mount
-   marker carries the React tree; the host marker is a lookup hook only
-   and must NOT take vertical flow (otherwise it pushes the mount down). */
-#aw-shadow-host {
-  position: absolute;
-  width: 0;
-  height: 0;
-  overflow: hidden;
-  pointer-events: none;
-}
+   inner IDEPanel (width/height:100%) fills the panel-cell. Both markers
+   share absolute positioning over the cell so they don't stack in normal
+   flow (which would push content below the viewport). */
+#aw-shadow-host,
 #aw-shadow-mount {
+  position: absolute;
+  inset: 0;
   display: block;
   width: 100%;
   height: 100%;

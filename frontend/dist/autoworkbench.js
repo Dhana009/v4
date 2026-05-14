@@ -33304,7 +33304,9 @@ test('pricing page \xB7 sanity', async ({ page }) => {
     applyMode(node, panelMode);
     const storedSize = getStoredSize();
     const panelWidth = storedSize?.width ?? activeConfig.panelWidth ?? 460;
-    applyCompensation(dockMode, { width: panelWidth });
+    if (activeConfig.inStage !== true) {
+      applyCompensation(dockMode, { width: panelWidth });
+    }
     renderInto(node, activeConfig);
     return node;
   }

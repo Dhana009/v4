@@ -3509,14 +3509,20 @@ function mount(root, config = {}) {
 
   const node = resolveMountNode(root);
 
-  // Wire layout modules — S7-0402, S7-0403, S7-0405
+  // Wire layout modules — S7-0402, S7-0403, S7-0405.
+  // FE-LAYOUT-001 — in preview/stage mode we do NOT compensate the document
+  // body. The PreviewShell stage IS the page; body width must stay 100vw so
+  // the flex stage isn't clipped by `overflow:hidden`. Live runtime keeps
+  // compensation so the real host page reflows to make room for the panel.
   const dockMode = getDockMode();
   const panelMode = getPanelMode();
   applyDock(node, dockMode);
   applyMode(node, panelMode);
   const storedSize = getStoredSize();
   const panelWidth = storedSize?.width ?? activeConfig.panelWidth ?? 460;
-  applyCompensation(dockMode, { width: panelWidth });
+  if (activeConfig.inStage !== true) {
+    applyCompensation(dockMode, { width: panelWidth });
+  }
 
   renderInto(node, activeConfig);
   return node;
