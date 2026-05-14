@@ -174,6 +174,7 @@ Design reference (NOT production truth):
 | Step outcome chip | `step-outcome-chip-${type}-${stepId}` | `secondary-tabs.jsx:114` | `secondary-tabs.test.jsx:34` (`step-outcome-chip-navigation-s1`) | — | ACTIVE | type ∈ {`navigation`, `visible`, `count`, …} |
 | Step attach element | `step-attach-${stepId}` | `secondary-tabs.jsx:135` | `secondary-tabs.test.jsx:39` | — | PLANNED_BUG_S7_V4_001 | needs deep-workflow port |
 | Step delete | `step-delete-${stepId}` | `secondary-tabs.jsx:143` | — | — | ACTIVE | — |
+| Step locator chip | `step-locator-${stepId}` | `secondary-tabs.jsx::StepLocatorChip` | `secondary-tabs.test.jsx` (4 tests) | — | ACTIVE | Pass 4b-1. Carries `data-kind` (`ok\|med\|warn\|unknown`) and `data-strength` (`strong\|medium\|weak\|unknown`). Renders only when backend (`plan_ready` annotator or `element_picked`) provides `locator_kind` on step or `step.element_info`. Frontend never infers strength. |
 
 ## 7. Recorded Tab Inventory
 

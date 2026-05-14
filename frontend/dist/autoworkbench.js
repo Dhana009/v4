@@ -26481,6 +26481,39 @@
     const t = String(value ?? "").toLowerCase();
     return /click|tap|press|select|choose|open|navigate|submit/.test(t);
   }
+  function readLocatorMetadata(step) {
+    const info = step && typeof step === "object" ? step.element_info ?? step.elementInfo ?? null : null;
+    const kind = pickFirst2(step?.locator_kind, info?.locator_kind);
+    if (!kind) return null;
+    const strength = pickFirst2(step?.locator_strength, info?.locator_strength) ?? "unknown";
+    const reason = pickFirst2(step?.locator_reason, info?.locator_reason) ?? "";
+    return { kind, strength, reason };
+  }
+  function StepLocatorChip({ step, stepId }) {
+    const meta = readLocatorMetadata(step);
+    if (!meta) return null;
+    const { kind, strength, reason } = meta;
+    const label = strength === "strong" ? "strong locator" : strength === "medium" ? "medium locator" : strength === "weak" ? "weak locator" : "locator unknown";
+    return /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+      "div",
+      {
+        className: `aw-badge-i ${kind === "warn" ? "warn" : kind === "med" ? "outline" : kind === "ok" ? "ok" : "outline"}`,
+        "data-testid": `step-locator-${stepId}`,
+        "data-kind": kind,
+        "data-strength": strength,
+        title: reason || label,
+        style: { display: "inline-flex", alignItems: "center", gap: 4, marginTop: 4, fontSize: 11 },
+        children: [
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: "ldot" }),
+          /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: label }),
+          reason ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { style: { color: "var(--tx-3)" }, children: [
+            "\xB7 ",
+            reason
+          ] }) : null
+        ]
+      }
+    );
+  }
   function PendingStepEditor({
     step,
     index,
@@ -26530,6 +26563,7 @@
           /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { className: `ide-badge ${ready ? "b-ready" : "b-await"}`, "data-testid": `step-status-${stepId}`, children: status })
         ] }),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("div", { className: "ide-step-target-summary", "data-testid": `step-target-${stepId}`, children: targetSummary }),
+        /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(StepLocatorChip, { step, stepId }),
         candidates.length > 1 ? /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(
           "select",
           {

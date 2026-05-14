@@ -117,6 +117,94 @@ describe("v4 secondary tabs (real DOM render)", () => {
     expect(status.textContent.toLowerCase()).not.toContain("ready");
   });
 
+  // Pass 4b-1 — backend-driven locator strength chip
+  it("StepsTab does not render locator chip when backend has not classified", () => {
+    render(<StepsTab pendingSteps={[{ id: "s1", intent: "click Submit" }]} />);
+    expect(screen.queryByTestId("step-locator-s1")).toBeNull();
+  });
+
+  it("StepsTab renders strong locator chip from step.locator_kind payload", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          {
+            id: "s1",
+            intent: "click Submit",
+            locator_kind: "ok",
+            locator_strength: "strong",
+            locator_reason: "uses data-testid",
+          },
+        ]}
+      />
+    );
+    const chip = screen.getByTestId("step-locator-s1");
+    expect(chip).toBeInTheDocument();
+    expect(chip).toHaveAttribute("data-kind", "ok");
+    expect(chip).toHaveAttribute("data-strength", "strong");
+    expect(chip.textContent.toLowerCase()).toContain("strong");
+    expect(chip.textContent.toLowerCase()).toContain("data-testid");
+  });
+
+  it("StepsTab renders weak locator chip with backend reason from element_info", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          {
+            id: "s2",
+            intent: "click 2nd card",
+            element_info: {
+              tag: "div",
+              locator_kind: "warn",
+              locator_strength: "weak",
+              locator_reason: "no strong identifier — relies on class / tag",
+            },
+          },
+        ]}
+      />
+    );
+    const chip = screen.getByTestId("step-locator-s2");
+    expect(chip).toHaveAttribute("data-kind", "warn");
+    expect(chip).toHaveAttribute("data-strength", "weak");
+    expect(chip.textContent.toLowerCase()).toContain("weak");
+    expect(chip.textContent.toLowerCase()).toContain("class / tag");
+  });
+
+  it("StepsTab renders medium locator chip without claiming strong/weak", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          {
+            id: "s3",
+            intent: "click Sign in",
+            locator_kind: "med",
+            locator_strength: "medium",
+            locator_reason: "uses accessible label / role",
+          },
+        ]}
+      />
+    );
+    const chip = screen.getByTestId("step-locator-s3");
+    expect(chip).toHaveAttribute("data-kind", "med");
+    const txt = chip.textContent.toLowerCase();
+    expect(txt).toContain("medium");
+    expect(txt).not.toContain("strong locator");
+    expect(txt).not.toContain("weak locator");
+  });
+
+  it("StepsTab tolerates malformed locator metadata without claiming success", () => {
+    render(
+      <StepsTab
+        pendingSteps={[
+          { id: "s4", intent: "click", locator_kind: "garbage_value", locator_strength: 42 },
+        ]}
+      />
+    );
+    const chip = screen.getByTestId("step-locator-s4");
+    expect(chip).toHaveAttribute("data-kind", "garbage_value");
+    // Strength=42 falls through to "locator unknown".
+    expect(chip.textContent.toLowerCase()).toContain("unknown");
+  });
+
   it("RecordedTab shows empty state when no recorded steps", () => {
     render(<RecordedTab recordedSteps={[]} />);
     expect(screen.getByTestId("recorded-empty")).toBeInTheDocument();

@@ -32,6 +32,47 @@ function isClickLikeIntent(value) {
   return /click|tap|press|select|choose|open|navigate|submit/.test(t);
 }
 
+// Pass 4b-1: backend-driven locator strength chip. Renders nothing unless the
+// backend has classified the locator (no frontend inference). Reads:
+//   step.locator_kind      = "ok" | "med" | "warn" | "unknown"
+//   step.locator_strength  = "strong" | "medium" | "weak" | "unknown"
+//   step.locator_reason    = short backend-generated explanation
+// Falls back to the same fields on step.element_info when the step came from
+// the picker rather than plan_ready.
+function readLocatorMetadata(step) {
+  const info = step && typeof step === "object" ? step.element_info ?? step.elementInfo ?? null : null;
+  const kind = pickFirst(step?.locator_kind, info?.locator_kind);
+  if (!kind) return null;
+  const strength = pickFirst(step?.locator_strength, info?.locator_strength) ?? "unknown";
+  const reason = pickFirst(step?.locator_reason, info?.locator_reason) ?? "";
+  return { kind, strength, reason };
+}
+
+function StepLocatorChip({ step, stepId }) {
+  const meta = readLocatorMetadata(step);
+  if (!meta) return null;
+  const { kind, strength, reason } = meta;
+  const label =
+    strength === "strong" ? "strong locator" :
+    strength === "medium" ? "medium locator" :
+    strength === "weak" ? "weak locator" :
+    "locator unknown";
+  return (
+    <div
+      className={`aw-badge-i ${kind === "warn" ? "warn" : kind === "med" ? "outline" : kind === "ok" ? "ok" : "outline"}`}
+      data-testid={`step-locator-${stepId}`}
+      data-kind={kind}
+      data-strength={strength}
+      title={reason || label}
+      style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 4, fontSize: 11 }}
+    >
+      <span className="ldot" />
+      <span>{label}</span>
+      {reason ? <span style={{ color: "var(--tx-3)" }}>· {reason}</span> : null}
+    </div>
+  );
+}
+
 function PendingStepEditor({
   step,
   index,
@@ -87,6 +128,7 @@ function PendingStepEditor({
         <div className="ide-step-target-summary" data-testid={`step-target-${stepId}`}>
           {targetSummary}
         </div>
+        <StepLocatorChip step={step} stepId={stepId} />
         {candidates.length > 1 ? (
           <select
             className="ide-input ide-step-target-select"
