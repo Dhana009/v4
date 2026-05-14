@@ -150,7 +150,7 @@ Design reference (NOT production truth):
 | SchemaError | repair | `schema-repair` | `llm-cards.jsx:887` | — | — | ACTIVE | — |
 | Composer | container | `aw-composer` | `llm-cards.jsx:930` | — | — | ACTIVE | — |
 | Composer | input | `aw-composer-input` | `llm-cards.jsx:933` | — | — | ACTIVE | — |
-| Composer | pick element | `aw-composer-pick` | `llm-cards.jsx:946` | — | — | DEAD_CONTROL (D-107) | no handler bound; resolve in later pass |
+| Composer | pick element | `aw-composer-pick` | `llm-cards.jsx:946` | `llm-cards.test.jsx` | — | ACTIVE (D-107) | dispatches `{ type: "arm_picker" }` via `onPickElement`; auto-creates blank pending step via `handleComposerPick` in main.jsx; disabled when offline |
 | Composer | send | `aw-composer-send` | `llm-cards.jsx:954` | — | — | ACTIVE | dispatches user_message |
 
 ## 6. Steps Tab Inventory
@@ -293,7 +293,6 @@ These controls exist in source but are not part of the contract until
 their feature work lands:
 
 - Manual Mode header toggle (D-105) — toggle button not yet wired.
-- Composer pick-element (D-107) — `aw-composer-pick` exists but DEAD.
 - Manual builder card — entire surface (D-105).
 - Tweaks panel — design prototype only.
 

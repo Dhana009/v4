@@ -1,6 +1,6 @@
 # D-107 Composer Pick / Camera — Sprint 7 Closeout Mini-Spec
 
-**Status:** OPEN  
+**Status:** CLOSED  
 **Assignee:** Agent  
 **Branch:** `s7/clusters-6-11-complete-llm-mode`  
 **Authored:** 2026-05-14  
