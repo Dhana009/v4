@@ -699,6 +699,7 @@ def test_replay_one_websocket_route_does_not_use_control_queue(monkeypatch) -> N
     with TestClient(server.app) as client:
         with client.websocket_connect("/ws") as websocket:
             initial_message = websocket.receive_json()
+            websocket.receive_json()  # E1/B1 drain agent_settings
             assert initial_message["type"] in {"status", "ready"}
 
             websocket.send_json({"type": "replay_one", "step_id": "step-1"})
@@ -760,6 +761,7 @@ def test_replay_one_websocket_route_preserves_precondition_failure_details(monke
     with TestClient(server.app) as client:
         with client.websocket_connect("/ws") as websocket:
             initial_message = websocket.receive_json()
+            websocket.receive_json()  # E1/B1 drain agent_settings
             assert initial_message["type"] in {"status", "ready"}
 
             websocket.send_json({"type": "replay_one", "step_id": "step-1"})

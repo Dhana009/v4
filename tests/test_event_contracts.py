@@ -16,6 +16,20 @@ from runtime.event_contracts import (
     normalize_frontend_command,
 )
 
+# E1 (B1) — WS now emits `agent_settings` immediately after `ready`.
+# Tests that send a command after connect must drain BOTH init events
+# before reading the response.
+_INIT_EVENT_TYPES = frozenset({"status", "ready", "agent_settings", "session_state"})
+
+
+def _drain_until_non_init(websocket, max_drain: int = 6):
+    """Read and discard init events; return the first non-init event."""
+    for _ in range(max_drain):
+        msg = websocket.receive_json()
+        if msg.get("type") not in _INIT_EVENT_TYPES:
+            return msg
+    raise AssertionError("never saw non-init event after draining")
+
 
 class FakeQueue:
     def __init__(self) -> None:
@@ -207,7 +221,7 @@ def test_websocket_rejects_malformed_canonical_command_with_typed_rejection(monk
                     "payload": {"answer": "confirmed"},
                 }
             )
-            response = websocket.receive_json()
+            response = _drain_until_non_init(websocket)
 
     assert response["type"] == "runtime_rejected"
     assert response["schema_version"] == RUNTIME_REJECTION_SCHEMA_VERSION

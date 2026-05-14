@@ -600,6 +600,42 @@ def build_permission_required_payload(
     )
 
 
+def build_agent_settings_event(
+    *,
+    extra_agents: list[dict[str, Any]] | None = None,
+    version: int | None = None,
+    control_mode: str | None = None,
+    source: str | None = "server",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    """E1 (Backend Seam B1) — typed agent_settings event.
+
+    Sprint 7 emits in read-only mode because runtime cannot yet truly
+    enable/disable agents. The S9 denylist runs inside
+    ``build_agent_settings_payload`` so no secret leaks even if a
+    registry entry mistakenly adds one.
+    """
+    from runtime.agent_registry import build_agent_settings_payload
+
+    kwargs: dict[str, Any] = {}
+    if extra_agents is not None:
+        kwargs["extra_agents"] = extra_agents
+    if version is not None:
+        kwargs["version"] = version
+    if control_mode is not None:
+        kwargs["control_mode"] = control_mode
+    payload = build_agent_settings_payload(**kwargs)
+
+    return build_backend_event_envelope(
+        "agent_settings",
+        payload,
+        event_id=event_id or str(uuid4()),
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
 def build_typed_ready_envelope(
     session_id: str,
     workspace: str,

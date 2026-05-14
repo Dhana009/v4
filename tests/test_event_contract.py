@@ -377,6 +377,7 @@ def test_runtime_rejected_shape_is_explicit_and_renderable(monkeypatch) -> None:
     with TestClient(server.app) as client:
         with client.websocket_connect("/ws") as websocket:
             websocket.receive_json()
+            websocket.receive_json()  # E1/B1 drain agent_settings
             websocket.send_json(
                 {
                     "type": "replay_step",
@@ -458,6 +459,7 @@ def test_session_state_shape_is_explicit(monkeypatch) -> None:
     with TestClient(server.app) as client:
         with client.websocket_connect("/ws") as websocket:
             message = websocket.receive_json()
+            websocket.receive_json()  # E1/B1 drain agent_settings
 
     assert message["type"] == "session_state"
     assert message["run_id"] == "run-test-001"

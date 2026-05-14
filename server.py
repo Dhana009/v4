@@ -19,6 +19,7 @@ from runtime.event_contracts import (
     build_save_result_event,
     build_session_state_event,
     build_stop_run_result_event,
+    build_agent_settings_event,
     build_typed_ready_envelope,
     normalize_frontend_command,
 )
@@ -285,6 +286,11 @@ async def ws_endpoint(ws: WebSocket) -> None:
         browser_ready=True,
     )
     await ws.send_json(_ready_event)
+
+    # E1 / B1 — emit agent_settings on every WS connect so the v4 popover
+    # renders real backend-driven rows instead of an honest empty state.
+    # Sprint 7 ships in read-only mode (no set_agent_enabled command yet).
+    await ws.send_json(build_agent_settings_event())
 
     async def picker_send(msg: dict) -> None:
         await ws.send_json(msg)

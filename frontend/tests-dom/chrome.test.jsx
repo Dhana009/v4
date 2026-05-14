@@ -79,14 +79,23 @@ describe("v4 chrome (real DOM render)", () => {
     expect(screen.queryByTestId("aw-agent-row-cg")).toBeNull();
   });
 
-  it("AgentsPopover non-required toggle is disabled with Sprint 8 reason (D-106)", () => {
+  it("AgentsPopover non-required toggle is disabled in read-only control_mode (E1/B1)", () => {
     const agents = [
       { key: "pi", name: "Page Intelligence", initials: "PI", model: "—", status: "standby", last: "—", required: false },
     ];
-    render(<AgentsPopover agents={agents} />);
+    render(<AgentsPopover agents={agents} controlMode="read_only" />);
     const toggle = screen.getByTestId("aw-agent-toggle-pi");
     expect(toggle).toBeDisabled();
-    expect(toggle.getAttribute("title") || "").toMatch(/BUG-S8-AGENT-001/);
+    expect(toggle.getAttribute("title") || "").toMatch(/Read-only registry/);
+  });
+
+  it("AgentsPopover non-required toggle is enabled when control_mode is writable (E1/B1)", () => {
+    const agents = [
+      { key: "pi", name: "Page Intelligence", initials: "PI", model: "—", status: "standby", last: "—", required: false },
+    ];
+    render(<AgentsPopover agents={agents} controlMode="writable" />);
+    const toggle = screen.getByTestId("aw-agent-toggle-pi");
+    expect(toggle).not.toBeDisabled();
   });
 
   it("AgentsPopover disabled toggle click does not dispatch (D-106)", () => {

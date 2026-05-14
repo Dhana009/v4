@@ -119,7 +119,11 @@ def test_websocket_malformed_command_returns_runtime_rejected_and_does_not_start
                     "payload": {"answer": "confirmed"},
                 }
             )
+            # E1 (B1): server emits `agent_settings` right after `ready`,
+            # so we may receive it before the runtime_rejected response.
             response = websocket.receive_json()
+            if response.get("type") in {"agent_settings", "ready", "status", "session_state"}:
+                response = websocket.receive_json()
 
     assert response["type"] == "runtime_rejected"
     assert response["rejection_code"] == "MALFORMED_COMMAND"
@@ -144,7 +148,11 @@ def test_websocket_unknown_command_returns_runtime_rejected_and_does_not_start_a
                     "payload": {},
                 }
             )
+            # E1 (B1): server emits `agent_settings` right after `ready`,
+            # so we may receive it before the runtime_rejected response.
             response = websocket.receive_json()
+            if response.get("type") in {"agent_settings", "ready", "status", "session_state"}:
+                response = websocket.receive_json()
 
     assert response["type"] == "runtime_rejected"
     assert response["rejection_code"] == "COMMAND_NOT_SUPPORTED"
@@ -171,7 +179,11 @@ def test_websocket_stale_run_id_command_is_rejected_without_queue_mutation(monke
                     "payload": {},
                 }
             )
+            # E1 (B1): server emits `agent_settings` right after `ready`,
+            # so we may receive it before the runtime_rejected response.
             response = websocket.receive_json()
+            if response.get("type") in {"agent_settings", "ready", "status", "session_state"}:
+                response = websocket.receive_json()
 
     assert response["type"] == "runtime_rejected"
     assert response["rejection_code"] == "STALE_COMMAND"

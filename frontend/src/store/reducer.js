@@ -26,6 +26,12 @@ export function createInitialState() {
     interaction_mode: "idle",
     last_error: null,
     session_metadata: null,
+    // E1 (B1) — backend-driven agent registry. Null until the first
+    // agent_settings event lands; AgentsPopover renders honest empty
+    // state in the interim.
+    agents: null,
+    agents_version: 0,
+    agents_control_mode: "read_only",
   };
 }
 
@@ -226,6 +232,19 @@ export function reducer(state, event) {
         code_preview: payload.code ?? payload.content ?? payload,
         // Clear any prior save result when a new code_update arrives
         code_save_result: null,
+      };
+    }
+
+    case EVENT_TYPES.agent_settings: {
+      // E1 (B1) — payload-driven agent registry. Reject stale versions.
+      const incomingVersion = Number(payload?.version ?? 0);
+      if (incomingVersion < (state.agents_version || 0)) return state;
+      const agents = Array.isArray(payload?.agents) ? payload.agents : null;
+      return {
+        ...state,
+        agents,
+        agents_version: incomingVersion,
+        agents_control_mode: payload?.control_mode ?? "read_only",
       };
     }
 

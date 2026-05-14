@@ -43,6 +43,8 @@ export const EVENT_TYPES = /** @type {const} */ ({
   llm_result: "llm_result",
   status: "status",
   error: "error",
+  // E1 (B1) — backend agent registry + control mode for AgentsPopover.
+  agent_settings: "agent_settings",
 });
 
 export const COMMAND_TYPES = /** @type {const} */ ({

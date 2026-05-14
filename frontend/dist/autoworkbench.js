@@ -25121,10 +25121,11 @@
       ] }) : null
     ] });
   }
-  var SPRINT8_DISABLED_TITLE = "Agent controls deferred to Sprint 8 (BUG-S8-AGENT-001)";
-  function AgentsPopover({ onClose, agents }) {
+  var READ_ONLY_TOGGLE_TITLE = "Read-only registry \u2014 set_agent_enabled ships in a later batch";
+  function AgentsPopover({ onClose, agents, controlMode = "read_only" }) {
     const list = Array.isArray(agents) ? agents : [];
     const hasPayload = list.length > 0;
+    const readOnly = controlMode !== "writable";
     return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "aw-agents-pop", role: "dialog", "aria-label": "Agent Control Center", "data-testid": "aw-agents-popover", children: [
       /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "aw-agents-head", children: [
         /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
@@ -25147,8 +25148,8 @@
           {
             className: "aw-agents-sprint8-badge",
             "data-testid": "aw-agents-sprint8-badge",
-            title: SPRINT8_DISABLED_TITLE,
-            children: "Read-only \u2014 Sprint 8"
+            title: READ_ONLY_TOGGLE_TITLE,
+            children: readOnly ? "Read-only" : "Live"
           }
         ),
         /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "x", onClick: onClose, "data-testid": "aw-agents-close", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(I.X, { style: { width: 13, height: 13 } }) })
@@ -25162,10 +25163,10 @@
           children: [
             /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(I.Info, { style: { width: 11, height: 11 } }),
             /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { children: [
-              "No agent registry available. Backend does not yet emit",
+              "No agent registry payload yet. Backend will emit",
               " ",
               /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("code", { children: "agent_settings" }),
-              "; wired in Sprint 8 (BUG-S8-AGENT-001)."
+              " on the next WS connect."
             ] })
           ]
         }
@@ -25206,8 +25207,8 @@
                 type: "button",
                 className: "aw-toggle " + (status === "disabled" ? "" : "on"),
                 "data-testid": `aw-agent-toggle-${a.key}`,
-                title: SPRINT8_DISABLED_TITLE,
-                disabled: true
+                title: READ_ONLY_TOGGLE_TITLE,
+                disabled: readOnly
               }
             )
           ] })
@@ -25215,7 +25216,7 @@
       }),
       /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "aw-agents-foot", children: [
         /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(I.Info, { style: { width: 11, height: 11 } }),
-        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { children: "Agent enable/disable commands land in Sprint 8 (BUG-S8-AGENT-001). Controls are read-only until backend emits the agent registry." }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { children: "Agent registry is live (read-only). Per-agent enable/disable commands ship in the next batch of the Sprint 7 wrap-up." }),
         /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { style: { flex: 1 } })
       ] })
     ] });
@@ -28406,7 +28407,8 @@
                   AgentsPopover,
                   {
                     onClose: () => setAgentsOpen(false),
-                    agents: runtime.storeState?.agents ?? []
+                    agents: runtime.storeState?.agents ?? [],
+                    controlMode: runtime.storeState?.agents_control_mode ?? "read_only"
                   }
                 ) : null
               ] }) : /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(CollapsedRail, { tab: activeTab, setTab, setCollapsed })
@@ -28598,7 +28600,9 @@
       llm_thinking: "llm_thinking",
       llm_result: "llm_result",
       status: "status",
-      error: "error"
+      error: "error",
+      // E1 (B1) — backend agent registry + control mode for AgentsPopover.
+      agent_settings: "agent_settings"
     }
   );
 
@@ -28621,7 +28625,13 @@
       errors: [],
       interaction_mode: "idle",
       last_error: null,
-      session_metadata: null
+      session_metadata: null,
+      // E1 (B1) — backend-driven agent registry. Null until the first
+      // agent_settings event lands; AgentsPopover renders honest empty
+      // state in the interim.
+      agents: null,
+      agents_version: 0,
+      agents_control_mode: "read_only"
     };
   }
   function isStaleRunId(state, payload) {
@@ -28795,6 +28805,17 @@
           code_preview: payload.code ?? payload.content ?? payload,
           // Clear any prior save result when a new code_update arrives
           code_save_result: null
+        };
+      }
+      case EVENT_TYPES.agent_settings: {
+        const incomingVersion = Number(payload?.version ?? 0);
+        if (incomingVersion < (state.agents_version || 0)) return state;
+        const agents = Array.isArray(payload?.agents) ? payload.agents : null;
+        return {
+          ...state,
+          agents,
+          agents_version: incomingVersion,
+          agents_control_mode: payload?.control_mode ?? "read_only"
         };
       }
       case EVENT_TYPES.export_code_result: {

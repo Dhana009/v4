@@ -78,6 +78,7 @@ def test_run_steps_routes_to_agent_run_with_forwarded_steps(monkeypatch) -> None
     with TestClient(server.app) as client:
         with client.websocket_connect("/ws") as websocket:
             websocket.receive_json()  # initial "Browser launched" status
+            websocket.receive_json()  # E1/B1 drain agent_settings
             websocket.send_json({"type": "run_steps", "steps": steps})
 
     assert created["agent"].run_calls == [steps]
@@ -94,6 +95,7 @@ def test_llm_run_routes_to_agent_run_with_forwarded_steps(monkeypatch) -> None:
     with TestClient(server.app) as client:
         with client.websocket_connect("/ws") as websocket:
             websocket.receive_json()
+            websocket.receive_json()  # E1/B1 drain agent_settings
             websocket.send_json({"type": "llm_run", "steps": steps})
 
     assert created["agent"].run_calls == [steps]
@@ -107,6 +109,7 @@ def test_run_steps_with_empty_steps_list_still_calls_agent_run(monkeypatch) -> N
     with TestClient(server.app) as client:
         with client.websocket_connect("/ws") as websocket:
             websocket.receive_json()
+            websocket.receive_json()  # E1/B1 drain agent_settings
             websocket.send_json({"type": "run_steps", "steps": []})
 
     assert created["agent"].run_calls == [[]]
@@ -120,6 +123,7 @@ def test_run_steps_with_missing_steps_key_defaults_to_empty_list(monkeypatch) ->
     with TestClient(server.app) as client:
         with client.websocket_connect("/ws") as websocket:
             websocket.receive_json()
+            websocket.receive_json()  # E1/B1 drain agent_settings
             websocket.send_json({"type": "run_steps"})  # no 'steps' key
 
     assert created["agent"].run_calls == [[]]
@@ -165,6 +169,7 @@ def test_run_steps_while_run_already_active_returns_status_and_does_not_start_se
     with TestClient(server.app) as client:
         with client.websocket_connect("/ws") as websocket:
             websocket.receive_json()  # initial status
+            websocket.receive_json()  # E1/B1 drain agent_settings
 
             # First run_steps — starts a background task
             websocket.send_json({"type": "run_steps", "steps": [{"id": "step-1"}]})
@@ -195,6 +200,7 @@ def test_reset_calls_llm_reset_and_returns_status_message(monkeypatch) -> None:
     with TestClient(server.app) as client:
         with client.websocket_connect("/ws") as websocket:
             websocket.receive_json()  # initial status
+            websocket.receive_json()  # E1/B1 drain agent_settings
 
             # Patch reset on the already-instantiated agent
             created["agent"].llm.reset = lambda: reset_calls.append(1)
@@ -216,6 +222,7 @@ def test_reset_does_not_start_a_run(monkeypatch) -> None:
     with TestClient(server.app) as client:
         with client.websocket_connect("/ws") as websocket:
             websocket.receive_json()
+            websocket.receive_json()  # E1/B1 drain agent_settings
             websocket.send_json({"type": "reset"})
             websocket.receive_json()  # consume status
 
@@ -235,6 +242,7 @@ def test_arm_picker_missing_step_id_returns_error_without_queue_mutation(monkeyp
     with TestClient(server.app) as client:
         with client.websocket_connect("/ws") as websocket:
             websocket.receive_json()
+            websocket.receive_json()  # E1/B1 drain agent_settings
             websocket.send_json({"type": "arm_picker"})  # no step_id
             response = websocket.receive_json()
 
@@ -251,6 +259,7 @@ def test_arm_picker_empty_step_id_returns_error(monkeypatch) -> None:
     with TestClient(server.app) as client:
         with client.websocket_connect("/ws") as websocket:
             websocket.receive_json()
+            websocket.receive_json()  # E1/B1 drain agent_settings
             websocket.send_json({"type": "arm_picker", "step_id": ""})
             response = websocket.receive_json()
 

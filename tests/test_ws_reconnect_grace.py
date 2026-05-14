@@ -57,6 +57,7 @@ def test_transient_websocket_disconnect_preserves_active_run(monkeypatch) -> Non
         with client.websocket_connect("/ws") as first_ws:
             initial = first_ws.receive_json()
             assert initial["type"] in {"status", "ready"}
+            first_ws.receive_json()  # E1/B1 drain agent_settings
 
             first_ws.send_json({"type": "run_steps", "steps": [{"step_id": "step-1"}]})
             assert started.wait(timeout=1.0)
@@ -68,11 +69,16 @@ def test_transient_websocket_disconnect_preserves_active_run(monkeypatch) -> Non
         with client.websocket_connect("/ws") as second_ws:
             reconnect_status = second_ws.receive_json()
             assert reconnect_status["type"] in {"status", "ready"}
+            second_ws.receive_json()  # E1/B1 drain agent_settings
 
             assert created_agents[0].ws_rebind_count == 1
             resumed.set()
             assert finished.wait(timeout=1.0)
+            # The next event may be another agent_settings or the run-completed
+            # status; drain the agent_settings emission if present.
             completed_status = second_ws.receive_json()
+            if completed_status.get("type") == "agent_settings":
+                completed_status = second_ws.receive_json()
             assert completed_status["type"] == "status"
             assert completed_status["message"] == "run completed"
 

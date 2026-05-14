@@ -240,17 +240,19 @@ export function Footer({ phase, event, blocker, nextAction, busy }) {
   );
 }
 
-const SPRINT8_DISABLED_TITLE =
-  "Agent controls deferred to Sprint 8 (BUG-S8-AGENT-001)";
+const READ_ONLY_TOGGLE_TITLE =
+  "Read-only registry — set_agent_enabled ships in a later batch";
 
-export function AgentsPopover({ onClose, agents }) {
-  // Backend does not emit agent_settings / agent_progress / agent_result /
-  // agent_failed / agent_trace today. Until BUG-S8-AGENT-001 wires the
-  // backend agent registry, the popover renders an honest disabled state
-  // when no payload is present. We never fall back to a hardcoded mock list
-  // (no DEFAULT_AGENTS in production path).
+export function AgentsPopover({ onClose, agents, controlMode = "read_only" }) {
+  // E1 (B1): backend now emits agent_settings on every WS connect. The
+  // popover renders directly from that payload — no DEFAULT_AGENTS, no
+  // hardcoded mock list. When payload is missing (pre-connect or stale
+  // session), we keep the honest empty state. Sprint 7 ships in
+  // read-only mode (controlMode === "read_only"); the toggle stays
+  // disabled with a real reason instead of a Sprint-8 deferral note.
   const list = Array.isArray(agents) ? agents : [];
   const hasPayload = list.length > 0;
+  const readOnly = controlMode !== "writable";
   return (
     <div className="aw-agents-pop" role="dialog" aria-label="Agent Control Center" data-testid="aw-agents-popover">
       <div className="aw-agents-head">
@@ -272,9 +274,9 @@ export function AgentsPopover({ onClose, agents }) {
         <span
           className="aw-agents-sprint8-badge"
           data-testid="aw-agents-sprint8-badge"
-          title={SPRINT8_DISABLED_TITLE}
+          title={READ_ONLY_TOGGLE_TITLE}
         >
-          Read-only — Sprint 8
+          {readOnly ? "Read-only" : "Live"}
         </span>
         <span className="x" onClick={onClose} data-testid="aw-agents-close">
           <I.X style={{ width: 13, height: 13 }} />
@@ -288,8 +290,8 @@ export function AgentsPopover({ onClose, agents }) {
         >
           <I.Info style={{ width: 11, height: 11 }} />
           <span>
-            No agent registry available. Backend does not yet emit{" "}
-            <code>agent_settings</code>; wired in Sprint 8 (BUG-S8-AGENT-001).
+            No agent registry payload yet. Backend will emit{" "}
+            <code>agent_settings</code> on the next WS connect.
           </span>
         </div>
       ) : (
@@ -334,8 +336,8 @@ export function AgentsPopover({ onClose, agents }) {
                     type="button"
                     className={"aw-toggle " + (status === "disabled" ? "" : "on")}
                     data-testid={`aw-agent-toggle-${a.key}`}
-                    title={SPRINT8_DISABLED_TITLE}
-                    disabled
+                    title={READ_ONLY_TOGGLE_TITLE}
+                    disabled={readOnly}
                   />
                 )}
               </div>
@@ -346,8 +348,8 @@ export function AgentsPopover({ onClose, agents }) {
       <div className="aw-agents-foot">
         <I.Info style={{ width: 11, height: 11 }} />
         <span>
-          Agent enable/disable commands land in Sprint 8 (BUG-S8-AGENT-001).
-          Controls are read-only until backend emits the agent registry.
+          Agent registry is live (read-only). Per-agent enable/disable
+          commands ship in the next batch of the Sprint 7 wrap-up.
         </span>
         <span style={{ flex: 1 }} />
       </div>

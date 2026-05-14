@@ -524,6 +524,7 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange, dock: dockProp, onDoc
               <AgentsPopover
                 onClose={() => setAgentsOpen(false)}
                 agents={runtime.storeState?.agents ?? []}
+                controlMode={runtime.storeState?.agents_control_mode ?? "read_only"}
               />
             ) : null}
           </>
