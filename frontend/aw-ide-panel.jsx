@@ -444,15 +444,20 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
                 refLabel={runtime.lastEvent?.label ?? null}
                 primaryLabel={meta.primaryLabel}
                 onPrimary={() => {
-                  if (state === "awaiting_confirmation" && plan) {
+                  // Sprint 7: `state` is the panelState alias (await/exec/done…)
+                  // produced by toPanelState() in main.jsx, NOT the raw runState.
+                  // Accept both forms so the NowStrip's primary button works
+                  // regardless of which alias the parent threads in.
+                  const s = String(state || "");
+                  if ((s === "awaiting_confirmation" || s === "await") && plan) {
                     dispatchers.onConfirmPlan({
                       type: "confirm_plan",
                       plan_id: plan.plan_id ?? plan.id,
                       plan_version: plan.version,
                     });
-                  } else if (state === "completed") {
+                  } else if (s === "completed" || s === "done") {
                     dispatchers.onReplayAll({ type: "replay_all" });
-                  } else if (state === "executing") {
+                  } else if (s === "executing" || s === "exec") {
                     dispatchers.onPause({ type: "pause_run" });
                   }
                 }}

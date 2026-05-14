@@ -19,8 +19,9 @@ import { getStoredSize } from "./layout/resize-controller.js";
 // Cluster 5 store — thin wiring (reducer used by useFrontendEventStore)
 import { reducer, createInitialState } from "./store/reducer.js";
 import { createDispatcher } from "./commands/dispatcher.js";
+import { usePlanReadyAutoTab } from "./panel-hooks/use-plan-ready-auto-tab.js";
 
-const VALID_TABS = new Set(["workbench", "steps", "code", "debug"]);
+const VALID_TABS = new Set(["workbench", "llm", "steps", "code", "debug"]);
 
 const DEFAULT_CONFIG = {
   state: "idle",
@@ -3222,6 +3223,18 @@ function AutoWorkbenchRuntime({ config }) {
   useEffect(() => {
     setTab(normalized.tab);
   }, [normalized.tab]);
+
+  // Sprint 7 routing fix: switch to the LLM tab when plan_ready arrives so the
+  // Confirm-Plan card is visible. The store reducer's `storeState.plan` is
+  // currently never dispatched into (storeDispatch is unwired pending the store
+  // migration), so we read the transport's live `plan` + `runState` instead.
+  // See use-plan-ready-auto-tab.js for details.
+  usePlanReadyAutoTab({
+    plan: transport.plan ?? null,
+    phase: transport.runState === "awaiting_confirmation" ? "awaiting_confirmation" : null,
+    currentTab: tab,
+    setTab,
+  });
 
   const panelState = toPanelState(transport.runState || normalized.panelState);
   const IDEPanel = window.IDEPanel;

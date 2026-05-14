@@ -1092,11 +1092,11 @@
             var dispatcher = resolveDispatcher();
             return dispatcher.useReducer(reducer2, initialArg, init);
           }
-          function useRef2(initialValue) {
+          function useRef3(initialValue) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useRef(initialValue);
           }
-          function useEffect2(create, deps) {
+          function useEffect3(create, deps) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useEffect(create, deps);
           }
@@ -1879,14 +1879,14 @@
           exports.useContext = useContext;
           exports.useDebugValue = useDebugValue;
           exports.useDeferredValue = useDeferredValue;
-          exports.useEffect = useEffect2;
+          exports.useEffect = useEffect3;
           exports.useId = useId;
           exports.useImperativeHandle = useImperativeHandle;
           exports.useInsertionEffect = useInsertionEffect;
           exports.useLayoutEffect = useLayoutEffect2;
           exports.useMemo = useMemo4;
           exports.useReducer = useReducer;
-          exports.useRef = useRef2;
+          exports.useRef = useRef3;
           exports.useState = useState5;
           exports.useSyncExternalStore = useSyncExternalStore;
           exports.useTransition = useTransition;
@@ -24487,7 +24487,7 @@
   });
 
   // src/main.jsx
-  var import_react6 = __toESM(require_react());
+  var import_react7 = __toESM(require_react());
   var import_client = __toESM(require_client());
 
   // icons.jsx
@@ -27186,11 +27186,7 @@
             style: { padding: "4px 10px" },
             "data-testid": "steps-run-all",
             disabled: blocked || list.length === 0,
-            onClick: () => typeof onRunAll === "function" && onRunAll({
-              type: "run_steps",
-              step_ids: list.map((s) => s.step_id ?? s.id),
-              mode: "all"
-            }),
+            onClick: () => typeof onRunAll === "function" && onRunAll(),
             children: [
               /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Play, {}),
               "Run Pending Steps"
@@ -27205,11 +27201,7 @@
             style: { padding: "4px 10px" },
             "data-testid": "steps-run-selected",
             disabled: blocked || selectedStepIds.length === 0,
-            onClick: () => typeof onRunSelected === "function" && onRunSelected({
-              type: "run_steps",
-              step_ids: selectedStepIds,
-              mode: "selected"
-            }),
+            onClick: () => typeof onRunSelected === "function" && onRunSelected(),
             children: [
               /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Play, {}),
               "Run selected (",
@@ -28325,15 +28317,16 @@
                     refLabel: runtime.lastEvent?.label ?? null,
                     primaryLabel: meta.primaryLabel,
                     onPrimary: () => {
-                      if (state === "awaiting_confirmation" && plan) {
+                      const s = String(state || "");
+                      if ((s === "awaiting_confirmation" || s === "await") && plan) {
                         dispatchers.onConfirmPlan({
                           type: "confirm_plan",
                           plan_id: plan.plan_id ?? plan.id,
                           plan_version: plan.version
                         });
-                      } else if (state === "completed") {
+                      } else if (s === "completed" || s === "done") {
                         dispatchers.onReplayAll({ type: "replay_all" });
-                      } else if (state === "executing") {
+                      } else if (s === "executing" || s === "exec") {
                         dispatchers.onPause({ type: "pause_run" });
                       }
                     }
@@ -28753,9 +28746,24 @@
     }
   }
 
+  // src/panel-hooks/use-plan-ready-auto-tab.js
+  var import_react6 = __toESM(require_react());
+  function usePlanReadyAutoTab({ plan, phase, currentTab, setTab }) {
+    const lastSeenPlanRef = (0, import_react6.useRef)(null);
+    (0, import_react6.useEffect)(() => {
+      const previous = lastSeenPlanRef.current;
+      lastSeenPlanRef.current = plan;
+      if (!plan) return;
+      if (previous) return;
+      if (phase !== "awaiting_confirmation") return;
+      if (currentTab === "llm") return;
+      setTab("llm");
+    }, [plan, phase, currentTab, setTab]);
+  }
+
   // src/main.jsx
   var import_jsx_runtime7 = __toESM(require_jsx_runtime());
-  var VALID_TABS = /* @__PURE__ */ new Set(["workbench", "steps", "code", "debug"]);
+  var VALID_TABS = /* @__PURE__ */ new Set(["workbench", "llm", "steps", "code", "debug"]);
   var DEFAULT_CONFIG = {
     state: "idle",
     tab: "workbench",
@@ -30152,7 +30160,7 @@
     };
   }
   function useAutoWorkbenchTransport(config) {
-    const wsUrl = (0, import_react6.useMemo)(
+    const wsUrl = (0, import_react7.useMemo)(
       () => resolveWsUrl(config),
       [
         config?.wsUrl,
@@ -30168,86 +30176,86 @@
         config?.host
       ]
     );
-    const [connectionStatus, setConnectionStatus] = (0, import_react6.useState)("disconnected");
-    const [runState, setRunStateRaw] = (0, import_react6.useState)(() => normalizeRunState(config.runState ?? config.state) || "idle");
-    const setRunState = (0, import_react6.useCallback)((next) => {
+    const [connectionStatus, setConnectionStatus] = (0, import_react7.useState)("disconnected");
+    const [runState, setRunStateRaw] = (0, import_react7.useState)(() => normalizeRunState(config.runState ?? config.state) || "idle");
+    const setRunState = (0, import_react7.useCallback)((next) => {
       setRunStateRaw((prev) => {
         const nv = typeof next === "function" ? next(prev) : next;
         if (nv !== prev) log("STATE", { field: "runState", from: prev, to: nv });
         return nv;
       });
     }, []);
-    const [conversation, setConversation] = (0, import_react6.useState)([]);
-    const [timeline, setTimeline] = (0, import_react6.useState)([]);
-    const [traceEntries, setTraceEntries] = (0, import_react6.useState)(() => normalizeTraceEntries(config.traceEntries));
-    const [plan, setPlan] = (0, import_react6.useState)(null);
-    const [codePreview, setCodePreview] = (0, import_react6.useState)("");
-    const [lastError, setLastError] = (0, import_react6.useState)("");
-    const [lastEvent, setLastEvent] = (0, import_react6.useState)(null);
-    const [lastSavedSnapshot, setLastSavedSnapshot] = (0, import_react6.useState)(null);
-    const [pendingCommands, setPendingCommands] = (0, import_react6.useState)(() => normalizePendingCommands(config.pendingCommands));
-    const [pendingSteps, setPendingSteps] = (0, import_react6.useState)(() => normalizePendingSteps(config.pendingSteps));
-    const [recordedSteps, setRecordedSteps] = (0, import_react6.useState)(() => normalizeRecordedSteps(config.recordedSteps));
-    const [lastReplayByStepId, setLastReplayByStepId] = (0, import_react6.useState)({});
-    const [codeDiagnostics, setCodeDiagnostics] = (0, import_react6.useState)(() => normalizeCodeDiagnostics(config.codeDiagnostics));
-    const [codeSaveResult, setCodeSaveResult] = (0, import_react6.useState)(null);
-    const [interactionMode, setInteractionModeRaw] = (0, import_react6.useState)(
+    const [conversation, setConversation] = (0, import_react7.useState)([]);
+    const [timeline, setTimeline] = (0, import_react7.useState)([]);
+    const [traceEntries, setTraceEntries] = (0, import_react7.useState)(() => normalizeTraceEntries(config.traceEntries));
+    const [plan, setPlan] = (0, import_react7.useState)(null);
+    const [codePreview, setCodePreview] = (0, import_react7.useState)("");
+    const [lastError, setLastError] = (0, import_react7.useState)("");
+    const [lastEvent, setLastEvent] = (0, import_react7.useState)(null);
+    const [lastSavedSnapshot, setLastSavedSnapshot] = (0, import_react7.useState)(null);
+    const [pendingCommands, setPendingCommands] = (0, import_react7.useState)(() => normalizePendingCommands(config.pendingCommands));
+    const [pendingSteps, setPendingSteps] = (0, import_react7.useState)(() => normalizePendingSteps(config.pendingSteps));
+    const [recordedSteps, setRecordedSteps] = (0, import_react7.useState)(() => normalizeRecordedSteps(config.recordedSteps));
+    const [lastReplayByStepId, setLastReplayByStepId] = (0, import_react7.useState)({});
+    const [codeDiagnostics, setCodeDiagnostics] = (0, import_react7.useState)(() => normalizeCodeDiagnostics(config.codeDiagnostics));
+    const [codeSaveResult, setCodeSaveResult] = (0, import_react7.useState)(null);
+    const [interactionMode, setInteractionModeRaw] = (0, import_react7.useState)(
       () => normalizeInteractionMode(config.interactionMode ?? config.mode ?? config.runState ?? config.state) || "idle"
     );
-    const setInteractionMode = (0, import_react6.useCallback)((next) => {
+    const setInteractionMode = (0, import_react7.useCallback)((next) => {
       setInteractionModeRaw((prev) => {
         const nv = typeof next === "function" ? next(prev) : next;
         if (nv !== prev) log("STATE", { field: "interactionMode", from: prev, to: nv });
         return nv;
       });
     }, []);
-    const [planCorrectionText, setPlanCorrectionText] = (0, import_react6.useState)("");
-    const [clarificationQuestion, setClarificationQuestion] = (0, import_react6.useState)("");
-    const [clarificationOptions, setClarificationOptions] = (0, import_react6.useState)([]);
-    const [clarificationAnswerText, setClarificationAnswerText] = (0, import_react6.useState)("");
-    const [recoveryText, setRecoveryText] = (0, import_react6.useState)("");
-    const [activePickerStepId, setActivePickerStepId] = (0, import_react6.useState)("");
-    const socketRef = (0, import_react6.useRef)(null);
-    const retryRef = (0, import_react6.useRef)(null);
-    const attemptRef = (0, import_react6.useRef)(0);
-    const mountedRef = (0, import_react6.useRef)(true);
-    const planRef = (0, import_react6.useRef)(null);
-    const pendingCommandsRef = (0, import_react6.useRef)([]);
-    const activePickerStepIdRef = (0, import_react6.useRef)("");
-    const pendingStepsRef = (0, import_react6.useRef)([]);
-    (0, import_react6.useLayoutEffect)(() => {
+    const [planCorrectionText, setPlanCorrectionText] = (0, import_react7.useState)("");
+    const [clarificationQuestion, setClarificationQuestion] = (0, import_react7.useState)("");
+    const [clarificationOptions, setClarificationOptions] = (0, import_react7.useState)([]);
+    const [clarificationAnswerText, setClarificationAnswerText] = (0, import_react7.useState)("");
+    const [recoveryText, setRecoveryText] = (0, import_react7.useState)("");
+    const [activePickerStepId, setActivePickerStepId] = (0, import_react7.useState)("");
+    const socketRef = (0, import_react7.useRef)(null);
+    const retryRef = (0, import_react7.useRef)(null);
+    const attemptRef = (0, import_react7.useRef)(0);
+    const mountedRef = (0, import_react7.useRef)(true);
+    const planRef = (0, import_react7.useRef)(null);
+    const pendingCommandsRef = (0, import_react7.useRef)([]);
+    const activePickerStepIdRef = (0, import_react7.useRef)("");
+    const pendingStepsRef = (0, import_react7.useRef)([]);
+    (0, import_react7.useLayoutEffect)(() => {
       pendingCommandsRef.current = pendingCommands;
     }, [pendingCommands]);
-    (0, import_react6.useLayoutEffect)(() => {
+    (0, import_react7.useLayoutEffect)(() => {
       activePickerStepIdRef.current = activePickerStepId;
     }, [activePickerStepId]);
-    (0, import_react6.useLayoutEffect)(() => {
+    (0, import_react7.useLayoutEffect)(() => {
       pendingStepsRef.current = pendingSteps;
     }, [pendingSteps]);
-    (0, import_react6.useLayoutEffect)(() => {
+    (0, import_react7.useLayoutEffect)(() => {
       planRef.current = plan;
     }, [plan]);
-    const updatePendingSteps = (0, import_react6.useCallback)((updater) => {
+    const updatePendingSteps = (0, import_react7.useCallback)((updater) => {
       setPendingSteps((current) => {
         const next = typeof updater === "function" ? updater(current) : updater;
         pendingStepsRef.current = next;
         return next;
       });
     }, []);
-    const updatePendingCommands = (0, import_react6.useCallback)((updater) => {
+    const updatePendingCommands = (0, import_react7.useCallback)((updater) => {
       setPendingCommands((current) => {
         const next = typeof updater === "function" ? updater(current) : updater;
         pendingCommandsRef.current = next;
         return next;
       });
     }, []);
-    const recordTraceEntry = (0, import_react6.useCallback)((traceEntry) => {
+    const recordTraceEntry = (0, import_react7.useCallback)((traceEntry) => {
       if (!traceEntry || typeof traceEntry !== "object") {
         return;
       }
       setTraceEntries((current) => mergeTraceEntryList(current, traceEntry));
     }, []);
-    const recordPendingCommand = (0, import_react6.useCallback)(
+    const recordPendingCommand = (0, import_react7.useCallback)(
       (commandEnvelope, metadata = {}) => {
         const commandId = firstNonEmptyText(commandEnvelope?.command_id, commandEnvelope?.commandId);
         const commandType = firstNonEmptyText(commandEnvelope?.type);
@@ -30267,7 +30275,7 @@
       },
       [updatePendingCommands]
     );
-    const acknowledgePendingCommands = (0, import_react6.useCallback)(
+    const acknowledgePendingCommands = (0, import_react7.useCallback)(
       (eventType, metadata = {}) => {
         updatePendingCommands((current) => {
           const index = current.findIndex((command) => command && command.status === "pending");
@@ -30287,7 +30295,7 @@
       },
       [updatePendingCommands]
     );
-    const rejectPendingCommand = (0, import_react6.useCallback)(
+    const rejectPendingCommand = (0, import_react7.useCallback)(
       (commandId, metadata = {}) => {
         const rejectionId = firstNonEmptyText(commandId);
         if (!rejectionId) {
@@ -30313,7 +30321,7 @@
       },
       [updatePendingCommands]
     );
-    const updateLastReplayByStepId = (0, import_react6.useCallback)((stepId, replayStatus) => {
+    const updateLastReplayByStepId = (0, import_react7.useCallback)((stepId, replayStatus) => {
       const replayStepId = firstNonEmptyText(stepId);
       if (!replayStepId) {
         return;
@@ -30323,17 +30331,17 @@
         [replayStepId]: replayStatus
       }));
     }, []);
-    const appendTimeline = (0, import_react6.useCallback)((label, level = "ok") => {
+    const appendTimeline = (0, import_react7.useCallback)((label, level = "ok") => {
       const entry = normalizeTimelineEntry(label, level);
       setTimeline((current) => [...current.slice(-39), entry]);
       setLastEvent({ type: "timeline", ...entry });
     }, []);
-    const appendConversation = (0, import_react6.useCallback)((role, text) => {
+    const appendConversation = (0, import_react7.useCallback)((role, text) => {
       const entry = normalizeConversationEntry(role, text);
       setConversation((current) => [...current.slice(-29), entry]);
       setLastEvent({ type: "conversation", ...entry });
     }, []);
-    const sendPayload = (0, import_react6.useCallback)(
+    const sendPayload = (0, import_react7.useCallback)(
       (payload, offlineMessage = "WebSocket not connected.") => {
         const socket = socketRef.current;
         const t = payload?.type ?? "?";
@@ -30358,7 +30366,7 @@
       },
       [appendTimeline]
     );
-    const updatePendingStepIntent = (0, import_react6.useCallback)((stepId, intent) => {
+    const updatePendingStepIntent = (0, import_react7.useCallback)((stepId, intent) => {
       updatePendingSteps(
         (current) => current.map((step) => {
           if (step.id !== stepId) {
@@ -30382,7 +30390,7 @@
         })
       );
     }, [updatePendingSteps]);
-    const updatePendingStepExpectedOutcome = (0, import_react6.useCallback)((stepId, expectedOutcome) => {
+    const updatePendingStepExpectedOutcome = (0, import_react7.useCallback)((stepId, expectedOutcome) => {
       updatePendingSteps(
         (current) => current.map((step) => {
           if (step.id !== stepId) {
@@ -30403,7 +30411,7 @@
         })
       );
     }, [updatePendingSteps]);
-    const updatePendingStepElementTarget = (0, import_react6.useCallback)((stepId, selectedCandidateIndex) => {
+    const updatePendingStepElementTarget = (0, import_react7.useCallback)((stepId, selectedCandidateIndex) => {
       updatePendingSteps(
         (current) => current.map((step) => {
           if (step.id !== stepId) {
@@ -30428,7 +30436,7 @@
         })
       );
     }, [updatePendingSteps]);
-    const removePendingStep = (0, import_react6.useCallback)(
+    const removePendingStep = (0, import_react7.useCallback)(
       (stepId) => {
         if (!stepId) {
           return;
@@ -30448,11 +30456,11 @@
       },
       [appendTimeline, updatePendingSteps]
     );
-    const addPendingStep = (0, import_react6.useCallback)(() => {
+    const addPendingStep = (0, import_react7.useCallback)(() => {
       updatePendingSteps((current) => [...current, createPendingStep("")]);
       appendTimeline("Step added.", "ok");
     }, [appendTimeline, updatePendingSteps]);
-    const handleReplayRecordedStep = (0, import_react6.useCallback)(
+    const handleReplayRecordedStep = (0, import_react7.useCallback)(
       (step) => {
         const stepId = firstNonEmptyText(step?.id, step?.step_id, step?.stepId);
         const title = firstNonEmptyText(step?.display_title, step?.element_name, step?.action, stepId, "Recorded step");
@@ -30473,7 +30481,7 @@
       },
       [appendTimeline, sendPayload]
     );
-    const handleReplayAllRecordedSteps = (0, import_react6.useCallback)(() => {
+    const handleReplayAllRecordedSteps = (0, import_react7.useCallback)(() => {
       const sent = sendPayload(
         {
           type: "replay_all",
@@ -30485,7 +30493,7 @@
         appendTimeline("Replay all requested.", "active");
       }
     }, [appendTimeline, sendPayload]);
-    const handleCopyRecordedStep = (0, import_react6.useCallback)(
+    const handleCopyRecordedStep = (0, import_react7.useCallback)(
       (step) => {
         const line = firstNonEmptyText(step?.generated_line);
         if (!line) {
@@ -30500,7 +30508,7 @@
       },
       [appendTimeline]
     );
-    const handleExportCode = (0, import_react6.useCallback)(
+    const handleExportCode = (0, import_react7.useCallback)(
       ({ code, path } = {}) => {
         const codeStr = typeof code === "string" ? code : "";
         if (!codeStr) {
@@ -30516,7 +30524,7 @@
       },
       [appendTimeline, sendPayload]
     );
-    const handleImproveLocator = (0, import_react6.useCallback)(
+    const handleImproveLocator = (0, import_react7.useCallback)(
       ({ step_id } = {}) => {
         const stepIdStr = typeof step_id === "string" ? step_id.trim() : "";
         if (!stepIdStr) {
@@ -30533,7 +30541,7 @@
       },
       [appendTimeline, sendPayload]
     );
-    const handleViewCandidates = (0, import_react6.useCallback)(
+    const handleViewCandidates = (0, import_react7.useCallback)(
       ({ step_id } = {}) => {
         const stepIdStr = typeof step_id === "string" ? step_id.trim() : "";
         if (!stepIdStr) {
@@ -30550,7 +30558,7 @@
       },
       [appendTimeline, sendPayload]
     );
-    const handleCopyCodeToClipboard = (0, import_react6.useCallback)(
+    const handleCopyCodeToClipboard = (0, import_react7.useCallback)(
       ({ code } = {}) => {
         const codeStr = typeof code === "string" ? code : codePreview;
         const text = typeof codeStr === "string" ? codeStr : "";
@@ -30566,7 +30574,7 @@
       },
       [appendTimeline, codePreview]
     );
-    const handleAttachElement = (0, import_react6.useCallback)(
+    const handleAttachElement = (0, import_react7.useCallback)(
       (stepId) => {
         if (!stepId) {
           return;
@@ -30587,7 +30595,7 @@
       },
       [appendTimeline, sendPayload]
     );
-    const handleComposerPick = (0, import_react6.useCallback)(() => {
+    const handleComposerPick = (0, import_react7.useCallback)(() => {
       const newStep = createPendingStep("");
       updatePendingSteps((current) => [...current, newStep]);
       setActivePickerStepId(newStep.id);
@@ -30607,7 +30615,7 @@
         );
       }
     }, [appendTimeline, sendPayload, updatePendingSteps]);
-    const handleRunPendingSteps = (0, import_react6.useCallback)(() => {
+    const handleRunPendingSteps = (0, import_react7.useCallback)(() => {
       const readySteps = [];
       for (const step of pendingSteps) {
         if (!step || typeof step !== "object" || step.recorded === true) {
@@ -30644,7 +30652,7 @@
         "WebSocket not connected."
       );
     }, [appendTimeline, pendingSteps, sendPayload]);
-    const handleSaveSnapshot = (0, import_react6.useCallback)(() => {
+    const handleSaveSnapshot = (0, import_react7.useCallback)(() => {
       sendPayload(
         {
           type: "save_snapshot"
@@ -30652,19 +30660,19 @@
         "WebSocket not connected."
       );
     }, [sendPayload]);
-    const getActiveRunId = (0, import_react6.useCallback)(() => {
+    const getActiveRunId = (0, import_react7.useCallback)(() => {
       const currentPlan = planRef.current && typeof planRef.current === "object" ? planRef.current : null;
       const rawPlan = currentPlan && typeof currentPlan.raw === "object" ? currentPlan.raw : {};
       return firstNonEmptyText(rawPlan.run_id, rawPlan.runId);
     }, []);
-    const handleResolveBlocked = (0, import_react6.useCallback)((cmd) => {
+    const handleResolveBlocked = (0, import_react7.useCallback)((cmd) => {
       if (!cmd || !cmd.type) return;
       const runId = firstNonEmptyText(cmd.run_id, getActiveRunId());
       const payload = runId ? { ...cmd, run_id: runId } : { ...cmd };
       const envelope = buildFrontendCommandEnvelope(cmd.type, payload);
       sendPayload(envelope, "WebSocket not connected \u2014 cannot dispatch resolve_blocked.");
     }, [getActiveRunId, sendPayload]);
-    const handleChangePrecondition = (0, import_react6.useCallback)((cmd) => {
+    const handleChangePrecondition = (0, import_react7.useCallback)((cmd) => {
       if (!cmd || !cmd.step_id) return;
       const runId = firstNonEmptyText(cmd.run_id, getActiveRunId());
       if (!runId) return;
@@ -30672,7 +30680,7 @@
       const envelope = buildFrontendCommandEnvelope("change_precondition", payload);
       sendPayload(envelope, "WebSocket not connected \u2014 cannot dispatch change_precondition.");
     }, [getActiveRunId, sendPayload]);
-    const handleNavigateToExpected = (0, import_react6.useCallback)((cmd) => {
+    const handleNavigateToExpected = (0, import_react7.useCallback)((cmd) => {
       if (!cmd || !cmd.step_id) return;
       const runId = firstNonEmptyText(cmd.run_id, getActiveRunId());
       if (!runId) return;
@@ -30680,7 +30688,7 @@
       const envelope = buildFrontendCommandEnvelope("navigate_to_expected", payload);
       sendPayload(envelope, "WebSocket not connected \u2014 cannot dispatch navigate_to_expected.");
     }, [getActiveRunId, sendPayload]);
-    const handleConfirmPlan = (0, import_react6.useCallback)(() => {
+    const handleConfirmPlan = (0, import_react7.useCallback)(() => {
       const currentPlan = planRef.current && typeof planRef.current === "object" ? planRef.current : null;
       const rawPlan = currentPlan && typeof currentPlan.raw === "object" ? currentPlan.raw : {};
       const commandPayload = {};
@@ -30707,7 +30715,7 @@
         appendTimeline("Confirmation sent.", "ok");
       }
     }, [appendConversation, appendTimeline, recordPendingCommand, sendPayload]);
-    const handleSendPlanCorrection = (0, import_react6.useCallback)(() => {
+    const handleSendPlanCorrection = (0, import_react7.useCallback)(() => {
       const correction = planCorrectionText.trim();
       if (!correction) {
         appendTimeline("Correction is empty.", "warn");
@@ -30739,7 +30747,7 @@
         appendTimeline("Correction sent.", "ok");
       }
     }, [appendConversation, appendTimeline, plan, planCorrectionText, recordPendingCommand, sendPayload]);
-    const handleSendClarificationAnswer = (0, import_react6.useCallback)(
+    const handleSendClarificationAnswer = (0, import_react7.useCallback)(
       (answerOverride = "") => {
         const answer = firstNonEmptyText(answerOverride, clarificationAnswerText).trim();
         if (!answer) {
@@ -30769,7 +30777,7 @@
       },
       [appendConversation, appendTimeline, clarificationAnswerText, recordPendingCommand, sendPayload]
     );
-    const handleSendRecoveryInstruction = (0, import_react6.useCallback)(() => {
+    const handleSendRecoveryInstruction = (0, import_react7.useCallback)(() => {
       const instruction = recoveryText.trim();
       if (!instruction) {
         appendTimeline("Recovery instruction is empty.", "warn");
@@ -30794,7 +30802,7 @@
         setRecoveryText("");
       }
     }, [appendConversation, appendTimeline, recordPendingCommand, recoveryText, sendPayload]);
-    const handleBackendMessage = (0, import_react6.useCallback)(
+    const handleBackendMessage = (0, import_react7.useCallback)(
       (message) => {
         const type = String(message?.type || "status").toLowerCase();
         const payload = message?.payload;
@@ -31272,7 +31280,7 @@
       },
       [acknowledgePendingCommands, appendConversation, appendTimeline, rejectPendingCommand]
     );
-    (0, import_react6.useEffect)(() => {
+    (0, import_react7.useEffect)(() => {
       mountedRef.current = true;
       return () => {
         mountedRef.current = false;
@@ -31289,7 +31297,7 @@
         }
       };
     }, []);
-    (0, import_react6.useEffect)(() => {
+    (0, import_react7.useEffect)(() => {
       let cancelled = false;
       const clearRetry = () => {
         if (retryRef.current) {
@@ -31477,10 +31485,16 @@
   function AutoWorkbenchRuntime({ config }) {
     const normalized = normalizeConfig(config);
     const transport = useFrontendEventStore(config);
-    const [tab, setTab] = (0, import_react6.useState)(normalized.tab);
-    (0, import_react6.useEffect)(() => {
+    const [tab, setTab] = (0, import_react7.useState)(normalized.tab);
+    (0, import_react7.useEffect)(() => {
       setTab(normalized.tab);
     }, [normalized.tab]);
+    usePlanReadyAutoTab({
+      plan: transport.plan ?? null,
+      phase: transport.runState === "awaiting_confirmation" ? "awaiting_confirmation" : null,
+      currentTab: tab,
+      setTab
+    });
     const panelState = toPanelState(transport.runState || normalized.panelState);
     const IDEPanel2 = window.IDEPanel;
     return /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
@@ -31541,7 +31555,7 @@
     );
   }
   function useFrontendEventStore(config) {
-    const [storeState, storeDispatch] = import_react6.default.useReducer(reducer, null, createInitialState);
+    const [storeState, storeDispatch] = import_react7.default.useReducer(reducer, null, createInitialState);
     const transport = useAutoWorkbenchTransport(config);
     return { ...transport, storeState, storeDispatch };
   }
