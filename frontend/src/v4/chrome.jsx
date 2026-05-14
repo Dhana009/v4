@@ -55,9 +55,35 @@ export function Header({
           <span className="aw-dot" />
           {s.label}
         </span>
-        <span className="aw-status-pill mode" title="Complete LLM Mode">
-          <span className="aw-dot" />
-          LLM
+        <span
+          className="aw-mode-toggle"
+          role="group"
+          aria-label="Interaction mode"
+          data-testid="aw-mode-toggle"
+        >
+          <button
+            type="button"
+            className="aw-mode-opt active"
+            aria-pressed="true"
+            title="Complete LLM Mode (active)"
+            data-testid="aw-mode-llm"
+          >
+            <span className="aw-dot" />
+            LLM
+          </button>
+          <button
+            type="button"
+            className="aw-mode-opt"
+            aria-pressed="false"
+            aria-disabled="true"
+            disabled
+            tabIndex={-1}
+            title="Manual Mode not available — backend seam required. Coming in Sprint 8 (D-105 / BUG-S8-MANUAL-001)."
+            data-testid="aw-mode-manual"
+            data-disabled-reason="sprint-8"
+          >
+            Manual
+          </button>
         </span>
         <button type="button"
           className={"aw-agents-btn " + (agentsOpen ? "open" : "")}

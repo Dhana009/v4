@@ -24924,10 +24924,46 @@
           ]
         }
       ),
-      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "aw-status-pill mode", title: "Complete LLM Mode", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "aw-dot" }),
-        "LLM"
-      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
+        "span",
+        {
+          className: "aw-mode-toggle",
+          role: "group",
+          "aria-label": "Interaction mode",
+          "data-testid": "aw-mode-toggle",
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
+              "button",
+              {
+                type: "button",
+                className: "aw-mode-opt active",
+                "aria-pressed": "true",
+                title: "Complete LLM Mode (active)",
+                "data-testid": "aw-mode-llm",
+                children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "aw-dot" }),
+                  "LLM"
+                ]
+              }
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+              "button",
+              {
+                type: "button",
+                className: "aw-mode-opt",
+                "aria-pressed": "false",
+                "aria-disabled": "true",
+                disabled: true,
+                tabIndex: -1,
+                title: "Manual Mode not available \u2014 backend seam required. Coming in Sprint 8 (D-105 / BUG-S8-MANUAL-001).",
+                "data-testid": "aw-mode-manual",
+                "data-disabled-reason": "sprint-8",
+                children: "Manual"
+              }
+            )
+          ]
+        }
+      ),
       /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
         "button",
         {
