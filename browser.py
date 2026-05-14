@@ -14,9 +14,9 @@ USE_AUTOWORKBENCH_UI = True
 AUTOWORKBENCH_ROOT_ID = "autoworkbench-root"
 AUTOWORKBENCH_STYLE_ID = "autoworkbench-style"
 AUTOWORKBENCH_DEFAULT_CONFIG: dict[str, Any] = {
-    "state": "planning",
+    "state": "idle",
     "tab": "workbench",
-    "panelWidth": 460,
+    "panelWidth": 420,
     "density": "compact",
 }
 AUTOWORKBENCH_ASSETS_MISSING_MESSAGE = (
@@ -169,7 +169,7 @@ def _read_port() -> int:
     global _port
     if _port is not None:
         return _port
-    load_dotenv(override=True)
+    load_dotenv(override=False)
     _port = int(os.getenv("PORT", "8765"))
     return _port
 
@@ -178,7 +178,8 @@ def _read_start_url() -> str:
     global _start_url
     if _start_url is not None:
         return _start_url
-    load_dotenv(override=True)
+    # override=False so explicit shell exports (scripts/launch.sh) win over .env.
+    load_dotenv(override=False)
     _start_url = os.getenv("START_URL", "https://example.com").strip() or "https://example.com"
     return _start_url
 
