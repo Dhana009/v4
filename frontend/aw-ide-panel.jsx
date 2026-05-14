@@ -291,16 +291,24 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
 
   const runIdLabel = runtime.storeState?.run_id ?? runtime.run_id ?? "—";
 
+  // Header agent dots derive ONLY from real backend payload. Backend does
+  // not yet emit agent_settings/agent_progress (BUG-S8-AGENT-001), so this
+  // is almost always []. NO fabrication based on phase — header indicator
+  // must not lie about agent state. (Regression fix R2.)
   const agentsSummary = useMemo(() => {
-    const phase = runtime.storeState?.phase ?? state ?? "idle";
-    return [
-      "on",
-      phase === "planning" ? "run" : "on",
-      phase === "executing" ? "run" : "on",
-      phase === "recovery" ? "on" : "off",
-      "off",
-    ];
-  }, [runtime, state]);
+    const list =
+      runtime.storeState?.agents ??
+      runtime.agents ??
+      null;
+    if (!Array.isArray(list)) return [];
+    return list
+      .map((a) => {
+        const s = a?.status ?? "";
+        if (s === "running") return "run";
+        if (s === "active" || s === "on") return "on";
+        return "off";
+      });
+  }, [runtime]);
 
   const handleToggleStepSelect = useCallback(
     (stepId) =>

@@ -21,7 +21,7 @@ export function Header({
   runState = "—",
   agentsOpen = false,
   setAgentsOpen = () => {},
-  agentsSummary = ["on", "on", "on", "off", "off"],
+  agentsSummary = [],
   pageUrl = "",
 }) {
   const dockBtn = (kind, Icon, title) => (
@@ -93,11 +93,24 @@ export function Header({
         >
           <I.Layers style={{ width: 11, height: 11 }} />
           <span>Agents</span>
-          <span className="dots">
-            {agentsSummary.map((c, i) => (
-              <i key={i} className={c} />
-            ))}
-          </span>
+          {agentsSummary.length === 0 ? (
+            // No backend agent payload yet (BUG-S8-AGENT-001). Render an
+            // honest placeholder instead of fabricating dots. The popover
+            // (D-106) renders the full disabled-empty state.
+            <span
+              className="aw-agents-setup"
+              data-testid="aw-agents-setup"
+              title="Agent registry not yet wired (Sprint 8 / BUG-S8-AGENT-001)"
+            >
+              —
+            </span>
+          ) : (
+            <span className="dots" data-testid="aw-agents-dots">
+              {agentsSummary.map((c, i) => (
+                <i key={i} className={c} />
+              ))}
+            </span>
+          )}
         </button>
         <span
           className="aw-status-pill shrinkable"

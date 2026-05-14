@@ -1108,6 +1108,13 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
 .aw-agents-btn .dots i.on  { background: var(--grn); }
 .aw-agents-btn .dots i.run { background: var(--blu); }
 .aw-agents-btn .dots i.off { background: var(--br-strong); opacity: .6; }
+.aw-agents-btn .aw-agents-setup {
+  color: var(--tx-4);
+  font-size: 10.5px;
+  font-weight: 500;
+  line-height: 1;
+  padding: 0 2px;
+}
 
 .aw-agents-pop {
   position: absolute;
