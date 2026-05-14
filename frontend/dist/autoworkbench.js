@@ -25615,7 +25615,7 @@
     ] });
   }
   function CardExecution({ phase, currentStep, recordedSteps = [], pendingSteps = [], onPause, onStop }) {
-    if (phase !== "executing" && !currentStep) return null;
+    if (phase !== "executing") return null;
     const recorded = asArray(recordedSteps);
     const pending = asArray(pendingSteps);
     return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card exec running", "data-testid": "card-execution", children: [
@@ -26284,7 +26284,7 @@
           onDecision: dispatchers.onPermissionDecision
         }
       ) : null,
-      phase === "executing" || currentStep ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+      phase === "executing" ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
         CardExecution,
         {
           phase,
@@ -27172,87 +27172,96 @@
     } else if (activeTab === "trace") {
       body = /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(TraceTab, { traceEntries });
     }
-    const containerCls = `aw-stage dock-${dock}` + (collapsed ? " collapsed" : "");
-    return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: containerCls, "data-testid": "aw-stage", "data-state": state, "data-tab": activeTab, children: /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(
-      "aside",
+    return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+      "div",
       {
-        className: "aw-panel ide-panel",
-        "data-testid": "aw-panel",
-        "data-wide": dock === "top" ? "1" : "0",
-        style: { width: dock === "top" ? "100%" : 420 },
-        children: [
-          /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "aw-resize" }),
-          !collapsed ? /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(import_jsx_runtime6.Fragment, { children: [
-            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
-              Header,
-              {
-                status,
-                dock,
-                setDock,
-                collapsed,
-                setCollapsed,
-                tokenInfo,
-                runState: runIdLabel,
-                agentsOpen,
-                setAgentsOpen,
-                agentsSummary,
-                pageUrl: runtime.pageUrl ?? ""
-              }
-            ),
-            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(TabStrip, { tab: activeTab, setTab, counts }),
-            showNow ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
-              NowStrip,
-              {
-                kind: meta.kind,
-                state: meta.state,
-                task: meta.task,
-                refLabel: runtime.lastEvent?.label ?? null,
-                primaryLabel: meta.primaryLabel,
-                onPrimary: () => {
-                  if (state === "awaiting_confirmation" && plan) {
-                    dispatchers.onConfirmPlan({
-                      type: "confirm_plan",
-                      plan_id: plan.plan_id ?? plan.id,
-                      plan_version: plan.version
-                    });
-                  } else if (state === "completed") {
-                    dispatchers.onReplayAll({ type: "replay_all" });
-                  } else if (state === "executing") {
-                    dispatchers.onPause({ type: "pause_run" });
+        "data-testid": "aw-stage",
+        "data-dock": dock,
+        "data-state": state,
+        "data-tab": activeTab,
+        style: { width: "100%", height: "100%" },
+        children: /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(
+          "aside",
+          {
+            className: `aw-panel ide-panel dock-${dock}${collapsed ? " collapsed" : ""}`,
+            "data-testid": "aw-panel",
+            "data-wide": dock === "top" ? "1" : "0",
+            style: { width: "100%", height: "100%" },
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "aw-resize" }),
+              !collapsed ? /* @__PURE__ */ (0, import_jsx_runtime6.jsxs)(import_jsx_runtime6.Fragment, { children: [
+                /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+                  Header,
+                  {
+                    status,
+                    dock,
+                    setDock,
+                    collapsed,
+                    setCollapsed,
+                    tokenInfo,
+                    runState: runIdLabel,
+                    agentsOpen,
+                    setAgentsOpen,
+                    agentsSummary,
+                    pageUrl: runtime.pageUrl ?? ""
                   }
-                }
-              }
-            ) : null,
-            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "aw-panel-body", "data-testid": "aw-panel-body", children: body }),
-            activeTab === "llm" ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
-              Composer,
-              {
-                onSend: dispatchers.onSendUserMessage,
-                onPickElement: runtime.handleAttachElement ?? runtime.onAttachElement,
-                disabled: status === "offline"
-              }
-            ) : null,
-            /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
-              Footer,
-              {
-                phase: meta.phase,
-                event: runtime.lastEvent?.text ?? runtime.lastEvent?.type ?? "\u2014",
-                blocker: meta.blocker || (rejection ? "schema invalid" : null),
-                nextAction: meta.primaryLabel,
-                busy: meta.busy
-              }
-            ),
-            agentsOpen ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
-              AgentsPopover,
-              {
-                onClose: () => setAgentsOpen(false),
-                agents: runtime.storeState?.agents ?? []
-              }
-            ) : null
-          ] }) : /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(CollapsedRail, { tab: activeTab, setTab, setCollapsed })
-        ]
+                ),
+                /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(TabStrip, { tab: activeTab, setTab, counts }),
+                showNow ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+                  NowStrip,
+                  {
+                    kind: meta.kind,
+                    state: meta.state,
+                    task: meta.task,
+                    refLabel: runtime.lastEvent?.label ?? null,
+                    primaryLabel: meta.primaryLabel,
+                    onPrimary: () => {
+                      if (state === "awaiting_confirmation" && plan) {
+                        dispatchers.onConfirmPlan({
+                          type: "confirm_plan",
+                          plan_id: plan.plan_id ?? plan.id,
+                          plan_version: plan.version
+                        });
+                      } else if (state === "completed") {
+                        dispatchers.onReplayAll({ type: "replay_all" });
+                      } else if (state === "executing") {
+                        dispatchers.onPause({ type: "pause_run" });
+                      }
+                    }
+                  }
+                ) : null,
+                /* @__PURE__ */ (0, import_jsx_runtime6.jsx)("div", { className: "aw-panel-body", "data-testid": "aw-panel-body", children: body }),
+                activeTab === "llm" ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+                  Composer,
+                  {
+                    onSend: dispatchers.onSendUserMessage,
+                    onPickElement: runtime.handleAttachElement ?? runtime.onAttachElement,
+                    disabled: status === "offline"
+                  }
+                ) : null,
+                /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+                  Footer,
+                  {
+                    phase: meta.phase,
+                    event: runtime.lastEvent?.text ?? runtime.lastEvent?.type ?? "\u2014",
+                    blocker: meta.blocker || (rejection ? "schema invalid" : null),
+                    nextAction: meta.primaryLabel,
+                    busy: meta.busy
+                  }
+                ),
+                agentsOpen ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+                  AgentsPopover,
+                  {
+                    onClose: () => setAgentsOpen(false),
+                    agents: runtime.storeState?.agents ?? []
+                  }
+                ) : null
+              ] }) : /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(CollapsedRail, { tab: activeTab, setTab, setCollapsed })
+            ]
+          }
+        )
       }
-    ) });
+    );
   }
   window.IDEPanel = IDEPanel;
 
@@ -27630,7 +27639,7 @@
   var DEFAULT_CONFIG = {
     state: "planning",
     tab: "workbench",
-    panelWidth: 460,
+    panelWidth: 420,
     density: "compact"
   };
   var SHADOW_STYLE_ID = "aw-shadow-style";

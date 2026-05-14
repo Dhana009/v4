@@ -336,15 +336,19 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
     body = <TraceTab traceEntries={traceEntries} />;
   }
 
-  const containerCls = `aw-stage dock-${dock}` + (collapsed ? " collapsed" : "");
-
+  // v4 panel renders directly inside the docked Shadow DOM mount provided by
+  // main.jsx (already position:fixed, sized, right-anchored). We do NOT use
+  // the v4 .aw-stage full-viewport wrapper here — it would cover the host
+  // page behind the panel. The dock/collapse state is exposed on the panel
+  // element via data-* hooks for CSS variants.
   return (
-    <div className={containerCls} data-testid="aw-stage" data-state={state} data-tab={activeTab}>
+    <div data-testid="aw-stage" data-dock={dock} data-state={state} data-tab={activeTab}
+         style={{ width: "100%", height: "100%" }}>
       <aside
-        className="aw-panel ide-panel"
+        className={`aw-panel ide-panel dock-${dock}${collapsed ? " collapsed" : ""}`}
         data-testid="aw-panel"
         data-wide={dock === "top" ? "1" : "0"}
-        style={{ width: dock === "top" ? "100%" : 420 }}
+        style={{ width: "100%", height: "100%" }}
       >
         <div className="aw-resize" />
         {!collapsed ? (

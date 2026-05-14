@@ -24,7 +24,7 @@ const VALID_TABS = new Set(["workbench", "steps", "code", "debug"]);
 const DEFAULT_CONFIG = {
   state: "planning",
   tab: "workbench",
-  panelWidth: 460,
+  panelWidth: 420,
   density: "compact",
 };
 

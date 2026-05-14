@@ -485,8 +485,9 @@ export function CardPermission({ permission, onDecision }) {
 // — Execution ———————————————————————————————————————————
 
 export function CardExecution({ phase, currentStep, recordedSteps = [], pendingSteps = [], onPause, onStop }) {
-  // Render only while executing (driven by phase). Show recorded + current + queued.
-  if (phase !== "executing" && !currentStep) return null;
+  // Render only while the backend is actually executing. A pending step
+  // alone (idle planning state) must NOT trigger the executing card.
+  if (phase !== "executing") return null;
   const recorded = asArray(recordedSteps);
   const pending = asArray(pendingSteps);
 
@@ -1053,7 +1054,7 @@ export function LlmThread({
         />
       ) : null}
 
-      {(phase === "executing" || currentStep) ? (
+      {phase === "executing" ? (
         <CardExecution
           phase={phase}
           currentStep={currentStep}
