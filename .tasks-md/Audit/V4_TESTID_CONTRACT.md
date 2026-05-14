@@ -224,7 +224,8 @@ Design reference (NOT production truth):
 | Preview | `code-preview` | `secondary-tabs.jsx:425` | `secondary-tabs.test.jsx:112`, `panel-integration.test.jsx:159` | — | ACTIVE | — |
 | Diagnostics list | `code-diagnostics` | `secondary-tabs.jsx:429` | `secondary-tabs.test.jsx:113` | — | ACTIVE | — |
 | Diagnostic row | `code-diagnostic-${i}` | `secondary-tabs.jsx:435` | — | — | ACTIVE | — |
-| Export controls | (none yet) | — | — | — | PLANNED_D103 | richer payload + export pending |
+| Save result chip | `code-save-result` | `secondary-tabs.jsx` | `secondary-tabs.test.jsx:D-103` | — | ACTIVE | `data-status="ok\|error"`, `data-path` (ok), `data-error` (error); rendered only when `codeSaveResult` present |
+| Export controls (save-as, step-lines) | (none yet) | — | — | — | HIDE_AS_NON_P0 | richer variants deferred to Sprint 8; D-103 |
 
 ## 9. Trace Tab Inventory
 
