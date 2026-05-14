@@ -4,8 +4,9 @@
 **Branch:** `s7/clusters-6-11-complete-llm-mode`
 **Sprint 7 base commit:** `8bdd8de` (pre-Sprint 7 — `fix: align llm model class contract tests`)
 **Wrap-Up Batch D start HEAD:** `45071df`
-**Wrap-Up Batch D end HEAD:** *recorded in commit log below*
-**Local ahead of `origin/s7/clusters-6-11-complete-llm-mode`:** 55+ commits (unpushed)
+**Wrap-Up Batch D end HEAD:** `8fc23f4`
+**Post-Batch-D regression-fix pass HEAD:** `c71c569` (3 fix/test commits cherry-picked from worktree `worktree-agent-aef70c9917bc1c05a`)
+**Local ahead of `origin/s7/clusters-6-11-complete-llm-mode`:** 58 commits (unpushed)
 
 ---
 
@@ -36,9 +37,29 @@ Files explicitly **not** staged at handoff: `AGENTS.md`, `.DS_Store`,
 - Wrap-Up Batch B (D-102 Recorded tab)
 - Wrap-Up Batch C (D-103 Code, D-104 Trace, D-105 Manual, D-106 Agents,
   D-107 Composer pick, D-108 Mock audit)
-- Wrap-Up Batch D (this pass — final E2E, PRD reconciliation, handoff)
+- Wrap-Up Batch D (final E2E, PRD reconciliation, handoff)
+- Post-Batch-D regression-fix pass (mode toggle CSS + fake `agentsSummary` removal + D-108 guard extension)
 
 Full log: `git log --oneline 8bdd8de..HEAD`.
+
+### Post-Batch-D regression-fix pass
+
+User screenshot review after Batch D surfaced two visual regressions not caught
+by any prior pass:
+
+| Regression | Root cause | Fix |
+|---|---|---|
+| R1 — Mode toggle CSS missing | `aw-mode-toggle` / `aw-mode-opt` classes added by D-105 (commit `781e717`) had no CSS rules anywhere in `frontend/`; buttons rendered block-default, overlapping the Connected pill. | `frontend/v4.css` — added segmented-pill styles (.aw-mode-toggle / .aw-mode-opt / .active / [disabled] / [aria-disabled]) using existing v4 design tokens. Commit `a438971`. |
+| R2 — Fake agent dots in header | `frontend/aw-ide-panel.jsx:294` `agentsSummary` `useMemo` fabricated a 5-element `["on","run"\|"on",...]` array from phase regardless of backend payload — exact pattern D-106/D-108 was supposed to eliminate. D-108 grep missed it because `useMemo` does not match `DEFAULT_*`/`SAMPLE_*` prefixes. | Replaced `agentsSummary` with derivation from `runtime.storeState?.agents` / `runtime.agents`; empty array when no payload. `chrome.jsx` default arg flipped from 5-on-array to `[]`; renders muted `aw-agents-setup` placeholder cite-ing Sprint 8 when empty, real dots only when backend provides them. Commit `95c181f`. |
+| R3 — LLM tab empty body | Verified — `llm-cards.jsx::LlmEmpty` already renders honest welcome card; original blank-body symptom was cascade from R1 mode-toggle layout breakage. No code change. |
+
+Guard extension: `frontend/tests-dom/static-audit.test.jsx` now also flags
+phase-ternary `useMemo` patterns and length>2 literal arrays of `"on"|"off"|"run"`
+strings in production source — so D-108 catches this exact regression class
+next time. Commit `c71c569`.
+
+Validation post-fix: jsdom **409 passed** (+6), npm build clean, pytest non-E2E
+**2638 passed**, smoke E2E **2/2 PASS**. Cherry-pick clean, no conflicts.
 
 ---
 
@@ -119,7 +140,8 @@ Deferred to Sprint 8:
 | Agents popover (D-106) | DISABLED_WITH_REASON | `DEFAULT_AGENTS` deleted; `aw-agents-empty` honest empty state; non-required toggles `disabled` w/ Sprint 8 title; required toggles `disabled` with "Required — always on"; `aw-agents-sprint8-badge` instead of fabricated count |
 | Static-audit guard (D-108) | INTEGRATED | `frontend/tests-dom/static-audit.test.jsx` |
 
-jsdom tests at HEAD: **403 passed** across 5 test files.
+jsdom tests at HEAD: **409 passed** across 5 test files (Batch D handoff
+recorded 403; post-Batch-D regression-fix pass added 6 R2/R1 guard tests).
 `npm run build`: clean (1.4 MB JS, 81.4 KB CSS, 5 unchanged warnings).
 
 ---
