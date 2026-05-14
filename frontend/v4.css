@@ -1,6 +1,62 @@
 /* AutoWorkbench — Playwright Automation Co-pilot
    Visual system: warm white, soft orange accent, calm status colors. */
 
+/* F2 — Geist Sans + Geist Mono so panel typography matches the v4 design
+   in both shadow-root and document renders. Pulled from the Google Fonts
+   CDN; ensureShadowStyles() copies this stylesheet into the shadow root,
+   and @font-face declarations are resolved at the document level so the
+   shadow root sees the same fonts. Falls back to system stack if the CDN
+   is unreachable (font-display: swap). */
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("https://fonts.gstatic.com/s/geist/v3/gyByhwUxId8gMEwYGFU.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("https://fonts.gstatic.com/s/geist/v3/gyByhwUxId8gMEwYGFU.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: url("https://fonts.gstatic.com/s/geist/v3/gyByhwUxId8gMEwYGFU.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist Mono";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("https://fonts.gstatic.com/s/geistmono/v3/or3sQ7t_47vIfMlS4Mck_-Bp.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Geist Mono";
+  font-style: normal;
+  font-weight: 500;
+  font-display: swap;
+  src: url("https://fonts.gstatic.com/s/geistmono/v3/or3sQ7t_47vIfMlS4Mck_-Bp.woff2") format("woff2");
+}
+
+/* F2 — shadow-root base typography. The design's `body { font-family: ... }`
+   rule never matches inside the shadow root because there is no <body>
+   there; we restate it on the host marker and inherit downward. */
+:host,
+#aw-shadow-host {
+  font-family: "Geist", "Söhne", -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
+  font-feature-settings: "ss01", "cv11";
+  color: #1F1B14;
+  font-size: 13.5px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 :root {
   /* Surface tones — calmer hierarchy, less beige-on-beige */
   --bg-page: #E9E3D2;          /* outside / browser canvas behind floating panel */

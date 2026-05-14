@@ -20,7 +20,9 @@ from runtime.event_contracts import (
     build_session_state_event,
     build_stop_run_result_event,
     build_agent_settings_event,
+    build_api_key_required_event,
     build_endpoint_registry_event,
+    build_no_browser_event,
     build_typed_ready_envelope,
     normalize_frontend_command,
 )
@@ -216,14 +218,78 @@ async def _send_replay_json(ws: WebSocket, agent: Any, payload: dict[str, Any]) 
         return False
 
 
+# Runtime degradation state — populated by lifespan, read by WS connect to
+# emit the matching state-card events (E2/B2) instead of crashing the server.
+_BOOT_STATE: dict[str, object] = {
+    "api_key_ok": False,
+    "api_key_reason": None,  # "missing" | "invalid" | None
+    "browser_ok": False,
+    "browser_error": None,
+    "stub_mode": False,
+}
+
+
+def _classify_api_key() -> tuple[bool, str | None]:
+    key = os.getenv("OPENAI_API_KEY", "")
+    if not key:
+        return False, "missing"
+    if not key.startswith("sk-"):
+        return False, "invalid"
+    return True, None
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):  # noqa: ARG001
-    key = os.getenv("OPENAI_API_KEY", "")
-    if not key or not key.startswith("sk-"):
-        raise RuntimeError("OPENAI_API_KEY missing or invalid in .env")
-    print("[startup] OPENAI_API_KEY loaded: yes source: repo .env")
-    print(f"[startup] PORT={PORT}")
-    await launch_browser()
+    """Graceful boot: never crash on missing env / browser failure.
+
+    Sprint-7 / F1 — server must boot in both modes:
+      • Real: real OPENAI_API_KEY + Playwright browser.
+      • Stub: AUTOWORKBENCH_STUB_MODE=1 → skip key + browser launch; WS
+        clients receive api_key_required + no_browser state-card events.
+
+    On any boot failure we record the cause in `_BOOT_STATE` and emit the
+    matching event from the WS handler on connect (E2 / B2).
+    """
+    _BOOT_STATE["stub_mode"] = os.getenv("AUTOWORKBENCH_STUB_MODE", "").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+
+    api_ok, api_reason = _classify_api_key()
+    _BOOT_STATE["api_key_ok"] = api_ok
+    _BOOT_STATE["api_key_reason"] = api_reason
+    if api_ok:
+        print("[startup] OPENAI_API_KEY loaded: yes source: repo .env", flush=True)
+    elif _BOOT_STATE["stub_mode"]:
+        print(
+            f"[startup] OPENAI_API_KEY {api_reason or 'missing'} — stub mode active",
+            flush=True,
+        )
+    else:
+        print(
+            f"[startup] OPENAI_API_KEY {api_reason or 'missing'} — frontend will "
+            "show api_key_required; LLM calls will refuse until a key is set",
+            flush=True,
+        )
+
+    print(f"[startup] PORT={PORT}", flush=True)
+
+    if _BOOT_STATE["stub_mode"]:
+        print("[startup] AUTOWORKBENCH_STUB_MODE=1 — skipping browser launch", flush=True)
+    else:
+        try:
+            await launch_browser()
+            _BOOT_STATE["browser_ok"] = True
+        except Exception as exc:  # noqa: BLE001
+            _BOOT_STATE["browser_ok"] = False
+            _BOOT_STATE["browser_error"] = str(exc) or type(exc).__name__
+            print(
+                f"[startup] browser launch failed: {exc!r} — frontend will show "
+                "no_browser; runs blocked until recovered",
+                flush=True,
+            )
+
     yield
 
 
@@ -292,6 +358,37 @@ async def ws_endpoint(ws: WebSocket) -> None:
     # renders real backend-driven rows instead of an honest empty state.
     # Sprint 7 ships in read-only mode (no set_agent_enabled command yet).
     await ws.send_json(build_agent_settings_event())
+
+    # F1 / E2 — degraded-boot advisories. The lifespan never crashes on
+    # missing key or browser failure; instead it records the cause in
+    # _BOOT_STATE and we emit the matching typed state-card event here
+    # so the frontend can render the honest empty state.
+    if not _BOOT_STATE.get("api_key_ok"):
+        await ws.send_json(
+            build_api_key_required_event(
+                provider="openai",
+                reason=str(_BOOT_STATE.get("api_key_reason") or "missing"),
+                missing_config_keys=["OPENAI_API_KEY"],
+                message=(
+                    "Set OPENAI_API_KEY in your environment (or .env). LLM mode "
+                    "is paused until a valid key is present."
+                ),
+                setup_hint={"url": "https://platform.openai.com/api-keys"},
+            )
+        )
+    if not _BOOT_STATE.get("browser_ok") and not _BOOT_STATE.get("stub_mode"):
+        await ws.send_json(
+            build_no_browser_event(
+                reason="not_launched",
+                recoverable=True,
+                message=(
+                    "Backend booted but the Playwright browser failed to launch. "
+                    "Restart the backend service or run `playwright install` to "
+                    "recover."
+                ),
+                suggested_action="relaunch_browser",
+            )
+        )
 
     # E3 / B5 — emit endpoint_registry on every WS connect. Sprint 7 ships
     # a single-entry registry pointing at the current local backend; the
