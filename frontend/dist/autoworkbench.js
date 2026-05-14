@@ -25073,8 +25073,10 @@
       ] }) : null
     ] });
   }
-  function AgentsPopover({ onClose, agents = [] }) {
-    const list = Array.isArray(agents) && agents.length ? agents : DEFAULT_AGENTS;
+  var SPRINT8_DISABLED_TITLE = "Agent controls deferred to Sprint 8 (BUG-S8-AGENT-001)";
+  function AgentsPopover({ onClose, agents }) {
+    const list = Array.isArray(agents) ? agents : [];
+    const hasPayload = list.length > 0;
     return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "aw-agents-pop", role: "dialog", "aria-label": "Agent Control Center", "data-testid": "aw-agents-popover", children: [
       /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "aw-agents-head", children: [
         /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
@@ -25092,15 +25094,34 @@
           }
         ),
         /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("div", { className: "t", children: "Agent Control Center" }) }),
-        /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { className: "sub", children: [
-          list.filter((a) => a.status !== "disabled").length,
-          " active \xB7 ",
-          list.filter((a) => a.status === "disabled").length,
-          " off"
-        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+          "span",
+          {
+            className: "aw-agents-sprint8-badge",
+            "data-testid": "aw-agents-sprint8-badge",
+            title: SPRINT8_DISABLED_TITLE,
+            children: "Read-only \u2014 Sprint 8"
+          }
+        ),
         /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "x", onClick: onClose, "data-testid": "aw-agents-close", children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(I.X, { style: { width: 13, height: 13 } }) })
       ] }),
-      list.map((a) => {
+      !hasPayload ? /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)(
+        "div",
+        {
+          className: "aw-agents-empty",
+          "data-testid": "aw-agents-empty",
+          role: "status",
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(I.Info, { style: { width: 11, height: 11 } }),
+            /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("span", { children: [
+              "No agent registry available. Backend does not yet emit",
+              " ",
+              /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("code", { children: "agent_settings" }),
+              "; wired in Sprint 8 (BUG-S8-AGENT-001)."
+            ] })
+          ]
+        }
+      ) : list.map((a) => {
         const status = a.status || "standby";
         const cls = status === "running" ? "running" : status === "active" ? "active" : status === "disabled" ? "disabled" : "standby";
         return /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "aw-agent-row " + cls, "data-testid": `aw-agent-row-${a.key}`, children: [
@@ -25114,7 +25135,7 @@
             /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "aw-agent-last", children: [
               /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "em", children: "last:" }),
               " ",
-              a.last
+              a.last ?? "\u2014"
             ] })
           ] }),
           /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "aw-agent-ctrl", children: [
@@ -25122,12 +25143,23 @@
               /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { className: "ldot" }),
               status === "queued" ? "queued" : status
             ] }),
-            a.required ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("button", { type: "button", className: "aw-toggle on locked", "aria-label": "locked on", disabled: true }) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+            a.required ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+              "button",
+              {
+                type: "button",
+                className: "aw-toggle on locked",
+                "aria-label": "locked on",
+                title: "Required \u2014 always on",
+                disabled: true
+              }
+            ) : /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
               "button",
               {
                 type: "button",
                 className: "aw-toggle " + (status === "disabled" ? "" : "on"),
-                "data-testid": `aw-agent-toggle-${a.key}`
+                "data-testid": `aw-agent-toggle-${a.key}`,
+                title: SPRINT8_DISABLED_TITLE,
+                disabled: true
               }
             )
           ] })
@@ -25135,18 +25167,11 @@
       }),
       /* @__PURE__ */ (0, import_jsx_runtime3.jsxs)("div", { className: "aw-agents-foot", children: [
         /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(I.Info, { style: { width: 11, height: 11 } }),
-        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { children: "Main Orchestrator and Step Runner cannot be disabled while LLM Mode is running." }),
+        /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { children: "Agent enable/disable commands land in Sprint 8 (BUG-S8-AGENT-001). Controls are read-only until backend emits the agent registry." }),
         /* @__PURE__ */ (0, import_jsx_runtime3.jsx)("span", { style: { flex: 1 } })
       ] })
     ] });
   }
-  var DEFAULT_AGENTS = [
-    { key: "orch", name: "Main Orchestrator", initials: "MO", model: "\u2014", status: "standby", last: "Waiting on user input", required: true },
-    { key: "pi", name: "Page Intelligence", initials: "PI", model: "\u2014", status: "standby", last: "Standby", required: false },
-    { key: "sr", name: "Step Runner", initials: "SR", model: "internal \xB7 Playwright runtime", status: "standby", last: "Idle", required: true },
-    { key: "dbg", name: "Debug Agent", initials: "DA", model: "\u2014", status: "standby", last: "Standby", required: false },
-    { key: "cg", name: "Codegen Reviewer", initials: "CR", model: "\u2014", status: "standby", last: "Standby", required: false }
-  ];
   function CollapsedRail({ tab, setTab, setCollapsed }) {
     const items = [
       { id: "llm", Icon: I.Spark },

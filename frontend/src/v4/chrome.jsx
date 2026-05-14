@@ -204,8 +204,17 @@ export function Footer({ phase, event, blocker, nextAction, busy }) {
   );
 }
 
-export function AgentsPopover({ onClose, agents = [] }) {
-  const list = Array.isArray(agents) && agents.length ? agents : DEFAULT_AGENTS;
+const SPRINT8_DISABLED_TITLE =
+  "Agent controls deferred to Sprint 8 (BUG-S8-AGENT-001)";
+
+export function AgentsPopover({ onClose, agents }) {
+  // Backend does not emit agent_settings / agent_progress / agent_result /
+  // agent_failed / agent_trace today. Until BUG-S8-AGENT-001 wires the
+  // backend agent registry, the popover renders an honest disabled state
+  // when no payload is present. We never fall back to a hardcoded mock list
+  // (no DEFAULT_AGENTS in production path).
+  const list = Array.isArray(agents) ? agents : [];
+  const hasPayload = list.length > 0;
   return (
     <div className="aw-agents-pop" role="dialog" aria-label="Agent Control Center" data-testid="aw-agents-popover">
       <div className="aw-agents-head">
@@ -224,67 +233,91 @@ export function AgentsPopover({ onClose, agents = [] }) {
         <div>
           <div className="t">Agent Control Center</div>
         </div>
-        <span className="sub">{list.filter((a) => a.status !== "disabled").length} active · {list.filter((a) => a.status === "disabled").length} off</span>
+        <span
+          className="aw-agents-sprint8-badge"
+          data-testid="aw-agents-sprint8-badge"
+          title={SPRINT8_DISABLED_TITLE}
+        >
+          Read-only — Sprint 8
+        </span>
         <span className="x" onClick={onClose} data-testid="aw-agents-close">
           <I.X style={{ width: 13, height: 13 }} />
         </span>
       </div>
-      {list.map((a) => {
-        const status = a.status || "standby";
-        const cls =
-          status === "running"
-            ? "running"
-            : status === "active"
-            ? "active"
-            : status === "disabled"
-            ? "disabled"
-            : "standby";
-        return (
-          <div key={a.key} className={"aw-agent-row " + cls} data-testid={`aw-agent-row-${a.key}`}>
-            <span className="aw-agent-av">{a.initials}</span>
-            <div>
-              <div className="aw-agent-name">
-                {a.name}
-                {a.required ? <span className="aw-pin-required">Required</span> : null}
+      {!hasPayload ? (
+        <div
+          className="aw-agents-empty"
+          data-testid="aw-agents-empty"
+          role="status"
+        >
+          <I.Info style={{ width: 11, height: 11 }} />
+          <span>
+            No agent registry available. Backend does not yet emit{" "}
+            <code>agent_settings</code>; wired in Sprint 8 (BUG-S8-AGENT-001).
+          </span>
+        </div>
+      ) : (
+        list.map((a) => {
+          const status = a.status || "standby";
+          const cls =
+            status === "running"
+              ? "running"
+              : status === "active"
+              ? "active"
+              : status === "disabled"
+              ? "disabled"
+              : "standby";
+          return (
+            <div key={a.key} className={"aw-agent-row " + cls} data-testid={`aw-agent-row-${a.key}`}>
+              <span className="aw-agent-av">{a.initials}</span>
+              <div>
+                <div className="aw-agent-name">
+                  {a.name}
+                  {a.required ? <span className="aw-pin-required">Required</span> : null}
+                </div>
+                <div className="aw-agent-model">{a.model}</div>
+                <div className="aw-agent-last">
+                  <span className="em">last:</span> {a.last ?? "—"}
+                </div>
               </div>
-              <div className="aw-agent-model">{a.model}</div>
-              <div className="aw-agent-last">
-                <span className="em">last:</span> {a.last}
+              <div className="aw-agent-ctrl">
+                <span className={"aw-agent-status " + cls}>
+                  <span className="ldot" />
+                  {status === "queued" ? "queued" : status}
+                </span>
+                {a.required ? (
+                  <button
+                    type="button"
+                    className="aw-toggle on locked"
+                    aria-label="locked on"
+                    title="Required — always on"
+                    disabled
+                  />
+                ) : (
+                  <button
+                    type="button"
+                    className={"aw-toggle " + (status === "disabled" ? "" : "on")}
+                    data-testid={`aw-agent-toggle-${a.key}`}
+                    title={SPRINT8_DISABLED_TITLE}
+                    disabled
+                  />
+                )}
               </div>
             </div>
-            <div className="aw-agent-ctrl">
-              <span className={"aw-agent-status " + cls}>
-                <span className="ldot" />
-                {status === "queued" ? "queued" : status}
-              </span>
-              {a.required ? (
-                <button type="button" className="aw-toggle on locked" aria-label="locked on" disabled />
-              ) : (
-                <button type="button"
-                  className={"aw-toggle " + (status === "disabled" ? "" : "on")}
-                  data-testid={`aw-agent-toggle-${a.key}`}
-                />
-              )}
-            </div>
-          </div>
-        );
-      })}
+          );
+        })
+      )}
       <div className="aw-agents-foot">
         <I.Info style={{ width: 11, height: 11 }} />
-        <span>Main Orchestrator and Step Runner cannot be disabled while LLM Mode is running.</span>
+        <span>
+          Agent enable/disable commands land in Sprint 8 (BUG-S8-AGENT-001).
+          Controls are read-only until backend emits the agent registry.
+        </span>
         <span style={{ flex: 1 }} />
       </div>
     </div>
   );
 }
-
-const DEFAULT_AGENTS = [
-  { key: "orch", name: "Main Orchestrator", initials: "MO", model: "—", status: "standby", last: "Waiting on user input", required: true },
-  { key: "pi", name: "Page Intelligence", initials: "PI", model: "—", status: "standby", last: "Standby", required: false },
-  { key: "sr", name: "Step Runner", initials: "SR", model: "internal · Playwright runtime", status: "standby", last: "Idle", required: true },
-  { key: "dbg", name: "Debug Agent", initials: "DA", model: "—", status: "standby", last: "Standby", required: false },
-  { key: "cg", name: "Codegen Reviewer", initials: "CR", model: "—", status: "standby", last: "Standby", required: false },
-];
 
 export function CollapsedRail({ tab, setTab, setCollapsed }) {
   const items = [
