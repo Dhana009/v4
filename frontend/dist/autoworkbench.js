@@ -28760,6 +28760,17 @@
       },
       [onTabChange]
     );
+    (0, import_react5.useEffect)(() => {
+      function onTweaks(ev) {
+        const detail = ev && ev.detail;
+        if (!detail || typeof detail !== "object") return;
+        if (typeof detail.collapsed === "boolean") setCollapsed(detail.collapsed);
+        if (detail.theme === "light" || detail.theme === "dark") setTheme(detail.theme);
+        if (typeof detail.tab === "string") setTab(detail.tab);
+      }
+      window.addEventListener("aw-preview-tweaks", onTweaks);
+      return () => window.removeEventListener("aw-preview-tweaks", onTweaks);
+    }, [setCollapsed, setTheme, setTab]);
     const dispatchers = (0, import_react5.useMemo)(() => buildDispatchers(runtime), [runtime]);
     const recordedSteps = runtime.recordedSteps ?? runtime.storeRecordedSteps ?? [];
     const pendingSteps = runtime.pendingSteps ?? runtime.storePendingSteps ?? [];
@@ -30105,7 +30116,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
           kind: "slider",
           key: "panelWidth",
           label: "Panel width",
-          min: 360,
+          min: 300,
           max: 720,
           step: 10,
           unit: "px"
@@ -33333,6 +33344,12 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       });
       panelHostRef.current.__awMounted = true;
     }, []);
+    import_react9.default.useEffect(() => {
+      try {
+        window.dispatchEvent(new CustomEvent("aw-preview-tweaks", { detail: tweaks }));
+      } catch (_) {
+      }
+    }, [tweaks]);
     const dock = tweaks.dock;
     const collapsed = tweaks.collapsed === true;
     const stageClass = "aw-stage aw-stage--dock-" + (dock === "left" || dock === "top" || dock === "float" ? dock : "right") + (collapsed ? " aw-stage--collapsed" : "");

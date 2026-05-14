@@ -3565,6 +3565,15 @@ export function PreviewShell({ container }) {
     });
     panelHostRef.current.__awMounted = true;
   }, []);
+  // FE-VISUAL-QA-001 — broadcast full tweaks to the runtime (shadow-mounted
+  // AutoWorkbenchRuntime + aw-ide-panel) so collapsed/theme/tab edits in
+  // the TweaksPanel actually drive the panel. The bus is window-scoped so
+  // it crosses the shadow boundary.
+  React.useEffect(() => {
+    try {
+      window.dispatchEvent(new CustomEvent("aw-preview-tweaks", { detail: tweaks }));
+    } catch (_) {}
+  }, [tweaks]);
 
   const dock = tweaks.dock;
   const collapsed = tweaks.collapsed === true;

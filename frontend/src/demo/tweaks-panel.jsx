@@ -28,7 +28,7 @@ const SECTIONS = [
         kind: "slider",
         key: "panelWidth",
         label: "Panel width",
-        min: 360,
+        min: 300,
         max: 720,
         step: 10,
         unit: "px",

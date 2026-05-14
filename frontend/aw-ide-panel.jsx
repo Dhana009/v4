@@ -315,6 +315,23 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange, dock: dockProp, onDoc
     [onTabChange]
   );
 
+  // FE-VISUAL-QA-001 — preview bridge. PreviewShell broadcasts the full
+  // tweaks payload on every change via a window CustomEvent. We subscribe
+  // here so the TweaksPanel can actually drive `collapsed`, `theme`, and
+  // `tab` inside the shadow-mounted panel. Live runtime never dispatches
+  // this event, so the listener is inert in production.
+  useEffect(() => {
+    function onTweaks(ev) {
+      const detail = ev && ev.detail;
+      if (!detail || typeof detail !== "object") return;
+      if (typeof detail.collapsed === "boolean") setCollapsed(detail.collapsed);
+      if (detail.theme === "light" || detail.theme === "dark") setTheme(detail.theme);
+      if (typeof detail.tab === "string") setTab(detail.tab);
+    }
+    window.addEventListener("aw-preview-tweaks", onTweaks);
+    return () => window.removeEventListener("aw-preview-tweaks", onTweaks);
+  }, [setCollapsed, setTheme, setTab]);
+
   const dispatchers = useMemo(() => buildDispatchers(runtime), [runtime]);
 
   const recordedSteps = runtime.recordedSteps ?? runtime.storeRecordedSteps ?? [];

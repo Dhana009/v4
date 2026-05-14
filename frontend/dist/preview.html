@@ -2608,7 +2608,32 @@ a:focus-visible,
   height: 40px;
   flex-wrap: nowrap;
   min-width: 0;
-  overflow: hidden;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: var(--br-strong) transparent;
+  scroll-snap-type: x proximity;
+  mask-image:
+    linear-gradient(
+      to right,
+      transparent 0,
+      black 12px,
+      black calc(100% - 12px),
+      transparent 100%);
+  -webkit-mask-image:
+    linear-gradient(
+      to right,
+      transparent 0,
+      black 12px,
+      black calc(100% - 12px),
+      transparent 100%);
+}
+.aw-header-main::-webkit-scrollbar {
+  height: 4px;
+}
+.aw-header-main::-webkit-scrollbar-thumb {
+  background: var(--br-strong);
+  border-radius: 999px;
 }
 .aw-brand {
   display: flex;
@@ -4175,6 +4200,9 @@ a:focus-visible,
       circle at 28% 50%,
       rgba(217, 119, 66, .18),
       transparent 38%);
+}
+.aw-trace {
+  overflow-x: auto;
 }
 .aw-trace-row {
   display: grid;
