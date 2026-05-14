@@ -17,15 +17,23 @@ const FRONTEND = join(__dirname, "..");
 const TEMPLATE = readFileSync(join(__dirname, "preview.html"), "utf-8");
 const CSS = readFileSync(join(FRONTEND, "dist", "autoworkbench.css"), "utf-8");
 
-// Replace the empty <style id="autoworkbench-style"></style> tag (and any
-// adjacent loader <script>) with the inlined stylesheet.
+// Replace the empty <style id="autoworkbench-style"></style> placeholder with
+// the inlined stylesheet. Tolerate optional inner whitespace.
+const PLACEHOLDER = /<style id="autoworkbench-style">\s*<\/style>/;
+if (!PLACEHOLDER.test(TEMPLATE)) {
+  console.error(
+    "[build-preview] FAIL — preview.html template missing empty <style id=\"autoworkbench-style\"></style> placeholder.",
+  );
+  process.exit(1);
+}
 const inlined = TEMPLATE.replace(
-  /<!--[\s\S]*?-->\s*<style id="autoworkbench-style"><\/style>\s*<script>[\s\S]*?<\/script>/,
+  PLACEHOLDER,
   `<style id="autoworkbench-style">\n${CSS}\n</style>`,
 );
 
-if (!inlined.includes("autoworkbench-style")) {
-  console.error("[build-preview] FAIL — could not inline autoworkbench.css into preview.html.");
+// Sanity: confirm the resulting file actually carries the bundled stylesheet.
+if (inlined.length - TEMPLATE.length < CSS.length / 2) {
+  console.error("[build-preview] FAIL — inlined CSS did not grow the document.");
   process.exit(1);
 }
 
