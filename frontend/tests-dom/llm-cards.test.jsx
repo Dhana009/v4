@@ -11,6 +11,7 @@ import {
   CardLocatorAmbiguity,
   CardRecovery,
   CardOffline,
+  Composer,
 } from "../src/v4/llm-cards.jsx";
 
 describe("v4 LLM cards (real DOM render)", () => {
@@ -177,5 +178,49 @@ describe("v4 LLM cards (real DOM render)", () => {
     expect(screen.getByTestId("card-offline")).toBeInTheDocument();
     fireEvent.click(screen.getByTestId("offline-reconnect"));
     expect(onReconnect).toHaveBeenCalledWith(expect.objectContaining({ type: "reconnect" }));
+  });
+});
+
+describe("v4 Composer pick (D-107)", () => {
+  it("aw-composer-pick renders and is enabled by default when onPickElement provided", () => {
+    render(<Composer onPickElement={vi.fn()} />);
+    const btn = screen.getByTestId("aw-composer-pick");
+    expect(btn).toBeInTheDocument();
+    expect(btn).not.toBeDisabled();
+  });
+
+  it("aw-composer-pick has descriptive title attribute", () => {
+    render(<Composer onPickElement={vi.fn()} />);
+    const btn = screen.getByTestId("aw-composer-pick");
+    expect(btn.title).toBe("Pick a page element to attach to your task");
+  });
+
+  it("clicking aw-composer-pick dispatches via onPickElement callback", () => {
+    const onPickElement = vi.fn();
+    render(<Composer onPickElement={onPickElement} />);
+    fireEvent.click(screen.getByTestId("aw-composer-pick"));
+    expect(onPickElement).toHaveBeenCalledTimes(1);
+    expect(onPickElement).toHaveBeenCalledWith(expect.objectContaining({ type: "arm_picker" }));
+  });
+
+  it("aw-composer-pick is disabled when disabled prop is true; click does not dispatch", () => {
+    const onPickElement = vi.fn();
+    render(<Composer onPickElement={onPickElement} disabled={true} />);
+    const btn = screen.getByTestId("aw-composer-pick");
+    expect(btn).toBeDisabled();
+    fireEvent.click(btn);
+    expect(onPickElement).not.toHaveBeenCalled();
+  });
+
+  it("no aw-composer-camera or screenshot button anywhere in Composer DOM", () => {
+    const { container } = render(<Composer onPickElement={vi.fn()} />);
+    expect(container.querySelector("[data-testid='aw-composer-camera']")).toBeNull();
+    expect(container.querySelector("[data-testid*='screenshot']")).toBeNull();
+    expect(container.querySelector("[data-testid*='camera']")).toBeNull();
+  });
+
+  it("aw-composer-send button still present (regression guard)", () => {
+    render(<Composer onSend={vi.fn()} />);
+    expect(screen.getByTestId("aw-composer-send")).toBeInTheDocument();
   });
 });
