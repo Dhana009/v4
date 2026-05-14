@@ -10,6 +10,7 @@ import pytest
 from runtime.step_metadata import (
     annotate_plan_steps_with_kind,
     classify_step_kind,
+    normalize_plan_steps_blocked,
     normalize_plan_steps_children,
 )
 
@@ -280,6 +281,149 @@ def test_normalizer_safe_on_non_dict_payload():
     assert normalize_plan_steps_children(None) is None
     assert normalize_plan_steps_children({}) == {}
     assert normalize_plan_steps_children({"steps": "nope"}) == {"steps": "nope"}
+
+
+# ---------------------------------------------------------------------------
+# normalize_plan_steps_blocked (Pass 4b-4)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize(
+    "reason",
+    ["missing_data", "wrong_page", "locator_unstable", "permission_required", "unknown"],
+)
+def test_valid_blocked_reason_preserved(reason):
+    payload = {"steps": [{"step_id": "s1", "blocked": {"reason": reason}}]}
+    normalize_plan_steps_blocked(payload)
+    assert payload["steps"][0]["blocked"]["reason"] == reason
+
+
+def test_weak_locator_alias_mapped_to_locator_unstable():
+    payload = {"steps": [{"step_id": "s1", "blocked": {"reason": "weak_locator"}}]}
+    normalize_plan_steps_blocked(payload)
+    assert payload["steps"][0]["blocked"]["reason"] == "locator_unstable"
+
+
+def test_invalid_blocked_reason_normalized_to_unknown():
+    payload = {"steps": [{"step_id": "s1", "blocked": {"reason": "garbage"}}]}
+    normalize_plan_steps_blocked(payload)
+    assert payload["steps"][0]["blocked"]["reason"] == "unknown"
+
+
+def test_missing_blocked_reason_normalized_to_unknown():
+    """Backend sent {blocked: {message: '…'}} without reason — must not silently
+    appear unblocked. Frontend always reads a valid reason."""
+    payload = {"steps": [{"step_id": "s1", "blocked": {"message": "no reason key"}}]}
+    normalize_plan_steps_blocked(payload)
+    assert payload["steps"][0]["blocked"]["reason"] == "unknown"
+
+
+def test_non_dict_blocked_value_dropped():
+    payload = {"steps": [{"step_id": "s1", "blocked": "not a dict"}]}
+    normalize_plan_steps_blocked(payload)
+    assert "blocked" not in payload["steps"][0]
+
+
+def test_absent_blocked_key_not_invented():
+    payload = {"steps": [{"step_id": "s1", "intent": "click"}]}
+    normalize_plan_steps_blocked(payload)
+    assert "blocked" not in payload["steps"][0]
+
+
+def test_blocked_refs_cleaned_to_list():
+    payload = {
+        "steps": [
+            {
+                "step_id": "s1",
+                "blocked": {
+                    "reason": "missing_data",
+                    "refs": ["salaries.csv", "", "   ", 42, None, {"id": "doc-1"}, "users.json"],
+                },
+            }
+        ]
+    }
+    normalize_plan_steps_blocked(payload)
+    refs = payload["steps"][0]["blocked"]["refs"]
+    # Non-empty strings, non-zero ints stringified, dicts kept; None / "" dropped.
+    assert refs == ["salaries.csv", "42", {"id": "doc-1"}, "users.json"]
+
+
+def test_blocked_non_list_refs_clamped_to_empty():
+    payload = {
+        "steps": [
+            {
+                "step_id": "s1",
+                "blocked": {"reason": "missing_data", "refs": "not a list"},
+            }
+        ]
+    }
+    normalize_plan_steps_blocked(payload)
+    assert payload["steps"][0]["blocked"]["refs"] == []
+
+
+def test_blocked_message_and_action_label_preserved():
+    payload = {
+        "steps": [
+            {
+                "step_id": "s1",
+                "blocked": {
+                    "reason": "missing_data",
+                    "message": "salaries.csv not uploaded",
+                    "action_label": "Upload now",
+                },
+            }
+        ]
+    }
+    normalize_plan_steps_blocked(payload)
+    b = payload["steps"][0]["blocked"]
+    assert b["message"] == "salaries.csv not uploaded"
+    assert b["action_label"] == "Upload now"
+
+
+def test_blocked_non_string_message_or_action_normalized():
+    payload = {
+        "steps": [
+            {
+                "step_id": "s1",
+                "blocked": {
+                    "reason": "missing_data",
+                    "message": 12345,
+                    "action_label": ["wat"],
+                },
+            }
+        ]
+    }
+    normalize_plan_steps_blocked(payload)
+    b = payload["steps"][0]["blocked"]
+    assert b["message"] == ""
+    assert b["action_label"] == ""
+
+
+def test_blocked_normalizer_safe_on_non_dict_payload():
+    assert normalize_plan_steps_blocked(None) is None
+    assert normalize_plan_steps_blocked({}) == {}
+    assert normalize_plan_steps_blocked({"steps": "not a list"}) == {"steps": "not a list"}
+
+
+def test_blocked_normalizer_does_not_disturb_other_metadata():
+    payload = {
+        "steps": [
+            {
+                "step_id": "s1",
+                "intent": "click",
+                "step_kind": "atomic",
+                "locator_kind": "ok",
+                "locator_strength": "strong",
+                "children": [{"child_id": "a"}],
+                "blocked": {"reason": "missing_data", "refs": ["foo.csv"]},
+            }
+        ]
+    }
+    normalize_plan_steps_blocked(payload)
+    step = payload["steps"][0]
+    assert step["step_kind"] == "atomic"
+    assert step["locator_kind"] == "ok"
+    assert step["children"][0]["child_id"] == "a"
+    assert step["blocked"]["reason"] == "missing_data"
 
 
 def test_annotator_does_not_emit_other_kinds():

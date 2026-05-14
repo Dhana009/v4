@@ -119,6 +119,87 @@ def normalize_plan_steps_children(payload: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
+# ---------------------------------------------------------------------------
+# Blocked-step metadata (Pass 4b-4)
+# ---------------------------------------------------------------------------
+
+_VALID_BLOCKED_REASONS = frozenset(
+    {"missing_data", "wrong_page", "locator_unstable", "permission_required", "unknown"}
+)
+
+# Accepted aliases for legacy/runtime synonyms.
+_BLOCKED_REASON_ALIASES = {
+    "weak_locator": "locator_unstable",
+}
+
+
+def _normalize_blocked_object(raw: Any) -> dict[str, Any] | None:
+    """Coerce a `step.blocked` value into a stable frontend-facing shape.
+
+    Returns None when input is not a dict (frontend must never see a fake
+    blocked state). When dict but missing/invalid `reason`, reason is set
+    to "unknown" so a blocked step never silently appears unblocked.
+    """
+    if not isinstance(raw, dict):
+        return None
+    out: dict[str, Any] = dict(raw)
+    reason = out.get("reason")
+    if isinstance(reason, str):
+        reason = _BLOCKED_REASON_ALIASES.get(reason, reason)
+        if reason not in _VALID_BLOCKED_REASONS:
+            reason = "unknown"
+    else:
+        reason = "unknown"
+    out["reason"] = reason
+
+    refs = out.get("refs")
+    if isinstance(refs, list):
+        cleaned_refs: list[Any] = []
+        for r in refs:
+            if isinstance(r, (str, int)):
+                s = str(r).strip()
+                if s:
+                    cleaned_refs.append(s)
+            elif isinstance(r, dict):
+                cleaned_refs.append(r)
+        out["refs"] = cleaned_refs
+    else:
+        out["refs"] = []
+
+    if "message" in out and not isinstance(out["message"], str):
+        out["message"] = ""
+    if "action_label" in out and not isinstance(out["action_label"], str):
+        out["action_label"] = ""
+    return out
+
+
+def normalize_plan_steps_blocked(payload: dict[str, Any]) -> dict[str, Any]:
+    """Walk plan_ready payload steps, normalize `step.blocked`.
+
+    - Missing `blocked` key: left untouched (step is not blocked).
+    - Non-dict `blocked` value: dropped (set to None and removed) so the
+      frontend never reads a malformed blocked state as truth.
+    - Valid blocked dict: reason validated against the allowed set,
+      refs cleaned to a list of strings / dicts.
+    """
+    if not isinstance(payload, dict):
+        return payload
+    steps = payload.get("steps")
+    if not isinstance(steps, list):
+        return payload
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        if "blocked" not in step:
+            continue
+        normalized = _normalize_blocked_object(step["blocked"])
+        if normalized is None:
+            del step["blocked"]
+        else:
+            step["blocked"] = normalized
+    return payload
+
+
 def annotate_plan_steps_with_kind(payload: dict[str, Any]) -> dict[str, Any]:
     """Walk plan_ready payload steps, attach `step_kind`.
 
