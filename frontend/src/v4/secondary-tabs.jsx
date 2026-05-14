@@ -972,20 +972,233 @@ const KNOWN_TYPES = new Set([
   "step_validating", "step_executing", "step_failed", "step_skipped", "step_recorded",
   "code_update", "replay_started", "replay_result",
   "run_completed", "runtime_rejected", "session_state", "schema_error", "error",
+  "capability_gap_recorded",
 ]);
+
+// Filter predicate — gap uses exact match; all others use startsWith
+function matchesKind(type, kind) {
+  if (kind === "all") return true;
+  if (kind === "gap") return type === "capability_gap_recorded";
+  return type.startsWith(kind);
+}
+
+// D-104 §4: Failure detail panel — renders only fields the step_failed payload provides.
+// Fields: step_id, error, status, operation_id (optional). No fabricated fields.
+function TraceFailureDetail({ entry, rowIndex }) {
+  const payload = entry?.raw?.payload ?? entry?.raw ?? {};
+  const stepId = payload.step_id ?? null;
+  const error = entry.summary ?? payload.error ?? null;
+  const status = payload.status ?? null;
+  const operationId = payload.operation_id ?? null;
+  return (
+    <div
+      className="aw-trace-detail"
+      data-testid={`trace-failure-detail-${rowIndex}`}
+      style={{ marginTop: 6, padding: "8px 10px", background: "var(--bg-inset)", borderRadius: 6, fontSize: 12 }}
+    >
+      {stepId != null && (
+        <div data-testid={`trace-failure-step-${rowIndex}`} style={{ marginBottom: 4 }}>
+          <span style={{ color: "var(--tx-3)" }}>step_id: </span>
+          <span style={{ fontFamily: "var(--ff-mono)" }}>{String(stepId)}</span>
+        </div>
+      )}
+      {error != null && (
+        <div data-testid={`trace-failure-error-${rowIndex}`} style={{ marginBottom: 4 }}>
+          <span style={{ color: "var(--tx-3)" }}>error: </span>
+          <span style={{ color: "var(--red)" }}>{String(error)}</span>
+        </div>
+      )}
+      {status != null && (
+        <div data-testid={`trace-failure-status-${rowIndex}`} style={{ marginBottom: 4 }}>
+          <span style={{ color: "var(--tx-3)" }}>status: </span>
+          <span
+            className={`aw-badge-i ${status === "failed" ? "err" : "outline"}`}
+            style={{ display: "inline-flex", gap: 4 }}
+          >
+            <span className="ldot"/>{String(status)}
+          </span>
+        </div>
+      )}
+      {operationId != null && (
+        <div data-testid={`trace-failure-op-${rowIndex}`} style={{ marginBottom: 4 }}>
+          <span style={{ color: "var(--tx-3)" }}>operation_id: </span>
+          <span style={{ fontFamily: "var(--ff-mono)" }}>{String(operationId)}</span>
+        </div>
+      )}
+      <div style={{ marginTop: 4, color: "var(--tx-3)", fontStyle: "italic", fontSize: 11 }}>
+        Recovery entered — see Recovery card
+      </div>
+    </div>
+  );
+}
+
+// D-104 §5: LLM telemetry section — renders fields when present; honest unavailable when absent.
+const LLM_TYPES = new Set(["llm_thinking", "llm_result", "agent_trace"]);
+
+function TraceLlmTelemetry({ entry, rowIndex }) {
+  const isLlmType = LLM_TYPES.has(entry.type ?? "") || (entry.type ?? "").startsWith("llm");
+  if (!isLlmType) return null;
+  const payload = entry?.raw?.payload ?? entry?.raw ?? {};
+  const model = payload.model ?? null;
+  const inputTokens = payload.input_tokens ?? payload.total_input_tokens ?? null;
+  const outputTokens = payload.output_tokens ?? null;
+  const estimatedCost = payload.estimated_cost ?? null;
+  const latencyMs = payload.latency_ms ?? null;
+  const hasAnyTelemetry = model != null || inputTokens != null || outputTokens != null || estimatedCost != null || latencyMs != null;
+  if (!hasAnyTelemetry) {
+    return (
+      <div
+        data-testid={`trace-llm-unavailable-${rowIndex}`}
+        style={{ marginTop: 6, fontSize: 11, color: "var(--tx-3)", fontStyle: "italic" }}
+      >
+        LLM telemetry not in this event payload
+      </div>
+    );
+  }
+  return (
+    <div
+      data-testid={`trace-llm-telemetry-${rowIndex}`}
+      style={{ marginTop: 6, fontSize: 11, display: "flex", flexWrap: "wrap", gap: 6 }}
+    >
+      {model != null && (
+        <span data-testid={`trace-llm-model-${rowIndex}`}>
+          model: <b>{String(model)}</b>
+        </span>
+      )}
+      {inputTokens != null && (
+        <span data-testid={`trace-llm-input-tokens-${rowIndex}`}>
+          in: <b>{String(inputTokens)}</b>
+        </span>
+      )}
+      {outputTokens != null && (
+        <span data-testid={`trace-llm-output-tokens-${rowIndex}`}>
+          out: <b>{String(outputTokens)}</b>
+        </span>
+      )}
+      {estimatedCost != null && (
+        <span data-testid={`trace-llm-cost-${rowIndex}`}>
+          cost: <b>${String(estimatedCost)}</b>
+        </span>
+      )}
+      {latencyMs != null && (
+        <span data-testid={`trace-llm-latency-${rowIndex}`}>
+          latency: <b>{String(latencyMs)}ms</b>
+        </span>
+      )}
+    </div>
+  );
+}
+
+// D-104 §6: Artifact list — renders for entries with artifacts[].
+// Each item carries data-artifact-href only when backend provides a path.
+function TraceArtifactList({ entry, rowIndex }) {
+  const artifacts = Array.isArray(entry.artifacts) ? entry.artifacts : [];
+  if (artifacts.length === 0) return null;
+  return (
+    <div
+      data-testid={`trace-artifact-list-${rowIndex}`}
+      style={{ marginTop: 6, display: "flex", flexWrap: "wrap", gap: 6 }}
+    >
+      {artifacts.map((a) => {
+        if (!a) return null;
+        const key = a.key ?? a.kind ?? a.name ?? "artifact";
+        const label = a.label ?? a.title ?? key;
+        const path = a.path ?? null;
+        return (
+          <span
+            key={key}
+            data-testid={`trace-artifact-${rowIndex}-${key}`}
+            {...(path != null ? { "data-artifact-href": path } : {})}
+            style={{ fontSize: 11, display: "inline-flex", alignItems: "center", gap: 3 }}
+          >
+            {path != null ? (
+              <a href={path} target="_blank" rel="noreferrer" style={{ color: "var(--blu)" }}>
+                {label}
+              </a>
+            ) : (
+              <span style={{ color: "var(--tx-3)" }}>{label}</span>
+            )}
+            {a.status != null && (
+              <span
+                data-testid={`trace-artifact-status-${rowIndex}-${key}`}
+                data-status={a.status}
+                className={`aw-badge-i ${a.status === "err" ? "err" : "outline"}`}
+                style={{ fontSize: 10 }}
+              >
+                <span className="ldot"/>{a.status}
+              </span>
+            )}
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
+// D-104 §7: Capability-gap card — renders when type === "capability_gap_recorded" and expanded.
+function TraceGapCard({ entry, rowIndex }) {
+  const payload = entry?.raw?.payload ?? entry?.raw ?? {};
+  const gapId = payload.gap_id ?? null;
+  const neededCapability = payload.needed_capability ?? null;
+  const path = payload.path ?? null;
+  return (
+    <div
+      data-testid={`trace-gap-card-${rowIndex}`}
+      style={{ marginTop: 6, padding: "8px 10px", background: "var(--bg-inset)", borderRadius: 6, fontSize: 12 }}
+    >
+      <div style={{ fontWeight: 600, marginBottom: 4, color: "var(--tx-2)" }}>
+        Capability gap logged — non-blocking
+      </div>
+      {gapId != null && (
+        <div data-testid={`trace-gap-id-${rowIndex}`} style={{ marginBottom: 3 }}>
+          <span style={{ color: "var(--tx-3)" }}>gap_id: </span>
+          <span style={{ fontFamily: "var(--ff-mono)" }}>{String(gapId)}</span>
+        </div>
+      )}
+      {neededCapability != null && (
+        <div data-testid={`trace-gap-capability-${rowIndex}`} style={{ marginBottom: 3 }}>
+          <span style={{ color: "var(--tx-3)" }}>needed: </span>
+          <span>{String(neededCapability)}</span>
+        </div>
+      )}
+      {path != null && (
+        <div data-testid={`trace-gap-path-${rowIndex}`}>
+          <span style={{ color: "var(--tx-3)" }}>path: </span>
+          <span style={{ fontFamily: "var(--ff-mono)" }}>{String(path)}</span>
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function TraceTab({ traceEntries = [] }) {
   const [filter, setFilter] = useState("");
   const [kind, setKind] = useState("all");
+  const [expandedRows, setExpandedRows] = useState(() => new Set());
   const list = asArray(traceEntries);
   const filtered = list.filter((row) => {
     const type = row.type ?? "";
-    if (kind !== "all" && !type.startsWith(kind)) return false;
-    if (filter && !((row.text ?? row.description ?? "") + type).toLowerCase().includes(filter.toLowerCase())) {
-      return false;
+    if (!matchesKind(type, kind)) return false;
+    if (filter) {
+      const searchable = (
+        (row.summary ?? row.text ?? row.description ?? row.message ?? "") + " " + type
+      ).toLowerCase();
+      if (!searchable.includes(filter.toLowerCase())) return false;
     }
     return true;
   });
+
+  const toggleRow = (i) => {
+    setExpandedRows((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) {
+        next.delete(i);
+      } else {
+        next.add(i);
+      }
+      return next;
+    });
+  };
 
   return (
     <div data-testid="trace-tab">
@@ -996,7 +1209,7 @@ export function TraceTab({ traceEntries = [] }) {
                  value={filter} onChange={(e) => setFilter(e.target.value)}/>
         </span>
         <span style={{ display: "flex", gap: 4 }}>
-          {["all", "llm", "step", "permission", "error", "code"].map((k) => (
+          {["all", "llm", "step", "permission", "error", "code", "gap"].map((k) => (
             <span key={k}
                   className={"aw-badge-i " + (kind === k ? "info" : "outline")}
                   style={{ cursor: "pointer" }}
@@ -1020,19 +1233,51 @@ export function TraceTab({ traceEntries = [] }) {
                     : r.severity === "warn" ? "warn"
                     : type.includes("ok") || type === "step.recorded" || type === "run_completed" ? "ok"
                     : known ? "" : "unknown";
+          const isExpanded = expandedRows.has(i);
+          const isStepFailed = type === "step_failed";
+          const isLlmType = LLM_TYPES.has(type) || type.startsWith("llm");
+          const isGap = type === "capability_gap_recorded";
+          const hasArtifacts = Array.isArray(r.artifacts) && r.artifacts.length > 0;
+          const hasRedaction = typeof r.redactionStatus === "string" && r.redactionStatus !== "";
           return (
             <div key={r.id ?? i}
                  className={"aw-trace-row " + cls}
                  data-testid={`trace-row-${i}`}
                  data-type={type}
-                 data-known={known ? "1" : "0"}>
+                 data-known={known ? "1" : "0"}
+                 style={{ cursor: isStepFailed || isLlmType || isGap ? "pointer" : "default" }}
+                 onClick={() => {
+                   if (isStepFailed || isLlmType || isGap) toggleRow(i);
+                 }}>
               <span className="t">{r.timestamp ?? r.t ?? ""}</span>
               <span className="aw-trace-icon"><I.Info style={{ width: 10, height: 10 }}/></span>
               <span className="type">{type}</span>
               <span className="desc">
-                {r.text ?? r.description ?? r.message ?? ""}
+                {r.summary ?? r.text ?? r.description ?? r.message ?? ""}
                 {!known ? <span style={{ marginLeft: 8, color: "var(--tx-4)" }}>(unknown event · diagnostic only)</span> : null}
               </span>
+              {hasRedaction && (
+                <span
+                  className={`aw-badge-i ${r.redactionStatus === "warn" || r.redactionStatus === "redacted" ? "warn" : "ok"}`}
+                  data-testid={`trace-redaction-chip-${i}`}
+                  data-status={r.redactionStatus}
+                  style={{ marginLeft: 6, fontSize: 10 }}
+                >
+                  <span className="ldot"/>{r.redactionStatus}
+                </span>
+              )}
+              {r.redactionWarning && (
+                <span
+                  data-testid={`trace-redaction-warning-${i}`}
+                  style={{ marginLeft: 6, fontSize: 11, color: "var(--ylw)" }}
+                >
+                  {r.redactionWarning}
+                </span>
+              )}
+              {hasArtifacts && <TraceArtifactList entry={r} rowIndex={i} />}
+              {isExpanded && isStepFailed && <TraceFailureDetail entry={r} rowIndex={i} />}
+              {isExpanded && isLlmType && <TraceLlmTelemetry entry={r} rowIndex={i} />}
+              {isExpanded && isGap && <TraceGapCard entry={r} rowIndex={i} />}
             </div>
           );
         })
