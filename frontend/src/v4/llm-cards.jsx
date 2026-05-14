@@ -942,7 +942,7 @@ export function Composer({ onSend, onPickElement, disabled = false }) {
                   }}/>
         <div className="aw-composer-actions" style={{ justifyContent: "space-between" }}>
           <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
-            <button type="button" className="aw-icon-btn" title="Pick element"
+            <button type="button" className="aw-icon-btn" title="Pick a page element to attach to your task"
                     data-testid="aw-composer-pick"
                     disabled={disabled}
                     onClick={() => typeof onPickElement === "function" && onPickElement({ type: "arm_picker" })}>

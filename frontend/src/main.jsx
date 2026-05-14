@@ -2203,6 +2203,26 @@ function useAutoWorkbenchTransport(config) {
     [appendTimeline, sendPayload]
   );
 
+  // D-107: Composer pick — auto-creates a blank pending step, then arms the
+  // picker with its id so the backend can attach element context to it.
+  const handleComposerPick = useCallback(() => {
+    const newStep = createPendingStep("");
+    updatePendingSteps((current) => [...current, newStep]);
+    setActivePickerStepId(newStep.id);
+    const sent = sendPayload(
+      {
+        type: "arm_picker",
+        step_id: newStep.id,
+      },
+      "Picker failed"
+    );
+    if (sent) {
+      appendTimeline(`Composer pick: picker armed for step ${newStep.id}`, "active");
+    } else {
+      setActivePickerStepId("");
+    }
+  }, [appendTimeline, sendPayload, updatePendingSteps]);
+
   const handleRunPendingSteps = useCallback(() => {
     const readySteps = [];
     for (const step of pendingSteps) {
@@ -3054,6 +3074,8 @@ function useAutoWorkbenchTransport(config) {
     onAddPendingStep: addPendingStep,
     onDeletePendingStep: removePendingStep,
     onAttachElement: handleAttachElement,
+    handleComposerPick,
+    onComposerPick: handleComposerPick,
     onRunPendingSteps: handleRunPendingSteps,
     onSaveSnapshot: handleSaveSnapshot,
     onConfirmPlan: handleConfirmPlan,
@@ -3094,6 +3116,7 @@ function useAutoWorkbenchTransport(config) {
     handleCopyRecordedStep,
     handleExportCode,
     handleCopyCodeToClipboard,
+    handleComposerPick,
   };
 }
 

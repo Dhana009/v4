@@ -445,8 +445,8 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
             {activeTab === "llm" ? (
               <Composer
                 onSend={dispatchers.onSendUserMessage}
-                onPickElement={runtime.handleAttachElement ?? runtime.onAttachElement}
-                disabled={status === "offline"}
+                onPickElement={runtime.handleComposerPick ?? runtime.onComposerPick}
+                disabled={status === "offline" || runtime.composerDisabled === true}
               />
             ) : null}
             <Footer
