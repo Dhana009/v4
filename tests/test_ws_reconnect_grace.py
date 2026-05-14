@@ -76,9 +76,13 @@ def test_transient_websocket_disconnect_preserves_active_run(monkeypatch) -> Non
             assert finished.wait(timeout=1.0)
             # The next event may be another agent_settings or the run-completed
             # status; drain the agent_settings emission if present.
-            completed_status = second_ws.receive_json()
-            if completed_status.get("type") == "agent_settings":
+            # Drain any init events (agent_settings, endpoint_registry)
+            # before the run-completed status arrives.
+            _INIT = {"agent_settings", "endpoint_registry", "ready"}
+            for _ in range(6):
                 completed_status = second_ws.receive_json()
+                if completed_status.get("type") not in _INIT:
+                    break
             assert completed_status["type"] == "status"
             assert completed_status["message"] == "run completed"
 

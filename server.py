@@ -20,6 +20,7 @@ from runtime.event_contracts import (
     build_session_state_event,
     build_stop_run_result_event,
     build_agent_settings_event,
+    build_endpoint_registry_event,
     build_typed_ready_envelope,
     normalize_frontend_command,
 )
@@ -291,6 +292,28 @@ async def ws_endpoint(ws: WebSocket) -> None:
     # renders real backend-driven rows instead of an honest empty state.
     # Sprint 7 ships in read-only mode (no set_agent_enabled command yet).
     await ws.send_json(build_agent_settings_event())
+
+    # E3 / B5 — emit endpoint_registry on every WS connect. Sprint 7 ships
+    # a single-entry registry pointing at the current local backend; the
+    # CardOffline "Switch endpoint" button stays honestly disabled until
+    # an additional endpoint is registered. The cmd `switch_endpoint`
+    # accepts an ``endpoint_id`` only — never a raw URL — so no SSRF /
+    # open-redirect risk exists even if the frontend is compromised.
+    _local_endpoint_id = "local"
+    _local_endpoint_url = f"ws://127.0.0.1:{PORT}/ws"
+    await ws.send_json(
+        build_endpoint_registry_event(
+            active_id=_local_endpoint_id,
+            entries=[
+                {
+                    "id": _local_endpoint_id,
+                    "label": "Local",
+                    "base_url": _local_endpoint_url,
+                    "kind": "local",
+                }
+            ],
+        )
+    )
 
     async def picker_send(msg: dict) -> None:
         await ws.send_json(msg)
@@ -908,6 +931,88 @@ async def ws_endpoint(ws: WebSocket) -> None:
                     source="server",
                 )
                 await ws.send_json(_ack)
+                continue
+
+            # E3 / B3 — highlight a single locator candidate.
+            # Acknowledge only — Sprint 7 has no browser-side highlight
+            # helper exposed through the runtime, so the cmd is a typed
+            # fire-and-forget that proves the wiring without lying about
+            # an effect that does not happen yet.
+            if msg_type == "highlight_locator":
+                current_state = _current_command_state(session)
+                _candidate_id = str(msg.get("candidate_id") or "").strip()
+                if not _candidate_id:
+                    await ws.send_json(
+                        build_runtime_rejection_payload(
+                            "MISSING_CANDIDATE_ID",
+                            "highlight_locator requires 'candidate_id' field.",
+                            current_state=current_state,
+                            run_id=current_state.get("run_id"),
+                            recoverable=False,
+                            source="server",
+                        )
+                    )
+                    continue
+                _duration_ms = msg.get("duration_ms")
+                try:
+                    _duration_ms = int(_duration_ms) if _duration_ms is not None else 1500
+                except (TypeError, ValueError):
+                    _duration_ms = 1500
+                _duration_ms = max(0, min(_duration_ms, 5000))
+                await ws.send_json(
+                    build_backend_event_envelope(
+                        "locator_highlight_acknowledged",
+                        {
+                            "candidate_id": _candidate_id,
+                            "duration_ms": _duration_ms,
+                            "applied": False,
+                            "status": "queued",
+                        },
+                        source="server",
+                    )
+                )
+                continue
+
+            # E3 / B5 — endpoint switch. Sprint 7 advertises a single-entry
+            # registry (current local), so any switch request that names a
+            # non-active endpoint is rejected here without ever touching a
+            # URL the frontend supplied.
+            if msg_type == "switch_endpoint":
+                current_state = _current_command_state(session)
+                _endpoint_id = str(msg.get("endpoint_id") or "").strip()
+                if not _endpoint_id:
+                    await ws.send_json(
+                        build_runtime_rejection_payload(
+                            "MISSING_ENDPOINT_ID",
+                            "switch_endpoint requires 'endpoint_id' field.",
+                            current_state=current_state,
+                            run_id=current_state.get("run_id"),
+                            recoverable=False,
+                            source="server",
+                        )
+                    )
+                    continue
+                if _endpoint_id != _local_endpoint_id:
+                    await ws.send_json(
+                        build_runtime_rejection_payload(
+                            "ENDPOINT_UNKNOWN",
+                            f"endpoint_id {_endpoint_id!r} is not in the registry.",
+                            current_state=current_state,
+                            run_id=current_state.get("run_id"),
+                            recoverable=True,
+                            source="server",
+                        )
+                    )
+                    continue
+                # Asking to switch to the already-active endpoint is a no-op
+                # ack so the frontend can rely on a typed response.
+                await ws.send_json(
+                    build_backend_event_envelope(
+                        "switch_endpoint_acknowledged",
+                        {"endpoint_id": _endpoint_id, "status": "already_active"},
+                        source="server",
+                    )
+                )
                 continue
 
             current_state = _current_command_state(session)

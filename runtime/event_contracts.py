@@ -30,6 +30,10 @@ SUPPORTED_FRONTEND_COMMAND_TYPES = {
     # D-101 — state-cluster commands: precondition + navigation
     "change_precondition",
     "navigate_to_expected",
+    # E3 (B3) — flash a single locator candidate without mutating plan.
+    "highlight_locator",
+    # E3 (B5) — switch backend endpoint (allowlist only, no raw URL).
+    "switch_endpoint",
 }
 
 
@@ -793,6 +797,60 @@ def build_e2e_pending_event(
 
     return build_backend_event_envelope(
         "e2e_pending",
+        payload,
+        event_id=event_id or str(uuid4()),
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+_ENDPOINT_REGISTRY_DENYLISTED_KEYS = (
+    "api_key",
+    "token",
+    "password",
+    "secret",
+    "bearer",
+    "authorization",
+    "credential",
+)
+
+
+def build_endpoint_registry_event(
+    *,
+    active_id: str,
+    entries: list[Mapping[str, Any]],
+    source: str | None = "server",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    """E3 (B5) — typed endpoint registry advertised on WS connect.
+
+    The cmd `switch_endpoint` carries an ``endpoint_id`` only — never a raw
+    URL — so the backend cannot be tricked into pointing at an
+    attacker-controlled host (SSRF / open redirect guard). The builder
+    additionally strips any secret-shaped key that a future contributor
+    might mistakenly attach to a registry entry.
+    """
+    active = _coerce_text(active_id)
+    if not active:
+        raise ValueError("active_id is required")
+
+    cleaned_entries: list[dict[str, Any]] = []
+    for entry in entries or []:
+        clean = {k: v for k, v in dict(entry).items() if k not in _ENDPOINT_REGISTRY_DENYLISTED_KEYS}
+        if "id" not in clean or not _coerce_text(clean["id"]):
+            continue
+        cleaned_entries.append(clean)
+
+    if not any(e.get("id") == active for e in cleaned_entries):
+        raise ValueError(
+            f"active_id {active!r} not present in entries; "
+            "registry must always advertise the active endpoint"
+        )
+
+    payload = {"active_id": active, "entries": cleaned_entries}
+    return build_backend_event_envelope(
+        "endpoint_registry",
         payload,
         event_id=event_id or str(uuid4()),
         emitted_at=emitted_at,

@@ -66,6 +66,7 @@ def test_replay_all_defaults_stop_on_error_true(monkeypatch) -> None:
         with client.websocket_connect("/ws") as websocket:
             initial_message = websocket.receive_json()
             websocket.receive_json()  # E1/B1 drain agent_settings
+            websocket.receive_json()  # E3/B5 drain endpoint_registry
             assert initial_message["type"] in {"status", "ready"}
             websocket.send_json({"type": "replay_all"})
             response = websocket.receive_json()
@@ -92,6 +93,7 @@ def test_supported_commands_require_context_before_being_forwarded(command, payl
         with client.websocket_connect("/ws") as websocket:
             websocket.receive_json()
             websocket.receive_json()  # E1/B1 drain agent_settings
+            websocket.receive_json()  # E3/B5 drain endpoint_registry
             websocket.send_json(payload)
 
     assert fake_queue.items == [], f"{command} should not be forwarded raw without validation"
@@ -133,6 +135,7 @@ def test_unsupported_commands_return_typed_runtime_rejected(command, payload, mo
         with client.websocket_connect("/ws") as websocket:
             websocket.receive_json()
             websocket.receive_json()  # E1/B1 drain agent_settings
+            websocket.receive_json()  # E3/B5 drain endpoint_registry
             websocket.send_json(payload)
             response = websocket.receive_json()
 

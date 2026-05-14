@@ -9,7 +9,7 @@ the response. The helper below drains init events safely.
 from __future__ import annotations
 
 _INIT_EVENT_TYPES = frozenset(
-    {"status", "ready", "agent_settings", "session_state"}
+    {"status", "ready", "agent_settings", "session_state", "endpoint_registry"}
 )
 
 

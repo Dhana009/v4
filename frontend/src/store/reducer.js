@@ -38,6 +38,14 @@ export function createInitialState() {
     api_key_required_state: null,
     human_input_required_state: null,
     e2e_pending_state: null,
+    // E3 (B5) — endpoint registry advertised by the backend on connect.
+    // Null until the first endpoint_registry event arrives. CardOffline
+    // uses this to disable the "Switch endpoint" button honestly when
+    // only the current endpoint is registered.
+    endpoint_registry: null,
+    // E3 (B4) — connection log entries (placeholder for now; the
+    // Sprint 7 "View log" button just routes to the Trace tab).
+    connection_log_entries: [],
   };
 }
 
@@ -273,6 +281,19 @@ export function reducer(state, event) {
         return { ...state, e2e_pending_state: null };
       }
       return { ...state, e2e_pending_state: payload };
+    }
+
+    case EVENT_TYPES.endpoint_registry: {
+      // E3 (B5) — typed registry; reject malformed payloads outright.
+      const active_id = payload?.active_id;
+      const entries = Array.isArray(payload?.entries) ? payload.entries : [];
+      if (!active_id || entries.length === 0) {
+        return { ...state, endpoint_registry: null };
+      }
+      return {
+        ...state,
+        endpoint_registry: { active_id, entries },
+      };
     }
 
     case EVENT_TYPES.agent_settings: {

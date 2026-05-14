@@ -570,7 +570,14 @@ export function CardExecution({ phase, currentStep, recordedSteps = [], pendingS
 
 // — Locator ambiguity ——————————————————————————————————
 
-export function CardLocatorAmbiguity({ ambiguity, onChoose, onAskLLM, onChangeScope, onStop }) {
+export function CardLocatorAmbiguity({
+  ambiguity,
+  onChoose,
+  onAskLLM,
+  onChangeScope,
+  onStop,
+  onHighlight,
+}) {
   const [pick, setPick] = useState(null);
   if (!ambiguity) return null;
   const candidates = asArray(ambiguity.candidates);
@@ -618,6 +625,29 @@ export function CardLocatorAmbiguity({ ambiguity, onChoose, onAskLLM, onChangeSc
                     <button type="button" className="aw-btn" onClick={(e) => { e.stopPropagation(); setPick(id); }}
                             data-testid={`locator-select-${id}`}>
                       <I.Check/> {selected ? "Selected" : "Select"}
+                    </button>
+                    <button
+                      type="button"
+                      className="aw-btn"
+                      data-testid={`locator-highlight-${id}`}
+                      disabled={typeof onHighlight !== "function"}
+                      title={
+                        typeof onHighlight === "function"
+                          ? "Flash this candidate in the browser"
+                          : "Highlight command not wired in this session"
+                      }
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        if (typeof onHighlight === "function") {
+                          onHighlight({
+                            type: "highlight_locator",
+                            candidate_id: id,
+                            step_id,
+                          });
+                        }
+                      }}
+                    >
+                      <I.Target /> Highlight
                     </button>
                   </div>
                 </div>
@@ -828,8 +858,20 @@ export function CardCompleted({ completion, onReplayAll, onSaveSession, onOpenCo
 
 // — Offline / connection lost —————————————————————————
 
-export function CardOffline({ connection, onReconnect }) {
+export function CardOffline({
+  connection,
+  onReconnect,
+  onViewLog,
+  onSwitchEndpoint,
+  endpointRegistry,
+}) {
   if (!connection || connection.connected) return null;
+  const hasViewLog = typeof onViewLog === "function";
+  const altEndpoints =
+    endpointRegistry && Array.isArray(endpointRegistry.entries)
+      ? endpointRegistry.entries.filter((e) => e.id !== endpointRegistry.active_id)
+      : [];
+  const canSwitchEndpoint = altEndpoints.length > 0 && typeof onSwitchEndpoint === "function";
   return (
     <div className="aw-card recover blocking" data-testid="card-offline">
       <div className="aw-card-head">
@@ -851,6 +893,40 @@ export function CardOffline({ connection, onReconnect }) {
         <button type="button" className="aw-btn primary" data-testid="offline-reconnect"
                 onClick={() => typeof onReconnect === "function" && onReconnect({ type: "reconnect" })}>
           <I.Sync/>Reconnect now
+        </button>
+        <button
+          type="button"
+          className="aw-btn"
+          data-testid="offline-view-log"
+          disabled={!hasViewLog}
+          title={
+            hasViewLog
+              ? "Show the live event timeline in the Trace tab"
+              : "Trace tab routing is not available in this session"
+          }
+          onClick={() => hasViewLog && onViewLog({ type: "view_connection_log" })}
+        >
+          View connection log
+        </button>
+        <button
+          type="button"
+          className="aw-btn"
+          data-testid="offline-switch-endpoint"
+          disabled={!canSwitchEndpoint}
+          title={
+            canSwitchEndpoint
+              ? "Switch to a different registered backend endpoint"
+              : "Only the local endpoint is registered; add another endpoint to enable switching"
+          }
+          onClick={() => {
+            if (!canSwitchEndpoint) return;
+            onSwitchEndpoint({
+              type: "switch_endpoint",
+              endpoint_id: altEndpoints[0].id,
+            });
+          }}
+        >
+          Switch endpoint
         </button>
       </div>
     </div>
@@ -1055,8 +1131,23 @@ export function CardE2EPending({ state }) {
 
 // — Schema / runtime rejected ——————————————————————————
 
-export function CardSchemaError({ rejection, onAskRepair }) {
+export function CardSchemaError({ rejection, onAskRepair, onEditPlan }) {
+  const [showRaw, setShowRaw] = useState(false);
+  const [editText, setEditText] = useState("");
+  const [editing, setEditing] = useState(false);
   if (!rejection) return null;
+  const rawAvailable =
+    typeof rejection.raw_response_redacted === "string" &&
+    rejection.raw_response_redacted.length > 0;
+  const canEdit = typeof onEditPlan === "function";
+  const submitEdit = () => {
+    if (!canEdit) return;
+    const text = (editText || "").trim();
+    if (!text) return;
+    onEditPlan({ type: "correction", message: text, source: "manual_edit" });
+    setEditing(false);
+    setEditText("");
+  };
   return (
     <div className="aw-card warn blocking" data-testid="card-schema-error">
       <div className="aw-card-head">
@@ -1077,6 +1168,54 @@ export function CardSchemaError({ rejection, onAskRepair }) {
             ))}
           </div>
         ) : null}
+        {showRaw && rawAvailable ? (
+          <pre
+            data-testid="schema-error-raw-viewer"
+            style={{
+              marginTop: 8,
+              padding: 8,
+              background: "var(--bg-2)",
+              fontFamily: "var(--ff-mono)",
+              fontSize: 11.5,
+              whiteSpace: "pre-wrap",
+              maxHeight: 220,
+              overflow: "auto",
+            }}
+          >
+            {rejection.raw_response_redacted}
+          </pre>
+        ) : null}
+        {editing ? (
+          <div style={{ marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }}>
+            <textarea
+              data-testid="schema-error-edit-input"
+              rows={4}
+              placeholder="Describe the correction in natural language. Do NOT paste keys or OTPs."
+              value={editText}
+              onChange={(e) => setEditText(e.target.value)}
+              style={{ width: "100%", fontFamily: "var(--ff-mono)", fontSize: 12 }}
+            />
+            <div style={{ display: "flex", gap: 6 }}>
+              <button
+                type="button"
+                className="aw-btn primary"
+                data-testid="schema-error-edit-submit"
+                disabled={!editText.trim()}
+                onClick={submitEdit}
+              >
+                Submit correction
+              </button>
+              <button
+                type="button"
+                className="aw-btn"
+                data-testid="schema-error-edit-cancel"
+                onClick={() => { setEditing(false); setEditText(""); }}
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
       <div className="aw-card-foot">
         {typeof onAskRepair === "function" ? (
@@ -1085,6 +1224,34 @@ export function CardSchemaError({ rejection, onAskRepair }) {
             <I.Sync/>Ask LLM to repair plan
           </button>
         ) : null}
+        <button
+          type="button"
+          className="aw-btn"
+          data-testid="schema-error-edit-plan"
+          disabled={!canEdit || editing}
+          title={
+            canEdit
+              ? "Send a manual correction via the existing typed correction command"
+              : "Correction command is not wired in this session"
+          }
+          onClick={() => setEditing(true)}
+        >
+          Edit plan manually
+        </button>
+        <button
+          type="button"
+          className="aw-btn"
+          data-testid="schema-error-open-raw"
+          disabled={!rawAvailable}
+          title={
+            rawAvailable
+              ? "Show the redacted raw LLM response"
+              : "Backend did not retain a redacted raw response for this failure"
+          }
+          onClick={() => setShowRaw((cur) => !cur)}
+        >
+          {showRaw ? "Hide raw response" : "Open raw response"}
+        </button>
       </div>
     </div>
   );
@@ -1182,6 +1349,7 @@ export function LlmThread({
   apiKeyRequiredState = null,
   humanInputState = null,
   e2ePendingState = null,
+  endpointRegistry = null,
   dispatchers = {},
   onSeed,
 }) {
@@ -1222,7 +1390,13 @@ export function LlmThread({
       })}
 
       {connection && !connection.connected ? (
-        <CardOffline connection={connection} onReconnect={dispatchers.onReconnect}/>
+        <CardOffline
+          connection={connection}
+          onReconnect={dispatchers.onReconnect}
+          onViewLog={dispatchers.onViewConnectionLog}
+          onSwitchEndpoint={dispatchers.onSwitchEndpoint}
+          endpointRegistry={endpointRegistry}
+        />
       ) : null}
 
       {/* E2 (B2) — state cards render only from real backend events. */}
@@ -1297,6 +1471,7 @@ export function LlmThread({
           onAskLLM={dispatchers.onAskLocatorLLM}
           onChangeScope={dispatchers.onChangeLocatorScope}
           onStop={dispatchers.onStop}
+          onHighlight={dispatchers.onHighlightLocator}
         />
       ) : null}
 
@@ -1311,7 +1486,11 @@ export function LlmThread({
       ) : null}
 
       {rejection ? (
-        <CardSchemaError rejection={rejection} onAskRepair={dispatchers.onRepairPlan}/>
+        <CardSchemaError
+          rejection={rejection}
+          onAskRepair={dispatchers.onRepairPlan}
+          onEditPlan={dispatchers.onSendCorrection}
+        />
       ) : null}
 
       {completion ? (

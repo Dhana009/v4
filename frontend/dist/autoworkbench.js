@@ -25912,7 +25912,14 @@
       ] })
     ] });
   }
-  function CardLocatorAmbiguity({ ambiguity, onChoose, onAskLLM, onChangeScope, onStop }) {
+  function CardLocatorAmbiguity({
+    ambiguity,
+    onChoose,
+    onAskLLM,
+    onChangeScope,
+    onStop,
+    onHighlight
+  }) {
     const [pick, setPick] = (0, import_react3.useState)(null);
     if (!ambiguity) return null;
     const candidates = asArray(ambiguity.candidates);
@@ -25978,23 +25985,49 @@
                         ] }) : null
                       ] }),
                       c.locator ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "aw-cand-loc", children: c.locator }) : null,
-                      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "aw-cand-actions", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
-                        "button",
-                        {
-                          type: "button",
-                          className: "aw-btn",
-                          onClick: (e) => {
-                            e.stopPropagation();
-                            setPick(id);
-                          },
-                          "data-testid": `locator-select-${id}`,
-                          children: [
-                            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Check, {}),
-                            " ",
-                            selected ? "Selected" : "Select"
-                          ]
-                        }
-                      ) })
+                      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-cand-actions", children: [
+                        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+                          "button",
+                          {
+                            type: "button",
+                            className: "aw-btn",
+                            onClick: (e) => {
+                              e.stopPropagation();
+                              setPick(id);
+                            },
+                            "data-testid": `locator-select-${id}`,
+                            children: [
+                              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Check, {}),
+                              " ",
+                              selected ? "Selected" : "Select"
+                            ]
+                          }
+                        ),
+                        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+                          "button",
+                          {
+                            type: "button",
+                            className: "aw-btn",
+                            "data-testid": `locator-highlight-${id}`,
+                            disabled: typeof onHighlight !== "function",
+                            title: typeof onHighlight === "function" ? "Flash this candidate in the browser" : "Highlight command not wired in this session",
+                            onClick: (e) => {
+                              e.stopPropagation();
+                              if (typeof onHighlight === "function") {
+                                onHighlight({
+                                  type: "highlight_locator",
+                                  candidate_id: id,
+                                  step_id
+                                });
+                              }
+                            },
+                            children: [
+                              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Target, {}),
+                              " Highlight"
+                            ]
+                          }
+                        )
+                      ] })
                     ] })
                   ]
                 },
@@ -26276,8 +26309,17 @@
       ] })
     ] });
   }
-  function CardOffline({ connection, onReconnect }) {
+  function CardOffline({
+    connection,
+    onReconnect,
+    onViewLog,
+    onSwitchEndpoint,
+    endpointRegistry
+  }) {
     if (!connection || connection.connected) return null;
+    const hasViewLog = typeof onViewLog === "function";
+    const altEndpoints = endpointRegistry && Array.isArray(endpointRegistry.entries) ? endpointRegistry.entries.filter((e) => e.id !== endpointRegistry.active_id) : [];
+    const canSwitchEndpoint = altEndpoints.length > 0 && typeof onSwitchEndpoint === "function";
     return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card recover blocking", "data-testid": "card-offline", children: [
       /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-head", children: [
         /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Plug, {}) }),
@@ -26294,19 +26336,51 @@
           /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: connection.last_event })
         ] }) }) : null
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "aw-card-foot", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
-        "button",
-        {
-          type: "button",
-          className: "aw-btn primary",
-          "data-testid": "offline-reconnect",
-          onClick: () => typeof onReconnect === "function" && onReconnect({ type: "reconnect" }),
-          children: [
-            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Sync, {}),
-            "Reconnect now"
-          ]
-        }
-      ) })
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-foot", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn primary",
+            "data-testid": "offline-reconnect",
+            onClick: () => typeof onReconnect === "function" && onReconnect({ type: "reconnect" }),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Sync, {}),
+              "Reconnect now"
+            ]
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn",
+            "data-testid": "offline-view-log",
+            disabled: !hasViewLog,
+            title: hasViewLog ? "Show the live event timeline in the Trace tab" : "Trace tab routing is not available in this session",
+            onClick: () => hasViewLog && onViewLog({ type: "view_connection_log" }),
+            children: "View connection log"
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn",
+            "data-testid": "offline-switch-endpoint",
+            disabled: !canSwitchEndpoint,
+            title: canSwitchEndpoint ? "Switch to a different registered backend endpoint" : "Only the local endpoint is registered; add another endpoint to enable switching",
+            onClick: () => {
+              if (!canSwitchEndpoint) return;
+              onSwitchEndpoint({
+                type: "switch_endpoint",
+                endpoint_id: altEndpoints[0].id
+              });
+            },
+            children: "Switch endpoint"
+          }
+        )
+      ] })
     ] });
   }
   function CardNoBrowser({ state, onRelaunchBrowser }) {
@@ -26446,8 +26520,21 @@
       ] })
     ] });
   }
-  function CardSchemaError({ rejection, onAskRepair }) {
+  function CardSchemaError({ rejection, onAskRepair, onEditPlan }) {
+    const [showRaw, setShowRaw] = (0, import_react3.useState)(false);
+    const [editText, setEditText] = (0, import_react3.useState)("");
+    const [editing, setEditing] = (0, import_react3.useState)(false);
     if (!rejection) return null;
+    const rawAvailable = typeof rejection.raw_response_redacted === "string" && rejection.raw_response_redacted.length > 0;
+    const canEdit = typeof onEditPlan === "function";
+    const submitEdit = () => {
+      if (!canEdit) return;
+      const text = (editText || "").trim();
+      if (!text) return;
+      onEditPlan({ type: "correction", message: text, source: "manual_edit" });
+      setEditing(false);
+      setEditText("");
+    };
     return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card warn blocking", "data-testid": "card-schema-error", children: [
       /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-head", children: [
         /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Alert, {}) }),
@@ -26459,21 +26546,103 @@
         rejection.detail ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "aw-fail-grid", children: Object.entries(rejection.detail).map(([k, v]) => /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(import_react3.default.Fragment, { children: [
           /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "k", children: k }),
           /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "v mono", children: String(v) })
-        ] }, k)) }) : null
+        ] }, k)) }) : null,
+        showRaw && rawAvailable ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+          "pre",
+          {
+            "data-testid": "schema-error-raw-viewer",
+            style: {
+              marginTop: 8,
+              padding: 8,
+              background: "var(--bg-2)",
+              fontFamily: "var(--ff-mono)",
+              fontSize: 11.5,
+              whiteSpace: "pre-wrap",
+              maxHeight: 220,
+              overflow: "auto"
+            },
+            children: rejection.raw_response_redacted
+          }
+        ) : null,
+        editing ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 6 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+            "textarea",
+            {
+              "data-testid": "schema-error-edit-input",
+              rows: 4,
+              placeholder: "Describe the correction in natural language. Do NOT paste keys or OTPs.",
+              value: editText,
+              onChange: (e) => setEditText(e.target.value),
+              style: { width: "100%", fontFamily: "var(--ff-mono)", fontSize: 12 }
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { style: { display: "flex", gap: 6 }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+              "button",
+              {
+                type: "button",
+                className: "aw-btn primary",
+                "data-testid": "schema-error-edit-submit",
+                disabled: !editText.trim(),
+                onClick: submitEdit,
+                children: "Submit correction"
+              }
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+              "button",
+              {
+                type: "button",
+                className: "aw-btn",
+                "data-testid": "schema-error-edit-cancel",
+                onClick: () => {
+                  setEditing(false);
+                  setEditText("");
+                },
+                children: "Cancel"
+              }
+            )
+          ] })
+        ] }) : null
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "aw-card-foot", children: typeof onAskRepair === "function" ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
-        "button",
-        {
-          type: "button",
-          className: "aw-btn primary",
-          "data-testid": "schema-repair",
-          onClick: () => onAskRepair({ type: "repair_plan" }),
-          children: [
-            /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Sync, {}),
-            "Ask LLM to repair plan"
-          ]
-        }
-      ) : null })
+      /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-card-foot", children: [
+        typeof onAskRepair === "function" ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn primary",
+            "data-testid": "schema-repair",
+            onClick: () => onAskRepair({ type: "repair_plan" }),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Sync, {}),
+              "Ask LLM to repair plan"
+            ]
+          }
+        ) : null,
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn",
+            "data-testid": "schema-error-edit-plan",
+            disabled: !canEdit || editing,
+            title: canEdit ? "Send a manual correction via the existing typed correction command" : "Correction command is not wired in this session",
+            onClick: () => setEditing(true),
+            children: "Edit plan manually"
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+          "button",
+          {
+            type: "button",
+            className: "aw-btn",
+            "data-testid": "schema-error-open-raw",
+            disabled: !rawAvailable,
+            title: rawAvailable ? "Show the redacted raw LLM response" : "Backend did not retain a redacted raw response for this failure",
+            onClick: () => setShowRaw((cur) => !cur),
+            children: showRaw ? "Hide raw response" : "Open raw response"
+          }
+        )
+      ] })
     ] });
   }
   function LlmEmpty({ onSeed }) {
@@ -26572,6 +26741,7 @@
     apiKeyRequiredState = null,
     humanInputState = null,
     e2ePendingState = null,
+    endpointRegistry = null,
     dispatchers = {},
     onSeed
   }) {
@@ -26587,7 +26757,16 @@
         }
         return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Sys, { time: m.timestamp ?? m.time, children: m.text ?? "" }, m.id ?? `s-${i}`);
       }),
-      connection && !connection.connected ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(CardOffline, { connection, onReconnect: dispatchers.onReconnect }) : null,
+      connection && !connection.connected ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+        CardOffline,
+        {
+          connection,
+          onReconnect: dispatchers.onReconnect,
+          onViewLog: dispatchers.onViewConnectionLog,
+          onSwitchEndpoint: dispatchers.onSwitchEndpoint,
+          endpointRegistry
+        }
+      ) : null,
       noBrowserState ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(CardNoBrowser, { state: noBrowserState, onRelaunchBrowser: dispatchers.onRelaunchBrowser }) : null,
       apiKeyRequiredState ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(CardApiKey, { state: apiKeyRequiredState, onRecheckConfig: dispatchers.onRecheckConfig }) : null,
       humanInputState ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(CardOtp, { state: humanInputState, onContinue: dispatchers.onHumanInputCompleted }) : null,
@@ -26650,7 +26829,8 @@
           onChoose: dispatchers.onChooseLocatorCandidate,
           onAskLLM: dispatchers.onAskLocatorLLM,
           onChangeScope: dispatchers.onChangeLocatorScope,
-          onStop: dispatchers.onStop
+          onStop: dispatchers.onStop,
+          onHighlight: dispatchers.onHighlightLocator
         }
       ) : null,
       pendingRecovery ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
@@ -26663,7 +26843,14 @@
           onStop: dispatchers.onStop
         }
       ) : null,
-      rejection ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(CardSchemaError, { rejection, onAskRepair: dispatchers.onRepairPlan }) : null,
+      rejection ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+        CardSchemaError,
+        {
+          rejection,
+          onAskRepair: dispatchers.onRepairPlan,
+          onEditPlan: dispatchers.onSendCorrection
+        }
+      ) : null,
       completion ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
         CardCompleted,
         {
@@ -28409,7 +28596,12 @@
           apiKeyRequiredState: runtime.storeState?.api_key_required_state ?? null,
           humanInputState: runtime.storeState?.human_input_required_state ?? null,
           e2ePendingState: runtime.storeState?.e2e_pending_state ?? null,
-          dispatchers,
+          endpointRegistry: runtime.storeState?.endpoint_registry ?? null,
+          dispatchers: {
+            ...dispatchers,
+            // E3 (B4) — View log routes to the Trace tab. Pure client-only.
+            onViewConnectionLog: typeof dispatchers.onViewConnectionLog === "function" ? dispatchers.onViewConnectionLog : () => setTab("trace")
+          },
           onSeed: (text) => dispatchers.onSendUserMessage({ type: "user_message", message_text: text })
         }
       );
@@ -28759,7 +28951,9 @@
       no_browser: "no_browser",
       api_key_required: "api_key_required",
       human_input_required: "human_input_required",
-      e2e_pending: "e2e_pending"
+      e2e_pending: "e2e_pending",
+      // E3 (B5) — endpoint registry advertised on WS connect.
+      endpoint_registry: "endpoint_registry"
     }
   );
 
@@ -28794,7 +28988,15 @@
       no_browser_state: null,
       api_key_required_state: null,
       human_input_required_state: null,
-      e2e_pending_state: null
+      e2e_pending_state: null,
+      // E3 (B5) — endpoint registry advertised by the backend on connect.
+      // Null until the first endpoint_registry event arrives. CardOffline
+      // uses this to disable the "Switch endpoint" button honestly when
+      // only the current endpoint is registered.
+      endpoint_registry: null,
+      // E3 (B4) — connection log entries (placeholder for now; the
+      // Sprint 7 "View log" button just routes to the Trace tab).
+      connection_log_entries: []
     };
   }
   function isStaleRunId(state, payload) {
@@ -28993,6 +29195,17 @@
           return { ...state, e2e_pending_state: null };
         }
         return { ...state, e2e_pending_state: payload };
+      }
+      case EVENT_TYPES.endpoint_registry: {
+        const active_id = payload?.active_id;
+        const entries = Array.isArray(payload?.entries) ? payload.entries : [];
+        if (!active_id || entries.length === 0) {
+          return { ...state, endpoint_registry: null };
+        }
+        return {
+          ...state,
+          endpoint_registry: { active_id, entries }
+        };
       }
       case EVENT_TYPES.agent_settings: {
         const incomingVersion = Number(payload?.version ?? 0);

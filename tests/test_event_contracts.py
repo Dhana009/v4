@@ -19,7 +19,9 @@ from runtime.event_contracts import (
 # E1 (B1) — WS now emits `agent_settings` immediately after `ready`.
 # Tests that send a command after connect must drain BOTH init events
 # before reading the response.
-_INIT_EVENT_TYPES = frozenset({"status", "ready", "agent_settings", "session_state"})
+_INIT_EVENT_TYPES = frozenset(
+    {"status", "ready", "agent_settings", "session_state", "endpoint_registry"}
+)
 
 
 def _drain_until_non_init(websocket, max_drain: int = 6):

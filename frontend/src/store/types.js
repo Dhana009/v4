@@ -50,6 +50,8 @@ export const EVENT_TYPES = /** @type {const} */ ({
   api_key_required: "api_key_required",
   human_input_required: "human_input_required",
   e2e_pending: "e2e_pending",
+  // E3 (B5) — endpoint registry advertised on WS connect.
+  endpoint_registry: "endpoint_registry",
 });
 
 export const COMMAND_TYPES = /** @type {const} */ ({

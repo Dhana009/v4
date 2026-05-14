@@ -326,16 +326,14 @@ Design has a TweaksPanel for changing state/dock/tab live during demo. Productio
 | 💀 DEAD | **2** (Settings gear, Resize handle) |
 | ❌ MISSING | 11 (4 missing cards + paperclip + context chips + provider badge + screenshot tile + repair diff + syntax highlight + filter icon + trace download) |
 
-### Confirmed BROKEN controls (5+)
-1. **Header dock-right** — `setDock` is local state, no host applyDock call → panel doesn't move
-2. **Header dock-left** — same
-3. **Header dock-top** — same
-4. **Header dock-float** — same
-5. CardLocatorAmbiguity "Highlight" per-candidate — design has it, production stub `onClick={(e) => e.stopPropagation()}` only
-6. CardOffline "View connection log" — stub
-7. CardOffline "Switch endpoint" — stub
-8. CardSchemaError "Edit plan manually" — stub
-9. CardSchemaError "Open raw response" — stub
+### Previously BROKEN controls — all cleared
+
+1. Header dock-right / left / top / float — ✅ fixed `13fbd65`.
+2. CardLocatorAmbiguity "Highlight" — ✅ wired E3/B3; dispatches `highlight_locator`.
+3. CardOffline "View connection log" — ✅ wired E3/B4; routes to Trace tab via dispatcher.
+4. CardOffline "Switch endpoint" — ✅ wired E3/B5; disabled when only active endpoint registered, dispatches `switch_endpoint{endpoint_id}` when alternate registered.
+5. CardSchemaError "Edit plan manually" — ✅ wired E3/B6; opens textarea, submit reuses existing `correction` typed command.
+6. CardSchemaError "Open raw response" — ✅ wired E3/B7; toggles redacted `<pre>`; disabled when `raw_response_redacted` absent.
 
 ### Confirmed DEAD controls (2)
 1. **Header Settings (gear icon)** `chrome.jsx:144` — no `onClick`, no `data-testid`. Pure decoration. Same in design (`yui (1)/v4/chrome.jsx:60`).

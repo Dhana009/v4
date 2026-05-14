@@ -146,9 +146,19 @@ function buildRejection(runtime) {
   const last = errors[errors.length - 1];
   if (!last) return null;
   if (last.type !== "runtime_rejected" && last.type !== "schema_error") return null;
+  // E3 (B7): surface the already-redacted raw response if the backend
+  // event carried one. We never lift `last.raw` or any unredacted field —
+  // only `raw_response_redacted` is allowed through to the UI.
+  const raw =
+    typeof last.raw_response_redacted === "string"
+      ? last.raw_response_redacted
+      : typeof last?.detail?.raw_response_redacted === "string"
+        ? last.detail.raw_response_redacted
+        : null;
   return {
     reason: last.rejection_reason ?? last.message ?? last.reason ?? "",
     detail: last.detail ?? null,
+    raw_response_redacted: raw,
   };
 }
 
@@ -376,7 +386,15 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange, dock: dockProp, onDoc
         apiKeyRequiredState={runtime.storeState?.api_key_required_state ?? null}
         humanInputState={runtime.storeState?.human_input_required_state ?? null}
         e2ePendingState={runtime.storeState?.e2e_pending_state ?? null}
-        dispatchers={dispatchers}
+        endpointRegistry={runtime.storeState?.endpoint_registry ?? null}
+        dispatchers={{
+          ...dispatchers,
+          // E3 (B4) — View log routes to the Trace tab. Pure client-only.
+          onViewConnectionLog:
+            typeof dispatchers.onViewConnectionLog === "function"
+              ? dispatchers.onViewConnectionLog
+              : () => setTab("trace"),
+        }}
         onSeed={(text) => dispatchers.onSendUserMessage({ type: "user_message", message_text: text })}
       />
     );

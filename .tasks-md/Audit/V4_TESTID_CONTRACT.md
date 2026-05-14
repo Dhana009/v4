@@ -146,6 +146,15 @@ Design reference (NOT production truth):
 | Completed | download trace | `completed-download-trace` | `llm-cards.jsx:819` | — | — | ACTIVE | — |
 | Offline | card root | `card-offline` | `llm-cards.jsx:834` | `llm-cards.test.jsx:177` | — | ACTIVE | hidden when `connection==="connected"` |
 | Offline | reconnect | `offline-reconnect` | `llm-cards.jsx:851` | `llm-cards.test.jsx:178` | — | ACTIVE | — |
+| Offline (E3/B4) | view connection log | `offline-view-log` | `llm-cards.jsx::CardOffline` | `card-actions-wired.test.jsx` | — | ACTIVE | client-only routing to Trace tab via `dispatchers.onViewConnectionLog` |
+| Offline (E3/B5) | switch endpoint | `offline-switch-endpoint` | `llm-cards.jsx::CardOffline` | `card-actions-wired.test.jsx` | — | ACTIVE | disabled when only active endpoint registered; dispatches `switch_endpoint{endpoint_id}` — never a raw URL |
+| LocatorAmbiguity (E3/B3) | per-candidate highlight | `locator-highlight-${candidate_id}` | `llm-cards.jsx::CardLocatorAmbiguity` | `card-actions-wired.test.jsx` | — | ACTIVE | dispatches `highlight_locator{candidate_id, step_id, duration_ms?}` |
+| SchemaError (E3/B6) | edit plan manually | `schema-error-edit-plan` | `llm-cards.jsx::CardSchemaError` | `card-actions-wired.test.jsx` | — | ACTIVE | opens textarea; submit dispatches existing `correction{message, source:"manual_edit"}` |
+| SchemaError (E3) | edit input | `schema-error-edit-input` | `llm-cards.jsx::CardSchemaError` | `card-actions-wired.test.jsx` | — | ACTIVE | natural-language correction; do NOT paste keys/OTPs |
+| SchemaError (E3) | edit submit | `schema-error-edit-submit` | `llm-cards.jsx::CardSchemaError` | `card-actions-wired.test.jsx` | — | ACTIVE | disabled when input empty |
+| SchemaError (E3) | edit cancel | `schema-error-edit-cancel` | `llm-cards.jsx::CardSchemaError` | — | — | ACTIVE | — |
+| SchemaError (E3/B7) | open raw response | `schema-error-open-raw` | `llm-cards.jsx::CardSchemaError` | `card-actions-wired.test.jsx` | — | ACTIVE | toggles redacted <pre>; disabled when `rejection.raw_response_redacted` absent |
+| SchemaError (E3) | raw viewer | `schema-error-raw-viewer` | `llm-cards.jsx::CardSchemaError` | `card-actions-wired.test.jsx` | — | ACTIVE | renders ONLY `rejection.raw_response_redacted` (already-redacted text) |
 | SchemaError | card root | `card-schema-error` | `llm-cards.jsx:865` | — | — | ACTIVE | — |
 | SchemaError | repair | `schema-repair` | `llm-cards.jsx:887` | — | — | ACTIVE | — |
 | NoBrowser (E2/B2) | card root | `card-no-browser` | `llm-cards.jsx::CardNoBrowser` | `state-cards.test.jsx` | — | ACTIVE | renders only when `no_browser_state` populated |

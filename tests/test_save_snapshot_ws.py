@@ -98,6 +98,7 @@ def test_save_snapshot_ws_returns_snapshot_and_skips_control_queue(monkeypatch) 
         with client.websocket_connect("/ws") as websocket:
             initial_message = websocket.receive_json()
             websocket.receive_json()  # E1/B1 drain agent_settings
+            websocket.receive_json()  # E3/B5 drain endpoint_registry
             assert initial_message["type"] in {"status", "ready"}
 
             websocket.send_json({"type": "save_snapshot"})
@@ -132,6 +133,7 @@ def test_save_snapshot_ws_returns_safe_failure_message(monkeypatch) -> None:
         with client.websocket_connect("/ws") as websocket:
             websocket.receive_json()
             websocket.receive_json()  # E1/B1 drain agent_settings
+            websocket.receive_json()  # E3/B5 drain endpoint_registry
             websocket.send_json({"type": "save_snapshot"})
             response = websocket.receive_json()
 
