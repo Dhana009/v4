@@ -372,7 +372,12 @@ function StepChildrenList({ step, stepId }) {
   );
 }
 
-function StepLocatorChip({ step, stepId }) {
+// Pass 4b-1 / D-101: locator improve button shown when locator is non-strong.
+// Rendered as a separate block below the strength badge so the badge keeps its
+// inline-badge shape. Buttons absent when no step id or no handler wired.
+const _NON_STRONG_LOCATOR_KINDS = new Set(["warn", "med", "unknown"]);
+
+function StepLocatorChip({ step, stepId, onImproveLocator, onViewCandidates }) {
   const meta = readLocatorMetadata(step);
   if (!meta) return null;
   const { kind, strength, reason } = meta;
@@ -381,18 +386,61 @@ function StepLocatorChip({ step, stepId }) {
     strength === "medium" ? "medium locator" :
     strength === "weak" ? "weak locator" :
     "locator unknown";
+  const showActions = !!stepId && _NON_STRONG_LOCATOR_KINDS.has(kind);
   return (
-    <div
-      className={`aw-badge-i ${kind === "warn" ? "warn" : kind === "med" ? "outline" : kind === "ok" ? "ok" : "outline"}`}
-      data-testid={`step-locator-${stepId}`}
-      data-kind={kind}
-      data-strength={strength}
-      title={reason || label}
-      style={{ display: "inline-flex", alignItems: "center", gap: 4, marginTop: 4, fontSize: 11 }}
-    >
-      <span className="ldot" />
-      <span>{label}</span>
-      {reason ? <span style={{ color: "var(--tx-3)" }}>· {reason}</span> : null}
+    <div style={{ display: "inline-flex", flexWrap: "wrap", alignItems: "center", gap: 4, marginTop: 4 }}>
+      <div
+        className={`aw-badge-i ${kind === "warn" ? "warn" : kind === "med" ? "outline" : kind === "ok" ? "ok" : "outline"}`}
+        data-testid={`step-locator-${stepId}`}
+        data-kind={kind}
+        data-strength={strength}
+        title={reason || label}
+        style={{ display: "inline-flex", alignItems: "center", gap: 4, fontSize: 11 }}
+      >
+        <span className="ldot" />
+        <span>{label}</span>
+        {reason ? <span style={{ color: "var(--tx-3)" }}>· {reason}</span> : null}
+      </div>
+      {showActions ? (
+        <>
+          <button
+            type="button"
+            className="aw-btn subtle"
+            data-testid={`step-improve-locator-${stepId}`}
+            disabled={typeof onImproveLocator !== "function"}
+            title={
+              typeof onImproveLocator === "function"
+                ? "Ask LLM to improve this locator"
+                : "Improve locator — runtime not connected"
+            }
+            style={{ fontSize: 10, padding: "1px 6px" }}
+            onClick={() =>
+              typeof onImproveLocator === "function" &&
+              onImproveLocator({ type: "improve_locator", step_id: stepId })
+            }
+          >
+            Improve locator
+          </button>
+          <button
+            type="button"
+            className="aw-btn subtle"
+            data-testid={`step-view-candidates-${stepId}`}
+            disabled={typeof onViewCandidates !== "function"}
+            title={
+              typeof onViewCandidates === "function"
+                ? "View locator candidates for this step"
+                : "View candidates — runtime not connected"
+            }
+            style={{ fontSize: 10, padding: "1px 6px" }}
+            onClick={() =>
+              typeof onViewCandidates === "function" &&
+              onViewCandidates({ type: "view_candidates", step_id: stepId })
+            }
+          >
+            View candidates
+          </button>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -406,6 +454,8 @@ function PendingStepEditor({
   onChangeElementTarget,
   onAttachElement,
   onDelete,
+  onImproveLocator,
+  onViewCandidates,
 }) {
   const stepId = step.id ?? step.step_id;
   const intent = step.intent ?? step.text ?? step.description ?? "";
@@ -456,7 +506,7 @@ function PendingStepEditor({
         <div className="ide-step-target-summary" data-testid={`step-target-${stepId}`}>
           {targetSummary}
         </div>
-        <StepLocatorChip step={step} stepId={stepId} />
+        <StepLocatorChip step={step} stepId={stepId} onImproveLocator={onImproveLocator} onViewCandidates={onViewCandidates} />
         <StepKindChip step={step} stepId={stepId} />
         <StepChildCountBadge step={step} stepId={stepId} />
         <StepBlockedStrip step={step} stepId={stepId} />
@@ -545,6 +595,8 @@ export function StepsTab({
   onAttachElement,
   blocked = false,
   blockedReason = "",
+  onImproveLocator,
+  onViewCandidates,
 }) {
   const list = asArray(pendingSteps);
   const [filter, setFilter] = useState("");
@@ -626,6 +678,8 @@ export function StepsTab({
             onDelete={(stepId) =>
               typeof onDelete === "function" && onDelete({ type: "delete_step", step_id: stepId })
             }
+            onImproveLocator={onImproveLocator}
+            onViewCandidates={onViewCandidates}
           />
         ))
       )}

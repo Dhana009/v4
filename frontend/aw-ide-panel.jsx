@@ -197,6 +197,8 @@ function buildDispatchers(runtime) {
     onChooseLocatorCandidate: loggedDispatcher("choose_locator_candidate", runtime?.onChooseLocatorCandidate ?? runtime?.handleChooseLocatorCandidate),
     onAskLocatorLLM: loggedDispatcher("ask_locator_llm", runtime?.onAskLocatorLLM),
     onChangeLocatorScope: loggedDispatcher("change_locator_scope", runtime?.onChangeLocatorScope),
+    onImproveLocator: loggedDispatcher("improve_locator", runtime?.onImproveLocator),
+    onViewCandidates: loggedDispatcher("view_candidates", runtime?.onViewCandidates),
     onApplyRecoveryLLM: loggedDispatcher("apply_recovery_llm", runtime?.handleSendRecoveryInstruction ?? runtime?.onApplyRecoveryLLM),
     onRetryRecovery: loggedDispatcher("retry_recovery", runtime?.onRetryRecovery),
     onChooseLocator: loggedDispatcher("choose_locator", runtime?.onChooseLocator),
@@ -362,6 +364,8 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
             ? "Run blocked while permission is pending"
             : ""
         }
+        onImproveLocator={dispatchers.onImproveLocator}
+        onViewCandidates={dispatchers.onViewCandidates}
       />
     );
   } else if (activeTab === "rec") {

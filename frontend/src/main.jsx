@@ -2158,6 +2158,44 @@ function useAutoWorkbenchTransport(config) {
     [appendTimeline, sendPayload]
   );
 
+  // D-101: improve_locator — dispatches typed command to backend; backend owns locator truth.
+  const handleImproveLocator = useCallback(
+    ({ step_id } = {}) => {
+      const stepIdStr = typeof step_id === "string" ? step_id.trim() : "";
+      if (!stepIdStr) {
+        appendTimeline("Improve locator: step_id required.", "warn");
+        return;
+      }
+      const sent = sendPayload(
+        { type: "improve_locator", step_id: stepIdStr },
+        "WebSocket not connected — cannot request locator improvement."
+      );
+      if (sent) {
+        appendTimeline(`Requesting locator improvement for step ${stepIdStr}…`, "active");
+      }
+    },
+    [appendTimeline, sendPayload]
+  );
+
+  // D-101: view_candidates — maps to same backend path as improve_locator.
+  const handleViewCandidates = useCallback(
+    ({ step_id } = {}) => {
+      const stepIdStr = typeof step_id === "string" ? step_id.trim() : "";
+      if (!stepIdStr) {
+        appendTimeline("View candidates: step_id required.", "warn");
+        return;
+      }
+      const sent = sendPayload(
+        { type: "view_candidates", step_id: stepIdStr },
+        "WebSocket not connected — cannot request locator candidates."
+      );
+      if (sent) {
+        appendTimeline(`Requesting locator candidates for step ${stepIdStr}…`, "active");
+      }
+    },
+    [appendTimeline, sendPayload]
+  );
+
   const handleCopyCodeToClipboard = useCallback(
     ({ code } = {}) => {
       const codeStr = typeof code === "string" ? code : codePreview;
@@ -3096,6 +3134,10 @@ function useAutoWorkbenchTransport(config) {
     handleExportCode,
     onCopyCode: handleCopyCodeToClipboard,
     handleCopyCodeToClipboard,
+    onImproveLocator: handleImproveLocator,
+    handleImproveLocator,
+    onViewCandidates: handleViewCandidates,
+    handleViewCandidates,
     setPlanCorrectionText,
     setClarificationQuestion,
     setClarificationOptions,
@@ -3122,6 +3164,8 @@ function useAutoWorkbenchTransport(config) {
     handleExportCode,
     handleCopyCodeToClipboard,
     handleComposerPick,
+    handleImproveLocator,
+    handleViewCandidates,
   };
 }
 
