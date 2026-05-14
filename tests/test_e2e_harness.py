@@ -243,28 +243,26 @@ class _TrackedTabPage:
 
 def test_click_autoworkbench_tab_prefers_test_id_hooks_and_keeps_role_fallback() -> None:
     testid_steps = _TrackedTabLocator("aw-tab-steps")
-    testid_workbench = _TrackedTabLocator("aw-tab-llm")
+    testid_workbench = _TrackedTabLocator("aw-tab-steps")
     role_steps = _TrackedTabLocator("steps-role")
     role_workbench = _TrackedTabLocator("workbench-role")
     page = _TrackedTabPage(
         test_ids={
             "aw-tab-steps": testid_steps,
-            "aw-tab-llm": testid_workbench,
         },
         roles={
             "re.compile('^steps$', re.IGNORECASE)": role_steps,
-            "re.compile('^(?:llm|workbench)$', re.IGNORECASE)": role_workbench,
+            "re.compile('^(?:steps|workbench)$', re.IGNORECASE)": role_workbench,
         },
     )
 
     asyncio.run(harness.click_autoworkbench_tab(page, "steps"))
     asyncio.run(harness.click_autoworkbench_tab(page, "workbench"))
 
-    assert page.test_id_requests == ["aw-tab-steps", "aw-tab-llm"]
-    assert testid_steps.wait_for_count == 1
-    assert testid_steps.click_count == 1
-    assert testid_workbench.wait_for_count == 1
-    assert testid_workbench.click_count == 1
+    # Both aliases now route to the v4 Steps tab where Run-Pending-Steps mounts.
+    assert page.test_id_requests == ["aw-tab-steps", "aw-tab-steps"]
+    assert testid_steps.wait_for_count == 2
+    assert testid_steps.click_count == 2
     assert role_steps.wait_for_count == 0
     assert role_steps.click_count == 0
     assert role_workbench.wait_for_count == 0
@@ -292,7 +290,7 @@ def test_click_autoworkbench_tab_falls_back_to_role_names_when_test_id_missing()
 
     assert page.role_requests == [
         "re.compile('^steps$', re.IGNORECASE)",
-        "re.compile('^(?:llm|workbench)$', re.IGNORECASE)",
+        "re.compile('^(?:steps|workbench)$', re.IGNORECASE)",
     ]
     assert steps_role.click_count == 1
     assert workbench_role.click_count == 1
