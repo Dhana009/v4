@@ -698,18 +698,14 @@ export function StepsTab({
                 style={{ padding: "4px 10px" }}
                 data-testid="steps-run-all"
                 disabled={blocked || list.length === 0}
-                onClick={() => typeof onRunAll === "function" && onRunAll({
-                  type: "run_steps", step_ids: list.map((s) => s.step_id ?? s.id), mode: "all",
-                })}>
+                onClick={() => typeof onRunAll === "function" && onRunAll()}>
           <I.Play/>Run Pending Steps
         </button>
         <button type="button" className="aw-btn"
                 style={{ padding: "4px 10px" }}
                 data-testid="steps-run-selected"
                 disabled={blocked || selectedStepIds.length === 0}
-                onClick={() => typeof onRunSelected === "function" && onRunSelected({
-                  type: "run_steps", step_ids: selectedStepIds, mode: "selected",
-                })}>
+                onClick={() => typeof onRunSelected === "function" && onRunSelected()}>
           <I.Play/>Run selected ({selectedStepIds.length})
         </button>
       </div>

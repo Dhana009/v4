@@ -40,7 +40,10 @@ describe("v4 secondary tabs (real DOM render)", () => {
     expect(onAttach).toHaveBeenCalledWith("s1");
   });
 
-  it("StepsTab Run-all dispatches typed run_steps over all step ids", () => {
+  it("StepsTab Run-all invokes onRunAll without args (runtime builds envelope)", () => {
+    // Sprint 7: inline {step_ids, mode} envelope was dead — handleRunPendingSteps
+    // in main.jsx reads pendingSteps from state and builds the typed {steps:[…]}
+    // envelope itself. The button is now a plain trigger.
     const onRunAll = vi.fn();
     render(
       <StepsTab
@@ -52,12 +55,13 @@ describe("v4 secondary tabs (real DOM render)", () => {
       />
     );
     fireEvent.click(screen.getByTestId("steps-run-all"));
-    expect(onRunAll).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "run_steps", mode: "all", step_ids: ["s1", "s2"] })
-    );
+    expect(onRunAll).toHaveBeenCalledTimes(1);
+    expect(onRunAll).toHaveBeenCalledWith();
   });
 
-  it("StepsTab Run-selected dispatches typed run_steps scoped to selected ids", () => {
+  it("StepsTab Run-selected invokes onRunSelected without args (runtime builds envelope)", () => {
+    // Sprint 7: parametric subset-of-steps remains a Sprint 8 TODO. The button
+    // currently forwards through handleRunPendingSteps, which runs all pending.
     const onRunSelected = vi.fn();
     render(
       <StepsTab
@@ -73,9 +77,8 @@ describe("v4 secondary tabs (real DOM render)", () => {
     const btn = screen.getByTestId("steps-run-selected");
     expect(btn).not.toBeDisabled();
     fireEvent.click(btn);
-    expect(onRunSelected).toHaveBeenCalledWith(
-      expect.objectContaining({ type: "run_steps", mode: "selected", step_ids: ["s1", "s3"] })
-    );
+    expect(onRunSelected).toHaveBeenCalledTimes(1);
+    expect(onRunSelected).toHaveBeenCalledWith();
   });
 
   it("StepsTab uses stable step id for testids regardless of display order", () => {
