@@ -663,6 +663,15 @@ const KNOWN_TRACE_EVENT_TYPES = new Set([
   "element_attached",
   "command_accepted",
   "command_rejected",
+  // E4 (B8/B9/B10) — execution lifecycle events surface in the Trace tab.
+  "execution_started",
+  "operation_executed",
+  "operation_failed",
+  "precondition_failed",
+  "step_failed",
+  "step_skipped",
+  "locator_update_request",
+  "locator_update_applied",
 ]);
 
 const TRACE_ARTIFACT_LABELS = {

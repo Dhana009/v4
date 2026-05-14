@@ -486,11 +486,18 @@ def build_step_failed_payload(
     status: str,
     *,
     operation_id: str | None = None,
+    recovery_available: bool | None = None,
+    next_safe_actions: list[str] | None = None,
     source: str | None = "agent",
     event_id: str | None = None,
     emitted_at: str | None = None,
 ) -> dict[str, Any]:
-    """S7-0103: Emit when a step execution fails. PRD-04-BE-004."""
+    """S7-0103 + E4 (B8): emit when a step execution fails.
+
+    E4 extends with optional ``recovery_available`` + ``next_safe_actions``
+    fields. Both are omitted entirely when callers do not pass them so the
+    legacy payload shape is preserved bit-for-bit.
+    """
     step_id_text = _coerce_text(step_id)
     if not step_id_text:
         raise ValueError("step_id is required")
@@ -509,6 +516,12 @@ def build_step_failed_payload(
     }
     if operation_id:
         payload["operation_id"] = _coerce_text(operation_id)
+    if recovery_available is not None:
+        payload["recovery_available"] = bool(recovery_available)
+    if next_safe_actions is not None:
+        payload["next_safe_actions"] = [
+            _coerce_text(a) for a in next_safe_actions if _coerce_text(a)
+        ]
 
     return build_backend_event_envelope(
         "step_failed",
@@ -525,11 +538,18 @@ def build_step_skipped_payload(
     run_id: str,
     reason: str,
     *,
+    skipped_by: str | None = None,
+    remaining_step_count: int | None = None,
     source: str | None = "agent",
     event_id: str | None = None,
     emitted_at: str | None = None,
 ) -> dict[str, Any]:
-    """S7-0103: Emit when a step is deliberately skipped. PRD-04-BE-005."""
+    """S7-0103 + E4: emit when a step is deliberately skipped.
+
+    E4 extends with optional ``skipped_by`` (user | backend | recovery |
+    unknown) and ``remaining_step_count``. Both are omitted entirely when
+    callers do not pass them so the legacy payload shape is preserved.
+    """
     step_id_text = _coerce_text(step_id)
     if not step_id_text:
         raise ValueError("step_id is required")
@@ -545,6 +565,14 @@ def build_step_skipped_payload(
         "run_id": run_id_text,
         "reason": reason_text,
     }
+    if skipped_by is not None:
+        if skipped_by not in _STEP_SKIPPED_BY:
+            raise ValueError(
+                f"skipped_by must be one of {sorted(_STEP_SKIPPED_BY)}, got {skipped_by!r}"
+            )
+        payload["skipped_by"] = skipped_by
+    if remaining_step_count is not None:
+        payload["remaining_step_count"] = int(remaining_step_count)
     return build_backend_event_envelope(
         "step_skipped",
         payload,
@@ -801,6 +829,392 @@ def build_e2e_pending_event(
         event_id=event_id or str(uuid4()),
         emitted_at=emitted_at,
         source=source,
+    )
+
+
+_EXECUTION_STARTED_SOURCES = frozenset(
+    {"confirmed_plan", "deterministic", "replay", "unknown"}
+)
+_PRECONDITION_TYPES = frozenset(
+    {"page_url", "element_present", "auth_state", "data_ready"}
+)
+_LOCATOR_UPDATE_TRIGGERS = frozenset({"user", "weak_score", "failure_recovery"})
+_LOCATOR_UPDATE_STRATEGIES = frozenset({"deterministic", "llm_specialist", "user_pick"})
+_STEP_SKIPPED_BY = frozenset({"user", "backend", "recovery", "unknown"})
+
+_SECRET_VALUE_RE = re.compile(
+    r"\b(?:sk-[A-Za-z0-9]{8,}|ghp_[A-Za-z0-9]{8,}|AKIA[A-Z0-9]{8,}|token=[A-Za-z0-9_\-]{6,})\b"
+)
+
+
+def _redact_lifecycle_summary(text: str, max_len: int = 500) -> str:
+    """Strip known secret patterns from a summary string and cap length."""
+    cleaned = _SECRET_VALUE_RE.sub("[REDACTED]", text)
+    if len(cleaned) > max_len:
+        cleaned = cleaned[:max_len]
+    return cleaned
+
+
+def _redact_lifecycle_section(value: Any) -> Any:
+    """Apply structured redaction (drops secret-shaped keys) to a sub-section."""
+    from runtime.redaction_policy import redact_payload
+
+    if value is None:
+        return None
+    if isinstance(value, str):
+        return _redact_lifecycle_summary(value)
+    return redact_payload(value)
+
+
+def build_execution_started_event(
+    *,
+    run_id: str,
+    step_count: int,
+    plan_id: str | None = None,
+    source: str = "confirmed_plan",
+    source_label: str | None = None,
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    """E4 (B8) — emitted exactly once when an execution loop begins.
+
+    Source values: confirmed_plan | deterministic | replay | unknown.
+    Frontend uses this to display the execution-start banner and to
+    correlate subsequent operation_executed / operation_failed events.
+    """
+    run_id_text = _coerce_text(run_id)
+    if not run_id_text:
+        raise ValueError("run_id is required")
+    try:
+        count = int(step_count)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("step_count must be an integer") from exc
+    if count < 0:
+        raise ValueError("step_count must be non-negative")
+    if source not in _EXECUTION_STARTED_SOURCES:
+        raise ValueError(
+            f"source must be one of {sorted(_EXECUTION_STARTED_SOURCES)}, got {source!r}"
+        )
+
+    payload: dict[str, Any] = {
+        "run_id": run_id_text,
+        "step_count": count,
+        "source": source,
+    }
+    if plan_id:
+        payload["plan_id"] = _coerce_text(plan_id)
+    if source_label:
+        payload["source_label"] = _coerce_text(source_label)
+
+    return build_backend_event_envelope(
+        "execution_started",
+        payload,
+        run_id=run_id_text,
+        event_id=event_id or str(uuid4()),
+        emitted_at=emitted_at,
+        source="agent",
+    )
+
+
+def build_operation_executed_event(
+    *,
+    run_id: str,
+    step_id: str,
+    operation_id: str,
+    action: str,
+    result_summary: Any = None,
+    locator: str | None = None,
+    evidence_ref: str | None = None,
+    observed_outcome: str | None = None,
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    """E4 (B8) — emitted only after backend evidence of a passed operation.
+
+    `result_summary` is redacted: secret-shaped keys are stripped from
+    dict bodies and known token patterns are scrubbed from strings;
+    free strings are also capped at 500 chars.
+    """
+    run_id_text = _coerce_text(run_id)
+    step_id_text = _coerce_text(step_id)
+    op_id_text = _coerce_text(operation_id)
+    action_text = _coerce_text(action)
+    if not run_id_text:
+        raise ValueError("run_id is required")
+    if not step_id_text:
+        raise ValueError("step_id is required")
+    if not op_id_text:
+        raise ValueError("operation_id is required")
+    if not action_text:
+        raise ValueError("action is required")
+
+    payload: dict[str, Any] = {
+        "run_id": run_id_text,
+        "step_id": step_id_text,
+        "operation_id": op_id_text,
+        "action": action_text,
+        "status": "passed",
+    }
+    if result_summary is not None:
+        payload["result_summary"] = _redact_lifecycle_section(result_summary)
+    if locator:
+        payload["locator"] = _coerce_text(locator)
+    if evidence_ref:
+        payload["evidence_ref"] = _coerce_text(evidence_ref)
+    if observed_outcome:
+        payload["observed_outcome"] = _coerce_text(observed_outcome)
+
+    return build_backend_event_envelope(
+        "operation_executed",
+        payload,
+        run_id=run_id_text,
+        event_id=event_id or str(uuid4()),
+        emitted_at=emitted_at,
+        source="agent",
+    )
+
+
+def build_operation_failed_event(
+    *,
+    run_id: str,
+    step_id: str,
+    operation_id: str,
+    action: str,
+    error_summary: str,
+    recoverable: bool = True,
+    retry_count: int | None = None,
+    max_retries: int | None = None,
+    recovery_ref: str | None = None,
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    """E4 (B8) — emitted when a child operation fails irrecoverably or
+    en route to recovery. `error_summary` runs through the secret-pattern
+    scrubber + 500-char cap so trace exports cannot leak credentials.
+    """
+    run_id_text = _coerce_text(run_id)
+    step_id_text = _coerce_text(step_id)
+    op_id_text = _coerce_text(operation_id)
+    action_text = _coerce_text(action)
+    error_text = _coerce_text(error_summary)
+    if not run_id_text:
+        raise ValueError("run_id is required")
+    if not step_id_text:
+        raise ValueError("step_id is required")
+    if not op_id_text:
+        raise ValueError("operation_id is required")
+    if not action_text:
+        raise ValueError("action is required")
+    if not error_text:
+        raise ValueError("error_summary is required")
+
+    payload: dict[str, Any] = {
+        "run_id": run_id_text,
+        "step_id": step_id_text,
+        "operation_id": op_id_text,
+        "action": action_text,
+        "error_summary": _redact_lifecycle_summary(error_text),
+        "recoverable": bool(recoverable),
+    }
+    if retry_count is not None:
+        payload["retry_count"] = int(retry_count)
+    if max_retries is not None:
+        payload["max_retries"] = int(max_retries)
+    if recovery_ref:
+        payload["recovery_ref"] = _coerce_text(recovery_ref)
+
+    return build_backend_event_envelope(
+        "operation_failed",
+        payload,
+        run_id=run_id_text,
+        event_id=event_id or str(uuid4()),
+        emitted_at=emitted_at,
+        source="agent",
+    )
+
+
+_DEFAULT_PRECONDITION_OPTIONS = (
+    {"id": "navigate", "label": "Navigate to expected", "recoverable": True},
+    {"id": "wait", "label": "Wait and retry", "recoverable": True},
+    {"id": "override", "label": "Override precondition", "recoverable": False},
+    {"id": "skip", "label": "Skip this step", "recoverable": True},
+    {"id": "recover", "label": "Hand off to recovery", "recoverable": True},
+)
+
+
+def build_precondition_failed_event(
+    *,
+    run_id: str,
+    step_id: str,
+    precondition_type: str,
+    expected: str,
+    actual: str,
+    operation_id: str | None = None,
+    options: list[Mapping[str, Any]] | None = None,
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    """E4 (B9) — emitted when a real backend precondition check fails.
+
+    expected/actual are scrubbed via the same secret pattern + capped at
+    300 chars so a leaky URL (e.g. ``?token=...``) cannot survive emission.
+    """
+    run_id_text = _coerce_text(run_id)
+    step_id_text = _coerce_text(step_id)
+    if not run_id_text:
+        raise ValueError("run_id is required")
+    if not step_id_text:
+        raise ValueError("step_id is required")
+    if precondition_type not in _PRECONDITION_TYPES:
+        raise ValueError(
+            f"precondition_type must be one of {sorted(_PRECONDITION_TYPES)}, got {precondition_type!r}"
+        )
+
+    expected_text = _redact_lifecycle_summary(_coerce_text(expected), max_len=300)
+    actual_text = _redact_lifecycle_summary(_coerce_text(actual), max_len=300)
+
+    chosen_options: list[dict[str, Any]] = []
+    for opt in options or _DEFAULT_PRECONDITION_OPTIONS:
+        opt_dict = dict(opt)
+        if "id" not in opt_dict or not _coerce_text(opt_dict["id"]):
+            continue
+        chosen_options.append(opt_dict)
+    if not chosen_options:
+        chosen_options = [dict(o) for o in _DEFAULT_PRECONDITION_OPTIONS]
+
+    payload: dict[str, Any] = {
+        "run_id": run_id_text,
+        "step_id": step_id_text,
+        "precondition_type": precondition_type,
+        "expected": expected_text,
+        "actual": actual_text,
+        "options": chosen_options,
+    }
+    if operation_id:
+        payload["operation_id"] = _coerce_text(operation_id)
+
+    return build_backend_event_envelope(
+        "precondition_failed",
+        payload,
+        run_id=run_id_text,
+        event_id=event_id or str(uuid4()),
+        emitted_at=emitted_at,
+        source="agent",
+    )
+
+
+def build_locator_update_request_event(
+    *,
+    run_id: str,
+    step_id: str,
+    ambiguity_id: str,
+    current_locator: str,
+    trigger: str,
+    operation_id: str | None = None,
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    """E4 (B10) — emitted by the locator-update flow when a fresh attempt
+    starts. Locator strings >1024 chars are rejected as a DOM-injection guard.
+    """
+    run_id_text = _coerce_text(run_id)
+    step_id_text = _coerce_text(step_id)
+    ambig_text = _coerce_text(ambiguity_id)
+    locator_text = _coerce_text(current_locator)
+    if not run_id_text:
+        raise ValueError("run_id is required")
+    if not step_id_text:
+        raise ValueError("step_id is required")
+    if not ambig_text:
+        raise ValueError("ambiguity_id is required")
+    if not locator_text:
+        raise ValueError("current_locator is required")
+    if len(locator_text) > 1024:
+        raise ValueError("current_locator exceeds 1024-char DOM-injection guard")
+    if trigger not in _LOCATOR_UPDATE_TRIGGERS:
+        raise ValueError(
+            f"trigger must be one of {sorted(_LOCATOR_UPDATE_TRIGGERS)}, got {trigger!r}"
+        )
+
+    payload: dict[str, Any] = {
+        "run_id": run_id_text,
+        "step_id": step_id_text,
+        "ambiguity_id": ambig_text,
+        "current_locator": locator_text,
+        "trigger": trigger,
+    }
+    if operation_id:
+        payload["operation_id"] = _coerce_text(operation_id)
+
+    return build_backend_event_envelope(
+        "locator_update_request",
+        payload,
+        run_id=run_id_text,
+        event_id=event_id or str(uuid4()),
+        emitted_at=emitted_at,
+        source="agent",
+    )
+
+
+def build_locator_update_applied_event(
+    *,
+    run_id: str,
+    step_id: str,
+    ambiguity_id: str,
+    old_locator: str,
+    new_locator: str,
+    strategy: str,
+    confidence: float,
+    operation_id: str | None = None,
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    """E4 (B10) — emitted only after the new locator has been validated
+    server-side. Frontend MUST NOT infer ``applied`` from a click alone.
+    """
+    run_id_text = _coerce_text(run_id)
+    step_id_text = _coerce_text(step_id)
+    ambig_text = _coerce_text(ambiguity_id)
+    old_text = _coerce_text(old_locator)
+    new_text = _coerce_text(new_locator)
+    if not run_id_text:
+        raise ValueError("run_id is required")
+    if not step_id_text:
+        raise ValueError("step_id is required")
+    if not ambig_text:
+        raise ValueError("ambiguity_id is required")
+    if not old_text or not new_text:
+        raise ValueError("old_locator and new_locator are required")
+    if len(old_text) > 1024 or len(new_text) > 1024:
+        raise ValueError("locator strings exceed 1024-char DOM-injection guard")
+    if strategy not in _LOCATOR_UPDATE_STRATEGIES:
+        raise ValueError(
+            f"strategy must be one of {sorted(_LOCATOR_UPDATE_STRATEGIES)}, got {strategy!r}"
+        )
+    try:
+        confidence_f = float(confidence)
+    except (TypeError, ValueError) as exc:
+        raise ValueError("confidence must be a float") from exc
+
+    payload: dict[str, Any] = {
+        "run_id": run_id_text,
+        "step_id": step_id_text,
+        "ambiguity_id": ambig_text,
+        "old_locator": old_text,
+        "new_locator": new_text,
+        "strategy": strategy,
+        "confidence": confidence_f,
+    }
+    if operation_id:
+        payload["operation_id"] = _coerce_text(operation_id)
+
+    return build_backend_event_envelope(
+        "locator_update_applied",
+        payload,
+        run_id=run_id_text,
+        event_id=event_id or str(uuid4()),
+        emitted_at=emitted_at,
+        source="agent",
     )
 
 

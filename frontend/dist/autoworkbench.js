@@ -28176,6 +28176,7 @@
     const [expandedRows, setExpandedRows] = (0, import_react4.useState)(() => /* @__PURE__ */ new Set());
     const list = asArray2(traceEntries);
     const filtered = list.filter((row) => {
+      if (!row || typeof row !== "object") return false;
       const type = row.type ?? "";
       if (!matchesKind(type, kind)) return false;
       if (filter) {
@@ -28393,9 +28394,11 @@
     const last = errors[errors.length - 1];
     if (!last) return null;
     if (last.type !== "runtime_rejected" && last.type !== "schema_error") return null;
+    const raw = typeof last.raw_response_redacted === "string" ? last.raw_response_redacted : typeof last?.detail?.raw_response_redacted === "string" ? last.detail.raw_response_redacted : null;
     return {
       reason: last.rejection_reason ?? last.message ?? last.reason ?? "",
-      detail: last.detail ?? null
+      detail: last.detail ?? null,
+      raw_response_redacted: raw
     };
   }
   function selectCurrentStep(runtime) {
@@ -28953,7 +28956,14 @@
       human_input_required: "human_input_required",
       e2e_pending: "e2e_pending",
       // E3 (B5) — endpoint registry advertised on WS connect.
-      endpoint_registry: "endpoint_registry"
+      endpoint_registry: "endpoint_registry",
+      // E4 (B8/B9/B10) — execution lifecycle events.
+      execution_started: "execution_started",
+      operation_executed: "operation_executed",
+      operation_failed: "operation_failed",
+      precondition_failed: "precondition_failed",
+      locator_update_request: "locator_update_request",
+      locator_update_applied: "locator_update_applied"
     }
   );
 
@@ -28996,7 +29006,13 @@
       endpoint_registry: null,
       // E3 (B4) — connection log entries (placeholder for now; the
       // Sprint 7 "View log" button just routes to the Trace tab).
-      connection_log_entries: []
+      connection_log_entries: [],
+      // E4 (B8/B9/B10) — execution lifecycle slices. Each is null until
+      // the backend emits a real lifecycle event. No frontend inference.
+      execution_started_state: null,
+      last_operation_event: null,
+      pending_precondition: null,
+      last_locator_update: null
     };
   }
   function isStaleRunId(state, payload) {
@@ -29195,6 +29211,38 @@
           return { ...state, e2e_pending_state: null };
         }
         return { ...state, e2e_pending_state: payload };
+      }
+      case EVENT_TYPES.execution_started: {
+        if (!payload || !payload.run_id) return state;
+        return {
+          ...state,
+          execution_started_state: payload
+        };
+      }
+      case EVENT_TYPES.operation_executed:
+      case EVENT_TYPES.operation_failed: {
+        if (!payload || !payload.operation_id) return state;
+        return {
+          ...state,
+          last_operation_event: { ...payload, type }
+        };
+      }
+      case EVENT_TYPES.precondition_failed: {
+        if (!payload || !payload.step_id || !payload.precondition_type) {
+          return state;
+        }
+        return {
+          ...state,
+          pending_precondition: payload
+        };
+      }
+      case EVENT_TYPES.locator_update_request:
+      case EVENT_TYPES.locator_update_applied: {
+        if (!payload || !payload.ambiguity_id) return state;
+        return {
+          ...state,
+          last_locator_update: { ...payload, type }
+        };
       }
       case EVENT_TYPES.endpoint_registry: {
         const active_id = payload?.active_id;
@@ -29745,7 +29793,16 @@
     "snapshot_saved",
     "element_attached",
     "command_accepted",
-    "command_rejected"
+    "command_rejected",
+    // E4 (B8/B9/B10) — execution lifecycle events surface in the Trace tab.
+    "execution_started",
+    "operation_executed",
+    "operation_failed",
+    "precondition_failed",
+    "step_failed",
+    "step_skipped",
+    "locator_update_request",
+    "locator_update_applied"
   ]);
   var TRACE_ARTIFACT_LABELS = {
     manifest: "manifest.json",

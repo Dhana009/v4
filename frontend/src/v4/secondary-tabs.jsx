@@ -1328,6 +1328,7 @@ export function TraceTab({ traceEntries = [] }) {
   const [expandedRows, setExpandedRows] = useState(() => new Set());
   const list = asArray(traceEntries);
   const filtered = list.filter((row) => {
+    if (!row || typeof row !== "object") return false;
     const type = row.type ?? "";
     if (!matchesKind(type, kind)) return false;
     if (filter) {

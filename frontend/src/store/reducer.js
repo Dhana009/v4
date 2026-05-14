@@ -46,6 +46,12 @@ export function createInitialState() {
     // E3 (B4) — connection log entries (placeholder for now; the
     // Sprint 7 "View log" button just routes to the Trace tab).
     connection_log_entries: [],
+    // E4 (B8/B9/B10) — execution lifecycle slices. Each is null until
+    // the backend emits a real lifecycle event. No frontend inference.
+    execution_started_state: null,
+    last_operation_event: null,
+    pending_precondition: null,
+    last_locator_update: null,
   };
 }
 
@@ -281,6 +287,47 @@ export function reducer(state, event) {
         return { ...state, e2e_pending_state: null };
       }
       return { ...state, e2e_pending_state: payload };
+    }
+
+    case EVENT_TYPES.execution_started: {
+      // E4 (B8) — store run_id + start metadata; do not infer phase.
+      if (!payload || !payload.run_id) return state;
+      return {
+        ...state,
+        execution_started_state: payload,
+      };
+    }
+
+    case EVENT_TYPES.operation_executed:
+    case EVENT_TYPES.operation_failed: {
+      // E4 (B8) — record the latest operation event for trace visibility.
+      // Do not mutate step state — step_recorded/step_failed still own that.
+      if (!payload || !payload.operation_id) return state;
+      return {
+        ...state,
+        last_operation_event: { ...payload, type },
+      };
+    }
+
+    case EVENT_TYPES.precondition_failed: {
+      // E4 (B9) — backend owns precondition truth; frontend just renders.
+      if (!payload || !payload.step_id || !payload.precondition_type) {
+        return state;
+      }
+      return {
+        ...state,
+        pending_precondition: payload,
+      };
+    }
+
+    case EVENT_TYPES.locator_update_request:
+    case EVENT_TYPES.locator_update_applied: {
+      // E4 (B10) — frontend MUST NOT infer applied from a click alone.
+      if (!payload || !payload.ambiguity_id) return state;
+      return {
+        ...state,
+        last_locator_update: { ...payload, type },
+      };
     }
 
     case EVENT_TYPES.endpoint_registry: {

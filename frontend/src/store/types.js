@@ -52,6 +52,13 @@ export const EVENT_TYPES = /** @type {const} */ ({
   e2e_pending: "e2e_pending",
   // E3 (B5) — endpoint registry advertised on WS connect.
   endpoint_registry: "endpoint_registry",
+  // E4 (B8/B9/B10) — execution lifecycle events.
+  execution_started: "execution_started",
+  operation_executed: "operation_executed",
+  operation_failed: "operation_failed",
+  precondition_failed: "precondition_failed",
+  locator_update_request: "locator_update_request",
+  locator_update_applied: "locator_update_applied",
 });
 
 export const COMMAND_TYPES = /** @type {const} */ ({
