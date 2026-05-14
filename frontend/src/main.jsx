@@ -25,6 +25,11 @@ import { usePlanReadyAutoTab } from "./panel-hooks/use-plan-ready-auto-tab.js";
 // runtime config when `config.demo === true` at mount time. Live mode never
 // touches this import path.
 import { DEMO_FIXTURES } from "./demo/demo-fixtures.js";
+// FE-VBATCH-002 Stories 4 & 5 — demo-only overlays. Tree-shaken out of the
+// runtime path because `mountDemo` is the only entry that touches them and
+// preview.html is the only file that calls `mountDemo`.
+import { WebsitePreview } from "./demo/website-preview.jsx";
+import { TweaksPanel, DEFAULT_TWEAKS } from "./demo/tweaks-panel.jsx";
 
 const VALID_TABS = new Set(["workbench", "llm", "steps", "code", "debug"]);
 
@@ -3383,13 +3388,31 @@ function useFrontendEventStore(config) {
       Array.isArray(config?.agents) && (!storeState.agents || storeState.agents.length === 0)
         ? config.agents
         : storeState.agents;
+    // FE-VBATCH-002 — seed pending_recovery so buildAmbiguity() in
+    // aw-ide-panel promotes a CardLocatorAmbiguity in the LLM tab.
+    const seededRecovery =
+      !storeState.pending_recovery && config?.pendingRecovery
+        ? config.pendingRecovery
+        : storeState.pending_recovery;
     return {
       ...transport,
-      storeState: { ...storeState, agents: seededAgents },
+      storeState: {
+        ...storeState,
+        agents: seededAgents,
+        pending_recovery: seededRecovery,
+      },
       storeDispatch,
       // Header-only passthroughs so demo mode shows token + page URL.
       tokenInfo: config.tokenInfo ?? transport.tokenInfo,
       pageUrl: config.pageUrl ?? transport.pageUrl,
+      // FE-VBATCH-002 — NowStrip + Footer + Composer-context overrides for
+      // demo. aw-ide-panel reads runtime.nowStrip / runtime.footer /
+      // runtime.composerContext when present, otherwise falls back to its
+      // PHASE_META lookup and empty arrays.
+      nowStrip: config.nowStrip ?? transport.nowStrip,
+      footer: config.footer ?? transport.footer,
+      composerContext: config.composerContext ?? transport.composerContext,
+      modelBadge: config.modelBadge ?? transport.modelBadge,
     };
   }
   return { ...transport, storeState, storeDispatch };
@@ -3472,7 +3495,73 @@ function unmount() {
   unmountHost();
 }
 
+// FE-VBATCH-002 — Preview/demo entry point. Mounts the WebsitePreview
+// behind, the AutoWorkbench panel docked right, and the TweaksPanel side
+// overlay. Wires TweaksPanel edits to preview-local state only — never
+// reaches the backend (live mode doesn't even import these modules).
+function PreviewShell({ container }) {
+  const [tweaks, setTweaks] = React.useState(DEFAULT_TWEAKS);
+  React.useEffect(() => {
+    // Activate the tweaks panel by default on the preview entry so users
+    // can see the full reference experience without having to open it.
+    try { window.postMessage({ type: "__activate_edit_mode" }, "*"); } catch (_) {}
+  }, []);
+  const panelHostRef = React.useRef(null);
+  React.useEffect(() => {
+    if (!panelHostRef.current) return;
+    if (panelHostRef.current.__awMounted) return;
+    mount(panelHostRef.current, {
+      demo: true,
+      panelWidth: tweaks.panelWidth,
+    });
+    panelHostRef.current.__awMounted = true;
+  }, []);
+  return (
+    <div data-testid="aw-preview-shell" style={{ position: "fixed", inset: 0 }}>
+      {tweaks.showWebsite ? (
+        <div
+          data-testid="aw-preview-website"
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            bottom: 0,
+            right: tweaks.dock === "right" ? tweaks.panelWidth : 0,
+            background: "var(--bg-website, #FAF5EB)",
+          }}
+        >
+          <WebsitePreview highlight={tweaks.highlight} />
+        </div>
+      ) : null}
+      <div
+        ref={panelHostRef}
+        data-testid="aw-preview-panel-host"
+        style={{
+          position: "fixed",
+          top: 0,
+          bottom: 0,
+          right: tweaks.dock === "right" ? 0 : "auto",
+          left: tweaks.dock === "left" ? 0 : "auto",
+          width: tweaks.panelWidth,
+          boxShadow: "-8px 0 24px rgba(20,18,12,0.12)",
+        }}
+      />
+      <TweaksPanel value={tweaks} onChange={setTweaks} defaultOpen={false} />
+    </div>
+  );
+}
+
+function mountDemo(container = document.body) {
+  const root = document.createElement("div");
+  root.id = "aw-preview-root";
+  container.appendChild(root);
+  const r = createRoot(root);
+  r.render(<PreviewShell container={container} />);
+  return root;
+}
+
 window.AutoWorkbench = {
   mount,
+  mountDemo,
   unmount,
 };

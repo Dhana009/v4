@@ -13,7 +13,17 @@ import fs from "node:fs";
 import path from "node:path";
 
 import { AgentsPopover, NowStrip } from "../src/v4/chrome.jsx";
-import { DEMO_FIXTURES, DEMO_AGENTS, DEMO_PLAN, DEMO_RECORDED_STEPS, DEMO_TRACE_ENTRIES } from "../src/demo/demo-fixtures.js";
+import {
+  DEMO_FIXTURES,
+  DEMO_AGENTS,
+  DEMO_PLAN,
+  DEMO_RECORDED_STEPS,
+  DEMO_TRACE_ENTRIES,
+  DEMO_LOCATOR_RECOVERY,
+  DEMO_NOW_STRIP,
+  DEMO_FOOTER,
+  DEMO_COMPOSER_CONTEXT,
+} from "../src/demo/demo-fixtures.js";
 
 const REPO_FRONTEND = path.resolve(__dirname, "..");
 
@@ -59,6 +69,33 @@ describe("FE-VBATCH-001 demo / live separation", () => {
 
     it("DEMO_TRACE_ENTRIES has 25 timeline rows (matches PDF reference)", () => {
       expect(DEMO_TRACE_ENTRIES).toHaveLength(25);
+    });
+
+    it("DEMO_LOCATOR_RECOVERY exposes 3 candidates with risk + confidence", () => {
+      expect(DEMO_LOCATOR_RECOVERY.failure_reason).toBe("locator_ambiguous");
+      expect(DEMO_LOCATOR_RECOVERY.options).toHaveLength(3);
+      for (const c of DEMO_LOCATOR_RECOVERY.options) {
+        expect(c.title).toMatch(/Get started/);
+        expect(typeof c.confidence).toBe("number");
+        expect(c.locator).toBeTruthy();
+      }
+    });
+
+    it("DEMO_NOW_STRIP supplies state + task + primaryLabel for the orange CTA band", () => {
+      expect(DEMO_NOW_STRIP.kind).toBe("block");
+      expect(DEMO_NOW_STRIP.state).toBe("Decision required");
+      expect(DEMO_NOW_STRIP.primaryLabel).toBe("Choose candidate");
+    });
+
+    it("DEMO_FOOTER carries phase/blocker/nextAction (not generic Idle)", () => {
+      expect(DEMO_FOOTER.phase).toBe("Locator ambiguity");
+      expect(DEMO_FOOTER.blocker).toBeTruthy();
+      expect(DEMO_FOOTER.nextAction).toBe("Choose candidate");
+    });
+
+    it("DEMO_COMPOSER_CONTEXT supplies 3 reference chips", () => {
+      expect(DEMO_COMPOSER_CONTEXT.length).toBeGreaterThanOrEqual(3);
+      expect(DEMO_COMPOSER_CONTEXT.find((c) => c.label === "/pricing")).toBeTruthy();
     });
   });
 

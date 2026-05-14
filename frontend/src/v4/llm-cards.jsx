@@ -1282,42 +1282,143 @@ export function LlmEmpty({ onSeed }) {
 
 // — Composer ————————————————————————————————————————————
 
-export function Composer({ onSend, onPickElement, disabled = false }) {
+// FE-VBATCH-002 — Composer port from yui ROOT (llm-tab.jsx). Adds the
+// context-chips row (rendered only when context payload is non-empty —
+// no fake live chips), paperclip/camera affordances (disabled with an
+// explicit Sprint-8 deferral reason since no backend handlers ship yet),
+// and the model badge. The Pick (Mouse) button keeps its live D-107
+// behavior — it dispatches `arm_picker` through the runtime hook.
+const COMPOSER_CHIP_ICON = {
+  Globe: "Globe",
+  Target: "Target",
+  Doc: "Doc",
+  Folder: "Folder",
+};
+function pickIcon(name) {
+  return I[name] || I.Doc;
+}
+const COMPOSER_DEFERRED_TITLE =
+  "Sprint 8: attach/screenshot composer commands not wired yet";
+
+export function Composer({
+  onSend,
+  onPickElement,
+  disabled = false,
+  context = [],
+  modelBadge = null,
+}) {
   const [text, setText] = useState("");
   const send = () => {
     if (!text.trim()) return;
     if (typeof onSend === "function") onSend({ type: "user_message", message_text: text.trim() });
     setText("");
   };
+  const chips = Array.isArray(context) ? context : [];
   return (
     <div className="aw-composer" data-testid="aw-composer">
       <div className="aw-composer-box">
-        <textarea className="aw-composer-input" rows={1}
-                  data-testid="aw-composer-input"
-                  placeholder="Reply, refine the plan, or paste a step…"
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.shiftKey) {
-                      e.preventDefault();
-                      send();
-                    }
-                  }}/>
-        <div className="aw-composer-actions" style={{ justifyContent: "space-between" }}>
-          <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
-            <button type="button" className="aw-icon-btn" title="Pick a page element to attach to your task"
-                    data-testid="aw-composer-pick"
-                    disabled={disabled}
-                    onClick={() => typeof onPickElement === "function" && onPickElement({ type: "arm_picker" })}>
-              <I.Mouse/>
+        {chips.length > 0 ? (
+          <div
+            className="aw-composer-actions aw-composer-chips"
+            data-testid="aw-composer-chips"
+          >
+            {chips.map((c) => {
+              const Icon = pickIcon(COMPOSER_CHIP_ICON[c.icon] || c.icon);
+              return (
+                <span
+                  key={c.id ?? c.label}
+                  className="aw-context-chip"
+                  data-testid={`aw-composer-chip-${c.id ?? c.label}`}
+                >
+                  {Icon ? <Icon /> : null}
+                  {c.label}
+                </span>
+              );
+            })}
+            <button
+              type="button"
+              className="aw-btn subtle"
+              style={{ padding: "2px 5px", fontSize: 10.5, height: 18 }}
+              data-testid="aw-composer-chip-add"
+              disabled
+              title={COMPOSER_DEFERRED_TITLE}
+              data-disabled-reason="sprint-8"
+            >
+              <I.Plus />
+              Add
             </button>
           </div>
-          <button type="button" className="aw-btn primary"
-                  style={{ padding: "5px 10px", fontSize: 11.5, height: 24 }}
-                  data-testid="aw-composer-send"
-                  disabled={disabled || !text.trim()}
-                  onClick={send}>
-            <I.Send/>Send<span className="aw-kbd">↵</span>
+        ) : null}
+        <textarea
+          className="aw-composer-input"
+          rows={1}
+          data-testid="aw-composer-input"
+          placeholder="Reply, refine the plan, or paste a step…"
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              send();
+            }
+          }}
+        />
+        <div className="aw-composer-actions" style={{ justifyContent: "space-between" }}>
+          <div style={{ display: "flex", gap: 2, alignItems: "center" }}>
+            <button
+              type="button"
+              className="aw-icon-btn"
+              title={COMPOSER_DEFERRED_TITLE}
+              aria-label="Attach file"
+              data-testid="aw-composer-attach"
+              data-disabled-reason="sprint-8"
+              disabled
+            >
+              <I.Paperclip />
+            </button>
+            <button
+              type="button"
+              className="aw-icon-btn"
+              title="Pick a page element to attach to your task"
+              data-testid="aw-composer-pick"
+              disabled={disabled}
+              onClick={() =>
+                typeof onPickElement === "function" && onPickElement({ type: "arm_picker" })
+              }
+            >
+              <I.Mouse />
+            </button>
+            <button
+              type="button"
+              className="aw-icon-btn"
+              title={COMPOSER_DEFERRED_TITLE}
+              aria-label="Attach screenshot"
+              data-testid="aw-composer-camera"
+              data-disabled-reason="sprint-8"
+              disabled
+            >
+              <I.Camera />
+            </button>
+            {modelBadge ? (
+              <span
+                style={{ fontSize: 10.5, color: "var(--tx-4)", marginLeft: 6 }}
+                data-testid="aw-composer-model"
+              >
+                {modelBadge}
+              </span>
+            ) : null}
+          </div>
+          <button
+            type="button"
+            className="aw-btn primary"
+            style={{ padding: "5px 10px", fontSize: 11.5, height: 24 }}
+            data-testid="aw-composer-send"
+            disabled={disabled || !text.trim()}
+            onClick={send}
+          >
+            <I.Send />
+            Send
+            <span className="aw-kbd">↵</span>
           </button>
         </div>
       </div>

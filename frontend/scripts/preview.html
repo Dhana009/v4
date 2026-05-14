@@ -10,45 +10,14 @@
      live runtime — `:host([data-theme="dark"])` only works when the rule
      lives INSIDE the shadow stylesheet. -->
 <style id="autoworkbench-style"></style>
-<script>
-  // Synchronously fetch dist CSS via XHR so the style tag is populated
-  // before AutoWorkbench.mount runs and clones it into the shadow root.
-  (function () {
-    const xhr = new XMLHttpRequest();
-    xhr.open("GET", "autoworkbench.css", false);
-    try { xhr.send(null); } catch (_) { return; }
-    if (xhr.status === 200 || xhr.status === 0) {
-      document.getElementById("autoworkbench-style").textContent = xhr.responseText;
-    }
-  })();
-</script>
 <style>
   html, body {
     margin: 0; padding: 0;
-    background: #E9E3D2;
+    background: var(--bg-page, #E9E3D2);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     height: 100vh;
+    overflow: hidden;
   }
-  .demo-host {
-    position: fixed;
-    top: 0; right: 0; bottom: 0;
-    width: 520px;
-    box-shadow: -8px 0 24px rgba(20, 18, 12, 0.12);
-  }
-  .demo-page {
-    position: fixed;
-    top: 0; left: 0; right: 520px; bottom: 0;
-    background: #FAF5EB;
-    padding: 60px 40px;
-    overflow: auto;
-  }
-  .demo-page h1 {
-    font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif;
-    font-size: 38px; line-height: 1.1; margin: 0 0 16px;
-    color: #1A1C16;
-  }
-  .demo-page h1 .accent { color: #D87740; }
-  .demo-page p { color: #66695C; max-width: 60ch; line-height: 1.5; }
   .demo-banner {
     position: fixed;
     top: 12px; left: 12px;
@@ -57,21 +26,81 @@
     padding: 6px 12px; font-size: 12px; font-weight: 600;
     box-shadow: 0 1px 4px rgba(20,18,12,0.08);
     z-index: 10001;
+    pointer-events: none;
   }
+  /* TweaksPanel demo-only styles (port of yui ROOT tweaks layout). */
+  .twk-panel {
+    position: fixed; bottom: 16px; right: 16px;
+    width: 300px; max-height: calc(100vh - 48px);
+    background: rgba(252, 247, 233, 0.96);
+    border: 1px solid #DCDECF; border-radius: 14px;
+    box-shadow: 0 16px 40px -10px rgba(20,18,12,0.30);
+    z-index: 10002;
+    backdrop-filter: blur(8px);
+    overflow: auto;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    color: #1A1C16;
+  }
+  .twk-hd {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px;
+    border-bottom: 1px solid #ECE3CE;
+    font-weight: 600; font-size: 13px;
+  }
+  .twk-x {
+    appearance: none; background: transparent; border: 0;
+    width: 22px; height: 22px; border-radius: 6px;
+    cursor: pointer; color: #66695C; font-size: 16px;
+  }
+  .twk-x:hover { background: #F0E8D2; }
+  .twk-body { padding: 8px 14px 14px; display: flex; flex-direction: column; gap: 12px; }
+  .twk-sect-label {
+    font-size: 9.5px; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: #66695C;
+    margin-bottom: 6px;
+  }
+  .twk-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 8px; padding: 4px 0;
+  }
+  .twk-lbl { font-size: 12px; color: #66695C; }
+  .twk-seg { display: inline-flex; gap: 2px; background: rgba(0,0,0,0.04); padding: 2px; border-radius: 8px; }
+  .twk-seg-opt {
+    appearance: none; background: transparent; border: 0;
+    padding: 3px 8px; font-size: 11px; border-radius: 6px;
+    color: #66695C; cursor: pointer; font-weight: 500;
+  }
+  .twk-seg-opt.active { background: white; color: #1A1C16; box-shadow: 0 1px 2px rgba(0,0,0,0.08); }
+  .twk-toggle {
+    appearance: none; background: #ECE3CE; border: 0;
+    width: 28px; height: 16px; border-radius: 999px;
+    position: relative; cursor: pointer;
+    transition: background .15s;
+  }
+  .twk-toggle .twk-thumb {
+    position: absolute; left: 2px; top: 2px;
+    width: 12px; height: 12px; border-radius: 999px;
+    background: white; box-shadow: 0 1px 2px rgba(0,0,0,0.18);
+    transition: transform .15s;
+  }
+  .twk-toggle.on { background: #D87740; }
+  .twk-toggle.on .twk-thumb { transform: translateX(12px); }
+  .twk-select {
+    appearance: none; background: white;
+    border: 1px solid #DCDECF; border-radius: 6px;
+    padding: 3px 8px; font-size: 11px; color: #1A1C16;
+    font-family: inherit; cursor: pointer;
+  }
+  .twk-slider { display: inline-flex; align-items: center; gap: 6px; }
+  .twk-slider input[type="range"] { width: 130px; }
+  .twk-num { font-size: 11px; color: #66695C; font-variant-numeric: tabular-nums; min-width: 40px; text-align: right; }
 </style>
 </head>
 <body>
 <div class="demo-banner">PREVIEW · demo mode · no backend</div>
-<main class="demo-page">
-  <h1>Plans that scale with your <span class="accent">QA team</span>, not your headcount</h1>
-  <p>Sample page behind the panel. Demo mode renders the AutoWorkbench panel with
-  fixture data derived from <code>yui (1)/</code> ROOT + <code>AutoWorkbench.html</code>.
-  Live runtime (<code>python -m uvicorn server:app</code>) does not use this entry.</p>
-</main>
-<div class="demo-host" id="demo-host"></div>
 <script src="autoworkbench.js"></script>
 <script>
-  window.AutoWorkbench.mount(document.getElementById('demo-host'), { demo: true, panelWidth: 520 });
+  window.AutoWorkbench.mountDemo(document.body);
 </script>
 </body>
 </html>

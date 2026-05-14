@@ -208,6 +208,80 @@ export const DEMO_TRACE_ENTRIES = [
 
 // Numeric form so the panel's tokenInfo formatter renders "8.4k · $0.12".
 export const DEMO_TOKEN_INFO = { tokens: 8400, cost: 0.12 };
+
+// FE-VBATCH-002 — LocatorAmbiguity fixture. Mirrors the yui ROOT reference
+// scenario where three "Get started" CTAs collide while resolving stp_d8e2.
+// Seeded into storeState.pending_recovery so buildAmbiguity() in
+// aw-ide-panel.jsx promotes it to runtime.ambiguity and LlmThread renders
+// CardLocatorAmbiguity.
+export const DEMO_LOCATOR_RECOVERY = {
+  step_id: "stp_d8e2",
+  failure_reason: "locator_ambiguous",
+  message:
+    "Three visible matches were found while resolving stp_d8e2. I won't pick on your behalf — choose one, ask me to refine the locator, or narrow the scope.",
+  options: [
+    {
+      id: "header",
+      candidate_id: "header",
+      title: 'Header CTA — "Get started"',
+      scope: "nav.ws-topnav .cta",
+      confidence: 0.92,
+      risk: "safe-read",
+      locator: "getByRole('link', { name: 'Get started' }).first()",
+    },
+    {
+      id: "hero",
+      candidate_id: "hero",
+      title: 'Hero CTA — "Get started"',
+      scope: ".ws-hero a.btn.primary",
+      confidence: 0.71,
+      risk: "medium",
+      locator: "page.locator('.ws-hero a.btn.primary')",
+    },
+    {
+      id: "starter",
+      candidate_id: "starter",
+      title: 'Starter plan CTA — "Get started"',
+      scope: ".ws-plan:nth(1) .ws-plan-cta",
+      confidence: 0.34,
+      risk: "medium",
+      locator: "page.getByText('Get started').nth(2)",
+    },
+  ],
+};
+
+// FE-VBATCH-002 — NowStrip CTA fixture. The chrome.jsx NowStrip auto-hides
+// when state/task are empty; demo mode supplies these to surface the
+// orange "Choose candidate" band from the reference.
+export const DEMO_NOW_STRIP = {
+  kind: "block",
+  state: "Decision required",
+  task: 'Three visible "Get started" links — pick a candidate or let me find a more specific one.',
+  primaryLabel: "Choose candidate",
+};
+
+// FE-VBATCH-002 — Footer status fixture. aw-ide-panel.jsx Footer reads from
+// PHASE_META keyed on phase; demo mode supplies an override so we get the
+// "Locator ambiguity" wording from the reference instead of the generic
+// "Idle" fallback.
+export const DEMO_FOOTER = {
+  phase: "Locator ambiguity",
+  event: '3 matches for "Get started"',
+  blocker: "ambiguous locator",
+  nextAction: "Choose candidate",
+  busy: false,
+};
+
+// FE-VBATCH-002 — Composer context chips fixture. yui ROOT shows chips
+// like `/pricing`, `2 selected`, `users.csv`. Composer renders chips ONLY
+// when this prop is non-empty (no fake live chips).
+export const DEMO_COMPOSER_CONTEXT = [
+  { id: "url", icon: "Globe", label: "/pricing" },
+  { id: "selection", icon: "Target", label: "2 selected" },
+  { id: "doc", icon: "Doc", label: "users.csv" },
+];
+
+export const DEMO_MODEL_BADGE = "complete-llm · gpt-class";
 export const DEMO_PAGE_URL = "acme.dev/pricing";
 export const DEMO_RUN_STATE = "plan_review";
 export const DEMO_INTERACTION_MODE = "llm";
@@ -225,4 +299,10 @@ export const DEMO_FIXTURES = {
   pageUrl: DEMO_PAGE_URL,
   runState: DEMO_RUN_STATE,
   interactionMode: DEMO_INTERACTION_MODE,
+  // FE-VBATCH-002 additions
+  pendingRecovery: DEMO_LOCATOR_RECOVERY,
+  nowStrip: DEMO_NOW_STRIP,
+  footer: DEMO_FOOTER,
+  composerContext: DEMO_COMPOSER_CONTEXT,
+  modelBadge: DEMO_MODEL_BADGE,
 };

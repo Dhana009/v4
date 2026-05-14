@@ -540,13 +540,13 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange, dock: dockProp, onDoc
               setTheme={setTheme}
             />
             <TabStrip tab={activeTab} setTab={setTab} counts={counts} />
-            {showNow ? (
+            {(runtime.nowStrip || showNow) ? (
               <NowStrip
-                kind={meta.kind}
-                state={meta.state}
-                task={meta.task}
-                refLabel={runtime.lastEvent?.label ?? null}
-                primaryLabel={meta.primaryLabel}
+                kind={runtime.nowStrip?.kind ?? meta.kind}
+                state={runtime.nowStrip?.state ?? meta.state}
+                task={runtime.nowStrip?.task ?? meta.task}
+                refLabel={runtime.nowStrip?.refLabel ?? runtime.lastEvent?.label ?? null}
+                primaryLabel={runtime.nowStrip?.primaryLabel ?? meta.primaryLabel}
                 onPrimary={() => {
                   // Sprint 7: `state` is the panelState alias (await/exec/done…)
                   // produced by toPanelState() in main.jsx, NOT the raw runState.
@@ -575,14 +575,23 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange, dock: dockProp, onDoc
                 onSend={dispatchers.onSendUserMessage}
                 onPickElement={runtime.handleComposerPick ?? runtime.onComposerPick}
                 disabled={status === "offline" || runtime.composerDisabled === true}
+                context={runtime.composerContext ?? []}
+                modelBadge={runtime.modelBadge ?? null}
               />
             ) : null}
             <Footer
-              phase={meta.phase}
-              event={runtime.lastEvent?.text ?? runtime.lastEvent?.type ?? "—"}
-              blocker={meta.blocker || (rejection ? "schema invalid" : null)}
-              nextAction={meta.primaryLabel}
-              busy={meta.busy}
+              phase={runtime.footer?.phase ?? meta.phase}
+              event={
+                runtime.footer?.event ??
+                runtime.lastEvent?.text ??
+                runtime.lastEvent?.type ??
+                "—"
+              }
+              blocker={
+                runtime.footer?.blocker ?? meta.blocker ?? (rejection ? "schema invalid" : null)
+              }
+              nextAction={runtime.footer?.nextAction ?? meta.primaryLabel}
+              busy={runtime.footer?.busy ?? meta.busy}
             />
             {agentsOpen ? (
               <AgentsPopover

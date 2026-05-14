@@ -213,11 +213,51 @@ describe("v4 Composer pick (D-107)", () => {
     expect(onPickElement).not.toHaveBeenCalled();
   });
 
-  it("no aw-composer-camera or screenshot button anywhere in Composer DOM", () => {
-    const { container } = render(<Composer onPickElement={vi.fn()} />);
-    expect(container.querySelector("[data-testid='aw-composer-camera']")).toBeNull();
-    expect(container.querySelector("[data-testid*='screenshot']")).toBeNull();
-    expect(container.querySelector("[data-testid*='camera']")).toBeNull();
+  // FE-VBATCH-002: composer was re-ported from yui ROOT with attach +
+  // screenshot affordances. These buttons MUST render (visual parity) but
+  // MUST stay disabled with an explicit Sprint-8 deferral reason — no live
+  // backend handler exists yet. This replaces the older "no camera" guard.
+  it("aw-composer-camera renders but is disabled with sprint-8 deferral reason", () => {
+    render(<Composer onPickElement={vi.fn()} />);
+    const cam = screen.getByTestId("aw-composer-camera");
+    expect(cam).toBeInTheDocument();
+    expect(cam).toBeDisabled();
+    expect(cam).toHaveAttribute("data-disabled-reason", "sprint-8");
+  });
+
+  it("aw-composer-attach renders but is disabled with sprint-8 deferral reason", () => {
+    render(<Composer onPickElement={vi.fn()} />);
+    const att = screen.getByTestId("aw-composer-attach");
+    expect(att).toBeInTheDocument();
+    expect(att).toBeDisabled();
+    expect(att).toHaveAttribute("data-disabled-reason", "sprint-8");
+  });
+
+  it("no context chips rendered when context prop is empty (no fake live chips)", () => {
+    render(<Composer onPickElement={vi.fn()} />);
+    expect(screen.queryByTestId("aw-composer-chips")).toBeNull();
+  });
+
+  it("context chips render only when context prop is supplied", () => {
+    render(
+      <Composer
+        onPickElement={vi.fn()}
+        context={[
+          { id: "url", icon: "Globe", label: "/pricing" },
+          { id: "selection", icon: "Target", label: "2 selected" },
+        ]}
+      />,
+    );
+    expect(screen.getByTestId("aw-composer-chips")).toBeInTheDocument();
+    expect(screen.getByTestId("aw-composer-chip-url")).toHaveTextContent("/pricing");
+    expect(screen.getByTestId("aw-composer-chip-selection")).toHaveTextContent("2 selected");
+  });
+
+  it("aw-composer-model badge renders only when modelBadge prop is supplied", () => {
+    const { rerender } = render(<Composer onPickElement={vi.fn()} />);
+    expect(screen.queryByTestId("aw-composer-model")).toBeNull();
+    rerender(<Composer onPickElement={vi.fn()} modelBadge="complete-llm · gpt-class" />);
+    expect(screen.getByTestId("aw-composer-model")).toHaveTextContent("complete-llm · gpt-class");
   });
 
   it("aw-composer-send button still present (regression guard)", () => {

@@ -1084,7 +1084,7 @@
             }
             return dispatcher.useContext(Context);
           }
-          function useState6(initialState) {
+          function useState7(initialState) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useState(initialState);
           }
@@ -1092,11 +1092,11 @@
             var dispatcher = resolveDispatcher();
             return dispatcher.useReducer(reducer2, initialArg, init);
           }
-          function useRef5(initialValue) {
+          function useRef6(initialValue) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useRef(initialValue);
           }
-          function useEffect4(create, deps) {
+          function useEffect5(create, deps) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useEffect(create, deps);
           }
@@ -1879,15 +1879,15 @@
           exports.useContext = useContext;
           exports.useDebugValue = useDebugValue;
           exports.useDeferredValue = useDeferredValue;
-          exports.useEffect = useEffect4;
+          exports.useEffect = useEffect5;
           exports.useId = useId;
           exports.useImperativeHandle = useImperativeHandle;
           exports.useInsertionEffect = useInsertionEffect;
           exports.useLayoutEffect = useLayoutEffect3;
           exports.useMemo = useMemo4;
           exports.useReducer = useReducer;
-          exports.useRef = useRef5;
-          exports.useState = useState6;
+          exports.useRef = useRef6;
+          exports.useState = useState7;
           exports.useSyncExternalStore = useSyncExternalStore;
           exports.useTransition = useTransition;
           exports.version = ReactVersion;
@@ -2383,9 +2383,9 @@
           if (typeof __REACT_DEVTOOLS_GLOBAL_HOOK__ !== "undefined" && typeof __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart === "function") {
             __REACT_DEVTOOLS_GLOBAL_HOOK__.registerInternalModuleStart(new Error());
           }
-          var React7 = require_react();
+          var React9 = require_react();
           var Scheduler = require_scheduler();
-          var ReactSharedInternals = React7.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+          var ReactSharedInternals = React9.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
           var suppressWarning = false;
           function setSuppressWarning(newSuppressWarning) {
             {
@@ -3992,7 +3992,7 @@
             {
               if (props.value == null) {
                 if (typeof props.children === "object" && props.children !== null) {
-                  React7.Children.forEach(props.children, function(child) {
+                  React9.Children.forEach(props.children, function(child) {
                     if (child == null) {
                       return;
                     }
@@ -23588,7 +23588,7 @@
       if (true) {
         (function() {
           "use strict";
-          var React7 = require_react();
+          var React9 = require_react();
           var REACT_ELEMENT_TYPE = Symbol.for("react.element");
           var REACT_PORTAL_TYPE = Symbol.for("react.portal");
           var REACT_FRAGMENT_TYPE = Symbol.for("react.fragment");
@@ -23614,7 +23614,7 @@
             }
             return null;
           }
-          var ReactSharedInternals = React7.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
+          var ReactSharedInternals = React9.__SECRET_INTERNALS_DO_NOT_USE_OR_YOU_WILL_BE_FIRED;
           function error(format) {
             {
               {
@@ -24464,11 +24464,11 @@
               return jsxWithValidation(type, props, key, false);
             }
           }
-          var jsx8 = jsxWithValidationDynamic;
-          var jsxs7 = jsxWithValidationStatic;
+          var jsx10 = jsxWithValidationDynamic;
+          var jsxs10 = jsxWithValidationStatic;
           exports.Fragment = REACT_FRAGMENT_TYPE;
-          exports.jsx = jsx8;
-          exports.jsxs = jsxs7;
+          exports.jsx = jsx10;
+          exports.jsxs = jsxs10;
         })();
       }
     }
@@ -24487,7 +24487,7 @@
   });
 
   // src/main.jsx
-  var import_react7 = __toESM(require_react());
+  var import_react9 = __toESM(require_react());
   var import_client = __toESM(require_client());
 
   // icons.jsx
@@ -26796,14 +26796,71 @@
       )) })
     ] });
   }
-  function Composer({ onSend, onPickElement, disabled = false }) {
+  var COMPOSER_CHIP_ICON = {
+    Globe: "Globe",
+    Target: "Target",
+    Doc: "Doc",
+    Folder: "Folder"
+  };
+  function pickIcon(name) {
+    return I[name] || I.Doc;
+  }
+  var COMPOSER_DEFERRED_TITLE = "Sprint 8: attach/screenshot composer commands not wired yet";
+  function Composer({
+    onSend,
+    onPickElement,
+    disabled = false,
+    context = [],
+    modelBadge = null
+  }) {
     const [text, setText] = (0, import_react3.useState)("");
     const send = () => {
       if (!text.trim()) return;
       if (typeof onSend === "function") onSend({ type: "user_message", message_text: text.trim() });
       setText("");
     };
+    const chips = Array.isArray(context) ? context : [];
     return /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { className: "aw-composer", "data-testid": "aw-composer", children: /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-composer-box", children: [
+      chips.length > 0 ? /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+        "div",
+        {
+          className: "aw-composer-actions aw-composer-chips",
+          "data-testid": "aw-composer-chips",
+          children: [
+            chips.map((c) => {
+              const Icon = pickIcon(COMPOSER_CHIP_ICON[c.icon] || c.icon);
+              return /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+                "span",
+                {
+                  className: "aw-context-chip",
+                  "data-testid": `aw-composer-chip-${c.id ?? c.label}`,
+                  children: [
+                    Icon ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(Icon, {}) : null,
+                    c.label
+                  ]
+                },
+                c.id ?? c.label
+              );
+            }),
+            /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
+              "button",
+              {
+                type: "button",
+                className: "aw-btn subtle",
+                style: { padding: "2px 5px", fontSize: 10.5, height: 18 },
+                "data-testid": "aw-composer-chip-add",
+                disabled: true,
+                title: COMPOSER_DEFERRED_TITLE,
+                "data-disabled-reason": "sprint-8",
+                children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Plus, {}),
+                  "Add"
+                ]
+              }
+            )
+          ]
+        }
+      ) : null,
       /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
         "textarea",
         {
@@ -26822,18 +26879,54 @@
         }
       ),
       /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { className: "aw-composer-actions", style: { justifyContent: "space-between" }, children: [
-        /* @__PURE__ */ (0, import_jsx_runtime4.jsx)("div", { style: { display: "flex", gap: 2, alignItems: "center" }, children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
-          "button",
-          {
-            type: "button",
-            className: "aw-icon-btn",
-            title: "Pick a page element to attach to your task",
-            "data-testid": "aw-composer-pick",
-            disabled,
-            onClick: () => typeof onPickElement === "function" && onPickElement({ type: "arm_picker" }),
-            children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Mouse, {})
-          }
-        ) }),
+        /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)("div", { style: { display: "flex", gap: 2, alignItems: "center" }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+            "button",
+            {
+              type: "button",
+              className: "aw-icon-btn",
+              title: COMPOSER_DEFERRED_TITLE,
+              "aria-label": "Attach file",
+              "data-testid": "aw-composer-attach",
+              "data-disabled-reason": "sprint-8",
+              disabled: true,
+              children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Paperclip, {})
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+            "button",
+            {
+              type: "button",
+              className: "aw-icon-btn",
+              title: "Pick a page element to attach to your task",
+              "data-testid": "aw-composer-pick",
+              disabled,
+              onClick: () => typeof onPickElement === "function" && onPickElement({ type: "arm_picker" }),
+              children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Mouse, {})
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+            "button",
+            {
+              type: "button",
+              className: "aw-icon-btn",
+              title: COMPOSER_DEFERRED_TITLE,
+              "aria-label": "Attach screenshot",
+              "data-testid": "aw-composer-camera",
+              "data-disabled-reason": "sprint-8",
+              disabled: true,
+              children: /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(I.Camera, {})
+            }
+          ),
+          modelBadge ? /* @__PURE__ */ (0, import_jsx_runtime4.jsx)(
+            "span",
+            {
+              style: { fontSize: 10.5, color: "var(--tx-4)", marginLeft: 6 },
+              "data-testid": "aw-composer-model",
+              children: modelBadge
+            }
+          ) : null
+        ] }),
         /* @__PURE__ */ (0, import_jsx_runtime4.jsxs)(
           "button",
           {
@@ -28870,14 +28963,14 @@
                   }
                 ),
                 /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(TabStrip, { tab: activeTab, setTab, counts }),
-                showNow ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
+                runtime.nowStrip || showNow ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
                   NowStrip,
                   {
-                    kind: meta.kind,
-                    state: meta.state,
-                    task: meta.task,
-                    refLabel: runtime.lastEvent?.label ?? null,
-                    primaryLabel: meta.primaryLabel,
+                    kind: runtime.nowStrip?.kind ?? meta.kind,
+                    state: runtime.nowStrip?.state ?? meta.state,
+                    task: runtime.nowStrip?.task ?? meta.task,
+                    refLabel: runtime.nowStrip?.refLabel ?? runtime.lastEvent?.label ?? null,
+                    primaryLabel: runtime.nowStrip?.primaryLabel ?? meta.primaryLabel,
                     onPrimary: () => {
                       const s = String(state || "");
                       if ((s === "awaiting_confirmation" || s === "await") && plan) {
@@ -28900,17 +28993,19 @@
                   {
                     onSend: dispatchers.onSendUserMessage,
                     onPickElement: runtime.handleComposerPick ?? runtime.onComposerPick,
-                    disabled: status === "offline" || runtime.composerDisabled === true
+                    disabled: status === "offline" || runtime.composerDisabled === true,
+                    context: runtime.composerContext ?? [],
+                    modelBadge: runtime.modelBadge ?? null
                   }
                 ) : null,
                 /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
                   Footer,
                   {
-                    phase: meta.phase,
-                    event: runtime.lastEvent?.text ?? runtime.lastEvent?.type ?? "\u2014",
-                    blocker: meta.blocker || (rejection ? "schema invalid" : null),
-                    nextAction: meta.primaryLabel,
-                    busy: meta.busy
+                    phase: runtime.footer?.phase ?? meta.phase,
+                    event: runtime.footer?.event ?? runtime.lastEvent?.text ?? runtime.lastEvent?.type ?? "\u2014",
+                    blocker: runtime.footer?.blocker ?? meta.blocker ?? (rejection ? "schema invalid" : null),
+                    nextAction: runtime.footer?.nextAction ?? meta.primaryLabel,
+                    busy: runtime.footer?.busy ?? meta.busy
                   }
                 ),
                 agentsOpen ? /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
@@ -29649,6 +29744,59 @@ test('pricing page \xB7 sanity', async ({ page }) => {
     { id: "evt_025", at: "10:24:24", kind: "session", label: "session.idle \xB7 awaiting next" }
   ];
   var DEMO_TOKEN_INFO = { tokens: 8400, cost: 0.12 };
+  var DEMO_LOCATOR_RECOVERY = {
+    step_id: "stp_d8e2",
+    failure_reason: "locator_ambiguous",
+    message: "Three visible matches were found while resolving stp_d8e2. I won't pick on your behalf \u2014 choose one, ask me to refine the locator, or narrow the scope.",
+    options: [
+      {
+        id: "header",
+        candidate_id: "header",
+        title: 'Header CTA \u2014 "Get started"',
+        scope: "nav.ws-topnav .cta",
+        confidence: 0.92,
+        risk: "safe-read",
+        locator: "getByRole('link', { name: 'Get started' }).first()"
+      },
+      {
+        id: "hero",
+        candidate_id: "hero",
+        title: 'Hero CTA \u2014 "Get started"',
+        scope: ".ws-hero a.btn.primary",
+        confidence: 0.71,
+        risk: "medium",
+        locator: "page.locator('.ws-hero a.btn.primary')"
+      },
+      {
+        id: "starter",
+        candidate_id: "starter",
+        title: 'Starter plan CTA \u2014 "Get started"',
+        scope: ".ws-plan:nth(1) .ws-plan-cta",
+        confidence: 0.34,
+        risk: "medium",
+        locator: "page.getByText('Get started').nth(2)"
+      }
+    ]
+  };
+  var DEMO_NOW_STRIP = {
+    kind: "block",
+    state: "Decision required",
+    task: 'Three visible "Get started" links \u2014 pick a candidate or let me find a more specific one.',
+    primaryLabel: "Choose candidate"
+  };
+  var DEMO_FOOTER = {
+    phase: "Locator ambiguity",
+    event: '3 matches for "Get started"',
+    blocker: "ambiguous locator",
+    nextAction: "Choose candidate",
+    busy: false
+  };
+  var DEMO_COMPOSER_CONTEXT = [
+    { id: "url", icon: "Globe", label: "/pricing" },
+    { id: "selection", icon: "Target", label: "2 selected" },
+    { id: "doc", icon: "Doc", label: "users.csv" }
+  ];
+  var DEMO_MODEL_BADGE = "complete-llm \xB7 gpt-class";
   var DEMO_PAGE_URL = "acme.dev/pricing";
   var DEMO_RUN_STATE = "plan_review";
   var DEMO_INTERACTION_MODE = "llm";
@@ -29662,11 +29810,551 @@ test('pricing page \xB7 sanity', async ({ page }) => {
     tokenInfo: DEMO_TOKEN_INFO,
     pageUrl: DEMO_PAGE_URL,
     runState: DEMO_RUN_STATE,
-    interactionMode: DEMO_INTERACTION_MODE
+    interactionMode: DEMO_INTERACTION_MODE,
+    // FE-VBATCH-002 additions
+    pendingRecovery: DEMO_LOCATOR_RECOVERY,
+    nowStrip: DEMO_NOW_STRIP,
+    footer: DEMO_FOOTER,
+    composerContext: DEMO_COMPOSER_CONTEXT,
+    modelBadge: DEMO_MODEL_BADGE
   };
 
-  // src/main.jsx
+  // src/demo/website-preview.jsx
+  var import_react7 = __toESM(require_react());
   var import_jsx_runtime7 = __toESM(require_jsx_runtime());
+  function WebsitePreview({ highlight = "hero-cta" }) {
+    return /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "aw-website", "data-testid": "aw-website-preview", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("style", { children: WEBSITE_CSS }),
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "ws-bar", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "btn", children: "\u2190" }),
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "btn", children: "\u2192" }),
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "btn", children: "\u27F3" }),
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "url", "data-testid": "aw-website-url", children: "acme.dev/pricing" }),
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "tabs", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "ws-tab", children: "Pricing \u2014 Acme" }) })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("nav", { className: "ws-topnav", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "logo", children: "Acme" }),
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { className: "topnav-links", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("a", { children: "Product" }),
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("a", { children: "Solutions" }),
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("a", { children: "Docs" }),
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("a", { className: "active", children: "Pricing" }),
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("a", { children: "Changelog" })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { className: "right", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("a", { className: "signin", children: "Sign in" }),
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("a", { className: "cta" + (highlight === "hero-cta" ? "" : ""), "data-testid": "aw-website-signin-cta", children: "Get started" })
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("section", { className: "ws-hero", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "ws-eyebrow", children: "PRICING" }),
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("h1", { className: "ws-h1", children: [
+          "Plans that scale with your ",
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("em", { children: "QA team" }),
+          ", not your headcount."
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("p", { className: "ws-sub", children: "Start free. Add seats when you need them. Cancel anytime \u2014 no card required." }),
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "ws-hero-ctas", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(
+            "a",
+            {
+              className: "btn primary" + (highlight === "hero-cta" ? " highlight" : ""),
+              "data-testid": "aw-website-hero-cta",
+              children: [
+                "Get started",
+                highlight === "hero-cta" ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "pulse" }) : null
+              ]
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("a", { className: "btn ghost", children: "Talk to sales" })
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("section", { className: "ws-section", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("h2", { children: "Choose a plan" }),
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("p", { className: "h2-sub", children: "Monthly billing. Switch anytime." }),
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "ws-plans", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "ws-plan", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "ws-plan-name", children: "Starter" }),
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "ws-plan-price", children: [
+              "$0",
+              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "per", children: "/mo" })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "ws-plan-desc", children: "For individuals automating their own work." }),
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("a", { className: "btn ws-plan-cta", children: "Get started" }),
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("ul", { className: "ws-plan-feat", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("li", { children: "1 workspace" }),
+              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("li", { children: "1 concurrent run" }),
+              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("li", { children: "Community support" }),
+              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("li", { children: "7-day trace retention" })
+            ] })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "ws-plan featured", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "ws-plan-tag", children: "Most popular" }),
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "ws-plan-name", children: "Pro" }),
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "ws-plan-price", children: [
+              "$49",
+              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "per", children: "/mo" })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "ws-plan-desc", children: "For QA teams that ship every week." }),
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(
+              "a",
+              {
+                className: "btn primary ws-plan-cta" + (highlight === "pro-cta" ? " highlight" : ""),
+                "data-testid": "aw-website-pro-cta",
+                children: [
+                  "Start free trial",
+                  highlight === "pro-cta" ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "pulse" }) : null
+                ]
+              }
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("ul", { className: "ws-plan-feat", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("li", { children: "Unlimited workspaces" }),
+              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("li", { children: "10 concurrent runs" }),
+              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("li", { children: "Email support, 24h SLA" }),
+              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("li", { children: "90-day trace retention" }),
+              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("li", { children: "SSO via Google & Microsoft" })
+            ] })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "ws-plan", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "ws-plan-name", children: "Enterprise" }),
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "ws-plan-price", children: [
+              "Custom",
+              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "per" })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "ws-plan-desc", children: "SAML, audit log, dedicated capacity." }),
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("a", { className: "btn ws-plan-cta", children: "Talk to sales" }),
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("ul", { className: "ws-plan-feat", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("li", { children: "Everything in Pro" }),
+              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("li", { children: "SAML SSO + SCIM" }),
+              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("li", { children: "Audit log + DPA" }),
+              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("li", { children: "Dedicated capacity" })
+            ] })
+          ] })
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("section", { className: "ws-section", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("h2", { children: "Frequently asked" }),
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "ws-faq", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "ws-faq-row", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "car", children: "+" }),
+            "Can I bring my existing Playwright tests?"
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "ws-faq-row", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "car", children: "+" }),
+            "How does parallel run pricing work?"
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "ws-faq-row", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "car", children: "+" }),
+            "Do you support flaky-test auto-quarantine?"
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "ws-faq-row", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "car", children: "+" }),
+            "Where is data stored?"
+          ] })
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("footer", { className: "ws-foot", children: [
+        "\xA9 2026 Acme Labs \xB7 Built in San Francisco",
+        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { className: "ws-foot-links", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("a", { children: "Status" }),
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("a", { children: "Docs" }),
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("a", { children: "Privacy" }),
+          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("a", { children: "Security" })
+        ] })
+      ] })
+    ] });
+  }
+  var WEBSITE_CSS = `
+.aw-website {
+  background: var(--bg-website, #FAF5EB);
+  color: #1A1C16;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  width: 100%; height: 100%;
+  overflow: auto;
+}
+.aw-website .ws-bar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 14px;
+  background: #EDE5D2;
+  border-bottom: 1px solid #DCDECF;
+  font-size: 12.5px; color: #66695C;
+}
+.aw-website .ws-bar .btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 22px; height: 22px; border-radius: 6px;
+  background: rgba(255,255,255,0.6); color: #66695C; border: 1px solid #DCDECF;
+}
+.aw-website .ws-bar .url {
+  padding: 4px 10px; border-radius: 999px; background: white; border: 1px solid #DCDECF;
+  font-family: ui-monospace, "SF Mono", monospace;
+}
+.aw-website .ws-tab {
+  padding: 4px 10px; border-radius: 6px;
+  background: rgba(255,255,255,0.45); border: 1px solid #DCDECF;
+}
+.aw-website .ws-topnav {
+  display: flex; align-items: center; gap: 16px;
+  padding: 16px 40px;
+  border-bottom: 1px solid #ECE3CE;
+  font-size: 13px;
+}
+.aw-website .ws-topnav .logo { font-weight: 700; font-size: 16px; color: #1A1C16; }
+.aw-website .ws-topnav .topnav-links { display: flex; gap: 14px; margin-left: 12px; flex: 1; }
+.aw-website .ws-topnav .topnav-links a { color: #66695C; cursor: pointer; }
+.aw-website .ws-topnav .topnav-links a.active { color: #1A1C16; font-weight: 500; }
+.aw-website .ws-topnav .right { display: flex; align-items: center; gap: 12px; }
+.aw-website .ws-topnav .signin { color: #66695C; cursor: pointer; }
+.aw-website .ws-topnav .cta {
+  background: #1A1C16; color: white;
+  padding: 6px 14px; border-radius: 999px;
+  cursor: pointer; font-weight: 500;
+}
+.aw-website .ws-hero {
+  padding: 56px 40px 32px;
+  max-width: 920px;
+}
+.aw-website .ws-eyebrow {
+  display: inline-block; font-size: 11.5px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.12em;
+  color: #D87740; margin-bottom: 14px;
+}
+.aw-website .ws-h1 {
+  font-size: 44px; line-height: 1.1; font-weight: 800; margin: 0 0 14px;
+}
+.aw-website .ws-h1 em { color: #D87740; font-style: normal; }
+.aw-website .ws-sub {
+  font-size: 16px; line-height: 1.5; color: #66695C; max-width: 60ch;
+  margin: 0 0 22px;
+}
+.aw-website .ws-hero-ctas { display: flex; gap: 10px; }
+.aw-website .btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 10px 18px; border-radius: 999px;
+  font-size: 14px; font-weight: 600; cursor: pointer;
+  border: 1px solid transparent; position: relative;
+}
+.aw-website .btn.primary { background: #1A1C16; color: white; }
+.aw-website .btn.ghost { background: white; border-color: #DCDECF; color: #1A1C16; }
+.aw-website .btn.highlight {
+  box-shadow: 0 0 0 3px rgba(216,119,64,0.35), 0 0 0 7px rgba(216,119,64,0.15);
+}
+.aw-website .pulse {
+  position: absolute; inset: -10px; border-radius: 999px;
+  border: 2px dashed #D87740;
+  animation: aw-website-pulse 1.6s ease-in-out infinite;
+}
+@keyframes aw-website-pulse {
+  0%,100% { opacity: 0.45; transform: scale(1); }
+  50%     { opacity: 1; transform: scale(1.04); }
+}
+.aw-website .ws-section { padding: 40px 40px; }
+.aw-website .ws-section h2 { font-size: 24px; margin: 0 0 4px; }
+.aw-website .h2-sub { color: #66695C; margin: 0 0 22px; font-size: 13.5px; }
+.aw-website .ws-plans { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.aw-website .ws-plan {
+  background: white; border-radius: 12px; padding: 22px 18px;
+  border: 1px solid #ECE3CE; display: flex; flex-direction: column;
+  position: relative;
+}
+.aw-website .ws-plan.featured { border-color: #D87740; box-shadow: 0 14px 30px -18px rgba(216,119,64,0.45); }
+.aw-website .ws-plan-tag {
+  position: absolute; top: -10px; left: 18px;
+  background: #D87740; color: white; padding: 3px 10px;
+  border-radius: 999px; font-size: 10.5px; font-weight: 700; letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+.aw-website .ws-plan-name { font-weight: 600; font-size: 14px; color: #66695C; }
+.aw-website .ws-plan-price { font-size: 32px; font-weight: 800; margin: 6px 0 10px; }
+.aw-website .ws-plan-price .per { font-size: 13px; font-weight: 500; color: #66695C; margin-left: 4px; }
+.aw-website .ws-plan-desc { color: #66695C; font-size: 13px; margin-bottom: 14px; }
+.aw-website .ws-plan-cta { align-self: stretch; justify-content: center; margin-bottom: 14px; }
+.aw-website .ws-plan-feat { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px; font-size: 12.5px; color: #1A1C16; }
+.aw-website .ws-plan-feat li::before { content: "\u2713 "; color: #D87740; font-weight: 700; margin-right: 4px; }
+.aw-website .ws-faq { display: flex; flex-direction: column; gap: 8px; max-width: 720px; }
+.aw-website .ws-faq-row {
+  background: white; padding: 14px 18px; border-radius: 10px;
+  border: 1px solid #ECE3CE; font-size: 13.5px;
+  display: flex; gap: 10px; align-items: center;
+}
+.aw-website .ws-faq-row .car { color: #D87740; font-weight: 700; }
+.aw-website .ws-foot {
+  padding: 22px 40px;
+  border-top: 1px solid #ECE3CE;
+  color: #82867A; font-size: 12.5px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.aw-website .ws-foot .ws-foot-links { display: flex; gap: 14px; }
+.aw-website .ws-foot .ws-foot-links a { color: #82867A; cursor: pointer; }
+`;
+
+  // src/demo/tweaks-panel.jsx
+  var import_react8 = __toESM(require_react());
+  var import_jsx_runtime8 = __toESM(require_jsx_runtime());
+  var SECTIONS = [
+    {
+      id: "panel",
+      label: "Panel",
+      fields: [
+        {
+          kind: "radio",
+          key: "dock",
+          label: "Dock",
+          options: ["right", "left", "top", "float"]
+        },
+        {
+          kind: "slider",
+          key: "panelWidth",
+          label: "Panel width",
+          min: 360,
+          max: 720,
+          step: 10,
+          unit: "px"
+        },
+        { kind: "toggle", key: "collapsed", label: "Collapsed" },
+        { kind: "toggle", key: "showWebsite", label: "Show website behind" }
+      ]
+    },
+    {
+      id: "active",
+      label: "Active tab",
+      fields: [
+        {
+          kind: "radio",
+          key: "tab",
+          label: "Tab",
+          options: ["llm", "steps", "rec", "code", "trace"]
+        }
+      ]
+    },
+    {
+      id: "lifecycle",
+      label: "Lifecycle state (LLM tab)",
+      fields: [
+        {
+          kind: "select",
+          key: "state",
+          label: "State",
+          options: [
+            "idle",
+            "planning",
+            "clarify",
+            "recommend",
+            "plan",
+            "diff",
+            "permit",
+            "exec",
+            "locator",
+            "recover",
+            "done",
+            "offline",
+            "schema",
+            "nobrowser",
+            "apikey",
+            "otp",
+            "e2e"
+          ]
+        }
+      ]
+    },
+    {
+      id: "theme",
+      label: "Theme",
+      fields: [{ kind: "radio", key: "theme", label: "Theme", options: ["light", "dark"] }]
+    },
+    {
+      id: "mode",
+      label: "Interaction mode",
+      fields: [{ kind: "radio", key: "mode", label: "Mode", options: ["llm", "manual"] }]
+    },
+    {
+      id: "overlays",
+      label: "Overlays",
+      fields: [{ kind: "toggle", key: "agentsOpen", label: "Agent Control Center" }]
+    },
+    {
+      id: "highlight",
+      label: "Page highlight",
+      fields: [
+        {
+          kind: "radio",
+          key: "highlight",
+          label: "Highlight CTA",
+          options: ["none", "hero-cta", "pro-cta"]
+        }
+      ]
+    }
+  ];
+  var DEFAULT_TWEAKS = {
+    dock: "right",
+    panelWidth: 520,
+    collapsed: false,
+    showWebsite: true,
+    tab: "llm",
+    state: "locator",
+    theme: "light",
+    mode: "llm",
+    agentsOpen: false,
+    highlight: "hero-cta"
+  };
+  function broadcast(edits) {
+    try {
+      window.dispatchEvent(new CustomEvent("tweakchange", { detail: edits }));
+    } catch (_) {
+    }
+  }
+  function Toggle({ value, onChange, testid }) {
+    return /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
+      "button",
+      {
+        type: "button",
+        className: "twk-toggle" + (value ? " on" : ""),
+        "data-testid": testid,
+        "aria-pressed": value ? "true" : "false",
+        onClick: () => onChange(!value),
+        children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "twk-thumb" })
+      }
+    );
+  }
+  function Radio({ value, options, onChange, testid }) {
+    return /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "twk-seg", role: "group", "data-testid": testid, children: options.map((opt) => /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
+      "button",
+      {
+        type: "button",
+        className: "twk-seg-opt" + (value === opt ? " active" : ""),
+        "data-testid": `${testid}-${opt}`,
+        "aria-pressed": value === opt ? "true" : "false",
+        onClick: () => onChange(opt),
+        children: opt
+      },
+      opt
+    )) });
+  }
+  function Slider({ value, min, max, step, unit, onChange, testid }) {
+    return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { className: "twk-slider", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
+        "input",
+        {
+          type: "range",
+          min,
+          max,
+          step,
+          value,
+          "data-testid": testid,
+          onChange: (e) => onChange(Number(e.target.value))
+        }
+      ),
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { className: "twk-num", children: [
+        value,
+        unit
+      ] })
+    ] });
+  }
+  function Select({ value, options, onChange, testid }) {
+    return /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
+      "select",
+      {
+        className: "twk-select",
+        value,
+        "data-testid": testid,
+        onChange: (e) => onChange(e.target.value),
+        children: options.map((opt) => /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("option", { value: opt, children: opt }, opt))
+      }
+    );
+  }
+  function TweaksPanel({
+    value = DEFAULT_TWEAKS,
+    onChange = () => {
+    },
+    defaultOpen = false
+  }) {
+    const [open, setOpen] = (0, import_react8.useState)(defaultOpen);
+    const panelRef = (0, import_react8.useRef)(null);
+    (0, import_react8.useEffect)(() => {
+      function onMessage(ev) {
+        if (!ev || !ev.data || typeof ev.data.type !== "string") return;
+        if (ev.data.type === "__activate_edit_mode") setOpen(true);
+        else if (ev.data.type === "__deactivate_edit_mode") setOpen(false);
+      }
+      window.addEventListener("message", onMessage);
+      return () => window.removeEventListener("message", onMessage);
+    }, []);
+    const setKey = (key, next) => {
+      const edits = { [key]: next };
+      onChange({ ...value, ...edits });
+      broadcast(edits);
+    };
+    if (!open) return null;
+    return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(
+      "aside",
+      {
+        ref: panelRef,
+        className: "twk-panel",
+        role: "dialog",
+        "aria-label": "Tweaks panel",
+        "data-testid": "aw-tweaks-panel",
+        children: [
+          /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("header", { className: "twk-hd", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "twk-title", children: "Tweaks" }),
+            /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
+              "button",
+              {
+                type: "button",
+                className: "twk-x",
+                "data-testid": "aw-tweaks-close",
+                onClick: () => setOpen(false),
+                "aria-label": "Close tweaks",
+                children: "\xD7"
+              }
+            )
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "twk-body", children: SECTIONS.map((sec) => /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("section", { className: "twk-sect", "data-testid": `aw-tweaks-section-${sec.id}`, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "twk-sect-label", children: sec.label }),
+            sec.fields.map((f) => /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "twk-row", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "twk-lbl", children: f.label }),
+              /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "twk-val", children: f.kind === "toggle" ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
+                Toggle,
+                {
+                  value: !!value[f.key],
+                  onChange: (v) => setKey(f.key, v),
+                  testid: `aw-tweaks-${f.key}`
+                }
+              ) : f.kind === "radio" ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
+                Radio,
+                {
+                  value: value[f.key],
+                  options: f.options,
+                  onChange: (v) => setKey(f.key, v),
+                  testid: `aw-tweaks-${f.key}`
+                }
+              ) : f.kind === "slider" ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
+                Slider,
+                {
+                  value: Number(value[f.key]),
+                  min: f.min,
+                  max: f.max,
+                  step: f.step,
+                  unit: f.unit,
+                  onChange: (v) => setKey(f.key, v),
+                  testid: `aw-tweaks-${f.key}`
+                }
+              ) : f.kind === "select" ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
+                Select,
+                {
+                  value: value[f.key],
+                  options: f.options,
+                  onChange: (v) => setKey(f.key, v),
+                  testid: `aw-tweaks-${f.key}`
+                }
+              ) : null })
+            ] }, f.key))
+          ] }, sec.id)) })
+        ]
+      }
+    );
+  }
+
+  // src/main.jsx
+  var import_jsx_runtime9 = __toESM(require_jsx_runtime());
   var VALID_TABS = /* @__PURE__ */ new Set(["workbench", "llm", "steps", "code", "debug"]);
   var DEFAULT_CONFIG = {
     state: "idle",
@@ -31073,7 +31761,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
     };
   }
   function useAutoWorkbenchTransport(config) {
-    const wsUrl = (0, import_react7.useMemo)(
+    const wsUrl = (0, import_react9.useMemo)(
       () => resolveWsUrl(config),
       [
         config?.wsUrl,
@@ -31089,86 +31777,86 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         config?.host
       ]
     );
-    const [connectionStatus, setConnectionStatus] = (0, import_react7.useState)("disconnected");
-    const [runState, setRunStateRaw] = (0, import_react7.useState)(() => normalizeRunState(config.runState ?? config.state) || "idle");
-    const setRunState = (0, import_react7.useCallback)((next) => {
+    const [connectionStatus, setConnectionStatus] = (0, import_react9.useState)("disconnected");
+    const [runState, setRunStateRaw] = (0, import_react9.useState)(() => normalizeRunState(config.runState ?? config.state) || "idle");
+    const setRunState = (0, import_react9.useCallback)((next) => {
       setRunStateRaw((prev) => {
         const nv = typeof next === "function" ? next(prev) : next;
         if (nv !== prev) log("STATE", { field: "runState", from: prev, to: nv });
         return nv;
       });
     }, []);
-    const [conversation, setConversation] = (0, import_react7.useState)([]);
-    const [timeline, setTimeline] = (0, import_react7.useState)([]);
-    const [traceEntries, setTraceEntries] = (0, import_react7.useState)(() => normalizeTraceEntries(config.traceEntries));
-    const [plan, setPlan] = (0, import_react7.useState)(null);
-    const [codePreview, setCodePreview] = (0, import_react7.useState)("");
-    const [lastError, setLastError] = (0, import_react7.useState)("");
-    const [lastEvent, setLastEvent] = (0, import_react7.useState)(null);
-    const [lastSavedSnapshot, setLastSavedSnapshot] = (0, import_react7.useState)(null);
-    const [pendingCommands, setPendingCommands] = (0, import_react7.useState)(() => normalizePendingCommands(config.pendingCommands));
-    const [pendingSteps, setPendingSteps] = (0, import_react7.useState)(() => normalizePendingSteps(config.pendingSteps));
-    const [recordedSteps, setRecordedSteps] = (0, import_react7.useState)(() => normalizeRecordedSteps(config.recordedSteps));
-    const [lastReplayByStepId, setLastReplayByStepId] = (0, import_react7.useState)({});
-    const [codeDiagnostics, setCodeDiagnostics] = (0, import_react7.useState)(() => normalizeCodeDiagnostics(config.codeDiagnostics));
-    const [codeSaveResult, setCodeSaveResult] = (0, import_react7.useState)(null);
-    const [interactionMode, setInteractionModeRaw] = (0, import_react7.useState)(
+    const [conversation, setConversation] = (0, import_react9.useState)([]);
+    const [timeline, setTimeline] = (0, import_react9.useState)([]);
+    const [traceEntries, setTraceEntries] = (0, import_react9.useState)(() => normalizeTraceEntries(config.traceEntries));
+    const [plan, setPlan] = (0, import_react9.useState)(null);
+    const [codePreview, setCodePreview] = (0, import_react9.useState)("");
+    const [lastError, setLastError] = (0, import_react9.useState)("");
+    const [lastEvent, setLastEvent] = (0, import_react9.useState)(null);
+    const [lastSavedSnapshot, setLastSavedSnapshot] = (0, import_react9.useState)(null);
+    const [pendingCommands, setPendingCommands] = (0, import_react9.useState)(() => normalizePendingCommands(config.pendingCommands));
+    const [pendingSteps, setPendingSteps] = (0, import_react9.useState)(() => normalizePendingSteps(config.pendingSteps));
+    const [recordedSteps, setRecordedSteps] = (0, import_react9.useState)(() => normalizeRecordedSteps(config.recordedSteps));
+    const [lastReplayByStepId, setLastReplayByStepId] = (0, import_react9.useState)({});
+    const [codeDiagnostics, setCodeDiagnostics] = (0, import_react9.useState)(() => normalizeCodeDiagnostics(config.codeDiagnostics));
+    const [codeSaveResult, setCodeSaveResult] = (0, import_react9.useState)(null);
+    const [interactionMode, setInteractionModeRaw] = (0, import_react9.useState)(
       () => normalizeInteractionMode(config.interactionMode ?? config.mode ?? config.runState ?? config.state) || "idle"
     );
-    const setInteractionMode = (0, import_react7.useCallback)((next) => {
+    const setInteractionMode = (0, import_react9.useCallback)((next) => {
       setInteractionModeRaw((prev) => {
         const nv = typeof next === "function" ? next(prev) : next;
         if (nv !== prev) log("STATE", { field: "interactionMode", from: prev, to: nv });
         return nv;
       });
     }, []);
-    const [planCorrectionText, setPlanCorrectionText] = (0, import_react7.useState)("");
-    const [clarificationQuestion, setClarificationQuestion] = (0, import_react7.useState)("");
-    const [clarificationOptions, setClarificationOptions] = (0, import_react7.useState)([]);
-    const [clarificationAnswerText, setClarificationAnswerText] = (0, import_react7.useState)("");
-    const [recoveryText, setRecoveryText] = (0, import_react7.useState)("");
-    const [activePickerStepId, setActivePickerStepId] = (0, import_react7.useState)("");
-    const socketRef = (0, import_react7.useRef)(null);
-    const retryRef = (0, import_react7.useRef)(null);
-    const attemptRef = (0, import_react7.useRef)(0);
-    const mountedRef = (0, import_react7.useRef)(true);
-    const planRef = (0, import_react7.useRef)(null);
-    const pendingCommandsRef = (0, import_react7.useRef)([]);
-    const activePickerStepIdRef = (0, import_react7.useRef)("");
-    const pendingStepsRef = (0, import_react7.useRef)([]);
-    (0, import_react7.useLayoutEffect)(() => {
+    const [planCorrectionText, setPlanCorrectionText] = (0, import_react9.useState)("");
+    const [clarificationQuestion, setClarificationQuestion] = (0, import_react9.useState)("");
+    const [clarificationOptions, setClarificationOptions] = (0, import_react9.useState)([]);
+    const [clarificationAnswerText, setClarificationAnswerText] = (0, import_react9.useState)("");
+    const [recoveryText, setRecoveryText] = (0, import_react9.useState)("");
+    const [activePickerStepId, setActivePickerStepId] = (0, import_react9.useState)("");
+    const socketRef = (0, import_react9.useRef)(null);
+    const retryRef = (0, import_react9.useRef)(null);
+    const attemptRef = (0, import_react9.useRef)(0);
+    const mountedRef = (0, import_react9.useRef)(true);
+    const planRef = (0, import_react9.useRef)(null);
+    const pendingCommandsRef = (0, import_react9.useRef)([]);
+    const activePickerStepIdRef = (0, import_react9.useRef)("");
+    const pendingStepsRef = (0, import_react9.useRef)([]);
+    (0, import_react9.useLayoutEffect)(() => {
       pendingCommandsRef.current = pendingCommands;
     }, [pendingCommands]);
-    (0, import_react7.useLayoutEffect)(() => {
+    (0, import_react9.useLayoutEffect)(() => {
       activePickerStepIdRef.current = activePickerStepId;
     }, [activePickerStepId]);
-    (0, import_react7.useLayoutEffect)(() => {
+    (0, import_react9.useLayoutEffect)(() => {
       pendingStepsRef.current = pendingSteps;
     }, [pendingSteps]);
-    (0, import_react7.useLayoutEffect)(() => {
+    (0, import_react9.useLayoutEffect)(() => {
       planRef.current = plan;
     }, [plan]);
-    const updatePendingSteps = (0, import_react7.useCallback)((updater) => {
+    const updatePendingSteps = (0, import_react9.useCallback)((updater) => {
       setPendingSteps((current) => {
         const next = typeof updater === "function" ? updater(current) : updater;
         pendingStepsRef.current = next;
         return next;
       });
     }, []);
-    const updatePendingCommands = (0, import_react7.useCallback)((updater) => {
+    const updatePendingCommands = (0, import_react9.useCallback)((updater) => {
       setPendingCommands((current) => {
         const next = typeof updater === "function" ? updater(current) : updater;
         pendingCommandsRef.current = next;
         return next;
       });
     }, []);
-    const recordTraceEntry = (0, import_react7.useCallback)((traceEntry) => {
+    const recordTraceEntry = (0, import_react9.useCallback)((traceEntry) => {
       if (!traceEntry || typeof traceEntry !== "object") {
         return;
       }
       setTraceEntries((current) => mergeTraceEntryList(current, traceEntry));
     }, []);
-    const recordPendingCommand = (0, import_react7.useCallback)(
+    const recordPendingCommand = (0, import_react9.useCallback)(
       (commandEnvelope, metadata = {}) => {
         const commandId = firstNonEmptyText(commandEnvelope?.command_id, commandEnvelope?.commandId);
         const commandType = firstNonEmptyText(commandEnvelope?.type);
@@ -31188,7 +31876,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       },
       [updatePendingCommands]
     );
-    const acknowledgePendingCommands = (0, import_react7.useCallback)(
+    const acknowledgePendingCommands = (0, import_react9.useCallback)(
       (eventType, metadata = {}) => {
         updatePendingCommands((current) => {
           const index = current.findIndex((command) => command && command.status === "pending");
@@ -31208,7 +31896,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       },
       [updatePendingCommands]
     );
-    const rejectPendingCommand = (0, import_react7.useCallback)(
+    const rejectPendingCommand = (0, import_react9.useCallback)(
       (commandId, metadata = {}) => {
         const rejectionId = firstNonEmptyText(commandId);
         if (!rejectionId) {
@@ -31234,7 +31922,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       },
       [updatePendingCommands]
     );
-    const updateLastReplayByStepId = (0, import_react7.useCallback)((stepId, replayStatus) => {
+    const updateLastReplayByStepId = (0, import_react9.useCallback)((stepId, replayStatus) => {
       const replayStepId = firstNonEmptyText(stepId);
       if (!replayStepId) {
         return;
@@ -31244,17 +31932,17 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         [replayStepId]: replayStatus
       }));
     }, []);
-    const appendTimeline = (0, import_react7.useCallback)((label, level = "ok") => {
+    const appendTimeline = (0, import_react9.useCallback)((label, level = "ok") => {
       const entry = normalizeTimelineEntry(label, level);
       setTimeline((current) => [...current.slice(-39), entry]);
       setLastEvent({ type: "timeline", ...entry });
     }, []);
-    const appendConversation = (0, import_react7.useCallback)((role, text) => {
+    const appendConversation = (0, import_react9.useCallback)((role, text) => {
       const entry = normalizeConversationEntry(role, text);
       setConversation((current) => [...current.slice(-29), entry]);
       setLastEvent({ type: "conversation", ...entry });
     }, []);
-    const sendPayload = (0, import_react7.useCallback)(
+    const sendPayload = (0, import_react9.useCallback)(
       (payload, offlineMessage = "WebSocket not connected.") => {
         const socket = socketRef.current;
         const t = payload?.type ?? "?";
@@ -31279,7 +31967,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       },
       [appendTimeline]
     );
-    const updatePendingStepIntent = (0, import_react7.useCallback)((stepId, intent) => {
+    const updatePendingStepIntent = (0, import_react9.useCallback)((stepId, intent) => {
       updatePendingSteps(
         (current) => current.map((step) => {
           if (step.id !== stepId) {
@@ -31303,7 +31991,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         })
       );
     }, [updatePendingSteps]);
-    const updatePendingStepExpectedOutcome = (0, import_react7.useCallback)((stepId, expectedOutcome) => {
+    const updatePendingStepExpectedOutcome = (0, import_react9.useCallback)((stepId, expectedOutcome) => {
       updatePendingSteps(
         (current) => current.map((step) => {
           if (step.id !== stepId) {
@@ -31324,7 +32012,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         })
       );
     }, [updatePendingSteps]);
-    const updatePendingStepElementTarget = (0, import_react7.useCallback)((stepId, selectedCandidateIndex) => {
+    const updatePendingStepElementTarget = (0, import_react9.useCallback)((stepId, selectedCandidateIndex) => {
       updatePendingSteps(
         (current) => current.map((step) => {
           if (step.id !== stepId) {
@@ -31349,7 +32037,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         })
       );
     }, [updatePendingSteps]);
-    const removePendingStep = (0, import_react7.useCallback)(
+    const removePendingStep = (0, import_react9.useCallback)(
       (stepId) => {
         if (!stepId) {
           return;
@@ -31369,11 +32057,11 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       },
       [appendTimeline, updatePendingSteps]
     );
-    const addPendingStep = (0, import_react7.useCallback)(() => {
+    const addPendingStep = (0, import_react9.useCallback)(() => {
       updatePendingSteps((current) => [...current, createPendingStep("")]);
       appendTimeline("Step added.", "ok");
     }, [appendTimeline, updatePendingSteps]);
-    const handleReplayRecordedStep = (0, import_react7.useCallback)(
+    const handleReplayRecordedStep = (0, import_react9.useCallback)(
       (step) => {
         const stepId = firstNonEmptyText(step?.id, step?.step_id, step?.stepId);
         const title = firstNonEmptyText(step?.display_title, step?.element_name, step?.action, stepId, "Recorded step");
@@ -31394,7 +32082,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       },
       [appendTimeline, sendPayload]
     );
-    const handleReplayAllRecordedSteps = (0, import_react7.useCallback)(() => {
+    const handleReplayAllRecordedSteps = (0, import_react9.useCallback)(() => {
       const sent = sendPayload(
         {
           type: "replay_all",
@@ -31406,7 +32094,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         appendTimeline("Replay all requested.", "active");
       }
     }, [appendTimeline, sendPayload]);
-    const handleCopyRecordedStep = (0, import_react7.useCallback)(
+    const handleCopyRecordedStep = (0, import_react9.useCallback)(
       (step) => {
         const line = firstNonEmptyText(step?.generated_line);
         if (!line) {
@@ -31421,7 +32109,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       },
       [appendTimeline]
     );
-    const handleExportCode = (0, import_react7.useCallback)(
+    const handleExportCode = (0, import_react9.useCallback)(
       ({ code, path } = {}) => {
         const codeStr = typeof code === "string" ? code : "";
         if (!codeStr) {
@@ -31437,7 +32125,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       },
       [appendTimeline, sendPayload]
     );
-    const handleImproveLocator = (0, import_react7.useCallback)(
+    const handleImproveLocator = (0, import_react9.useCallback)(
       ({ step_id } = {}) => {
         const stepIdStr = typeof step_id === "string" ? step_id.trim() : "";
         if (!stepIdStr) {
@@ -31454,7 +32142,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       },
       [appendTimeline, sendPayload]
     );
-    const handleViewCandidates = (0, import_react7.useCallback)(
+    const handleViewCandidates = (0, import_react9.useCallback)(
       ({ step_id } = {}) => {
         const stepIdStr = typeof step_id === "string" ? step_id.trim() : "";
         if (!stepIdStr) {
@@ -31471,7 +32159,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       },
       [appendTimeline, sendPayload]
     );
-    const handleCopyCodeToClipboard = (0, import_react7.useCallback)(
+    const handleCopyCodeToClipboard = (0, import_react9.useCallback)(
       ({ code } = {}) => {
         const codeStr = typeof code === "string" ? code : codePreview;
         const text = typeof codeStr === "string" ? codeStr : "";
@@ -31487,7 +32175,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       },
       [appendTimeline, codePreview]
     );
-    const handleAttachElement = (0, import_react7.useCallback)(
+    const handleAttachElement = (0, import_react9.useCallback)(
       (stepId) => {
         if (!stepId) {
           return;
@@ -31508,7 +32196,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       },
       [appendTimeline, sendPayload]
     );
-    const handleComposerPick = (0, import_react7.useCallback)(() => {
+    const handleComposerPick = (0, import_react9.useCallback)(() => {
       const newStep = createPendingStep("");
       updatePendingSteps((current) => [...current, newStep]);
       setActivePickerStepId(newStep.id);
@@ -31528,7 +32216,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         );
       }
     }, [appendTimeline, sendPayload, updatePendingSteps]);
-    const handleRunPendingSteps = (0, import_react7.useCallback)(() => {
+    const handleRunPendingSteps = (0, import_react9.useCallback)(() => {
       const readySteps = [];
       for (const step of pendingSteps) {
         if (!step || typeof step !== "object" || step.recorded === true) {
@@ -31565,7 +32253,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         "WebSocket not connected."
       );
     }, [appendTimeline, pendingSteps, sendPayload]);
-    const handleSaveSnapshot = (0, import_react7.useCallback)(() => {
+    const handleSaveSnapshot = (0, import_react9.useCallback)(() => {
       sendPayload(
         {
           type: "save_snapshot"
@@ -31573,19 +32261,19 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         "WebSocket not connected."
       );
     }, [sendPayload]);
-    const getActiveRunId = (0, import_react7.useCallback)(() => {
+    const getActiveRunId = (0, import_react9.useCallback)(() => {
       const currentPlan = planRef.current && typeof planRef.current === "object" ? planRef.current : null;
       const rawPlan = currentPlan && typeof currentPlan.raw === "object" ? currentPlan.raw : {};
       return firstNonEmptyText(rawPlan.run_id, rawPlan.runId);
     }, []);
-    const handleResolveBlocked = (0, import_react7.useCallback)((cmd) => {
+    const handleResolveBlocked = (0, import_react9.useCallback)((cmd) => {
       if (!cmd || !cmd.type) return;
       const runId = firstNonEmptyText(cmd.run_id, getActiveRunId());
       const payload = runId ? { ...cmd, run_id: runId } : { ...cmd };
       const envelope = buildFrontendCommandEnvelope(cmd.type, payload);
       sendPayload(envelope, "WebSocket not connected \u2014 cannot dispatch resolve_blocked.");
     }, [getActiveRunId, sendPayload]);
-    const handleChangePrecondition = (0, import_react7.useCallback)((cmd) => {
+    const handleChangePrecondition = (0, import_react9.useCallback)((cmd) => {
       if (!cmd || !cmd.step_id) return;
       const runId = firstNonEmptyText(cmd.run_id, getActiveRunId());
       if (!runId) return;
@@ -31593,7 +32281,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       const envelope = buildFrontendCommandEnvelope("change_precondition", payload);
       sendPayload(envelope, "WebSocket not connected \u2014 cannot dispatch change_precondition.");
     }, [getActiveRunId, sendPayload]);
-    const handleNavigateToExpected = (0, import_react7.useCallback)((cmd) => {
+    const handleNavigateToExpected = (0, import_react9.useCallback)((cmd) => {
       if (!cmd || !cmd.step_id) return;
       const runId = firstNonEmptyText(cmd.run_id, getActiveRunId());
       if (!runId) return;
@@ -31601,7 +32289,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       const envelope = buildFrontendCommandEnvelope("navigate_to_expected", payload);
       sendPayload(envelope, "WebSocket not connected \u2014 cannot dispatch navigate_to_expected.");
     }, [getActiveRunId, sendPayload]);
-    const handleConfirmPlan = (0, import_react7.useCallback)(() => {
+    const handleConfirmPlan = (0, import_react9.useCallback)(() => {
       const currentPlan = planRef.current && typeof planRef.current === "object" ? planRef.current : null;
       const rawPlan = currentPlan && typeof currentPlan.raw === "object" ? currentPlan.raw : {};
       const commandPayload = {};
@@ -31628,7 +32316,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         appendTimeline("Confirmation sent.", "ok");
       }
     }, [appendConversation, appendTimeline, recordPendingCommand, sendPayload]);
-    const handleSendPlanCorrection = (0, import_react7.useCallback)(() => {
+    const handleSendPlanCorrection = (0, import_react9.useCallback)(() => {
       const correction = planCorrectionText.trim();
       if (!correction) {
         appendTimeline("Correction is empty.", "warn");
@@ -31660,7 +32348,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         appendTimeline("Correction sent.", "ok");
       }
     }, [appendConversation, appendTimeline, plan, planCorrectionText, recordPendingCommand, sendPayload]);
-    const handleSendClarificationAnswer = (0, import_react7.useCallback)(
+    const handleSendClarificationAnswer = (0, import_react9.useCallback)(
       (answerOverride = "") => {
         const answer = firstNonEmptyText(answerOverride, clarificationAnswerText).trim();
         if (!answer) {
@@ -31690,7 +32378,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       },
       [appendConversation, appendTimeline, clarificationAnswerText, recordPendingCommand, sendPayload]
     );
-    const handleSendRecoveryInstruction = (0, import_react7.useCallback)(() => {
+    const handleSendRecoveryInstruction = (0, import_react9.useCallback)(() => {
       const instruction = recoveryText.trim();
       if (!instruction) {
         appendTimeline("Recovery instruction is empty.", "warn");
@@ -31715,7 +32403,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         setRecoveryText("");
       }
     }, [appendConversation, appendTimeline, recordPendingCommand, recoveryText, sendPayload]);
-    const handleBackendMessage = (0, import_react7.useCallback)(
+    const handleBackendMessage = (0, import_react9.useCallback)(
       (message) => {
         const type = String(message?.type || "status").toLowerCase();
         const payload = message?.payload;
@@ -32193,7 +32881,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       },
       [acknowledgePendingCommands, appendConversation, appendTimeline, rejectPendingCommand]
     );
-    (0, import_react7.useEffect)(() => {
+    (0, import_react9.useEffect)(() => {
       mountedRef.current = true;
       return () => {
         mountedRef.current = false;
@@ -32210,7 +32898,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         }
       };
     }, []);
-    (0, import_react7.useEffect)(() => {
+    (0, import_react9.useEffect)(() => {
       let cancelled = false;
       const clearRetry = () => {
         if (retryRef.current) {
@@ -32416,13 +33104,13 @@ test('pricing page \xB7 sanity', async ({ page }) => {
   function AutoWorkbenchRuntime({ config }) {
     const normalized = normalizeConfig(config);
     const transport = useFrontendEventStore(config);
-    const [tab, setTab] = (0, import_react7.useState)(normalized.tab);
-    const [dock, setDockLocal] = (0, import_react7.useState)(() => CTRL_TO_HEADER_DOCK[getDockMode()] || "right");
-    const [panelWidth, setPanelWidth] = (0, import_react7.useState)(() => {
+    const [tab, setTab] = (0, import_react9.useState)(normalized.tab);
+    const [dock, setDockLocal] = (0, import_react9.useState)(() => CTRL_TO_HEADER_DOCK[getDockMode()] || "right");
+    const [panelWidth, setPanelWidth] = (0, import_react9.useState)(() => {
       const stored = getStoredSize();
       return stored && stored.width || normalized.panelWidth || 460;
     });
-    const setDock = (0, import_react7.useCallback)((nextHeaderMode) => {
+    const setDock = (0, import_react9.useCallback)((nextHeaderMode) => {
       const ctrlMode = HEADER_TO_CTRL_DOCK[nextHeaderMode] || "dock-right";
       setDockLocal(nextHeaderMode);
       if (currentHostNode) applyDock(currentHostNode, ctrlMode);
@@ -32430,7 +33118,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       const width = typeof normalized.panelWidth === "number" ? normalized.panelWidth : 460;
       updateCompensation(ctrlMode, { width });
     }, [normalized.panelWidth]);
-    (0, import_react7.useEffect)(() => {
+    (0, import_react9.useEffect)(() => {
       setTab(normalized.tab);
     }, [normalized.tab]);
     usePlanReadyAutoTab({
@@ -32474,10 +33162,10 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         boxShadow: dock === "left" ? "12px 0 36px rgba(0,0,0,0.28)" : "-12px 0 36px rgba(0,0,0,0.28)"
       };
     })();
-    const onResize = (0, import_react7.useCallback)(({ width, height }) => {
+    const onResize = (0, import_react9.useCallback)(({ width, height }) => {
       if (typeof width === "number" && Number.isFinite(width)) setPanelWidth(width);
     }, []);
-    return /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { style: outerStyle, "data-aw-dock": dock, children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: `aw-density-${normalized.density}`, style: innerStyle, children: IDEPanel2 ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+    return /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { style: outerStyle, "data-aw-dock": dock, children: /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: `aw-density-${normalized.density}`, style: innerStyle, children: IDEPanel2 ? /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(
       IDEPanel2,
       {
         state: panelState,
@@ -32511,17 +33199,30 @@ test('pricing page \xB7 sanity', async ({ page }) => {
     ) : null }) });
   }
   function useFrontendEventStore(config) {
-    const [storeState, storeDispatch] = import_react7.default.useReducer(reducer, null, createInitialState);
+    const [storeState, storeDispatch] = import_react9.default.useReducer(reducer, null, createInitialState);
     const transport = useAutoWorkbenchTransport(config);
     if (config?.demo === true) {
       const seededAgents = Array.isArray(config?.agents) && (!storeState.agents || storeState.agents.length === 0) ? config.agents : storeState.agents;
+      const seededRecovery = !storeState.pending_recovery && config?.pendingRecovery ? config.pendingRecovery : storeState.pending_recovery;
       return {
         ...transport,
-        storeState: { ...storeState, agents: seededAgents },
+        storeState: {
+          ...storeState,
+          agents: seededAgents,
+          pending_recovery: seededRecovery
+        },
         storeDispatch,
         // Header-only passthroughs so demo mode shows token + page URL.
         tokenInfo: config.tokenInfo ?? transport.tokenInfo,
-        pageUrl: config.pageUrl ?? transport.pageUrl
+        pageUrl: config.pageUrl ?? transport.pageUrl,
+        // FE-VBATCH-002 — NowStrip + Footer + Composer-context overrides for
+        // demo. aw-ide-panel reads runtime.nowStrip / runtime.footer /
+        // runtime.composerContext when present, otherwise falls back to its
+        // PHASE_META lookup and empty arrays.
+        nowStrip: config.nowStrip ?? transport.nowStrip,
+        footer: config.footer ?? transport.footer,
+        composerContext: config.composerContext ?? transport.composerContext,
+        modelBadge: config.modelBadge ?? transport.modelBadge
       };
     }
     return { ...transport, storeState, storeDispatch };
@@ -32557,7 +33258,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       currentHostNode = node;
       currentMountNode = mountNode;
     }
-    currentRoot.render(/* @__PURE__ */ (0, import_jsx_runtime7.jsx)(AutoWorkbenchRuntime, { config }));
+    currentRoot.render(/* @__PURE__ */ (0, import_jsx_runtime9.jsx)(AutoWorkbenchRuntime, { config }));
   }
   function mount(root, config = {}) {
     let activeConfig = config;
@@ -32585,8 +33286,70 @@ test('pricing page \xB7 sanity', async ({ page }) => {
     }
     unmountHost();
   }
+  function PreviewShell({ container }) {
+    const [tweaks, setTweaks] = import_react9.default.useState(DEFAULT_TWEAKS);
+    import_react9.default.useEffect(() => {
+      try {
+        window.postMessage({ type: "__activate_edit_mode" }, "*");
+      } catch (_) {
+      }
+    }, []);
+    const panelHostRef = import_react9.default.useRef(null);
+    import_react9.default.useEffect(() => {
+      if (!panelHostRef.current) return;
+      if (panelHostRef.current.__awMounted) return;
+      mount(panelHostRef.current, {
+        demo: true,
+        panelWidth: tweaks.panelWidth
+      });
+      panelHostRef.current.__awMounted = true;
+    }, []);
+    return /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { "data-testid": "aw-preview-shell", style: { position: "fixed", inset: 0 }, children: [
+      tweaks.showWebsite ? /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(
+        "div",
+        {
+          "data-testid": "aw-preview-website",
+          style: {
+            position: "fixed",
+            top: 0,
+            left: 0,
+            bottom: 0,
+            right: tweaks.dock === "right" ? tweaks.panelWidth : 0,
+            background: "var(--bg-website, #FAF5EB)"
+          },
+          children: /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(WebsitePreview, { highlight: tweaks.highlight })
+        }
+      ) : null,
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(
+        "div",
+        {
+          ref: panelHostRef,
+          "data-testid": "aw-preview-panel-host",
+          style: {
+            position: "fixed",
+            top: 0,
+            bottom: 0,
+            right: tweaks.dock === "right" ? 0 : "auto",
+            left: tweaks.dock === "left" ? 0 : "auto",
+            width: tweaks.panelWidth,
+            boxShadow: "-8px 0 24px rgba(20,18,12,0.12)"
+          }
+        }
+      ),
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(TweaksPanel, { value: tweaks, onChange: setTweaks, defaultOpen: false })
+    ] });
+  }
+  function mountDemo(container = document.body) {
+    const root = document.createElement("div");
+    root.id = "aw-preview-root";
+    container.appendChild(root);
+    const r = (0, import_client.createRoot)(root);
+    r.render(/* @__PURE__ */ (0, import_jsx_runtime9.jsx)(PreviewShell, { container }));
+    return root;
+  }
   window.AutoWorkbench = {
     mount,
+    mountDemo,
     unmount
   };
 })();
