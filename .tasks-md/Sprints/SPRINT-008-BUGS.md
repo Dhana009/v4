@@ -213,8 +213,33 @@ the full class-A path needed to actually enable Manual Mode.
 ## BUG-S8-E2E-001 — Migrate legacy flow E2E tests to v4 testid contract
 
 **Filed by:** Sprint 7 Wrap-Up Batch D (final E2E run at HEAD `45071df`).
-**Status:** OPEN.
+**Status:** OPEN (scope reduced 2026-05-14 — see addendum below).
 **Supersedes:** BUG-S7-V4-001 (same scope; widened to all 5 legacy flow tests).
+
+### 2026-05-14 update — post-routing-fix state
+
+The Sprint 7 final routing fix (harness alias `workbench → aw-tab-steps`,
+auto-switch to LLM on `plan_ready`, NowStrip onPrimary state guard widened,
+dead `run_steps` inline envelope removed) unblocked the first half of the
+chain. As of the final E2E run on this branch:
+
+- `basic_click_flow` reaches `execution_started` (was failing at
+  `run_clicked`). It now fails on the recorded-step locator inside the
+  panel body — needs a `click_autoworkbench_tab(page, "recorded")` call
+  before reading `.ide-recorded-step`, then a `recorded-row-*` testid
+  switch.
+- `visible_assertion_flow` reaches `execution_started` (was failing at
+  `pending_step_added`).
+- `exact_text_assertion_flow` still fails at the pending-step ready-badge
+  selector (`.ide-step-topline .ide-badge.b-ready`) — selector-only fix.
+- `correction_assert_then_click_flow` still fails at the plan-child
+  count assertion — selector-only fix.
+- `llm_required_ambiguous_action_flow` reaches LLM (2 calls fired,
+  `llm_triggered=true`); fails on the `.ide-clarification-question`
+  legacy class — selector-only fix.
+
+All five failures are now pure selector drift; no remaining routing or
+product bugs in scope for Sprint 7.
 **PRD/contract references:** `.tasks-md/Audit/V4_TESTID_CONTRACT.md`,
 `SPRINT-007-WRAP-UP-MASTER-SPEC.md §10`.
 
