@@ -11,7 +11,9 @@ from runtime.step_metadata import (
     annotate_plan_steps_with_kind,
     classify_step_kind,
     normalize_plan_steps_blocked,
+    normalize_plan_steps_child_count,
     normalize_plan_steps_children,
+    normalize_plan_steps_precondition,
 )
 
 
@@ -424,6 +426,203 @@ def test_blocked_normalizer_does_not_disturb_other_metadata():
     assert step["locator_kind"] == "ok"
     assert step["children"][0]["child_id"] == "a"
     assert step["blocked"]["reason"] == "missing_data"
+
+
+# ---------------------------------------------------------------------------
+# normalize_plan_steps_precondition (Pass 4b-5)
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("status", ["passed", "failed", "unknown"])
+def test_valid_precondition_status_preserved(status):
+    payload = {"steps": [{"step_id": "s1", "precondition": {"status": status}}]}
+    normalize_plan_steps_precondition(payload)
+    assert payload["steps"][0]["precondition"]["status"] == status
+
+
+def test_invalid_precondition_status_normalized_to_unknown():
+    payload = {"steps": [{"step_id": "s1", "precondition": {"status": "garbage"}}]}
+    normalize_plan_steps_precondition(payload)
+    assert payload["steps"][0]["precondition"]["status"] == "unknown"
+
+
+def test_missing_precondition_status_normalized_to_unknown():
+    payload = {
+        "steps": [
+            {
+                "step_id": "s1",
+                "precondition": {"expected_url": "/docs", "current_url": "/pricing"},
+            }
+        ]
+    }
+    normalize_plan_steps_precondition(payload)
+    assert payload["steps"][0]["precondition"]["status"] == "unknown"
+
+
+def test_failed_precondition_preserves_urls_and_message():
+    payload = {
+        "steps": [
+            {
+                "step_id": "s1",
+                "precondition": {
+                    "status": "failed",
+                    "expected_url": "/docs",
+                    "current_url": "/pricing",
+                    "message": "Need to navigate to /docs first",
+                },
+            }
+        ]
+    }
+    normalize_plan_steps_precondition(payload)
+    p = payload["steps"][0]["precondition"]
+    assert p["status"] == "failed"
+    assert p["expected_url"] == "/docs"
+    assert p["current_url"] == "/pricing"
+    assert p["message"] == "Need to navigate to /docs first"
+
+
+def test_non_string_precondition_urls_coerced_to_empty_string():
+    payload = {
+        "steps": [
+            {
+                "step_id": "s1",
+                "precondition": {"status": "failed", "expected_url": 42, "current_url": None},
+            }
+        ]
+    }
+    normalize_plan_steps_precondition(payload)
+    p = payload["steps"][0]["precondition"]
+    assert p["expected_url"] == ""
+    # None stays None (not coerced — None means "not provided").
+    assert p["current_url"] is None
+
+
+def test_non_dict_precondition_dropped():
+    payload = {"steps": [{"step_id": "s1", "precondition": "not a dict"}]}
+    normalize_plan_steps_precondition(payload)
+    assert "precondition" not in payload["steps"][0]
+
+
+def test_absent_precondition_key_not_invented():
+    payload = {"steps": [{"step_id": "s1", "intent": "click"}]}
+    normalize_plan_steps_precondition(payload)
+    assert "precondition" not in payload["steps"][0]
+
+
+def test_precondition_normalizer_safe_on_non_dict_payload():
+    assert normalize_plan_steps_precondition(None) is None
+    assert normalize_plan_steps_precondition({}) == {}
+    assert normalize_plan_steps_precondition({"steps": "nope"}) == {"steps": "nope"}
+
+
+# ---------------------------------------------------------------------------
+# normalize_plan_steps_child_count (Pass 4b-6)
+# ---------------------------------------------------------------------------
+
+def test_explicit_valid_child_op_count_preserved():
+    payload = {
+        "steps": [
+            {
+                "step_id": "s1",
+                "child_op_count": 5,
+                "children": [{"child_id": "a"}, {"child_id": "b"}],
+            }
+        ]
+    }
+    normalize_plan_steps_child_count(payload)
+    # Explicit backend value wins over length, even when it disagrees.
+    assert payload["steps"][0]["child_op_count"] == 5
+
+
+def test_child_op_count_derived_from_children_length_when_absent():
+    payload = {
+        "steps": [
+            {
+                "step_id": "s1",
+                "children": [{"child_id": "a"}, {"child_id": "b"}, {"child_id": "c"}],
+            }
+        ]
+    }
+    normalize_plan_steps_child_count(payload)
+    assert payload["steps"][0]["child_op_count"] == 3
+
+
+def test_child_op_count_absent_when_no_children_and_no_explicit():
+    payload = {"steps": [{"step_id": "s1", "intent": "click"}]}
+    normalize_plan_steps_child_count(payload)
+    assert "child_op_count" not in payload["steps"][0]
+
+
+def test_invalid_explicit_count_falls_back_to_children_length():
+    payload = {
+        "steps": [
+            {
+                "step_id": "s1",
+                "child_op_count": -7,
+                "children": [{"child_id": "a"}, {"child_id": "b"}],
+            }
+        ]
+    }
+    normalize_plan_steps_child_count(payload)
+    assert payload["steps"][0]["child_op_count"] == 2
+
+
+def test_invalid_explicit_count_removed_when_no_children():
+    payload = {"steps": [{"step_id": "s1", "child_op_count": "many"}]}
+    normalize_plan_steps_child_count(payload)
+    assert "child_op_count" not in payload["steps"][0]
+
+
+def test_bool_explicit_count_rejected():
+    """Python booleans are int subclasses; normalizer must not accept True as 1."""
+    payload = {
+        "steps": [
+            {
+                "step_id": "s1",
+                "child_op_count": True,
+                "children": [{"child_id": "a"}],
+            }
+        ]
+    }
+    normalize_plan_steps_child_count(payload)
+    assert payload["steps"][0]["child_op_count"] == 1
+
+
+def test_empty_children_list_yields_zero_count():
+    payload = {"steps": [{"step_id": "s1", "children": []}]}
+    normalize_plan_steps_child_count(payload)
+    assert payload["steps"][0]["child_op_count"] == 0
+
+
+def test_child_count_normalizer_safe_on_non_dict_payload():
+    assert normalize_plan_steps_child_count(None) is None
+    assert normalize_plan_steps_child_count({}) == {}
+    assert normalize_plan_steps_child_count({"steps": "nope"}) == {"steps": "nope"}
+
+
+def test_precondition_and_child_count_coexist_with_other_metadata():
+    payload = {
+        "steps": [
+            {
+                "step_id": "s1",
+                "intent": "click",
+                "step_kind": "atomic",
+                "locator_kind": "ok",
+                "locator_strength": "strong",
+                "blocked": {"reason": "missing_data"},
+                "children": [{"child_id": "a"}, {"child_id": "b"}],
+                "precondition": {"status": "failed", "expected_url": "/docs"},
+            }
+        ]
+    }
+    normalize_plan_steps_precondition(payload)
+    normalize_plan_steps_child_count(payload)
+    step = payload["steps"][0]
+    assert step["step_kind"] == "atomic"
+    assert step["locator_kind"] == "ok"
+    assert step["blocked"]["reason"] == "missing_data"
+    assert step["children"][0]["child_id"] == "a"
+    assert step["precondition"]["status"] == "failed"
+    assert step["child_op_count"] == 2
 
 
 def test_annotator_does_not_emit_other_kinds():

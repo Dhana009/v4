@@ -200,6 +200,112 @@ def normalize_plan_steps_blocked(payload: dict[str, Any]) -> dict[str, Any]:
     return payload
 
 
+# ---------------------------------------------------------------------------
+# Precondition metadata (Pass 4b-5)
+# ---------------------------------------------------------------------------
+
+_VALID_PRECONDITION_STATUS = frozenset({"passed", "failed", "unknown"})
+
+
+def _normalize_precondition_object(raw: Any) -> dict[str, Any] | None:
+    """Coerce a `step.precondition` value into a stable frontend-facing shape.
+
+    Returns None when input is not a dict. Status validated against the
+    allowed set; missing/invalid → "unknown" so the frontend never reads
+    a fake "passed" or "failed".
+    """
+    if not isinstance(raw, dict):
+        return None
+    out: dict[str, Any] = dict(raw)
+    status = out.get("status")
+    if not (isinstance(status, str) and status in _VALID_PRECONDITION_STATUS):
+        status = "unknown"
+    out["status"] = status
+
+    for field in ("expected_url", "current_url", "message"):
+        val = out.get(field)
+        if val is None:
+            continue
+        if not isinstance(val, str):
+            out[field] = ""
+        else:
+            out[field] = val
+    return out
+
+
+def normalize_plan_steps_precondition(payload: dict[str, Any]) -> dict[str, Any]:
+    """Walk plan_ready payload steps, normalize `step.precondition`.
+
+    - Missing key: untouched.
+    - Non-dict value: key removed entirely.
+    - Valid dict: status validated; URL/message fields kept as strings.
+    """
+    if not isinstance(payload, dict):
+        return payload
+    steps = payload.get("steps")
+    if not isinstance(steps, list):
+        return payload
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        if "precondition" not in step:
+            continue
+        normalized = _normalize_precondition_object(step["precondition"])
+        if normalized is None:
+            del step["precondition"]
+        else:
+            step["precondition"] = normalized
+    return payload
+
+
+# ---------------------------------------------------------------------------
+# Child operation count (Pass 4b-6)
+# ---------------------------------------------------------------------------
+
+def normalize_plan_steps_child_count(payload: dict[str, Any]) -> dict[str, Any]:
+    """Walk plan_ready payload steps, normalize `step.child_op_count`.
+
+    Order of precedence:
+      1. Explicit non-negative int from backend → preserved.
+      2. Explicit invalid value (non-int, negative, etc.) → derived from
+         len(children) if children is a list, else removed.
+      3. Missing key + children list present → set to len(children).
+      4. Missing key + no children → key not invented (left absent).
+
+    Must run AFTER normalize_plan_steps_children so children is already a
+    clean list.
+    """
+    if not isinstance(payload, dict):
+        return payload
+    steps = payload.get("steps")
+    if not isinstance(steps, list):
+        return payload
+    for step in steps:
+        if not isinstance(step, dict):
+            continue
+        children = step.get("children")
+        children_len = len(children) if isinstance(children, list) else None
+
+        explicit = step.get("child_op_count")
+        explicit_valid = (
+            isinstance(explicit, int)
+            and not isinstance(explicit, bool)
+            and explicit >= 0
+        )
+
+        if explicit_valid:
+            continue
+        if explicit is not None:
+            # Invalid explicit value present.
+            if children_len is not None:
+                step["child_op_count"] = children_len
+            else:
+                del step["child_op_count"]
+            continue
+        if children_len is not None:
+            step["child_op_count"] = children_len
+
+
 def annotate_plan_steps_with_kind(payload: dict[str, Any]) -> dict[str, Any]:
     """Walk plan_ready payload steps, attach `step_kind`.
 

@@ -9143,12 +9143,16 @@ class AgentLoop:
         from runtime.step_metadata import (
             annotate_plan_steps_with_kind,
             normalize_plan_steps_blocked,
+            normalize_plan_steps_child_count,
             normalize_plan_steps_children,
+            normalize_plan_steps_precondition,
         )
 
         annotate_plan_steps_with_locator_kind(payload)
         normalize_plan_steps_children(payload)
+        normalize_plan_steps_child_count(payload)
         normalize_plan_steps_blocked(payload)
+        normalize_plan_steps_precondition(payload)
         annotate_plan_steps_with_kind(payload)
         await self._send("plan_ready", **payload)
         self._remember_plan_review_context(payload)
