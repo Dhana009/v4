@@ -6352,14 +6352,14 @@
             16
           );
           var clz32 = Math.clz32 ? Math.clz32 : clz32Fallback;
-          var log = Math.log;
+          var log2 = Math.log;
           var LN2 = Math.LN2;
           function clz32Fallback(x) {
             var asUint = x >>> 0;
             if (asUint === 0) {
               return 32;
             }
-            return 31 - (log(asUint) / LN2 | 0) | 0;
+            return 31 - (log2(asUint) / LN2 | 0) | 0;
           }
           var TotalLanes = 31;
           var NoLanes = (
@@ -15958,8 +15958,8 @@
           }
           function logCapturedError(boundary, errorInfo) {
             try {
-              var logError = showErrorDialog(boundary, errorInfo);
-              if (logError === false) {
+              var logError2 = showErrorDialog(boundary, errorInfo);
+              if (logError2 === false) {
                 return;
               }
               var error2 = errorInfo.value;
@@ -24582,6 +24582,132 @@
   // aw-ide-panel.jsx
   var import_react5 = __toESM(require_react());
 
+  // src/log.js
+  var RING_SIZE = 500;
+  var ENDPOINT = "/api/log";
+  var INFO_CATEGORIES = /* @__PURE__ */ new Set([
+    "WS_RECV",
+    "WS_SEND",
+    "WS_OPEN",
+    "WS_CLOSE",
+    "WS_ERROR",
+    "REDUCER",
+    "STATE",
+    "COMMAND",
+    "PANEL",
+    "PHASE",
+    "ERROR"
+  ]);
+  function resolveLevel() {
+    try {
+      if (typeof window !== "undefined") {
+        const fromWin = window.__awLogLevel;
+        if (typeof fromWin === "string") return fromWin.toLowerCase();
+        const params = new URLSearchParams(window.location?.search || "");
+        const fromParam = (params.get("aw_log") || "").toLowerCase();
+        if (fromParam) return fromParam;
+      }
+    } catch (_) {
+    }
+    return "info";
+  }
+  function ringPush(record) {
+    try {
+      if (typeof window === "undefined") return;
+      if (!Array.isArray(window.__awLog__)) window.__awLog__ = [];
+      window.__awLog__.push(record);
+      if (window.__awLog__.length > RING_SIZE) window.__awLog__.shift();
+    } catch (_) {
+    }
+  }
+  function shouldEmit(level, category) {
+    if (level === "error") return true;
+    if (resolveLevel() === "debug") return true;
+    return INFO_CATEGORIES.has(category);
+  }
+  function backendUrl() {
+    try {
+      if (typeof window === "undefined") return ENDPOINT;
+      const wsUrl = window.__awBackendBaseUrl__ || null;
+      if (wsUrl) return wsUrl.replace(/\/$/, "") + ENDPOINT;
+      return ENDPOINT;
+    } catch (_) {
+      return ENDPOINT;
+    }
+  }
+  function postToBackend(record) {
+    try {
+      if (typeof fetch !== "function") return;
+      const url = backendUrl();
+      fetch(url, {
+        method: "POST",
+        keepalive: true,
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify(record)
+      }).catch(() => {
+      });
+    } catch (_) {
+    }
+  }
+  function consoleEmit(record) {
+    try {
+      const line = `[${record.category}]`;
+      if (record.level === "error") {
+        console.error(line, record);
+      } else {
+        console.log(line, record);
+      }
+    } catch (_) {
+    }
+  }
+  function log(category, kv) {
+    const record = {
+      category: String(category || "FRONT"),
+      level: "info",
+      ts: Date.now(),
+      ...kv && typeof kv === "object" ? kv : {}
+    };
+    ringPush(record);
+    if (!shouldEmit("info", record.category)) return;
+    consoleEmit(record);
+    postToBackend(record);
+  }
+  function logError(category, message, kv) {
+    const err = kv && kv.error || null;
+    const stack = err && err.stack ? String(err.stack).split("\n").slice(0, 12).join("\\n") : null;
+    const record = {
+      category: String(category || "ERROR"),
+      level: "error",
+      ts: Date.now(),
+      message: String(message || ""),
+      stack,
+      ...kv && typeof kv === "object" ? kv : {}
+    };
+    delete record.error;
+    ringPush(record);
+    consoleEmit(record);
+    postToBackend(record);
+  }
+  function attachGlobalHandlers() {
+    if (typeof window === "undefined") return;
+    if (window.__awLogHandlersInstalled__) return;
+    window.__awLogHandlersInstalled__ = true;
+    window.addEventListener("error", (e) => {
+      logError("WINDOW_ERROR", String(e?.message || "window error"), {
+        filename: e?.filename,
+        lineno: e?.lineno,
+        colno: e?.colno,
+        stack: e?.error?.stack ? String(e.error.stack).slice(0, 1200) : null
+      });
+    });
+    window.addEventListener("unhandledrejection", (e) => {
+      const reason = e?.reason;
+      logError("UNHANDLED_REJECTION", String(reason?.message || reason || "unhandled rejection"), {
+        stack: reason?.stack ? String(reason.stack).slice(0, 1200) : null
+      });
+    });
+  }
+
   // src/v4/chrome.jsx
   var import_react2 = __toESM(require_react());
 
@@ -26915,17 +27041,41 @@
   }
   var PHASE_META = {
     idle: { kind: "idle", state: "Idle", phase: "Idle", task: "Tell me what to automate or validate.", primaryLabel: null, busy: false },
-    planning: { kind: "run", state: "Analyzing", phase: "Analyzing page", task: "Backend is drafting a plan.", primaryLabel: null, busy: true },
-    awaiting_confirmation: { kind: "decide", state: "Confirm to run", phase: "Plan review", task: "Plan is ready \u2014 review before running.", primaryLabel: "Confirm & run", busy: false },
+    planning: { kind: "run", state: "Analyzing", phase: "Planning", task: "Backend is drafting a plan.", primaryLabel: null, busy: true },
+    awaiting_confirmation: { kind: "decide", state: "Confirm to run", phase: "Plan review", task: "Plan is ready \u2014 review before running.", primaryLabel: "Confirm Plan", busy: false },
+    plan_review: { kind: "decide", state: "Confirm to run", phase: "Plan review", task: "Plan is ready \u2014 review before running.", primaryLabel: "Confirm Plan", busy: false },
     clarification: { kind: "decide", state: "Clarification", phase: "Clarification needed", task: "Answer the question to continue.", primaryLabel: "Jump to question", busy: false },
     executing: { kind: "run", state: "Executing", phase: "Executing", task: "Backend is running steps.", primaryLabel: "Pause", busy: true },
     recovery: { kind: "block", state: "Run blocked", phase: "Recovery needed", task: "Resolve the failure to continue.", primaryLabel: "Apply LLM repair", busy: false, blocker: "needs recovery" },
     completed: { kind: "ok", state: "Completed", phase: "Completed", task: "Run finished.", primaryLabel: "Replay all", busy: false }
   };
+  var PANEL_STATE_ALIAS = {
+    await: "awaiting_confirmation",
+    awaiting: "awaiting_confirmation",
+    exec: "executing",
+    recover: "recovery",
+    done: "completed"
+  };
+  function resolveStateKey(state) {
+    if (!state) return "idle";
+    if (PHASE_META[state]) return state;
+    const alias = PANEL_STATE_ALIAS[state];
+    return alias && PHASE_META[alias] ? alias : "idle";
+  }
   function phaseMetaFor(state, runtime) {
-    const m = runtime?.storeInteractionMode;
-    if (m && PHASE_META[m]) return PHASE_META[m];
-    return PHASE_META[state] ?? PHASE_META.idle;
+    const candidates = [
+      runtime?.runState,
+      runtime?.interactionMode,
+      runtime?.storeInteractionMode,
+      state
+    ];
+    for (const cand of candidates) {
+      if (!cand) continue;
+      if (PHASE_META[cand]) return PHASE_META[cand];
+      const resolved = resolveStateKey(cand);
+      if (PHASE_META[resolved] && resolved !== "idle") return PHASE_META[resolved];
+    }
+    return PHASE_META.idle;
   }
   function statusForConnection(conn) {
     if (!conn || conn === "disconnected" || conn === "offline") return "offline";
@@ -26993,32 +27143,49 @@
     return typeof fn === "function" ? fn : () => {
     };
   }
+  function loggedDispatcher(name, fn) {
+    const real = safe(fn);
+    return (...args) => {
+      try {
+        const arg0 = args[0];
+        const summary = arg0 && typeof arg0 === "object" ? { keys: Object.keys(arg0).slice(0, 8) } : { arg: typeof arg0 === "string" ? arg0.slice(0, 80) : typeof arg0 };
+        log("COMMAND", { name, ...summary });
+      } catch (_) {
+      }
+      try {
+        return real(...args);
+      } catch (exc) {
+        logError("COMMAND_THROW", `dispatcher ${name} threw`, { name, error: exc });
+        throw exc;
+      }
+    };
+  }
   function buildDispatchers(runtime) {
     return {
-      onSendUserMessage: safe(runtime?.onSendUserMessage ?? runtime?.handleSendUserMessage),
-      onAnswerClarification: safe(runtime?.handleSendClarificationAnswer ?? runtime?.onSendClarificationAnswer ?? runtime?.onSendOptionSelected),
-      onAcceptRecommendations: safe(runtime?.onAcceptRecommendations ?? runtime?.handleAcceptRecommendations),
-      onAddRecommendation: safe(runtime?.onAddRecommendation),
-      onApplyPlanDiff: safe(runtime?.onApplyPlanDiff ?? runtime?.handleApplyPlanDiff),
-      onRejectPlanDiff: safe(runtime?.onRejectPlanDiff ?? runtime?.handleRejectPlanDiff),
-      onConfirmPlan: safe(runtime?.handleConfirmPlan ?? runtime?.onConfirmPlan),
-      onSendCorrection: safe(runtime?.handleSendPlanCorrection ?? runtime?.onSendCorrection ?? runtime?.onSendPlanCorrection),
-      onPermissionDecision: safe(runtime?.onPermissionDecision ?? runtime?.handlePermissionDecision),
-      onChooseLocatorCandidate: safe(runtime?.onChooseLocatorCandidate ?? runtime?.handleChooseLocatorCandidate),
-      onAskLocatorLLM: safe(runtime?.onAskLocatorLLM),
-      onChangeLocatorScope: safe(runtime?.onChangeLocatorScope),
-      onApplyRecoveryLLM: safe(runtime?.handleSendRecoveryInstruction ?? runtime?.onApplyRecoveryLLM),
-      onRetryRecovery: safe(runtime?.onRetryRecovery),
-      onChooseLocator: safe(runtime?.onChooseLocator),
-      onPause: safe(runtime?.onPause),
-      onStop: safe(runtime?.onStop ?? runtime?.handleStopRun),
-      onReplayAll: safe(runtime?.handleReplayAllRecordedSteps ?? runtime?.onReplayAllRecordedSteps),
-      onSaveSession: safe(runtime?.handleSaveSnapshot ?? runtime?.onSaveSnapshot),
-      onOpenCode: safe(runtime?.onOpenCode),
-      onDownloadTrace: safe(runtime?.onDownloadTrace),
-      onReconnect: safe(runtime?.onReconnect),
-      onRepairPlan: safe(runtime?.onRepairPlan),
-      onRunSelected: safe(runtime?.handleRunPendingSteps ?? runtime?.onRunSelected)
+      onSendUserMessage: loggedDispatcher("send_user_message", runtime?.onSendUserMessage ?? runtime?.handleSendUserMessage),
+      onAnswerClarification: loggedDispatcher("answer_clarification", runtime?.handleSendClarificationAnswer ?? runtime?.onSendClarificationAnswer ?? runtime?.onSendOptionSelected),
+      onAcceptRecommendations: loggedDispatcher("accept_recommendations", runtime?.onAcceptRecommendations ?? runtime?.handleAcceptRecommendations),
+      onAddRecommendation: loggedDispatcher("add_recommendation", runtime?.onAddRecommendation),
+      onApplyPlanDiff: loggedDispatcher("apply_plan_diff", runtime?.onApplyPlanDiff ?? runtime?.handleApplyPlanDiff),
+      onRejectPlanDiff: loggedDispatcher("reject_plan_diff", runtime?.onRejectPlanDiff ?? runtime?.handleRejectPlanDiff),
+      onConfirmPlan: loggedDispatcher("confirm_plan", runtime?.handleConfirmPlan ?? runtime?.onConfirmPlan),
+      onSendCorrection: loggedDispatcher("send_correction", runtime?.handleSendPlanCorrection ?? runtime?.onSendCorrection ?? runtime?.onSendPlanCorrection),
+      onPermissionDecision: loggedDispatcher("permission_decision", runtime?.onPermissionDecision ?? runtime?.handlePermissionDecision),
+      onChooseLocatorCandidate: loggedDispatcher("choose_locator_candidate", runtime?.onChooseLocatorCandidate ?? runtime?.handleChooseLocatorCandidate),
+      onAskLocatorLLM: loggedDispatcher("ask_locator_llm", runtime?.onAskLocatorLLM),
+      onChangeLocatorScope: loggedDispatcher("change_locator_scope", runtime?.onChangeLocatorScope),
+      onApplyRecoveryLLM: loggedDispatcher("apply_recovery_llm", runtime?.handleSendRecoveryInstruction ?? runtime?.onApplyRecoveryLLM),
+      onRetryRecovery: loggedDispatcher("retry_recovery", runtime?.onRetryRecovery),
+      onChooseLocator: loggedDispatcher("choose_locator", runtime?.onChooseLocator),
+      onPause: loggedDispatcher("pause", runtime?.onPause),
+      onStop: loggedDispatcher("stop_run", runtime?.onStop ?? runtime?.handleStopRun),
+      onReplayAll: loggedDispatcher("replay_all", runtime?.handleReplayAllRecordedSteps ?? runtime?.onReplayAllRecordedSteps),
+      onSaveSession: loggedDispatcher("save_session", runtime?.handleSaveSnapshot ?? runtime?.onSaveSnapshot),
+      onOpenCode: loggedDispatcher("open_code", runtime?.onOpenCode),
+      onDownloadTrace: loggedDispatcher("download_trace", runtime?.onDownloadTrace),
+      onReconnect: loggedDispatcher("reconnect", runtime?.onReconnect),
+      onRepairPlan: loggedDispatcher("repair_plan", runtime?.onRepairPlan),
+      onRunSelected: loggedDispatcher("run_selected", runtime?.handleRunPendingSteps ?? runtime?.onRunSelected)
     };
   }
   function IDEPanel({ state, tab, runtime = {}, onTabChange }) {
@@ -27637,7 +27804,7 @@
   var import_jsx_runtime7 = __toESM(require_jsx_runtime());
   var VALID_TABS = /* @__PURE__ */ new Set(["workbench", "steps", "code", "debug"]);
   var DEFAULT_CONFIG = {
-    state: "planning",
+    state: "idle",
     tab: "workbench",
     panelWidth: 420,
     density: "compact"
@@ -27705,15 +27872,15 @@
       case "completed":
         return "done";
       default:
-        return "planning";
+        return "idle";
     }
   }
   function normalizeConfig(config = {}) {
-    const runState = normalizeRunState(config.runState ?? config.state ?? DEFAULT_CONFIG.state) || "planning";
+    const runState = normalizeRunState(config.runState ?? config.state ?? DEFAULT_CONFIG.state) || "idle";
     const tab = VALID_TABS.has(config.tab) ? config.tab : DEFAULT_CONFIG.tab;
     const panelWidth = Number.isFinite(config.panelWidth) ? config.panelWidth : DEFAULT_CONFIG.panelWidth;
     const density = ["compact", "regular", "comfy"].includes(config.density) ? config.density : DEFAULT_CONFIG.density;
-    const interactionMode = normalizeInteractionMode(config.interactionMode ?? config.mode ?? config.runState ?? config.state) || "planning";
+    const interactionMode = normalizeInteractionMode(config.interactionMode ?? config.mode ?? config.runState ?? config.state) || "idle";
     return {
       ...config,
       runState,
@@ -29048,7 +29215,14 @@
       ]
     );
     const [connectionStatus, setConnectionStatus] = (0, import_react6.useState)("disconnected");
-    const [runState, setRunState] = (0, import_react6.useState)(() => normalizeRunState(config.runState ?? config.state) || "planning");
+    const [runState, setRunStateRaw] = (0, import_react6.useState)(() => normalizeRunState(config.runState ?? config.state) || "idle");
+    const setRunState = (0, import_react6.useCallback)((next) => {
+      setRunStateRaw((prev) => {
+        const nv = typeof next === "function" ? next(prev) : next;
+        if (nv !== prev) log("STATE", { field: "runState", from: prev, to: nv });
+        return nv;
+      });
+    }, []);
     const [conversation, setConversation] = (0, import_react6.useState)([]);
     const [timeline, setTimeline] = (0, import_react6.useState)([]);
     const [traceEntries, setTraceEntries] = (0, import_react6.useState)(() => normalizeTraceEntries(config.traceEntries));
@@ -29062,9 +29236,16 @@
     const [recordedSteps, setRecordedSteps] = (0, import_react6.useState)(() => normalizeRecordedSteps(config.recordedSteps));
     const [lastReplayByStepId, setLastReplayByStepId] = (0, import_react6.useState)({});
     const [codeDiagnostics, setCodeDiagnostics] = (0, import_react6.useState)(() => normalizeCodeDiagnostics(config.codeDiagnostics));
-    const [interactionMode, setInteractionMode] = (0, import_react6.useState)(
-      () => normalizeInteractionMode(config.interactionMode ?? config.mode ?? config.runState ?? config.state) || "planning"
+    const [interactionMode, setInteractionModeRaw] = (0, import_react6.useState)(
+      () => normalizeInteractionMode(config.interactionMode ?? config.mode ?? config.runState ?? config.state) || "idle"
     );
+    const setInteractionMode = (0, import_react6.useCallback)((next) => {
+      setInteractionModeRaw((prev) => {
+        const nv = typeof next === "function" ? next(prev) : next;
+        if (nv !== prev) log("STATE", { field: "interactionMode", from: prev, to: nv });
+        return nv;
+      });
+    }, []);
     const [planCorrectionText, setPlanCorrectionText] = (0, import_react6.useState)("");
     const [clarificationQuestion, setClarificationQuestion] = (0, import_react6.useState)("");
     const [clarificationOptions, setClarificationOptions] = (0, import_react6.useState)([]);
@@ -29200,12 +29381,15 @@
     const sendPayload = (0, import_react6.useCallback)(
       (payload, offlineMessage = "WebSocket not connected.") => {
         const socket = socketRef.current;
+        const t = payload?.type ?? "?";
         if (!isSocketOpen(socket)) {
           appendTimeline(offlineMessage, "warn");
+          logError("WS_SEND_OFFLINE", offlineMessage, { type: t });
           return false;
         }
         try {
           socket.send(JSON.stringify(payload));
+          log("WS_SEND", { type: t, keys: Object.keys(payload || {}).slice(0, 10) });
           return true;
         } catch (error) {
           setConnectionStatus("reconnecting");
@@ -29213,6 +29397,7 @@
           if (error instanceof Error && error.message) {
             setLastError(error.message);
           }
+          logError("WS_SEND", "send failed", { type: t, error });
           return false;
         }
       },
@@ -30058,21 +30243,38 @@
           attemptRef.current = 0;
           setConnectionStatus("connected");
           appendTimeline("Connected", "ok");
+          log("WS_OPEN", { url: wsUrl });
         };
         socket.onmessage = (event) => {
           if (cancelled) return;
-          handleBackendMessage(normalizeBackendMessage(event.data));
+          const normalized = normalizeBackendMessage(event.data);
+          const evType = normalized?.type ?? "?";
+          log("WS_RECV", { type: evType, keys: Object.keys(normalized || {}).slice(0, 10) });
+          try {
+            window.__awLastWsFrame__ = normalized;
+            window.__awWsFrames__ = window.__awWsFrames__ || [];
+            window.__awWsFrames__.push({ at: Date.now(), type: evType, payload: normalized });
+            if (window.__awWsFrames__.length > 200) window.__awWsFrames__.shift();
+          } catch (_) {
+          }
+          try {
+            handleBackendMessage(normalized);
+          } catch (exc) {
+            logError("WS_RECV_HANDLER", "handleBackendMessage threw", { type: evType, error: exc });
+          }
         };
         socket.onerror = () => {
           if (cancelled) return;
           setConnectionStatus("reconnecting");
           appendTimeline("WebSocket error", "err");
+          logError("WS_ERROR", "websocket onerror", { url: wsUrl });
         };
-        socket.onclose = () => {
+        socket.onclose = (e) => {
           if (cancelled) return;
           socketRef.current = null;
           setConnectionStatus("reconnecting");
           appendTimeline("Disconnected", "warn");
+          log("WS_CLOSE", { code: e?.code, reason: e?.reason, wasClean: e?.wasClean });
           scheduleReconnect();
         };
       }
@@ -30234,6 +30436,16 @@
   var currentHostNode = null;
   var currentMountNode = null;
   function renderInto(node, config) {
+    try {
+      const wsUrl = config?.wsUrl || config?.ws_url || "";
+      if (wsUrl && typeof window !== "undefined") {
+        const httpUrl = wsUrl.replace(/^ws/i, "http").replace(/\/ws$/, "");
+        window.__awBackendBaseUrl__ = httpUrl;
+      }
+    } catch (_) {
+    }
+    attachGlobalHandlers();
+    log("PANEL", { event: "renderInto" });
     const hostResult = createHost(node);
     const shadowRoot = hostResult ? hostResult.shadowRoot : null;
     const mountNode = shadowRoot ? ensureShadowMount(shadowRoot) : node;

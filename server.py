@@ -1,5 +1,6 @@
 from dotenv import load_dotenv
-load_dotenv(override=True)
+# override=False so shell exports (scripts/launch.sh) win over .env.
+load_dotenv(override=False)
 
 import asyncio
 import os
@@ -227,6 +228,41 @@ async def lifespan(app: FastAPI):  # noqa: ARG001
 app = FastAPI(lifespan=lifespan)
 
 
+from runtime.log import log as _log, log_front as _log_front, log_error as _log_error  # noqa: E402
+from fastapi import Request  # noqa: E402
+from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+
+# Frontend may be served from a separate origin (e.g. the static fixture server
+# on :8000) while it POSTs logs to this backend on :8765. Allow all origins on
+# dev — this server is loopback-only.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+
+@app.post("/api/log")
+async def api_log(request: Request) -> dict[str, bool]:
+    """Frontend log ingest. Frontend POSTs one log entry; backend re-emits to
+    stdout so /tmp/aw-launch.log is the unified trace."""
+    try:
+        body = await request.json()
+    except Exception as exc:  # noqa: BLE001
+        _log_error("LOG_INGEST", "could not parse json", exc=exc)
+        return {"ok": False}
+    if isinstance(body, list):
+        for item in body:
+            _log_front(item if isinstance(item, dict) else {"category": "FRONT", "raw": item})
+    elif isinstance(body, dict):
+        _log_front(body)
+    else:
+        _log_front({"category": "FRONT", "raw": body})
+    return {"ok": True}
+
+
 @app.websocket("/ws")
 async def ws_endpoint(ws: WebSocket) -> None:
     await ws.accept()
@@ -257,12 +293,15 @@ async def ws_endpoint(ws: WebSocket) -> None:
         while True:
             msg = await ws.receive_json()
             msg_type = msg.get("type")
+            print(f"[WS_RECV] type={msg_type}", flush=True)
 
             if msg_type in {"run_steps", "llm_run"}:
                 steps = msg.get("steps") or []
+                print(f"[RUN_STEPS] n={len(steps)}", flush=True)
                 if session.run_task and not session.run_task.done():
                     await ws.send_json({"type": "status", "message": "Run already in progress."})
                     continue
+                print("[AGENT_RUN] starting agent.run task", flush=True)
                 run_task = asyncio.create_task(session.agent.run(steps))
                 session.run_task = run_task
 

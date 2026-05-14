@@ -1079,9 +1079,8 @@ class LLMRuntimeController:
                     return await _maybe_await(response)
             raise ValueError(f"No model client available for purpose {purpose!r}")
 
-        print(
-            f"[MODEL_ROUTER] purpose={purpose} agent={purpose} model={model}"
-        )
+        from runtime.log import log as _log, log_error as _log_error
+        _log("LLM_REQ", subsys="LLM", purpose=purpose, model=model, msgs=len(messages or []), tools=len(tools or []))
 
         chat = getattr(client, "chat", None)
         completions = getattr(chat, "completions", None)
@@ -1089,8 +1088,38 @@ class LLMRuntimeController:
         if not callable(create):
             raise TypeError("model client does not expose chat.completions.create")
 
-        response = create(model=model, messages=messages, tools=tools, tool_choice=tool_choice)
-        return await _maybe_await(response)
+        import time as _time
+        _t0 = _time.time()
+        try:
+            response = create(model=model, messages=messages, tools=tools, tool_choice=tool_choice)
+            response = await _maybe_await(response)
+        except Exception as exc:  # noqa: BLE001
+            _log_error("LLM_ERR", "model call failed", subsys="LLM", purpose=purpose, model=model, exc=exc)
+            raise
+        _ms = int((_time.time() - _t0) * 1000)
+        try:
+            choices = getattr(response, "choices", None) or []
+            first = choices[0] if choices else None
+            msg = getattr(first, "message", None) if first else None
+            tcs = getattr(msg, "tool_calls", None) or []
+            content = getattr(msg, "content", None) or ""
+            usage = getattr(response, "usage", None)
+            in_tok = getattr(usage, "prompt_tokens", None) if usage else None
+            out_tok = getattr(usage, "completion_tokens", None) if usage else None
+            _log(
+                "LLM_RES",
+                subsys="LLM",
+                purpose=purpose,
+                model=model,
+                ms=_ms,
+                tool_calls=len(tcs),
+                content_chars=len(str(content)),
+                in_tok=in_tok,
+                out_tok=out_tok,
+            )
+        except Exception as exc:  # noqa: BLE001
+            _log_error("LLM_RES_PARSE", "could not summarize response", subsys="LLM", purpose=purpose, exc=exc)
+        return response
 
     def _validate_response(
         self,

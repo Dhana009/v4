@@ -10,6 +10,7 @@ import "../aw-ide-panel.jsx";
 
 // Cluster 4 layout modules — thin wiring
 import { createHost, unmountHost, SHADOW_HOST_ID, SHADOW_MOUNT_ID } from "./host/host.jsx";
+import { log as awLog, logError as awLogError, attachGlobalHandlers as awAttachGlobalHandlers } from "./log.js";
 import { getDockMode, applyDock } from "./layout/dock-controller.js";
 import { getPanelMode, applyMode } from "./layout/panel-modes.js";
 import { applyCompensation, removeCompensation } from "./layout/compensation.js";
@@ -22,7 +23,7 @@ import { createDispatcher } from "./commands/dispatcher.js";
 const VALID_TABS = new Set(["workbench", "steps", "code", "debug"]);
 
 const DEFAULT_CONFIG = {
-  state: "planning",
+  state: "idle",
   tab: "workbench",
   panelWidth: 420,
   density: "compact",
@@ -97,18 +98,18 @@ function toPanelState(runState) {
     case "completed":
       return "done";
     default:
-      return "planning";
+      return "idle";
   }
 }
 
 function normalizeConfig(config = {}) {
-  const runState = normalizeRunState(config.runState ?? config.state ?? DEFAULT_CONFIG.state) || "planning";
+  const runState = normalizeRunState(config.runState ?? config.state ?? DEFAULT_CONFIG.state) || "idle";
   const tab = VALID_TABS.has(config.tab) ? config.tab : DEFAULT_CONFIG.tab;
   const panelWidth = Number.isFinite(config.panelWidth) ? config.panelWidth : DEFAULT_CONFIG.panelWidth;
   const density = ["compact", "regular", "comfy"].includes(config.density)
     ? config.density
     : DEFAULT_CONFIG.density;
-  const interactionMode = normalizeInteractionMode(config.interactionMode ?? config.mode ?? config.runState ?? config.state) || "planning";
+  const interactionMode = normalizeInteractionMode(config.interactionMode ?? config.mode ?? config.runState ?? config.state) || "idle";
 
   return {
     ...config,
@@ -1759,7 +1760,14 @@ function useAutoWorkbenchTransport(config) {
   );
 
   const [connectionStatus, setConnectionStatus] = useState("disconnected");
-  const [runState, setRunState] = useState(() => normalizeRunState(config.runState ?? config.state) || "planning");
+  const [runState, setRunStateRaw] = useState(() => normalizeRunState(config.runState ?? config.state) || "idle");
+  const setRunState = useCallback((next) => {
+    setRunStateRaw((prev) => {
+      const nv = typeof next === "function" ? next(prev) : next;
+      if (nv !== prev) awLog("STATE", { field: "runState", from: prev, to: nv });
+      return nv;
+    });
+  }, []);
   const [conversation, setConversation] = useState([]);
   const [timeline, setTimeline] = useState([]);
   const [traceEntries, setTraceEntries] = useState(() => normalizeTraceEntries(config.traceEntries));
@@ -1773,9 +1781,16 @@ function useAutoWorkbenchTransport(config) {
   const [recordedSteps, setRecordedSteps] = useState(() => normalizeRecordedSteps(config.recordedSteps));
   const [lastReplayByStepId, setLastReplayByStepId] = useState({});
   const [codeDiagnostics, setCodeDiagnostics] = useState(() => normalizeCodeDiagnostics(config.codeDiagnostics));
-  const [interactionMode, setInteractionMode] = useState(
-    () => normalizeInteractionMode(config.interactionMode ?? config.mode ?? config.runState ?? config.state) || "planning"
+  const [interactionMode, setInteractionModeRaw] = useState(
+    () => normalizeInteractionMode(config.interactionMode ?? config.mode ?? config.runState ?? config.state) || "idle"
   );
+  const setInteractionMode = useCallback((next) => {
+    setInteractionModeRaw((prev) => {
+      const nv = typeof next === "function" ? next(prev) : next;
+      if (nv !== prev) awLog("STATE", { field: "interactionMode", from: prev, to: nv });
+      return nv;
+    });
+  }, []);
   const [planCorrectionText, setPlanCorrectionText] = useState("");
   const [clarificationQuestion, setClarificationQuestion] = useState("");
   const [clarificationOptions, setClarificationOptions] = useState([]);
@@ -1934,13 +1949,16 @@ function useAutoWorkbenchTransport(config) {
   const sendPayload = useCallback(
     (payload, offlineMessage = "WebSocket not connected.") => {
       const socket = socketRef.current;
+      const t = payload?.type ?? "?";
       if (!isSocketOpen(socket)) {
         appendTimeline(offlineMessage, "warn");
+        awLogError("WS_SEND_OFFLINE", offlineMessage, { type: t });
         return false;
       }
 
       try {
         socket.send(JSON.stringify(payload));
+        awLog("WS_SEND", { type: t, keys: Object.keys(payload || {}).slice(0, 10) });
         return true;
       } catch (error) {
         setConnectionStatus("reconnecting");
@@ -1948,6 +1966,7 @@ function useAutoWorkbenchTransport(config) {
         if (error instanceof Error && error.message) {
           setLastError(error.message);
         }
+        awLogError("WS_SEND", "send failed", { type: t, error });
         return false;
       }
     },
@@ -2885,24 +2904,40 @@ function useAutoWorkbenchTransport(config) {
         attemptRef.current = 0;
         setConnectionStatus("connected");
         appendTimeline("Connected", "ok");
+        awLog("WS_OPEN", { url: wsUrl });
       };
 
       socket.onmessage = (event) => {
         if (cancelled) return;
-        handleBackendMessage(normalizeBackendMessage(event.data));
+        const normalized = normalizeBackendMessage(event.data);
+        const evType = normalized?.type ?? "?";
+        awLog("WS_RECV", { type: evType, keys: Object.keys(normalized || {}).slice(0, 10) });
+        try {
+          window.__awLastWsFrame__ = normalized;
+          window.__awWsFrames__ = window.__awWsFrames__ || [];
+          window.__awWsFrames__.push({ at: Date.now(), type: evType, payload: normalized });
+          if (window.__awWsFrames__.length > 200) window.__awWsFrames__.shift();
+        } catch (_) {}
+        try {
+          handleBackendMessage(normalized);
+        } catch (exc) {
+          awLogError("WS_RECV_HANDLER", "handleBackendMessage threw", { type: evType, error: exc });
+        }
       };
 
       socket.onerror = () => {
         if (cancelled) return;
         setConnectionStatus("reconnecting");
         appendTimeline("WebSocket error", "err");
+        awLogError("WS_ERROR", "websocket onerror", { url: wsUrl });
       };
 
-      socket.onclose = () => {
+      socket.onclose = (e) => {
         if (cancelled) return;
         socketRef.current = null;
         setConnectionStatus("reconnecting");
         appendTimeline("Disconnected", "warn");
+        awLog("WS_CLOSE", { code: e?.code, reason: e?.reason, wasClean: e?.wasClean });
         scheduleReconnect();
       };
     }
@@ -3072,6 +3107,16 @@ let currentHostNode = null;
 let currentMountNode = null;
 
 function renderInto(node, config) {
+  // Derive backend base URL from the wsUrl so frontend log POSTs land at /api/log.
+  try {
+    const wsUrl = config?.wsUrl || config?.ws_url || "";
+    if (wsUrl && typeof window !== "undefined") {
+      const httpUrl = wsUrl.replace(/^ws/i, "http").replace(/\/ws$/, "");
+      window.__awBackendBaseUrl__ = httpUrl;
+    }
+  } catch (_) {}
+  awAttachGlobalHandlers();
+  awLog("PANEL", { event: "renderInto" });
   // Use host module for Shadow DOM lifecycle (S7-0401)
   const hostResult = createHost(node);
   const shadowRoot = hostResult ? hostResult.shadowRoot : null;

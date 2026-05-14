@@ -12,6 +12,7 @@
 //   // code preview         → src/v4/secondary-tabs.jsx · CodeTab
 import React, { useCallback, useMemo, useState } from "react";
 
+import { log as awLog, logError as awLogError } from "./src/log.js";
 import {
   Header,
   TabStrip,
@@ -49,18 +50,46 @@ function normalizeTab(tab) {
 
 const PHASE_META = {
   idle: { kind: "idle", state: "Idle", phase: "Idle", task: "Tell me what to automate or validate.", primaryLabel: null, busy: false },
-  planning: { kind: "run", state: "Analyzing", phase: "Analyzing page", task: "Backend is drafting a plan.", primaryLabel: null, busy: true },
-  awaiting_confirmation: { kind: "decide", state: "Confirm to run", phase: "Plan review", task: "Plan is ready — review before running.", primaryLabel: "Confirm & run", busy: false },
+  planning: { kind: "run", state: "Analyzing", phase: "Planning", task: "Backend is drafting a plan.", primaryLabel: null, busy: true },
+  awaiting_confirmation: { kind: "decide", state: "Confirm to run", phase: "Plan review", task: "Plan is ready — review before running.", primaryLabel: "Confirm Plan", busy: false },
+  plan_review: { kind: "decide", state: "Confirm to run", phase: "Plan review", task: "Plan is ready — review before running.", primaryLabel: "Confirm Plan", busy: false },
   clarification: { kind: "decide", state: "Clarification", phase: "Clarification needed", task: "Answer the question to continue.", primaryLabel: "Jump to question", busy: false },
   executing: { kind: "run", state: "Executing", phase: "Executing", task: "Backend is running steps.", primaryLabel: "Pause", busy: true },
   recovery: { kind: "block", state: "Run blocked", phase: "Recovery needed", task: "Resolve the failure to continue.", primaryLabel: "Apply LLM repair", busy: false, blocker: "needs recovery" },
   completed: { kind: "ok", state: "Completed", phase: "Completed", task: "Run finished.", primaryLabel: "Replay all", busy: false },
 };
 
+// main.jsx::toPanelState emits abbreviated keys ("await", "exec", "recover",
+// "done"). Without these aliases the footer falls back to "idle" forever.
+const PANEL_STATE_ALIAS = {
+  await: "awaiting_confirmation",
+  awaiting: "awaiting_confirmation",
+  exec: "executing",
+  recover: "recovery",
+  done: "completed",
+};
+
+function resolveStateKey(state) {
+  if (!state) return "idle";
+  if (PHASE_META[state]) return state;
+  const alias = PANEL_STATE_ALIAS[state];
+  return alias && PHASE_META[alias] ? alias : "idle";
+}
+
 function phaseMetaFor(state, runtime) {
-  const m = runtime?.storeInteractionMode;
-  if (m && PHASE_META[m]) return PHASE_META[m];
-  return PHASE_META[state] ?? PHASE_META.idle;
+  const candidates = [
+    runtime?.runState,
+    runtime?.interactionMode,
+    runtime?.storeInteractionMode,
+    state,
+  ];
+  for (const cand of candidates) {
+    if (!cand) continue;
+    if (PHASE_META[cand]) return PHASE_META[cand];
+    const resolved = resolveStateKey(cand);
+    if (PHASE_META[resolved] && resolved !== "idle") return PHASE_META[resolved];
+  }
+  return PHASE_META.idle;
 }
 
 function statusForConnection(conn) {
@@ -135,32 +164,51 @@ function safe(fn) {
   return typeof fn === "function" ? fn : () => {};
 }
 
+function loggedDispatcher(name, fn) {
+  const real = safe(fn);
+  return (...args) => {
+    try {
+      const arg0 = args[0];
+      const summary = arg0 && typeof arg0 === "object"
+        ? { keys: Object.keys(arg0).slice(0, 8) }
+        : { arg: typeof arg0 === "string" ? arg0.slice(0, 80) : typeof arg0 };
+      awLog("COMMAND", { name, ...summary });
+    } catch (_) {}
+    try {
+      return real(...args);
+    } catch (exc) {
+      awLogError("COMMAND_THROW", `dispatcher ${name} threw`, { name, error: exc });
+      throw exc;
+    }
+  };
+}
+
 function buildDispatchers(runtime) {
   return {
-    onSendUserMessage: safe(runtime?.onSendUserMessage ?? runtime?.handleSendUserMessage),
-    onAnswerClarification: safe(runtime?.handleSendClarificationAnswer ?? runtime?.onSendClarificationAnswer ?? runtime?.onSendOptionSelected),
-    onAcceptRecommendations: safe(runtime?.onAcceptRecommendations ?? runtime?.handleAcceptRecommendations),
-    onAddRecommendation: safe(runtime?.onAddRecommendation),
-    onApplyPlanDiff: safe(runtime?.onApplyPlanDiff ?? runtime?.handleApplyPlanDiff),
-    onRejectPlanDiff: safe(runtime?.onRejectPlanDiff ?? runtime?.handleRejectPlanDiff),
-    onConfirmPlan: safe(runtime?.handleConfirmPlan ?? runtime?.onConfirmPlan),
-    onSendCorrection: safe(runtime?.handleSendPlanCorrection ?? runtime?.onSendCorrection ?? runtime?.onSendPlanCorrection),
-    onPermissionDecision: safe(runtime?.onPermissionDecision ?? runtime?.handlePermissionDecision),
-    onChooseLocatorCandidate: safe(runtime?.onChooseLocatorCandidate ?? runtime?.handleChooseLocatorCandidate),
-    onAskLocatorLLM: safe(runtime?.onAskLocatorLLM),
-    onChangeLocatorScope: safe(runtime?.onChangeLocatorScope),
-    onApplyRecoveryLLM: safe(runtime?.handleSendRecoveryInstruction ?? runtime?.onApplyRecoveryLLM),
-    onRetryRecovery: safe(runtime?.onRetryRecovery),
-    onChooseLocator: safe(runtime?.onChooseLocator),
-    onPause: safe(runtime?.onPause),
-    onStop: safe(runtime?.onStop ?? runtime?.handleStopRun),
-    onReplayAll: safe(runtime?.handleReplayAllRecordedSteps ?? runtime?.onReplayAllRecordedSteps),
-    onSaveSession: safe(runtime?.handleSaveSnapshot ?? runtime?.onSaveSnapshot),
-    onOpenCode: safe(runtime?.onOpenCode),
-    onDownloadTrace: safe(runtime?.onDownloadTrace),
-    onReconnect: safe(runtime?.onReconnect),
-    onRepairPlan: safe(runtime?.onRepairPlan),
-    onRunSelected: safe(runtime?.handleRunPendingSteps ?? runtime?.onRunSelected),
+    onSendUserMessage: loggedDispatcher("send_user_message", runtime?.onSendUserMessage ?? runtime?.handleSendUserMessage),
+    onAnswerClarification: loggedDispatcher("answer_clarification", runtime?.handleSendClarificationAnswer ?? runtime?.onSendClarificationAnswer ?? runtime?.onSendOptionSelected),
+    onAcceptRecommendations: loggedDispatcher("accept_recommendations", runtime?.onAcceptRecommendations ?? runtime?.handleAcceptRecommendations),
+    onAddRecommendation: loggedDispatcher("add_recommendation", runtime?.onAddRecommendation),
+    onApplyPlanDiff: loggedDispatcher("apply_plan_diff", runtime?.onApplyPlanDiff ?? runtime?.handleApplyPlanDiff),
+    onRejectPlanDiff: loggedDispatcher("reject_plan_diff", runtime?.onRejectPlanDiff ?? runtime?.handleRejectPlanDiff),
+    onConfirmPlan: loggedDispatcher("confirm_plan", runtime?.handleConfirmPlan ?? runtime?.onConfirmPlan),
+    onSendCorrection: loggedDispatcher("send_correction", runtime?.handleSendPlanCorrection ?? runtime?.onSendCorrection ?? runtime?.onSendPlanCorrection),
+    onPermissionDecision: loggedDispatcher("permission_decision", runtime?.onPermissionDecision ?? runtime?.handlePermissionDecision),
+    onChooseLocatorCandidate: loggedDispatcher("choose_locator_candidate", runtime?.onChooseLocatorCandidate ?? runtime?.handleChooseLocatorCandidate),
+    onAskLocatorLLM: loggedDispatcher("ask_locator_llm", runtime?.onAskLocatorLLM),
+    onChangeLocatorScope: loggedDispatcher("change_locator_scope", runtime?.onChangeLocatorScope),
+    onApplyRecoveryLLM: loggedDispatcher("apply_recovery_llm", runtime?.handleSendRecoveryInstruction ?? runtime?.onApplyRecoveryLLM),
+    onRetryRecovery: loggedDispatcher("retry_recovery", runtime?.onRetryRecovery),
+    onChooseLocator: loggedDispatcher("choose_locator", runtime?.onChooseLocator),
+    onPause: loggedDispatcher("pause", runtime?.onPause),
+    onStop: loggedDispatcher("stop_run", runtime?.onStop ?? runtime?.handleStopRun),
+    onReplayAll: loggedDispatcher("replay_all", runtime?.handleReplayAllRecordedSteps ?? runtime?.onReplayAllRecordedSteps),
+    onSaveSession: loggedDispatcher("save_session", runtime?.handleSaveSnapshot ?? runtime?.onSaveSnapshot),
+    onOpenCode: loggedDispatcher("open_code", runtime?.onOpenCode),
+    onDownloadTrace: loggedDispatcher("download_trace", runtime?.onDownloadTrace),
+    onReconnect: loggedDispatcher("reconnect", runtime?.onReconnect),
+    onRepairPlan: loggedDispatcher("repair_plan", runtime?.onRepairPlan),
+    onRunSelected: loggedDispatcher("run_selected", runtime?.handleRunPendingSteps ?? runtime?.onRunSelected),
   };
 }
 
