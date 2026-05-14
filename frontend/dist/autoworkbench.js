@@ -1092,11 +1092,11 @@
             var dispatcher = resolveDispatcher();
             return dispatcher.useReducer(reducer2, initialArg, init);
           }
-          function useRef4(initialValue) {
+          function useRef5(initialValue) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useRef(initialValue);
           }
-          function useEffect3(create, deps) {
+          function useEffect4(create, deps) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useEffect(create, deps);
           }
@@ -1879,14 +1879,14 @@
           exports.useContext = useContext;
           exports.useDebugValue = useDebugValue;
           exports.useDeferredValue = useDeferredValue;
-          exports.useEffect = useEffect3;
+          exports.useEffect = useEffect4;
           exports.useId = useId;
           exports.useImperativeHandle = useImperativeHandle;
           exports.useInsertionEffect = useInsertionEffect;
           exports.useLayoutEffect = useLayoutEffect3;
           exports.useMemo = useMemo4;
           exports.useReducer = useReducer;
-          exports.useRef = useRef4;
+          exports.useRef = useRef5;
           exports.useState = useState6;
           exports.useSyncExternalStore = useSyncExternalStore;
           exports.useTransition = useTransition;
@@ -24864,6 +24864,11 @@
     Search: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "11", cy: "11", r: "7" }),
       /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "m20 20-3.5-3.5" })
+    ] })),
+    // FE-VBATCH-001: theme toggle icon (sun-with-rays / crescent silhouette).
+    Theme: mk2(/* @__PURE__ */ (0, import_jsx_runtime2.jsxs)(import_jsx_runtime2.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("circle", { cx: "12", cy: "12", r: "4" }),
+      /* @__PURE__ */ (0, import_jsx_runtime2.jsx)("path", { d: "M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" })
     ] }))
   };
 
@@ -24928,7 +24933,9 @@
     setAgentsOpen = () => {
     },
     agentsSummary = [],
-    pageUrl = ""
+    pageUrl = "",
+    theme = "light",
+    setTheme
   }) {
     const [dockMenu, setDockMenu] = (0, import_react2.useState)(false);
     const dockTriggerRef = (0, import_react2.useRef)(null);
@@ -25128,6 +25135,19 @@
           children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(I.Min, {})
         }
       ),
+      typeof setTheme === "function" ? /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
+        "button",
+        {
+          type: "button",
+          className: "aw-icon-btn",
+          "data-testid": "aw-theme-toggle",
+          "data-theme": theme,
+          onClick: () => setTheme(theme === "dark" ? "light" : "dark"),
+          title: theme === "dark" ? "Switch to light theme" : "Switch to dark theme",
+          "aria-label": "Toggle theme",
+          children: /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(I.Theme, {})
+        }
+      ) : null,
       /* @__PURE__ */ (0, import_jsx_runtime3.jsx)(
         "button",
         {
@@ -28614,6 +28634,32 @@
     );
     const [agentsOpen, setAgentsOpen] = (0, import_react5.useState)(false);
     const [selectedStepIds, setSelectedStepIds] = (0, import_react5.useState)([]);
+    const [theme, setThemeState] = (0, import_react5.useState)(() => {
+      try {
+        const stored = typeof localStorage !== "undefined" ? localStorage.getItem("aw-theme") : null;
+        if (stored === "dark" || stored === "light") return stored;
+      } catch (_) {
+      }
+      return "light";
+    });
+    const setTheme = (0, import_react5.useCallback)((next) => {
+      if (next !== "dark" && next !== "light") return;
+      setThemeState(next);
+      try {
+        localStorage.setItem("aw-theme", next);
+      } catch (_) {
+      }
+    }, []);
+    const panelRef = (0, import_react5.useRef)(null);
+    (0, import_react5.useEffect)(() => {
+      const node = panelRef.current;
+      if (!node) return;
+      const rootNode = node.getRootNode && node.getRootNode();
+      const hostEl = rootNode && typeof rootNode === "object" && "host" in rootNode ? rootNode.host : null;
+      if (hostEl && hostEl.setAttribute) hostEl.setAttribute("data-theme", theme);
+      const marker = rootNode && rootNode.getElementById ? rootNode.getElementById("aw-shadow-host") : null;
+      if (marker) marker.setAttribute("data-theme", theme);
+    }, [theme]);
     const activeTab = normalizeTab(tab);
     const setTab = (0, import_react5.useCallback)(
       (next) => {
@@ -28779,6 +28825,7 @@
     return /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
       "div",
       {
+        ref: panelRef,
         "data-testid": "aw-stage",
         "data-dock": dock,
         "data-state": state,
@@ -28817,7 +28864,9 @@
                     agentsOpen,
                     setAgentsOpen,
                     agentsSummary,
-                    pageUrl: runtime.pageUrl ?? ""
+                    pageUrl: runtime.pageUrl ?? "",
+                    theme,
+                    setTheme
                   }
                 ),
                 /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(TabStrip, { tab: activeTab, setTab, counts }),
@@ -29406,6 +29455,215 @@
       setTab("llm");
     }, [plan, phase, currentTab, setTab]);
   }
+
+  // src/demo/demo-fixtures.js
+  var DEMO_AGENTS = [
+    {
+      key: "orch",
+      name: "Main Orchestrator",
+      initials: "MO",
+      model: "gpt-4-class \xB7 200k ctx",
+      status: "active",
+      last: "Drafted plan v2 \xB7 6 steps",
+      required: true
+    },
+    {
+      key: "pi",
+      name: "Page Intelligence",
+      initials: "PI",
+      model: "claude-haiku-class \xB7 DOM tool",
+      status: "standby",
+      last: "Cached acme.dev/pricing \xB7 18 sections \xB7 14s ago"
+    },
+    {
+      key: "sr",
+      name: "Step Runner",
+      initials: "SR",
+      model: "internal \xB7 Playwright runtime",
+      status: "standby",
+      last: "Idle \xB7 awaiting plan confirmation",
+      required: true
+    },
+    {
+      key: "dbg",
+      name: "Debug Agent",
+      initials: "DA",
+      model: "gpt-4-class \xB7 trace-aware",
+      status: "standby",
+      last: "Auto-activates on any step failure"
+    },
+    {
+      key: "cg",
+      name: "Codegen Reviewer",
+      initials: "CR",
+      model: "gpt-4-class \xB7 style + locator linter",
+      status: "standby",
+      last: "Runs after each recorded step"
+    },
+    {
+      key: "judge",
+      name: "Risk Judge (opt-in)",
+      initials: "RJ",
+      model: "claude-class \xB7 policy-grader",
+      status: "disabled",
+      last: "Off \xB7 enable to grade high-risk operations before execution"
+    }
+  ];
+  var DEMO_PLAN = {
+    plan_id: "plan_v2",
+    version: 2,
+    summary: "Validate the acme.dev/pricing page \u2014 6 steps, one fragile copy assertion.",
+    steps: [
+      {
+        step_id: "stp_a1f3",
+        order: 1,
+        kind: "navigate",
+        intent: "Go to acme.dev/pricing",
+        locator_kind: "strong",
+        locator: "page.goto('https://acme.dev/pricing')"
+      },
+      {
+        step_id: "stp_b2c9",
+        order: 2,
+        kind: "assert",
+        intent: "Hero heading visible",
+        locator_kind: "strong",
+        locator: "page.getByRole('heading', { level: 1 })"
+      },
+      {
+        step_id: "stp_c4d7",
+        order: 3,
+        kind: "assert",
+        intent: "Three pricing plan cards visible",
+        locator_kind: "strong",
+        locator: "page.locator('.ws-plan')"
+      },
+      {
+        step_id: "stp_d8e2",
+        order: 4,
+        kind: "assert",
+        intent: "Pro card marked 'Most popular'",
+        locator_kind: "ambiguous",
+        locator: "page.getByText('Most popular')"
+      },
+      {
+        step_id: "stp_e1f4",
+        order: 5,
+        kind: "assert",
+        intent: "Pro plan price contains $49",
+        locator_kind: "weak",
+        weak_locator: true,
+        locator: "page.locator('.ws-plan.pro .price')"
+      },
+      {
+        step_id: "stp_f7a3",
+        order: 6,
+        kind: "assert",
+        intent: "Footer status link recorded",
+        locator_kind: "strong",
+        locator: "page.getByRole('link', { name: 'Status' })"
+      }
+    ]
+  };
+  var DEMO_RECORDED_STEPS = [
+    {
+      step_id: "rec_a1f3",
+      title: "Verify hero heading visible",
+      status: "passed",
+      duration_ms: 412,
+      expected_outcome: "heading 'Plans that scale with your QA team' visible",
+      observed_outcome: "heading visible",
+      locator: "page.getByRole('heading', { level: 1 })"
+    },
+    {
+      step_id: "rec_b2c9",
+      title: "Verify three pricing cards",
+      status: "passed",
+      duration_ms: 138,
+      expected_outcome: "count == 3",
+      observed_outcome: "count == 3",
+      locator: "page.locator('.ws-plan')"
+    },
+    {
+      step_id: "rec_e1f4",
+      title: "Verify Pro plan price",
+      status: "repaired",
+      duration_ms: 220,
+      expected_outcome: "Pro card price matches",
+      observed_outcome: "Pro card price matches (repaired: toContainText('$49'))",
+      repaired_from: "expect(locator).toHaveText('$49 / mo')",
+      repaired_to: "expect(locator).toContainText('$49')",
+      locator: "page.locator('.ws-plan.pro .price')"
+    },
+    {
+      step_id: "rec_f7a3",
+      title: "Verify footer status link",
+      status: "passed",
+      duration_ms: 89,
+      expected_outcome: "link 'Status' visible",
+      observed_outcome: "link visible",
+      locator: "page.getByRole('link', { name: 'Status' })"
+    }
+  ];
+  var DEMO_CODE_PREVIEW = `// tests/pricing.spec.ts \u2014 generated by AutoWorkbench
+import { test, expect } from '@playwright/test';
+
+test('pricing page \xB7 sanity', async ({ page }) => {
+  await page.goto('https://acme.dev/pricing');                    // rec_a1f3
+  await expect(page.getByRole('heading', { level: 1 }))
+    .toContainText('Plans that scale');                           // rec_a1f3
+  const cards = page.locator('.ws-plan');
+  await expect(cards).toHaveCount(3);                             // rec_b2c9
+  await expect(page.getByText('Most popular')).toBeVisible();     // rec_c4d7
+  await expect(page.locator('.ws-plan.pro .price'))
+    .toContainText('$49');                                        // rec_e1f4 (repaired)
+  await expect(page.getByRole('link', { name: 'Status' }))
+    .toBeVisible();                                               // rec_f7a3
+});
+`;
+  var DEMO_TRACE_ENTRIES = [
+    { id: "evt_001", at: "10:24:05", kind: "session", label: "Session started" },
+    { id: "evt_002", at: "10:24:06", kind: "step", label: "page.attach acme.dev/pricing" },
+    { id: "evt_003", at: "10:24:07", kind: "llm", label: "llm.request \xB7 classify intent" },
+    { id: "evt_004", at: "10:24:08", kind: "llm", label: "llm.response \xB7 plan draft v1" },
+    { id: "evt_005", at: "10:24:09", kind: "step", label: "plan.proposed v1 \u2014 6 steps" },
+    { id: "evt_006", at: "10:24:14", kind: "step", label: "plan.revised v2 \u2014 copy assertion noted fragile" },
+    { id: "evt_007", at: "10:24:15", kind: "step", label: "plan.confirmed v2" },
+    { id: "evt_008", at: "10:24:16", kind: "permission", label: "permission.req \xB7 navigate" },
+    { id: "evt_009", at: "10:24:16", kind: "permission", label: "permission.allow \xB7 navigate" },
+    { id: "evt_010", at: "10:24:17", kind: "step", label: "step.start stp_a1f3 \xB7 navigate" },
+    { id: "evt_011", at: "10:24:17", kind: "step", label: "locator.resolved stp_a1f3" },
+    { id: "evt_012", at: "10:24:17", kind: "step", label: "step.recorded rec_a1f3 (412ms)" },
+    { id: "evt_013", at: "10:24:18", kind: "step", label: "step.start stp_b2c9 \xB7 assert heading" },
+    { id: "evt_014", at: "10:24:18", kind: "step", label: "step.recorded rec_b2c9 (138ms)" },
+    { id: "evt_015", at: "10:24:19", kind: "step", label: "step.start stp_e1f4 \xB7 assert price" },
+    { id: "evt_016", at: "10:24:19", kind: "error", label: "step.failed stp_e1f4 \xB7 text mismatch" },
+    { id: "evt_017", at: "10:24:20", kind: "llm", label: "llm.request \xB7 propose repair" },
+    { id: "evt_018", at: "10:24:21", kind: "step", label: "repair.applied toContainText('$49')" },
+    { id: "evt_019", at: "10:24:21", kind: "step", label: "step.recorded rec_e1f4 (repaired, 220ms)" },
+    { id: "evt_020", at: "10:24:22", kind: "step", label: "step.start stp_f7a3 \xB7 footer status" },
+    { id: "evt_021", at: "10:24:22", kind: "step", label: "step.recorded rec_f7a3 (89ms)" },
+    { id: "evt_022", at: "10:24:23", kind: "code", label: "code_update tests/pricing.spec.ts" },
+    { id: "evt_023", at: "10:24:23", kind: "step", label: "run.completed 6/6 (1 repaired)" },
+    { id: "evt_024", at: "10:24:23", kind: "code", label: "codegen.reviewed +47 lines \xB7 1 fragile" },
+    { id: "evt_025", at: "10:24:24", kind: "session", label: "session.idle \xB7 awaiting next" }
+  ];
+  var DEMO_TOKEN_INFO = { tokens: 8400, cost: 0.12 };
+  var DEMO_PAGE_URL = "acme.dev/pricing";
+  var DEMO_RUN_STATE = "plan_review";
+  var DEMO_INTERACTION_MODE = "llm";
+  var DEMO_FIXTURES = {
+    agents: DEMO_AGENTS,
+    plan: DEMO_PLAN,
+    recordedSteps: DEMO_RECORDED_STEPS,
+    pendingSteps: [],
+    codePreview: DEMO_CODE_PREVIEW,
+    traceEntries: DEMO_TRACE_ENTRIES,
+    tokenInfo: DEMO_TOKEN_INFO,
+    pageUrl: DEMO_PAGE_URL,
+    runState: DEMO_RUN_STATE,
+    interactionMode: DEMO_INTERACTION_MODE
+  };
 
   // src/main.jsx
   var import_jsx_runtime7 = __toESM(require_jsx_runtime());
@@ -31969,6 +32227,12 @@
         setConnectionStatus("reconnecting");
         retryRef.current = window.setTimeout(connect, delay);
       };
+      if (config?.demo === true) {
+        setConnectionStatus("connected");
+        appendTimeline("Demo mode \u2014 backend disabled", "ok");
+        return () => {
+        };
+      }
       function connect() {
         if (cancelled || !mountedRef.current) return;
         clearRetry();
@@ -32249,6 +32513,17 @@
   function useFrontendEventStore(config) {
     const [storeState, storeDispatch] = import_react7.default.useReducer(reducer, null, createInitialState);
     const transport = useAutoWorkbenchTransport(config);
+    if (config?.demo === true) {
+      const seededAgents = Array.isArray(config?.agents) && (!storeState.agents || storeState.agents.length === 0) ? config.agents : storeState.agents;
+      return {
+        ...transport,
+        storeState: { ...storeState, agents: seededAgents },
+        storeDispatch,
+        // Header-only passthroughs so demo mode shows token + page URL.
+        tokenInfo: config.tokenInfo ?? transport.tokenInfo,
+        pageUrl: config.pageUrl ?? transport.pageUrl
+      };
+    }
     return { ...transport, storeState, storeDispatch };
   }
   var currentRoot = null;
@@ -32285,15 +32560,19 @@
     currentRoot.render(/* @__PURE__ */ (0, import_jsx_runtime7.jsx)(AutoWorkbenchRuntime, { config }));
   }
   function mount(root, config = {}) {
+    let activeConfig = config;
+    if (config?.demo === true) {
+      activeConfig = { ...DEMO_FIXTURES, ...config };
+    }
     const node = resolveMountNode(root);
     const dockMode = getDockMode();
     const panelMode = getPanelMode();
     applyDock(node, dockMode);
     applyMode(node, panelMode);
     const storedSize = getStoredSize();
-    const panelWidth = storedSize?.width ?? config.panelWidth ?? 460;
+    const panelWidth = storedSize?.width ?? activeConfig.panelWidth ?? 460;
     applyCompensation(dockMode, { width: panelWidth });
-    renderInto(node, config);
+    renderInto(node, activeConfig);
     return node;
   }
   function unmount() {

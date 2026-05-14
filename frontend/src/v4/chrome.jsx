@@ -78,6 +78,8 @@ export function Header({
   setAgentsOpen = () => {},
   agentsSummary = [],
   pageUrl = "",
+  theme = "light",
+  setTheme,
 }) {
   const [dockMenu, setDockMenu] = useState(false);
   const dockTriggerRef = useRef(null);
@@ -250,6 +252,19 @@ export function Header({
         >
           <I.Min />
         </button>
+        {typeof setTheme === "function" ? (
+          <button
+            type="button"
+            className="aw-icon-btn"
+            data-testid="aw-theme-toggle"
+            data-theme={theme}
+            onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+            title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+            aria-label="Toggle theme"
+          >
+            <I.Theme />
+          </button>
+        ) : null}
         <button
           type="button"
           className="aw-icon-btn"

@@ -1,3 +1,10 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>AutoWorkbench — Preview (demo mode)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<style id="autoworkbench-style">
 /* styles.css */
 :root {
   --aw-accent: #3b82f6;
@@ -5011,3 +5018,58 @@ a:focus-visible,
   background: #321E1B;
   color: #DE7E70;
 }
+
+</style>
+<style>
+  html, body {
+    margin: 0; padding: 0;
+    background: #E9E3D2;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    height: 100vh;
+  }
+  .demo-host {
+    position: fixed;
+    top: 0; right: 0; bottom: 0;
+    width: 520px;
+    box-shadow: -8px 0 24px rgba(20, 18, 12, 0.12);
+  }
+  .demo-page {
+    position: fixed;
+    top: 0; left: 0; right: 520px; bottom: 0;
+    background: #FAF5EB;
+    padding: 60px 40px;
+    overflow: auto;
+  }
+  .demo-page h1 {
+    font-family: ui-sans-serif, -apple-system, BlinkMacSystemFont, sans-serif;
+    font-size: 38px; line-height: 1.1; margin: 0 0 16px;
+    color: #1A1C16;
+  }
+  .demo-page h1 .accent { color: #D87740; }
+  .demo-page p { color: #66695C; max-width: 60ch; line-height: 1.5; }
+  .demo-banner {
+    position: fixed;
+    top: 12px; left: 12px;
+    background: #FBEBD5; color: #B85A2A;
+    border: 1px solid #ECC79A; border-radius: 999px;
+    padding: 6px 12px; font-size: 12px; font-weight: 600;
+    box-shadow: 0 1px 4px rgba(20,18,12,0.08);
+    z-index: 10001;
+  }
+</style>
+</head>
+<body>
+<div class="demo-banner">PREVIEW · demo mode · no backend</div>
+<main class="demo-page">
+  <h1>Plans that scale with your <span class="accent">QA team</span>, not your headcount</h1>
+  <p>Sample page behind the panel. Demo mode renders the AutoWorkbench panel with
+  fixture data derived from <code>yui (1)/</code> ROOT + <code>AutoWorkbench.html</code>.
+  Live runtime (<code>python -m uvicorn server:app</code>) does not use this entry.</p>
+</main>
+<div class="demo-host" id="demo-host"></div>
+<script src="autoworkbench.js"></script>
+<script>
+  window.AutoWorkbench.mount(document.getElementById('demo-host'), { demo: true, panelWidth: 520 });
+</script>
+</body>
+</html>

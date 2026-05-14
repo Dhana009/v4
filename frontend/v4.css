@@ -202,22 +202,25 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
 
 .aw-resize {
   position: absolute;
-  top: 0; bottom: 0; left: -3px;
-  width: 6px;
+  top: 0; bottom: 0; left: -4px;
+  width: 8px;
   cursor: col-resize;
   z-index: 5;
 }
-.dock-left .aw-resize { left: auto; right: -3px; }
+.dock-left .aw-resize { left: auto; right: -4px; }
 .dock-top  .aw-resize { display: none; }
 .aw-resize::before {
   content: "";
   position: absolute; left: 50%; top: 50%;
   transform: translate(-50%,-50%);
-  width: 2px; height: 36px; border-radius: 2px;
-  background: var(--br-strong); opacity: 0;
-  transition: opacity .15s;
+  width: 3px; height: 44px; border-radius: 2px;
+  background: var(--br-strong); opacity: 0.55;
+  transition: opacity .15s, height .15s;
 }
-.aw-resize:hover::before { opacity: 1; }
+.aw-resize:hover::before, .aw-resize:active::before {
+  opacity: 1;
+  height: 64px;
+}
 
 /* ============================================================
    Panel chrome — header, tabs, footer
@@ -1026,19 +1029,50 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   border-bottom: 1px solid var(--br-soft);
   background: var(--bg-panel);
   position: sticky; top: 0; z-index: 2;
+  /* L1a: allow wrap so tight 480px dock-right does not clip Filter input. */
+  flex-wrap: wrap;
 }
-.aw-list-toolbar .aw-spacer { flex: 1; }
+.aw-list-toolbar .aw-spacer { flex: 1 1 0; min-width: 0; }
+.aw-list-toolbar .aw-btn { white-space: nowrap; flex: 0 0 auto; }
 .aw-search {
   display: flex; align-items: center; gap: 6px;
   padding: 4px 8px; border-radius: 7px;
   border: 1px solid var(--br);
   background: var(--bg-card);
   font-size: 12px;
+  /* L1a: allow shrink + ellipsis instead of hard 130px input width. */
+  flex: 1 1 140px;
+  min-width: 120px;
 }
-.aw-search input { border: 0; outline: 0; background: transparent; font: inherit; width: 130px; }
+.aw-search input {
+  border: 0; outline: 0; background: transparent; font: inherit;
+  width: 100%; min-width: 0;
+}
 .aw-step-row {
   display: flex; gap: 10px; padding: 12px 14px;
   border-bottom: 1px solid var(--br-soft);
+  /* L1a: keep idx + main + actions on one row even when title is long.
+     `min-width: 0` allows the title flex child to wrap instead of pushing
+     the DRAFT pill and step-id off the panel edge. */
+  align-items: flex-start;
+}
+.aw-step-row > * { min-width: 0; }
+.aw-step-row .aw-step-main { flex: 1 1 auto; min-width: 0; }
+.aw-step-row .aw-step-title {
+  display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.aw-step-row .aw-step-title .id {
+  font-family: var(--ff-mono);
+  font-size: 10.5px;
+  color: var(--tx-3);
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
 }
 .aw-step-row:hover { background: var(--bg-soft); }
 .aw-step-handle {
@@ -1188,8 +1222,17 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   border-bottom: 1px solid var(--br-soft);
   font-size: 11.5px; color: var(--tx-2);
   align-items: center;
+  /* L1a: allow Run-Pending + Run-selected to wrap below the info text
+     instead of squeezing the text into a 6-line column. */
+  flex-wrap: wrap;
 }
 .aw-info-strip svg { width: 14px; height: 14px; flex: 0 0 14px; }
+.aw-info-strip > span:not(.aw-spacer) {
+  flex: 1 1 180px;
+  min-width: 0;
+  line-height: 1.4;
+}
+.aw-info-strip .aw-btn { white-space: nowrap; flex: 0 0 auto; }
 
 /* Decorative: a thin progress bar */
 .aw-prog {
@@ -1672,4 +1715,83 @@ button:focus-visible, a:focus-visible, [tabindex]:focus-visible {
   color: var(--tx-3);
   font-size: 10px;
   font-weight: 500;
+}
+
+/* ============================================================
+   FE-VBATCH-001 L1b — Dark theme tokens.
+   Applied when the shadow host carries data-theme="dark". Tokens
+   only — every component already reads them through var(--*).
+   The sample website behind the panel stays light: tokens apply
+   on the panel host scope, not on the host page body.
+   ============================================================ */
+:host([data-theme="dark"]),
+#aw-shadow-host[data-theme="dark"] {
+  --bg-page:     #14160F;
+  --bg-website:  #FAF5EB;
+  --bg-panel:    #1B1E18;
+  --bg-tab:      #20231D;
+  --bg-card:     #262A23;
+  --bg-soft:     #1F2219;
+  --bg-codeline: #1A1D17;
+  --bg-inset:    #2B2F26;
+
+  --br:        #34382E;
+  --br-strong: #4A4F42;
+  --br-soft:   #2A2E25;
+  --br-card:   #353A2F;
+  --br-edge:   #0E100A;
+
+  --tx:    #ECEAE0;
+  --tx-2:  #B7B6A8;
+  --tx-3:  #84857A;
+  --tx-4:  #595A50;
+
+  --acc:      #E08754;
+  --acc-2:    #C46D3A;
+  --acc-soft: #45302A;
+  --acc-tint: #2E251F;
+  --acc-edge: #5C3F2D;
+
+  --blu:      #84A8DC;
+  --blu-soft: #1F2A38;
+  --blu-tint: #1A2230;
+  --blu-edge: #2A3A4F;
+
+  --grn:      #82B68A;
+  --grn-soft: #1F2D22;
+  --grn-edge: #2F4035;
+
+  --ylw:      #DDB456;
+  --ylw-soft: #2B2517;
+  --ylw-edge: #4A3F22;
+
+  --red:      #DE7E70;
+  --red-soft: #321E1B;
+  --red-edge: #4C2A24;
+
+  --vio:      #B698D6;
+  --vio-soft: #251E33;
+  --vio-edge: #392D4B;
+
+  --neu-soft: #232720;
+  --neu-edge: #3A3E33;
+
+  color: var(--tx);
+}
+
+:host([data-theme="dark"]) .aw-msg-user,
+#aw-shadow-host[data-theme="dark"] .aw-msg-user {
+  background: #2A2F25; border-color: #383D31; color: var(--tx);
+}
+:host([data-theme="dark"]) .aw-btn.primary,
+#aw-shadow-host[data-theme="dark"] .aw-btn.primary {
+  color: #1A1C16;
+}
+:host([data-theme="dark"]) .aw-diff-row.add,
+#aw-shadow-host[data-theme="dark"] .aw-diff-row.add {
+  background: #1F2D22; color: #82B68A;
+}
+:host([data-theme="dark"]) .aw-diff-row.rem,
+#aw-shadow-host[data-theme="dark"] .aw-diff-row.rem {
+  background: #321E1B; color: #DE7E70;
 }

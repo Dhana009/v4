@@ -10,7 +10,7 @@
 //   // recovery needed      → src/v4/llm-cards.jsx · CardRecovery
 //   // recorded steps       → src/v4/secondary-tabs.jsx · RecordedTab
 //   // code preview         → src/v4/secondary-tabs.jsx · CodeTab
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { log as awLog, logError as awLogError } from "./src/log.js";
 import {
@@ -267,6 +267,46 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange, dock: dockProp, onDoc
   const [agentsOpen, setAgentsOpen] = useState(false);
   const [selectedStepIds, setSelectedStepIds] = useState([]);
 
+  // FE-VBATCH-001 Story 2: panel-local theme state. Persisted to localStorage
+  // and applied as data-theme on the shadow host marker so the dark token
+  // block in v4.css flips inside the shadow root without touching the host
+  // page's own theme.
+  const [theme, setThemeState] = useState(() => {
+    try {
+      const stored = typeof localStorage !== "undefined" ? localStorage.getItem("aw-theme") : null;
+      if (stored === "dark" || stored === "light") return stored;
+    } catch (_) {
+      // ignore localStorage errors (private mode, disabled storage)
+    }
+    return "light";
+  });
+  const setTheme = useCallback((next) => {
+    if (next !== "dark" && next !== "light") return;
+    setThemeState(next);
+    try {
+      localStorage.setItem("aw-theme", next);
+    } catch (_) {}
+  }, []);
+  // Apply data-theme to the actual shadow HOST element so the
+  // `:host([data-theme="dark"])` block in v4.css matches and the dark
+  // token overrides cascade INTO the shadow tree. Also mirror onto the
+  // `#aw-shadow-host` marker so the legacy descendant selector still
+  // works. Works for backend-injected #autoworkbench-root AND the
+  // standalone preview entry that mounts into #demo-host.
+  const panelRef = useRef(null);
+  useEffect(() => {
+    const node = panelRef.current;
+    if (!node) return;
+    const rootNode = node.getRootNode && node.getRootNode();
+    // rootNode is the ShadowRoot when mounted inside a shadow tree.
+    const hostEl =
+      rootNode && typeof rootNode === "object" && "host" in rootNode ? rootNode.host : null;
+    if (hostEl && hostEl.setAttribute) hostEl.setAttribute("data-theme", theme);
+    const marker =
+      rootNode && rootNode.getElementById ? rootNode.getElementById("aw-shadow-host") : null;
+    if (marker) marker.setAttribute("data-theme", theme);
+  }, [theme]);
+
   const activeTab = normalizeTab(tab);
   const setTab = useCallback(
     (next) => {
@@ -466,7 +506,7 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange, dock: dockProp, onDoc
   // page behind the panel. The dock/collapse state is exposed on the panel
   // element via data-* hooks for CSS variants.
   return (
-    <div data-testid="aw-stage" data-dock={dock} data-state={state} data-tab={activeTab}
+    <div ref={panelRef} data-testid="aw-stage" data-dock={dock} data-state={state} data-tab={activeTab}
          style={{ width: "100%", height: "100%" }}>
       <aside
         className={`aw-panel ide-panel dock-${dock}${collapsed ? " collapsed" : ""}`}
@@ -496,6 +536,8 @@ function IDEPanel({ state, tab, runtime = {}, onTabChange, dock: dockProp, onDoc
               setAgentsOpen={setAgentsOpen}
               agentsSummary={agentsSummary}
               pageUrl={runtime.pageUrl ?? ""}
+              theme={theme}
+              setTheme={setTheme}
             />
             <TabStrip tab={activeTab} setTab={setTab} counts={counts} />
             {showNow ? (

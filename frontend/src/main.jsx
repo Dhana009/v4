@@ -21,6 +21,11 @@ import { reducer, createInitialState } from "./store/reducer.js";
 import { createDispatcher } from "./commands/dispatcher.js";
 import { usePlanReadyAutoTab } from "./panel-hooks/use-plan-ready-auto-tab.js";
 
+// FE-VBATCH-001 Story 3 — isolated demo fixtures. Only merged into the
+// runtime config when `config.demo === true` at mount time. Live mode never
+// touches this import path.
+import { DEMO_FIXTURES } from "./demo/demo-fixtures.js";
+
 const VALID_TABS = new Set(["workbench", "llm", "steps", "code", "debug"]);
 
 const DEFAULT_CONFIG = {
@@ -3044,6 +3049,15 @@ function useAutoWorkbenchTransport(config) {
       retryRef.current = window.setTimeout(connect, delay);
     };
 
+    // FE-VBATCH-001 demo-mode gate: skip the WebSocket connect entirely and
+    // report "connected" so the chrome shows the standard pill. Demo state
+    // is seeded via the useState initializers + the storeState seed below.
+    if (config?.demo === true) {
+      setConnectionStatus("connected");
+      appendTimeline("Demo mode — backend disabled", "ok");
+      return () => {};
+    }
+
     function connect() {
       if (cancelled || !mountedRef.current) return;
       clearRetry();
@@ -3360,6 +3374,24 @@ function AutoWorkbenchRuntime({ config }) {
 function useFrontendEventStore(config) {
   const [storeState, storeDispatch] = React.useReducer(reducer, null, createInitialState);
   const transport = useAutoWorkbenchTransport(config);
+  // FE-VBATCH-001 demo-mode storeState seed: when the caller passed an
+  // explicit demo flag, surface the fixture agents through the same
+  // storeState.agents lookup that aw-ide-panel.jsx already reads. Live
+  // mode hits this branch only after a real `agent_settings` event lands.
+  if (config?.demo === true) {
+    const seededAgents =
+      Array.isArray(config?.agents) && (!storeState.agents || storeState.agents.length === 0)
+        ? config.agents
+        : storeState.agents;
+    return {
+      ...transport,
+      storeState: { ...storeState, agents: seededAgents },
+      storeDispatch,
+      // Header-only passthroughs so demo mode shows token + page URL.
+      tokenInfo: config.tokenInfo ?? transport.tokenInfo,
+      pageUrl: config.pageUrl ?? transport.pageUrl,
+    };
+  }
   return { ...transport, storeState, storeDispatch };
 }
 
@@ -3404,6 +3436,15 @@ function renderInto(node, config) {
 }
 
 function mount(root, config = {}) {
+  // FE-VBATCH-001 Story 3 — demo-mode gate. ONLY when the caller explicitly
+  // sets `config.demo === true` do we merge the isolated fixture payload
+  // into the runtime config. Live callers (backend-injected and bookmarklet)
+  // never set this flag, so DEMO_FIXTURES cannot leak into live rendering.
+  let activeConfig = config;
+  if (config?.demo === true) {
+    activeConfig = { ...DEMO_FIXTURES, ...config };
+  }
+
   const node = resolveMountNode(root);
 
   // Wire layout modules — S7-0402, S7-0403, S7-0405
@@ -3412,10 +3453,10 @@ function mount(root, config = {}) {
   applyDock(node, dockMode);
   applyMode(node, panelMode);
   const storedSize = getStoredSize();
-  const panelWidth = storedSize?.width ?? config.panelWidth ?? 460;
+  const panelWidth = storedSize?.width ?? activeConfig.panelWidth ?? 460;
   applyCompensation(dockMode, { width: panelWidth });
 
-  renderInto(node, config);
+  renderInto(node, activeConfig);
   return node;
 }
 

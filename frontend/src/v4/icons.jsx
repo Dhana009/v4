@@ -58,6 +58,8 @@ export const I = {
   Doc: mk(<><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6M8 13h8M8 17h6"/></>),
   Globe: mk(<><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"/></>),
   Search: mk(<><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></>),
+  // FE-VBATCH-001: theme toggle icon (sun-with-rays / crescent silhouette).
+  Theme: mk(<><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></>),
 };
 
 export default I;
