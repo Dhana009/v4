@@ -30186,7 +30186,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
   ];
   var DEFAULT_TWEAKS = {
     dock: "right",
-    panelWidth: 520,
+    panelWidth: 600,
     collapsed: false,
     showWebsite: true,
     tab: "llm",
@@ -33288,12 +33288,6 @@ test('pricing page \xB7 sanity', async ({ page }) => {
   }
   function PreviewShell({ container }) {
     const [tweaks, setTweaks] = import_react9.default.useState(DEFAULT_TWEAKS);
-    import_react9.default.useEffect(() => {
-      try {
-        window.postMessage({ type: "__activate_edit_mode" }, "*");
-      } catch (_) {
-      }
-    }, []);
     const panelHostRef = import_react9.default.useRef(null);
     import_react9.default.useEffect(() => {
       if (!panelHostRef.current) return;

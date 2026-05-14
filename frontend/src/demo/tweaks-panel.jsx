@@ -110,7 +110,7 @@ const SECTIONS = [
 
 export const DEFAULT_TWEAKS = {
   dock: "right",
-  panelWidth: 520,
+  panelWidth: 600,
   collapsed: false,
   showWebsite: true,
   tab: "llm",

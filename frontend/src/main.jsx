@@ -3501,11 +3501,9 @@ function unmount() {
 // reaches the backend (live mode doesn't even import these modules).
 function PreviewShell({ container }) {
   const [tweaks, setTweaks] = React.useState(DEFAULT_TWEAKS);
-  React.useEffect(() => {
-    // Activate the tweaks panel by default on the preview entry so users
-    // can see the full reference experience without having to open it.
-    try { window.postMessage({ type: "__activate_edit_mode" }, "*"); } catch (_) {}
-  }, []);
+  // FE-VBATCH-002 fix — do NOT auto-open the Tweaks side panel; it covers
+  // the locator-ambiguity card and confuses the first impression. The
+  // user can open it via the header Settings cog (postMessage path).
   const panelHostRef = React.useRef(null);
   React.useEffect(() => {
     if (!panelHostRef.current) return;

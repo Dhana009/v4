@@ -5031,6 +5031,8 @@ a:focus-visible,
     background: var(--bg-page, #E9E3D2);
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
     height: 100vh;
+    /* Keep body from scrolling underneath the fixed panel; the website
+       pane manages its own vertical scroll. */
     overflow: hidden;
   }
   .demo-banner {
