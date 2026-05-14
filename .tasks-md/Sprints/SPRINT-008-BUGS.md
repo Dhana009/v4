@@ -376,3 +376,12 @@ Code tab renders raw `code_update` string; design tokenizes with classes
 `com / kw / var / pun / fn / str / num` per `yui (1)/v4/secondary-tabs.jsx:300-327`.
 Sprint 8: add a minimal client-side TS tokenizer or use prism / shiki. Pure
 visual polish; no architectural impact. Code remains backend-authored.
+
+### BUG-S8-AUTOSCROLL-001
+Design `yui (1)/v4/app.jsx:92-94` auto-scrolls `aw-panel-body` to bottom on
+`state` or `tab` change via `bodyRef.current.scrollTop = scrollHeight`.
+Production does not. P2 polish; deferred from Sprint 7 to avoid UX
+regressions in Steps / Trace / Code / Recorded review where global
+scroll-to-bottom can interrupt the user reading mid-content. Sprint 8 must
+scope this behavior (LLM tab only? new-thread-message only? user-opted?)
+and add jsdom coverage that other tabs preserve scroll position.

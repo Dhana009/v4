@@ -552,7 +552,7 @@ Decision codes:
 | 21 | Code tab "Warnings inline" per-line annotations | **DEFER_SPRINT_8** | S8 |
 | 22 | CSS exact-match sweep vs design styles.css | **PARTIAL — covered** | — | After `fb0b8e0`, all 28 v4 classes have CSS rules. Diff showed only my mode-toggle additions differ structurally. Acceptable. |
 | 23 | Visual regression test fixture (Playwright snapshot per tab × per state) | **DEFER_SPRINT_8** | S8 — new infrastructure |
-| 24 | Auto-scroll body on state/tab change | **NEEDS_USER_DECISION** | — | Need product confirmation: scroll-on-update OR preserve scroll? PRD silent. |
+| 24 | Auto-scroll body on state/tab change | **DEFER_SPRINT_8** | S8 | P2 polish, not Sprint 7 acceptance blocker. Global auto-scroll on state/tab change can disrupt Steps / Trace / Code / Recorded review (user scrolling through content gets jerked). Sprint 8 must design scoped auto-scroll (LLM tab only? new-message only?) and add jsdom coverage. Filed under `BUG-S8-AUTOSCROLL-001`. |
 | 25 | NowStrip render-condition check | **PARTIAL — covered** | — | RC3 already fixed (`a5e4278`); production now reads phase correctly. |
 
 ## S — Architectural invariant tensions
