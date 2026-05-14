@@ -9140,8 +9140,10 @@ class AgentLoop:
 
     async def _send_plan_ready_after_confirmation(self, payload: dict[str, Any]) -> dict[str, Any]:
         from runtime.locator_intelligence import annotate_plan_steps_with_locator_kind
+        from runtime.step_metadata import annotate_plan_steps_with_kind
 
         annotate_plan_steps_with_locator_kind(payload)
+        annotate_plan_steps_with_kind(payload)
         await self._send("plan_ready", **payload)
         self._remember_plan_review_context(payload)
         plan_step_id = str(
