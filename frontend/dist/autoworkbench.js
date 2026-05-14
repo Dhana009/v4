@@ -26313,7 +26313,7 @@
           {
             type: "button",
             className: "aw-icon-btn",
-            title: "Pick element",
+            title: "Pick a page element to attach to your task",
             "data-testid": "aw-composer-pick",
             disabled,
             onClick: () => typeof onPickElement === "function" && onPickElement({ type: "arm_picker" }),
@@ -27358,7 +27358,7 @@
       })
     ] });
   }
-  function CodeTab({ codePreview, codeDiagnostics = [], onCopy, onSave }) {
+  function CodeTab({ codePreview, codeDiagnostics = [], onCopy, onSave, codeSaveResult }) {
     const text = (0, import_react4.useMemo)(() => {
       if (!codePreview) return "";
       if (typeof codePreview === "string") return codePreview;
@@ -27417,6 +27417,39 @@
           }
         )
       ] }),
+      codeSaveResult ? codeSaveResult.ok ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+        "div",
+        {
+          className: "aw-info-strip",
+          "data-testid": "code-save-result",
+          "data-status": "ok",
+          "data-path": codeSaveResult.path ?? "",
+          style: { background: "var(--grn-tint,#f0faf3)", borderColor: "#b2dfcc" },
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Check, { style: { color: "var(--grn,#22863a)" } }),
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { children: [
+              "Saved to ",
+              /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: codeSaveResult.path })
+            ] })
+          ]
+        }
+      ) : /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)(
+        "div",
+        {
+          className: "aw-info-strip",
+          "data-testid": "code-save-result",
+          "data-status": "error",
+          "data-error": codeSaveResult.error ?? "",
+          style: { background: "var(--red-tint,#fff0f0)", borderColor: "#ffb3b3" },
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Info, { style: { color: "var(--red,#d73a49)" } }),
+            /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("span", { children: [
+              "Save failed: ",
+              codeSaveResult.error
+            ] })
+          ]
+        }
+      ) : null,
       !hasCode ? /* @__PURE__ */ (0, import_jsx_runtime5.jsxs)("div", { className: "aw-info-strip", "data-testid": "code-empty", children: [
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)(I.Info, {}),
         /* @__PURE__ */ (0, import_jsx_runtime5.jsx)("span", { children: "Awaiting code_update event. No code rendered yet." })
@@ -27937,6 +27970,7 @@
     const pendingSteps = runtime.pendingSteps ?? runtime.storePendingSteps ?? [];
     const codePreview = runtime.codePreview ?? runtime.storeCodePreview ?? null;
     const codeDiagnostics = runtime.codeDiagnostics ?? [];
+    const codeSaveResult = runtime.codeSaveResult ?? runtime.storeState?.code_save_result ?? null;
     const traceEntries = runtime.traceEntries ?? runtime.storeTraceEntries ?? [];
     const conversation = runtime.conversation ?? [];
     const plan = runtime.plan ?? runtime.storePlan ?? null;
@@ -28064,8 +28098,9 @@
         {
           codePreview,
           codeDiagnostics,
-          onCopy: runtime.handleCopyRecordedStep ?? runtime.onCopyCode,
-          onSave: runtime.onExportCode
+          onCopy: runtime.handleCopyCodeToClipboard ?? runtime.onCopyCode ?? runtime.handleCopyRecordedStep,
+          onSave: runtime.onExportCode ?? runtime.handleExportCode,
+          codeSaveResult
         }
       );
     } else if (activeTab === "trace") {
@@ -28134,8 +28169,8 @@
                   Composer,
                   {
                     onSend: dispatchers.onSendUserMessage,
-                    onPickElement: runtime.handleAttachElement ?? runtime.onAttachElement,
-                    disabled: status === "offline"
+                    onPickElement: runtime.handleComposerPick ?? runtime.onComposerPick,
+                    disabled: status === "offline" || runtime.composerDisabled === true
                   }
                 ) : null,
                 /* @__PURE__ */ (0, import_jsx_runtime6.jsx)(
@@ -28326,6 +28361,7 @@
       recommendation_ready: "recommendation_ready",
       recovery_needed: "recovery_needed",
       code_update: "code_update",
+      export_code_result: "export_code_result",
       recovery_resolved: "recovery_resolved",
       schema_error: "schema_error",
       llm_thinking: "llm_thinking",
@@ -28349,6 +28385,7 @@
       pending_recovery: null,
       pending_recommendations: [],
       code_preview: null,
+      code_save_result: null,
       trace_entries: [],
       errors: [],
       interaction_mode: "idle",
@@ -28524,7 +28561,16 @@
       case EVENT_TYPES.code_update: {
         return {
           ...state,
-          code_preview: payload.code ?? payload.content ?? payload
+          code_preview: payload.code ?? payload.content ?? payload,
+          // Clear any prior save result when a new code_update arrives
+          code_save_result: null
+        };
+      }
+      case EVENT_TYPES.export_code_result: {
+        const ok = payload && payload.ok === true;
+        return {
+          ...state,
+          code_save_result: ok ? { ok: true, path: payload.path ?? null } : { ok: false, error: payload?.error ?? "unknown error" }
         };
       }
       default:
@@ -29022,6 +29068,7 @@
     "llm_result",
     "step_recorded",
     "code_update",
+    "export_code_result",
     "replay_started",
     "replay_result",
     "capability_gap_recorded",
@@ -29968,6 +30015,7 @@
     const [recordedSteps, setRecordedSteps] = (0, import_react6.useState)(() => normalizeRecordedSteps(config.recordedSteps));
     const [lastReplayByStepId, setLastReplayByStepId] = (0, import_react6.useState)({});
     const [codeDiagnostics, setCodeDiagnostics] = (0, import_react6.useState)(() => normalizeCodeDiagnostics(config.codeDiagnostics));
+    const [codeSaveResult, setCodeSaveResult] = (0, import_react6.useState)(null);
     const [interactionMode, setInteractionModeRaw] = (0, import_react6.useState)(
       () => normalizeInteractionMode(config.interactionMode ?? config.mode ?? config.runState ?? config.state) || "idle"
     );
@@ -30277,6 +30325,38 @@
       },
       [appendTimeline]
     );
+    const handleExportCode = (0, import_react6.useCallback)(
+      ({ code, path } = {}) => {
+        const codeStr = typeof code === "string" ? code : "";
+        if (!codeStr) {
+          appendTimeline("Export code: no code to save.", "warn");
+          return;
+        }
+        const payload = { type: "export_code", code: codeStr };
+        if (path) payload.path = path;
+        const sent = sendPayload(payload, "WebSocket not connected \u2014 cannot save code.");
+        if (sent) {
+          appendTimeline("Exporting code to workspace\u2026", "active");
+        }
+      },
+      [appendTimeline, sendPayload]
+    );
+    const handleCopyCodeToClipboard = (0, import_react6.useCallback)(
+      ({ code } = {}) => {
+        const codeStr = typeof code === "string" ? code : codePreview;
+        const text = typeof codeStr === "string" ? codeStr : "";
+        if (!text) {
+          appendTimeline("No code to copy.", "warn");
+          return;
+        }
+        if (navigator?.clipboard?.writeText) {
+          navigator.clipboard.writeText(text).then(() => appendTimeline("Code copied to clipboard.", "ok")).catch(() => appendTimeline("Clipboard copy not available.", "warn"));
+          return;
+        }
+        appendTimeline("Clipboard copy not available.", "warn");
+      },
+      [appendTimeline, codePreview]
+    );
     const handleAttachElement = (0, import_react6.useCallback)(
       (stepId) => {
         if (!stepId) {
@@ -30298,6 +30378,26 @@
       },
       [appendTimeline, sendPayload]
     );
+    const handleComposerPick = (0, import_react6.useCallback)(() => {
+      const newStep = createPendingStep("");
+      updatePendingSteps((current) => [...current, newStep]);
+      setActivePickerStepId(newStep.id);
+      const sent = sendPayload(
+        {
+          type: "arm_picker",
+          step_id: newStep.id
+        },
+        "Picker failed"
+      );
+      if (sent) {
+        appendTimeline(`Composer pick: picker armed for step ${newStep.id}`, "active");
+      } else {
+        setActivePickerStepId("");
+        updatePendingSteps(
+          (current) => current.filter((s) => s && s.id !== newStep.id)
+        );
+      }
+    }, [appendTimeline, sendPayload, updatePendingSteps]);
     const handleRunPendingSteps = (0, import_react6.useCallback)(() => {
       const readySteps = [];
       for (const step of pendingSteps) {
@@ -30709,6 +30809,7 @@
             setCodeDiagnostics(
               normalizeCodeDiagnostics(payload && typeof payload === "object" ? payload.diagnostics : [])
             );
+            setCodeSaveResult(null);
             acknowledgePendingCommands(type, {
               backend_event: type
             });
@@ -30846,6 +30947,25 @@
                   "err"
                 );
               }
+            }
+            break;
+          }
+          case "export_code_result": {
+            const isOk = payload && typeof payload === "object" && payload.ok === true;
+            if (isOk) {
+              const savedPath = firstNonEmptyText(
+                payload && typeof payload === "object" ? payload.path : "",
+                "workspace"
+              );
+              setCodeSaveResult({ ok: true, path: payload.path ?? null });
+              appendTimeline(`Code saved to ${savedPath}`, "ok");
+            } else {
+              const errorText = firstNonEmptyText(
+                payload && typeof payload === "object" ? payload.error : "",
+                "Code save failed"
+              );
+              setCodeSaveResult({ ok: false, error: errorText });
+              appendTimeline(errorText, "err");
             }
             break;
           }
@@ -31036,6 +31156,7 @@
       recordedSteps,
       lastReplayByStepId,
       codeDiagnostics,
+      codeSaveResult,
       planCorrectionText,
       clarificationQuestion,
       clarificationOptions,
@@ -31058,6 +31179,8 @@
       onAddPendingStep: addPendingStep,
       onDeletePendingStep: removePendingStep,
       onAttachElement: handleAttachElement,
+      handleComposerPick,
+      onComposerPick: handleComposerPick,
       onRunPendingSteps: handleRunPendingSteps,
       onSaveSnapshot: handleSaveSnapshot,
       onConfirmPlan: handleConfirmPlan,
@@ -31069,6 +31192,10 @@
       onReplayRecordedStep: handleReplayRecordedStep,
       onReplayAllRecordedSteps: handleReplayAllRecordedSteps,
       onCopyRecordedStep: handleCopyRecordedStep,
+      onExportCode: handleExportCode,
+      handleExportCode,
+      onCopyCode: handleCopyCodeToClipboard,
+      handleCopyCodeToClipboard,
       setPlanCorrectionText,
       setClarificationQuestion,
       setClarificationOptions,
@@ -31091,7 +31218,10 @@
       handleSendRecoveryInstruction,
       handleReplayRecordedStep,
       handleReplayAllRecordedSteps,
-      handleCopyRecordedStep
+      handleCopyRecordedStep,
+      handleExportCode,
+      handleCopyCodeToClipboard,
+      handleComposerPick
     };
   }
   function AutoWorkbenchRuntime({ config }) {
@@ -31142,6 +31272,7 @@
                   storePendingSteps: transport.storeState?.pending_steps ?? [],
                   storeRecordedSteps: transport.storeState?.recorded_steps ?? [],
                   storeCodePreview: transport.storeState?.code_preview ?? null,
+                  storeCodeSaveResult: transport.storeState?.code_save_result ?? null,
                   storeTraceEntries: transport.storeState?.trace_entries ?? [],
                   storeErrors: transport.storeState?.errors ?? [],
                   storeLastError: transport.storeState?.last_error ?? null,

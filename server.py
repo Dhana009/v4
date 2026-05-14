@@ -328,26 +328,50 @@ async def ws_endpoint(ws: WebSocket) -> None:
                     )
                 else:
                     _workspace = os.getenv("AUTOWORKBENCH_WORKSPACE", os.getcwd())
+                    _workspace_resolved = os.path.realpath(_workspace)
+                    _output_dir = os.path.join(_workspace, "autoworkbench-output")
                     if explicit_path:
-                        target_path = explicit_path
+                        # D-103 security: explicit_path is user-supplied; resolve and
+                        # require containment in the workspace to prevent path traversal.
+                        if os.path.isabs(explicit_path):
+                            _candidate = explicit_path
+                        else:
+                            _candidate = os.path.join(_workspace, explicit_path)
+                        target_path = os.path.realpath(_candidate)
                     else:
-                        _output_dir = os.path.join(_workspace, "autoworkbench-output")
                         os.makedirs(_output_dir, exist_ok=True)
-                        target_path = os.path.join(_output_dir, "generated.spec.ts")
-                    try:
-                        with open(target_path, "w", encoding="utf-8") as _f:
-                            _f.write(code_str)
+                        target_path = os.path.realpath(
+                            os.path.join(_output_dir, "generated.spec.ts")
+                        )
+                    _contained = (
+                        target_path == _workspace_resolved
+                        or target_path.startswith(_workspace_resolved + os.sep)
+                    )
+                    if not _contained:
                         export_event = build_backend_event_envelope(
                             "export_code_result",
-                            {"ok": True, "path": target_path},
+                            {
+                                "ok": False,
+                                "error": "path must be inside the workspace",
+                            },
                             source="server",
                         )
-                    except OSError as _exc:
-                        export_event = build_backend_event_envelope(
-                            "export_code_result",
-                            {"ok": False, "error": str(_exc)},
-                            source="server",
-                        )
+                    else:
+                        try:
+                            os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                            with open(target_path, "w", encoding="utf-8") as _f:
+                                _f.write(code_str)
+                            export_event = build_backend_event_envelope(
+                                "export_code_result",
+                                {"ok": True, "path": target_path},
+                                source="server",
+                            )
+                        except OSError as _exc:
+                            export_event = build_backend_event_envelope(
+                                "export_code_result",
+                                {"ok": False, "error": str(_exc)},
+                                source="server",
+                            )
                 await ws.send_json(export_event)
                 continue
 

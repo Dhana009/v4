@@ -2205,6 +2205,8 @@ function useAutoWorkbenchTransport(config) {
 
   // D-107: Composer pick — auto-creates a blank pending step, then arms the
   // picker with its id so the backend can attach element context to it.
+  // On dispatch failure the draft step is removed so no orphan pending row
+  // remains.
   const handleComposerPick = useCallback(() => {
     const newStep = createPendingStep("");
     updatePendingSteps((current) => [...current, newStep]);
@@ -2220,6 +2222,9 @@ function useAutoWorkbenchTransport(config) {
       appendTimeline(`Composer pick: picker armed for step ${newStep.id}`, "active");
     } else {
       setActivePickerStepId("");
+      updatePendingSteps((current) =>
+        current.filter((s) => s && s.id !== newStep.id)
+      );
     }
   }, [appendTimeline, sendPayload, updatePendingSteps]);
 

@@ -46,14 +46,26 @@ def _write_code_to_file(code: str, path: str | None, workspace: str) -> dict[str
     if not isinstance(code, str) or not code.strip():
         return {"ok": False, "error": "code is required and must be a non-empty string"}
 
+    workspace_resolved = os.path.realpath(workspace)
     if path and isinstance(path, str) and path.strip():
-        target = path.strip()
+        candidate = path.strip()
+        if not os.path.isabs(candidate):
+            candidate = os.path.join(workspace, candidate)
+        target = os.path.realpath(candidate)
     else:
         output_dir = os.path.join(workspace, "autoworkbench-output")
         os.makedirs(output_dir, exist_ok=True)
-        target = os.path.join(output_dir, "generated.spec.ts")
+        target = os.path.realpath(os.path.join(output_dir, "generated.spec.ts"))
+
+    contained = (
+        target == workspace_resolved
+        or target.startswith(workspace_resolved + os.sep)
+    )
+    if not contained:
+        return {"ok": False, "error": "path must be inside the workspace"}
 
     try:
+        os.makedirs(os.path.dirname(target), exist_ok=True)
         with open(target, "w", encoding="utf-8") as f:
             f.write(code)
         return {"ok": True, "path": target}
@@ -83,7 +95,8 @@ def test_export_code_writes_to_explicit_path() -> None:
         result = _write_code_to_file(code, path=explicit_path, workspace=workspace)
 
     assert result["ok"] is True
-    assert result["path"] == explicit_path
+    # Paths are realpath-resolved (macOS resolves /var → /private/var); compare resolved.
+    assert os.path.realpath(result["path"]) == os.path.realpath(explicit_path)
 
 
 def test_export_code_file_contents_match_payload_exactly() -> None:
@@ -109,6 +122,51 @@ def test_export_code_code_none_returns_error() -> None:
     with tempfile.TemporaryDirectory() as workspace:
         result = _write_code_to_file(None, path=None, workspace=workspace)  # type: ignore[arg-type]
     assert result["ok"] is False
+
+
+# ── Path traversal security ──────────────────────────────────────────────────
+
+def test_export_code_path_traversal_relative_blocked() -> None:
+    """A relative path with .. segments escaping workspace must be rejected."""
+    code = "// test"
+    with tempfile.TemporaryDirectory() as workspace:
+        result = _write_code_to_file(code, path="../../../../etc/aw-pwn.spec.ts", workspace=workspace)
+    assert result["ok"] is False
+    assert "workspace" in result["error"].lower()
+
+
+def test_export_code_path_traversal_absolute_outside_workspace_blocked() -> None:
+    """An absolute path outside workspace must be rejected (no /etc, /tmp/other, etc.)."""
+    code = "// test"
+    with tempfile.TemporaryDirectory() as workspace:
+        with tempfile.TemporaryDirectory() as other:
+            target = os.path.join(other, "leak.spec.ts")
+            result = _write_code_to_file(code, path=target, workspace=workspace)
+    assert result["ok"] is False
+    assert "workspace" in result["error"].lower()
+
+
+def test_export_code_explicit_path_inside_workspace_allowed() -> None:
+    """An explicit path that resolves inside workspace must succeed."""
+    code = "// inside"
+    with tempfile.TemporaryDirectory() as workspace:
+        target = os.path.join(workspace, "subdir", "my.spec.ts")
+        result = _write_code_to_file(code, path=target, workspace=workspace)
+    assert result["ok"] is True
+    assert result["path"].endswith("my.spec.ts")
+
+
+def test_export_code_symlink_escape_blocked() -> None:
+    """A symlink inside workspace pointing outside must not be followed for write."""
+    code = "// symlink"
+    with tempfile.TemporaryDirectory() as workspace:
+        with tempfile.TemporaryDirectory() as other:
+            link_path = os.path.join(workspace, "escape-link")
+            os.symlink(other, link_path)
+            target_via_link = os.path.join(link_path, "leak.spec.ts")
+            result = _write_code_to_file(code, path=target_via_link, workspace=workspace)
+    assert result["ok"] is False
+    assert "workspace" in result["error"].lower()
 
 
 def test_export_code_env_var_reference_preserved_verbatim() -> None:
