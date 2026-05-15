@@ -92,10 +92,37 @@
     if (any) any.forEach(function (fn) { try { fn(envelope); } catch (_) {} });
   }
 
+  // ---- outbound queue (buffered while disconnected) -------------------------
+  // Cap: 50 messages. Oldest dropped on overflow with console.warn.
+  var OUTBOUND_QUEUE_CAP = 50;
+  var outboundQueue = [];
+
+  function enqueueOutbound(msg) {
+    if (outboundQueue.length >= OUTBOUND_QUEUE_CAP) {
+      console.warn("[transport] outboundQueue full (cap " + OUTBOUND_QUEUE_CAP + "), dropping oldest:", outboundQueue[0]);
+      outboundQueue.shift();
+    }
+    outboundQueue.push(msg);
+  }
+
+  function drainOutboundQueue() {
+    var drained = outboundQueue.splice(0);
+    drained.forEach(function (msg) {
+      try {
+        ws.send(JSON.stringify(msg));
+      } catch (err) {
+        console.warn("[transport] drainOutboundQueue send threw:", err);
+      }
+    });
+  }
+
   // ---- socket lifecycle -----------------------------------------------------
   var ws = null;
   var backoff = 500;
   var stopped = false;
+  // reconnects: 0 on first open, incremented every subsequent open.
+  AW.reconnects = AW.reconnects || 0;
+  var _hasOpened = false;
 
   function wsUrl() {
     // Overlay injection (browser.py) passes ws URL via window.AW.wsUrl.
@@ -128,7 +155,29 @@
     ws.addEventListener("open", function () {
       backoff = 500;
       setConn("connected");
-      console.log("[transport] WS open");
+      if (_hasOpened) {
+        // This is a reconnect (not the initial connection).
+        AW.reconnects = (AW.reconnects || 0) + 1;
+        // Request current session state from the backend so the panel
+        // can restore context after a disconnect.
+        try {
+          ws.send(JSON.stringify({ type: "request_session_state" }));
+        } catch (err) {
+          console.warn("[transport] request_session_state send threw:", err);
+        }
+        // Notify FE components that a reconnect happened.
+        try {
+          window.dispatchEvent(new CustomEvent("aw:reconnected", {
+            detail: { reconnects: AW.reconnects }
+          }));
+        } catch (_) {}
+        // Drain buffered outbound messages (oldest-first).
+        drainOutboundQueue();
+        console.log("[transport] WS reconnected (count=" + AW.reconnects + ")");
+      } else {
+        _hasOpened = true;
+        console.log("[transport] WS open");
+      }
     });
 
     ws.addEventListener("message", function (ev) {
@@ -156,7 +205,9 @@
 
   AW.send = function send(msg) {
     if (!ws || ws.readyState !== WebSocket.OPEN) {
-      console.warn("[transport] send while closed:", msg);
+      // Buffer the message so it can be replayed after reconnect.
+      enqueueOutbound(msg);
+      console.warn("[transport] send while closed — queued (queue=" + outboundQueue.length + "):", msg);
       return false;
     }
     try {
