@@ -34,3 +34,9 @@ yarn-error.log*
 
 # Temp locator utilities
 locator_utils.py
+
+# Generated/export artifacts
+AutoWorkbench.html
+*.pdf
+*.patch
+frontend/.gitignore.tmp
