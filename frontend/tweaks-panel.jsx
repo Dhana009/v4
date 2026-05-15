@@ -173,6 +173,18 @@ function useTweaks(defaults) {
     // can react — the parent message only reaches the host, not peers.
     window.dispatchEvent(new CustomEvent('tweakchange', { detail: edits }));
   }, []);
+  // T-1 bridge: transport.jsx dispatches "aw:set" with an edits object so
+  // backend WS envelopes can drive the same value bag the dev panel mutates.
+  // No call to the host postMessage protocol — this is a one-way fold.
+  React.useEffect(() => {
+    const onSet = (e) => {
+      const edits = (e && e.detail) || null;
+      if (!edits || typeof edits !== 'object') return;
+      setValues((prev) => ({ ...prev, ...edits }));
+    };
+    window.addEventListener('aw:set', onSet);
+    return () => window.removeEventListener('aw:set', onSet);
+  }, []);
   return [values, setTweak];
 }
 
