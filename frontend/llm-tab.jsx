@@ -90,8 +90,31 @@ function CardClarification() {
         </div>
       </div>
       <div className="aw-card-foot">
-        <button className="aw-btn primary"><I.Send/>Submit answer</button>
-        <button className="aw-btn subtle">Let LLM decide</button>
+        <button className="aw-btn primary"
+                onClick={() => {
+                  // T-8: Submit answer → typed option_selected carrying
+                  // the picked radio id. Backend server.py:597 routes
+                  // through normalize_frontend_command + control_queue.
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  if (!AW || typeof AW.send !== 'function') return;
+                  const value = pick || '';
+                  if (!value) return;
+                  AW.send({ type: 'option_selected', value: value, answer: value });
+                }}
+                disabled={!pick}>
+          <I.Send/>Submit answer
+        </button>
+        <button className="aw-btn subtle"
+                onClick={() => {
+                  // T-8: Let LLM decide → typed correction asking the
+                  // model to choose. No new command needed.
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  if (AW && typeof AW.send === 'function') {
+                    AW.send({ type: 'correction', message: 'Let the model choose the clarification answer.', auto: true });
+                  }
+                }}>
+          Let LLM decide
+        </button>
         <span style={{flex:1}}/>
         <span style={{fontSize:11,color:"var(--tx-4)"}}>Pauses execution until answered</span>
       </div>
@@ -142,9 +165,37 @@ function CardRecommendation() {
         </div>
       </div>
       <div className="aw-card-foot">
-        <button className="aw-btn primary"><I.Check/>Use selected</button>
-        <button className="aw-btn"><I.Plus/>Add my own assertion</button>
-        <button className="aw-btn subtle">Group differently</button>
+        <button className="aw-btn primary"
+                onClick={() => {
+                  // T-8: Use selected → typed option_selected with the
+                  // list of currently-checked recommendation ids.
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  if (!AW || typeof AW.send !== 'function') return;
+                  const selected = items.filter(i => i.checked).map(i => i.id);
+                  AW.send({ type: 'option_selected', value: selected, answer: selected });
+                }}>
+          <I.Check/>Use selected
+        </button>
+        <button className="aw-btn"
+                onClick={() => {
+                  // T-8: Add my own assertion → focus composer with a
+                  // prefix so the user can write a custom assertion.
+                  const ta = document.querySelector('textarea.aw-composer-input');
+                  if (ta) { ta.focus(); ta.value = 'Add assertion: '; ta.setSelectionRange(ta.value.length, ta.value.length); }
+                }}>
+          <I.Plus/>Add my own assertion
+        </button>
+        <button className="aw-btn subtle"
+                onClick={() => {
+                  // T-8: Group differently → typed correction asking the
+                  // model to regroup the recommended assertions.
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  if (AW && typeof AW.send === 'function') {
+                    AW.send({ type: 'correction', message: 'Group the recommended assertions differently (e.g. by page section instead of priority).' });
+                  }
+                }}>
+          Group differently
+        </button>
       </div>
     </div>
   );
