@@ -138,8 +138,6 @@ export function App({ viewModel, onCommand, mode, onCollapseChange, onDockChange
             mode={t.mode}
             setMode={(v) => setTweak("mode", v)}
             isLive={isLive}
-            theme={t.theme || "light"}
-            onThemeToggle={() => setTweak("theme", (t.theme || "light") === "dark" ? "light" : "dark")}
           />
           <TabStrip tab={tab} setTab={setTab} counts={counts}/>
           {showNow && <NowStrip {...(isLive ? {} : meta.now)}/>}
@@ -174,7 +172,21 @@ export function App({ viewModel, onCommand, mode, onCollapseChange, onDockChange
   );
 
   if (isLive) {
-    return panel;
+    return (
+      <>
+        {panel}
+        <TweaksPanel>
+          <TweakSection label="Theme"/>
+          <TweakRadio label="Theme" value={t.theme}
+                      options={["light","dark"]}
+                      onChange={(v) => setTweak("theme", v)}/>
+          <TweakSection label="Interaction mode"/>
+          <TweakRadio label="Mode" value={t.mode}
+                      options={["llm","manual"]}
+                      onChange={(v) => setTweak("mode", v)}/>
+        </TweaksPanel>
+      </>
+    );
   }
 
   return (

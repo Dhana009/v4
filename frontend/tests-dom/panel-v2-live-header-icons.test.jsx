@@ -59,26 +59,26 @@ afterEach(() => {
   document.documentElement.removeAttribute("data-theme");
 });
 
-describe("Theme icon not hidden by data-wide in live mode", () => {
-  it("data-wide=1 on live panel and theme toggle still present", () => {
+describe("Settings gear not hidden by data-wide in live mode", () => {
+  it("data-wide=1 on live panel and settings gear still present", () => {
     const { container } = render(<App viewModel={makeVm()} mode="live" />);
     const panel = container.querySelector(".aw-panel");
     expect(panel.getAttribute("data-wide")).toBe("1");
-    const toggle = container.querySelector('[data-testid="aw-theme-toggle"]');
-    expect(toggle).not.toBeNull();
+    const gear = container.querySelector('button[title="Settings & Tweaks"]');
+    expect(gear).not.toBeNull();
   });
 });
 
 describe("Collapsed rail: full header controls hidden", () => {
-  it("theme toggle not visible in collapsed rail", () => {
+  it("settings gear not visible in collapsed rail", () => {
     const { container } = render(<App viewModel={makeVm()} mode="live" />);
     const collapseBtn = container.querySelector('button[title="Collapse"]');
     expect(collapseBtn).not.toBeNull();
     fireEvent.click(collapseBtn);
     const rail = container.querySelector(".aw-collapsed-rail");
     expect(rail).not.toBeNull();
-    const toggle = container.querySelector('[data-testid="aw-theme-toggle"]');
-    expect(toggle).toBeNull();
+    const gear = container.querySelector('button[title="Settings & Tweaks"]');
+    expect(gear).toBeNull();
   });
 
   it("header element itself not visible in collapsed state", () => {
@@ -90,17 +90,17 @@ describe("Collapsed rail: full header controls hidden", () => {
   });
 });
 
-describe("Expand from rail: restores full header with theme icon", () => {
-  it("expanding restores theme toggle visibility", () => {
+describe("Expand from rail: restores full header with settings gear", () => {
+  it("expanding restores settings gear visibility", () => {
     const { container } = render(<App viewModel={makeVm()} mode="live" />);
     const collapseBtn = container.querySelector('button[title="Collapse"]');
     fireEvent.click(collapseBtn);
-    expect(container.querySelector('[data-testid="aw-theme-toggle"]')).toBeNull();
+    expect(container.querySelector('button[title="Settings & Tweaks"]')).toBeNull();
     const expandBtn = container.querySelector('.aw-collapsed-rail button[title="Expand"]');
     expect(expandBtn).not.toBeNull();
     fireEvent.click(expandBtn);
-    const toggle = container.querySelector('[data-testid="aw-theme-toggle"]');
-    expect(toggle).not.toBeNull();
+    const gear = container.querySelector('button[title="Settings & Tweaks"]');
+    expect(gear).not.toBeNull();
   });
 
   it("expanding restores aw-header element", () => {
@@ -113,14 +113,14 @@ describe("Expand from rail: restores full header with theme icon", () => {
   });
 });
 
-describe("Preview/demo mode: still works after theme changes", () => {
+describe("Preview/demo mode: still works after gear click", () => {
   it("demo mode App renders correctly without viewModel", () => {
     const { container } = render(<App />);
     expect(container.querySelector(".aw-panel")).not.toBeNull();
     expect(container.querySelector(".aw-header")).not.toBeNull();
   });
 
-  it("demo mode settings gear remains (not live)", () => {
+  it("demo mode settings gear present", () => {
     const { container } = render(<App />);
     const gear = container.querySelector('button[title="Settings & Tweaks"]');
     expect(gear).not.toBeNull();

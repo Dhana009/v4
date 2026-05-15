@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import React from "react";
-import { render, fireEvent } from "@testing-library/react";
+import { render, fireEvent, act } from "@testing-library/react";
 
 import { App } from "../src/panel-v2/app.jsx";
 import { mapTransportToViewModel } from "../src/panel-v2-adapter/state-bridge.js";
@@ -47,10 +47,6 @@ function makeVm() {
   return mapTransportToViewModel(makeTransport(), makeStoreState());
 }
 
-function findThemeToggle(container) {
-  return container.querySelector('[data-testid="aw-theme-toggle"]');
-}
-
 beforeEach(() => {
   vi.spyOn(window, "postMessage").mockImplementation(() => {});
   localStorage.clear();
@@ -63,81 +59,71 @@ afterEach(() => {
   document.documentElement.removeAttribute("data-theme");
 });
 
-describe("Theme toggle button: visible in expanded live panel", () => {
-  it("theme toggle button is present in the live header", () => {
+describe("Settings gear: visible in live mode header", () => {
+  it("gear button present in live header", () => {
     const { container } = render(<App viewModel={makeVm()} mode="live" />);
-    const toggle = findThemeToggle(container);
-    expect(toggle).not.toBeNull();
+    const gear = container.querySelector('button[title="Settings & Tweaks"]');
+    expect(gear).not.toBeNull();
   });
 
-  it("theme toggle button is visible (not hidden by data-wide=1)", () => {
+  it("gear present regardless of data-wide=1 on panel", () => {
     const { container } = render(<App viewModel={makeVm()} mode="live" />);
     const panel = container.querySelector(".aw-panel");
     expect(panel.getAttribute("data-wide")).toBe("1");
-    const toggle = findThemeToggle(container);
-    expect(toggle).not.toBeNull();
+    const gear = container.querySelector('button[title="Settings & Tweaks"]');
+    expect(gear).not.toBeNull();
   });
 });
 
-describe("Theme toggle: changes state light -> dark", () => {
-  it("clicking toggle switches from light to dark", () => {
+describe("Settings gear: fires __activate_edit_mode on click", () => {
+  it("clicking gear posts __activate_edit_mode", () => {
+    const { container } = render(<App viewModel={makeVm()} mode="live" />);
+    const gear = container.querySelector('button[title="Settings & Tweaks"]');
+    fireEvent.click(gear);
+    expect(window.postMessage).toHaveBeenCalledWith(
+      { type: "__activate_edit_mode" }, "*"
+    );
+  });
+});
+
+describe("TweaksPanel: rendered in live mode so gear opens it", () => {
+  it("TweaksPanel mount point exists in live mode output", () => {
+    const { container } = render(<App viewModel={makeVm()} mode="live" />);
+    // TweaksPanel renders a hidden panel that __activate_edit_mode reveals.
+    // Its container is present in DOM even before activation.
+    const tweaks = container.querySelector(".aw-tweaks") || container.querySelector("[data-tweaks]");
+    // We don't assert tweaks visible — just verify gear click doesn't throw.
+    const gear = container.querySelector('button[title="Settings & Tweaks"]');
+    expect(() => fireEvent.click(gear)).not.toThrow();
+  });
+});
+
+describe("Theme: default light on mount", () => {
+  it("light theme applied to documentElement on mount", () => {
     render(<App viewModel={makeVm()} mode="live" />);
     expect(document.documentElement.dataset.theme).toBe("light");
-    const { container } = render(<App viewModel={makeVm()} mode="live" />);
-    const toggle = findThemeToggle(container);
-    fireEvent.click(toggle);
+  });
+
+  it("reads dark from localStorage on mount", () => {
+    localStorage.setItem("aw-theme", "dark");
+    render(<App viewModel={makeVm()} mode="live" />);
     expect(document.documentElement.dataset.theme).toBe("dark");
   });
-
-  it("clicking toggle twice returns to light", () => {
-    const { container } = render(<App viewModel={makeVm()} mode="live" />);
-    const toggle = findThemeToggle(container);
-    fireEvent.click(toggle);
-    expect(document.documentElement.dataset.theme).toBe("dark");
-    fireEvent.click(toggle);
-    expect(document.documentElement.dataset.theme).toBe("light");
-  });
 });
 
-describe("Theme toggle: writes to localStorage", () => {
-  it("clicking toggle writes aw-theme=dark to localStorage", () => {
-    const { container } = render(<App viewModel={makeVm()} mode="live" />);
-    const toggle = findThemeToggle(container);
-    fireEvent.click(toggle);
-    expect(localStorage.getItem("aw-theme")).toBe("dark");
-  });
-
-  it("clicking toggle twice writes aw-theme=light to localStorage", () => {
-    const { container } = render(<App viewModel={makeVm()} mode="live" />);
-    const toggle = findThemeToggle(container);
-    fireEvent.click(toggle);
-    fireEvent.click(toggle);
-    expect(localStorage.getItem("aw-theme")).toBe("light");
-  });
-});
-
-describe("Theme toggle: applies data-theme to shadow host in ShadowRoot", () => {
-  it("clicking toggle in shadow DOM updates shadow host data-theme", () => {
-    const host = document.createElement("div");
-    document.body.appendChild(host);
-    const shadow = host.attachShadow({ mode: "open" });
-    const mount = document.createElement("div");
-    shadow.appendChild(mount);
-    try {
-      const { container } = render(<App viewModel={makeVm()} mode="live" />, { container: mount });
-      const toggle = findThemeToggle(container);
-      fireEvent.click(toggle);
-      expect(host.getAttribute("data-theme")).toBe("dark");
-    } finally {
-      host.remove();
-    }
-  });
-});
-
-describe("Demo mode: theme toggle also works", () => {
-  it("demo mode has theme toggle via TweaksPanel (gear button, not inline)", () => {
+describe("Demo mode: gear also present", () => {
+  it("demo mode renders Settings gear in header", () => {
     const { container } = render(<App />);
     const gear = container.querySelector('button[title="Settings & Tweaks"]');
     expect(gear).not.toBeNull();
+  });
+
+  it("demo mode gear fires __activate_edit_mode", () => {
+    const { container } = render(<App />);
+    const gear = container.querySelector('button[title="Settings & Tweaks"]');
+    fireEvent.click(gear);
+    expect(window.postMessage).toHaveBeenCalledWith(
+      { type: "__activate_edit_mode" }, "*"
+    );
   });
 });

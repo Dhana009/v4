@@ -64,14 +64,14 @@ describe("data-wide attribute: not always '0'", () => {
   });
 });
 
-describe("Settings gear button: hidden/disabled in live mode", () => {
-  it("settings gear button is not rendered in live mode", () => {
+describe("Settings gear button: always visible in header", () => {
+  it("settings gear button IS rendered in live mode", () => {
     const { container } = render(<App viewModel={makeVm()} mode="live" />);
     const gear = container.querySelector('button[title="Settings & Tweaks"]');
-    expect(gear).toBeNull();
+    expect(gear).not.toBeNull();
   });
 
-  it("settings gear button IS rendered in demo mode (unchanged)", () => {
+  it("settings gear button IS rendered in demo mode", () => {
     const { container } = render(<App />);
     const gear = container.querySelector('button[title="Settings & Tweaks"]');
     expect(gear).not.toBeNull();

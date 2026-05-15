@@ -29215,11 +29215,6 @@
     /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "11", cy: "11", r: "7" }),
     /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "m20 20-3.5-3.5" })
   ] }));
-  I2.Sun = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
-    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "12", cy: "12", r: "4" }),
-    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" })
-  ] }));
-  I2.Moon = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsx)(import_jsx_runtime7.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" }) }));
 
   // src/panel-v2/tweaks-panel.jsx
   var import_react6 = __toESM(require_react());
@@ -29959,10 +29954,7 @@
     mode = "llm",
     setMode = () => {
     },
-    isLive = false,
-    theme = "light",
-    onThemeToggle = () => {
-    }
+    isLive = false
   }) {
     const [dockMenu, setDockMenu] = (0, import_react7.useState)(false);
     const dockTriggerRef = (0, import_react7.useRef)(null);
@@ -30100,17 +30092,6 @@
       ] }),
       /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("button", { className: "aw-icon-btn", onClick: () => setCollapsed(!collapsed), title: "Collapse", "data-tip": "Collapse", children: /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(I2.Min, {}) }),
       /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(
-        "button",
-        {
-          className: "aw-icon-btn",
-          onClick: onThemeToggle,
-          "data-testid": "aw-theme-toggle",
-          title: theme === "dark" ? "Switch to light theme" : "Switch to dark theme",
-          "data-tip": "Toggle theme",
-          children: theme === "dark" ? /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(I2.Sun, { style: { width: 13, height: 13 } }) : /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(I2.Moon, { style: { width: 13, height: 13 } })
-        }
-      ),
-      !isLive && /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(
         "button",
         {
           className: "aw-icon-btn",
@@ -33177,9 +33158,7 @@
                 agentsSummary,
                 mode: t.mode,
                 setMode: (v) => setTweak("mode", v),
-                isLive,
-                theme: t.theme || "light",
-                onThemeToggle: () => setTweak("theme", (t.theme || "light") === "dark" ? "light" : "dark")
+                isLive
               }
             ),
             /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(TabStrip2, { tab, setTab, counts }),
@@ -33220,7 +33199,31 @@
       }
     );
     if (isLive) {
-      return panel;
+      return /* @__PURE__ */ (0, import_jsx_runtime13.jsxs)(import_jsx_runtime13.Fragment, { children: [
+        panel,
+        /* @__PURE__ */ (0, import_jsx_runtime13.jsxs)(TweaksPanel, { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(TweakSection, { label: "Theme" }),
+          /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(
+            TweakRadio,
+            {
+              label: "Theme",
+              value: t.theme,
+              options: ["light", "dark"],
+              onChange: (v) => setTweak("theme", v)
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(TweakSection, { label: "Interaction mode" }),
+          /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(
+            TweakRadio,
+            {
+              label: "Mode",
+              value: t.mode,
+              options: ["llm", "manual"],
+              onChange: (v) => setTweak("mode", v)
+            }
+          )
+        ] })
+      ] });
     }
     return /* @__PURE__ */ (0, import_jsx_runtime13.jsxs)(import_jsx_runtime13.Fragment, { children: [
       /* @__PURE__ */ (0, import_jsx_runtime13.jsxs)("div", { className: stageCls, children: [
