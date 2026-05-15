@@ -2,13 +2,16 @@ import { useMemo } from "react";
 import { App } from "../panel-v2/app.jsx";
 import { mapTransportToViewModel } from "./state-bridge.js";
 
-export function PanelV2LiveHost({ transport }) {
-  // Compute live view model — wiring to App props is a follow-on task
-  // eslint-disable-next-line no-unused-vars
-  const _vm = useMemo(
-    () => mapTransportToViewModel(transport ?? {}, null),
-    [transport]
+export function PanelV2LiveHost({ transport, storeState, onSendCommand }) {
+  const vm = useMemo(
+    () => mapTransportToViewModel(transport ?? {}, storeState ?? null),
+    [transport, storeState]
   );
 
-  return <App />;
+  const onCommand = useMemo(() => {
+    if (!onSendCommand) return undefined;
+    return (action, payload) => onSendCommand(action, payload);
+  }, [onSendCommand]);
+
+  return <App viewModel={vm} mode="live" onCommand={onCommand} />;
 }

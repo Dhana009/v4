@@ -181,7 +181,7 @@ function CardPlanDiff() {
   );
 }
 
-function CardPlanReady({ status = "ready" }) {
+function CardPlanReady({ status = "ready", onCommand, runId }) {
   return (
     <div className="aw-card plan needs-input">
       <div className="aw-card-head">
@@ -268,7 +268,7 @@ function CardPlanReady({ status = "ready" }) {
         </div>
       </div>
       <div className="aw-card-foot">
-        <button className="aw-btn primary"><I.Play/>Confirm &amp; run<span className="aw-kbd">⌘↵</span></button>
+        <button className="aw-btn primary" onClick={() => onCommand?.("confirm_plan", { run_id: runId })}><I.Play/>Confirm &amp; run<span className="aw-kbd">⌘↵</span></button>
         <button className="aw-btn"><I.Diff/>Edit plan</button>
         <button className="aw-btn subtle">Run first 3 only</button>
         <span style={{flex:1}}/>
@@ -278,7 +278,7 @@ function CardPlanReady({ status = "ready" }) {
   );
 }
 
-function CardPermission() {
+function CardPermission({ onCommand, runId } = {}) {
   return (
     <div className="aw-card perm needs-input">
       <div className="aw-card-head">
@@ -296,17 +296,17 @@ function CardPermission() {
         </div>
       </div>
       <div className="aw-card-foot" style={{flexWrap:"wrap"}}>
-        <button className="aw-btn primary"><I.Check/>Allow once</button>
+        <button className="aw-btn primary" onClick={() => onCommand?.("permission_allow", { run_id: runId })}><I.Check/>Allow once</button>
         <button className="aw-btn">Allow for this plan</button>
         <span style={{flex:1}}/>
         <button className="aw-btn subtle"><I.More/></button>
-        <button className="aw-btn danger"><I.Stop style={{width:11,height:11}}/>Deny</button>
+        <button className="aw-btn danger" onClick={() => onCommand?.("permission_deny", { run_id: runId })}><I.Stop style={{width:11,height:11}}/>Deny</button>
       </div>
     </div>
   );
 }
 
-function CardExecution() {
+function CardExecution({ onCommand, runId } = {}) {
   return (
     <div className="aw-card exec running">
       <div className="aw-card-head">
@@ -362,7 +362,7 @@ function CardExecution() {
       </div>
       <div className="aw-card-foot">
         <button className="aw-btn"><I.Pause style={{width:11,height:11}}/>Pause</button>
-        <button className="aw-btn danger"><I.Stop style={{width:11,height:11}}/>Stop run</button>
+        <button className="aw-btn danger" onClick={() => onCommand?.("stop_run", { run_id: runId })}><I.Stop style={{width:11,height:11}}/>Stop run</button>
         <span style={{flex:1}}/>
         <span style={{fontSize:11,color:"var(--tx-3)"}}>Tail traces in <button className="aw-link">Trace</button> · evidence in <button className="aw-link">Recorded</button></span>
       </div>
@@ -710,12 +710,18 @@ function LlmEmpty({ onSeed }) {
   );
 }
 
-export function Composer() {
+export function Composer({ onCommand, runId } = {}) {
   const [sending, setSending] = useState(false);
   const [sent, setSent] = useState(false);
   const inputRef = useRef(null);
   const onSend = () => {
     if (sending) return;
+    if (onCommand) {
+      const text = inputRef.current?.value ?? "";
+      if (inputRef.current) inputRef.current.value = "";
+      onCommand("correction", { run_id: runId, text });
+      return;
+    }
     setSending(true);
     setTimeout(() => {
       setSending(false);
@@ -763,7 +769,7 @@ export function Composer() {
   );
 }
 
-export function LlmThread({ state, mode }) {
+export function LlmThread({ state, mode, onCommand, runId }) {
   if (state === "idle") return <LlmEmpty onSeed={() => {}}/>;
 
   const order = ["planning","clarify","recommend","plan","diff","permit","exec","locator","recover","done"];
@@ -816,14 +822,14 @@ export function LlmThread({ state, mode }) {
       )}
 
       {show("diff") && <CardPlanDiff/>}
-      {show("plan") && <CardPlanReady/>}
+      {show("plan") && <CardPlanReady onCommand={onCommand} runId={runId}/>}
 
       {show("permit") && (
         <Sys time="11:46">
           <p>Before I touch a CTA, I need permission for one medium-risk action.</p>
         </Sys>
       )}
-      {show("permit") && <CardPermission/>}
+      {show("permit") && <CardPermission onCommand={onCommand} runId={runId}/>}
 
       {show("exec") && (
         <>
@@ -831,7 +837,7 @@ export function LlmThread({ state, mode }) {
           <Sys time="11:46">
             <p>Running plan v2. I'll record evidence after each successful operation; <button className="aw-link">Trace</button> tails live.</p>
           </Sys>
-          <CardExecution/>
+          <CardExecution onCommand={onCommand} runId={runId}/>
         </>
       )}
 

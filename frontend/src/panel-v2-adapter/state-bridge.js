@@ -1,6 +1,32 @@
 import { PANEL_V2_VIEW_MODEL_VERSION } from "./types.js";
 
-function derivePhase(transport) {
+function derivePhaseFromStore(storeState, transport) {
+  if (!storeState) return derivePhaseFromTransport(transport);
+
+  const { connectionStatus } = transport;
+  if (connectionStatus === "offline") return "offline";
+
+  if (storeState.no_browser_state) return "nobrowser";
+  if (storeState.api_key_required_state) return "apikey";
+  if (storeState.pending_permission) return "permit";
+  if (storeState.pending_recovery) return "recover";
+
+  const phase = storeState.phase;
+  const mode = storeState.interaction_mode;
+
+  if (phase === "awaiting_confirmation") {
+    if (mode === "clarification") return "clarify";
+    if (mode === "plan_review") return "plan";
+    return "plan";
+  }
+  if (phase === "executing") return "exec";
+  if (phase === "recovery") return "recover";
+  if (phase === "completed") return "done";
+  if (phase === "planning") return "planning";
+  return "idle";
+}
+
+function derivePhaseFromTransport(transport) {
   const { connectionStatus, runState, interactionMode } = transport;
   if (connectionStatus === "offline") return "offline";
   if (runState === "idle" || !runState) return "idle";
@@ -23,15 +49,18 @@ function deriveConnection(transport) {
   return connectionStatus || "connected";
 }
 
-export function mapTransportToViewModel(transport, _storeState) {
-  const phase = derivePhase(transport);
+export function mapTransportToViewModel(transport, storeState) {
+  const phase = derivePhaseFromStore(storeState, transport);
   const connection = deriveConnection(transport);
 
-  const pendingSteps = transport.pendingSteps ?? [];
-  const recordedSteps = transport.recordedSteps ?? [];
-  const codePreview = transport.codePreview ?? null;
-  const traceEntries = transport.traceEntries ?? [];
+  const pendingSteps = storeState?.pending_steps ?? transport.pendingSteps ?? [];
+  const recordedSteps = storeState?.recorded_steps ?? transport.recordedSteps ?? [];
+  const codePreview = storeState?.code_preview ?? transport.codePreview ?? null;
+  const traceEntries = storeState?.trace_entries ?? transport.traceEntries ?? [];
   const conversation = transport.conversation ?? [];
+
+  const runId = storeState?.run_id ?? transport.run_id ?? null;
+  const agents = storeState?.agents ?? null;
 
   return {
     _version: PANEL_V2_VIEW_MODEL_VERSION,
@@ -39,7 +68,7 @@ export function mapTransportToViewModel(transport, _storeState) {
     runtime: {
       phase,
       connection,
-      runId: transport.run_id ?? null,
+      runId,
       pageUrl: transport.pageUrl ?? null,
     },
     counts: {
@@ -51,6 +80,7 @@ export function mapTransportToViewModel(transport, _storeState) {
     llm: {
       messages: conversation,
     },
+    agents,
     steps: pendingSteps,
     recorded: recordedSteps,
     code: codePreview,

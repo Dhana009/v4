@@ -8,6 +8,10 @@ import "../v4.css";
 import "../icons.jsx";
 import "../aw-ide-panel.jsx";
 
+// Panel-v2 adapter — feature flag + live host (behind shouldUseV2Panel() gate)
+import { shouldUseV2Panel } from "./panel-v2-adapter/feature-flag.js";
+import { PanelV2LiveHost } from "./panel-v2-adapter/live-host.jsx";
+
 // Cluster 4 layout modules — thin wiring
 import { createHost, unmountHost, SHADOW_HOST_ID, SHADOW_MOUNT_ID } from "./host/host.jsx";
 import { log as awLog, logError as awLogError, attachGlobalHandlers as awAttachGlobalHandlers } from "./log.js";
@@ -3240,6 +3244,7 @@ function useAutoWorkbenchTransport(config) {
     handleComposerPick,
     handleImproveLocator,
     handleViewCandidates,
+    sendCommand: (payload) => sendPayload(payload, "panel-v2: WebSocket not connected."),
   };
 }
 
@@ -3376,10 +3381,18 @@ function AutoWorkbenchRuntime({ config }) {
     if (typeof width === "number" && Number.isFinite(width)) setPanelWidth(width);
   }, []);
 
+  const useV2 = shouldUseV2Panel();
+
   return (
     <div style={outerStyle} data-aw-dock={dock}>
       <div className={`aw-density-${normalized.density}`} style={innerStyle}>
-        {IDEPanel ? (
+        {useV2 ? (
+          <PanelV2LiveHost
+            transport={transport}
+            storeState={transport.storeState}
+            onSendCommand={transport.sendCommand}
+          />
+        ) : IDEPanel ? (
           <IDEPanel
             state={panelState}
             tab={tab}

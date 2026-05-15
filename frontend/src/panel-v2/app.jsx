@@ -8,12 +8,14 @@ import { LlmThread, Composer } from './llm-tab.jsx';
 import { StepsTab, RecordedTab, CodeTab, TraceTab } from './secondary-tabs.jsx';
 import { DEMO_TWEAK_DEFAULTS, DEMO_STATE_META } from '../panel-v2-adapter/demo-bridge.js';
 
-export function App() {
-  const [t, setTweak] = useTweaks(DEMO_TWEAK_DEFAULTS);
-  const [tab, setTabLocal] = useState(t.tab);
-  useEffect(() => { setTabLocal(t.tab); }, [t.tab]);
+export function App({ viewModel, onCommand, mode } = {}) {
+  const isLive = mode === "live" && viewModel != null;
 
-  const setTab = (id) => { setTabLocal(id); setTweak("tab", id); };
+  const [t, setTweak] = useTweaks(DEMO_TWEAK_DEFAULTS);
+  const [tab, setTabLocal] = useState(isLive ? "llm" : t.tab);
+  useEffect(() => { if (!isLive) setTabLocal(t.tab); }, [t.tab, isLive]);
+
+  const setTab = (id) => { setTabLocal(id); if (!isLive) setTweak("tab", id); };
   const setDock = (d) => setTweak("dock", d);
   const setCollapsed = (v) => setTweak("collapsed", v);
   const setAgentsOpen = (v) => setTweak("agentsOpen", v);
@@ -23,27 +25,39 @@ export function App() {
     document.documentElement.dataset.theme = t.theme || "light";
   }, [t.theme]);
 
-  const meta = DEMO_STATE_META[t.state] || DEMO_STATE_META.idle;
-  const statusKey = meta.conn === "offline" ? "offline"
-                  : meta.conn === "error"   ? "error"
-                  : meta.conn === "busy"    ? "busy"
-                  : t.connection === "reconnect" ? "reconnect"
-                  : "connected";
+  // — Live mode derived values ——————————————————————————
+  const livePhase = isLive ? (viewModel.runtime?.phase ?? "idle") : null;
+  const liveRunId = isLive ? (viewModel.runtime?.runId ?? null) : null;
+  const liveCounts = isLive ? (viewModel.counts ?? { steps: 0, rec: 0, code: 0, trace: 0 }) : null;
+  const liveConnection = isLive ? (viewModel.runtime?.connection ?? "connected") : null;
 
-  const runId = t.state === "idle" ? "—" : "run_a91b";
+  // — Demo mode derived values ——————————————————————————
+  const meta = DEMO_STATE_META[t.state] || DEMO_STATE_META.idle;
+
+  const statusKey = isLive
+    ? (liveConnection === "offline" ? "offline" : liveConnection === "busy" ? "busy" : "connected")
+    : (meta.conn === "offline" ? "offline"
+     : meta.conn === "error"   ? "error"
+     : meta.conn === "busy"    ? "busy"
+     : t.connection === "reconnect" ? "reconnect"
+     : "connected");
+
+  const runId = isLive ? liveRunId : (t.state === "idle" ? "—" : "run_a91b");
   const tokenInfo = { tok: "8.4k", cost: "0.12" };
-  const counts = { llm: null, steps: 5, rec: 4, code: 1, trace: 25 };
+  const counts = isLive ? liveCounts : { llm: null, steps: 5, rec: 4, code: 1, trace: 25 };
+
+  const activeState = isLive ? livePhase : t.state;
 
   // Agents summary dots (5 visible)
   const agentsSummary = (() => {
-    const isRun = ["exec","locator","recover"].includes(t.state);
-    const isPlanning = ["planning","clarify","recommend","plan","diff"].includes(t.state);
+    const isRun = ["exec","locator","recover"].includes(activeState);
+    const isPlanning = ["planning","clarify","recommend","plan","diff"].includes(activeState);
     return [
-      isRun || isPlanning ? "on" : "on",       // Main Orchestrator (always at least on)
-      t.state === "planning" ? "run" : "on",   // Page Intelligence
-      isRun ? "run" : "on",                    // Step Runner
-      t.state === "recover" ? "on" : "off",    // Debug Agent
-      "off",                                    // Risk Judge
+      isRun || isPlanning ? "on" : "on",
+      activeState === "planning" ? "run" : "on",
+      isRun ? "run" : "on",
+      activeState === "recover" ? "on" : "off",
+      "off",
     ];
   })();
 
@@ -53,17 +67,17 @@ export function App() {
   const bodyRef = useRef(null);
   useEffect(() => {
     if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
-  }, [t.state, tab]);
+  }, [activeState, tab]);
 
   // tab body
   let body;
-  if (tab === "llm")        body = <LlmThread state={t.state} mode={t.mode}/>;
+  if (tab === "llm")        body = <LlmThread state={activeState} mode={t.mode} onCommand={isLive ? onCommand : undefined} runId={isLive ? runId : undefined}/>;
   else if (tab === "steps") body = <StepsTab mode={t.mode} setMode={(v) => setTweak("mode", v)}/>;
   else if (tab === "rec")   body = <RecordedTab/>;
   else if (tab === "code")  body = <CodeTab/>;
   else if (tab === "trace") body = <TraceTab/>;
 
-  const showNow = tab === "llm" && t.state !== "idle";
+  const showNow = tab === "llm" && activeState !== "idle";
 
   const panel = (
     <aside className="aw-panel"
@@ -85,24 +99,37 @@ export function App() {
             setMode={(v) => setTweak("mode", v)}
           />
           <TabStrip tab={tab} setTab={setTab} counts={counts}/>
-          {showNow && <NowStrip {...meta.now}/>}
+          {showNow && <NowStrip {...(isLive ? {} : meta.now)}/>}
           <div className="aw-panel-body" ref={bodyRef}>
             {body}
           </div>
-          {tab === "llm" && t.state !== "idle" && <Composer/>}
+          {tab === "llm" && activeState !== "idle" && (
+            <Composer
+              onCommand={isLive ? onCommand : undefined}
+              runId={isLive ? runId : undefined}
+            />
+          )}
           <Footer
-            phase={meta.phase}
-            event={meta.event}
-            blocker={meta.blocker}
-            nextAction={meta.next}
-            busy={meta.busy}
+            phase={isLive ? livePhase : meta.phase}
+            event={isLive ? undefined : meta.event}
+            blocker={isLive ? undefined : meta.blocker}
+            nextAction={isLive ? undefined : meta.next}
+            busy={isLive ? undefined : meta.busy}
           />
-          {t.agentsOpen && <AgentsPopover state={t.state} onClose={() => setAgentsOpen(false)}/>}
+          {t.agentsOpen && <AgentsPopover state={activeState} onClose={() => setAgentsOpen(false)}/>}
         </>
       )}
       {t.collapsed && <CollapsedRail tab={tab} setTab={(id)=>{ setTab(id); setCollapsed(false); }} setCollapsed={setCollapsed}/>}
     </aside>
   );
+
+  if (isLive) {
+    return (
+      <div className={stageCls}>
+        {panel}
+      </div>
+    );
+  }
 
   return (
     <>
