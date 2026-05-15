@@ -45,7 +45,7 @@ function Header({ status, dock, setDock, collapsed, setCollapsed, tokenInfo, run
 
   return (
     <header className="aw-header">
-      <div className="aw-header-main">
+      <div className="aw-header-main" data-comment-anchor="c18f76b6e9-div-24-7">
         <div className="aw-brand">
           <span className="aw-logo" aria-hidden="true" />
           <span>AutoWorkbench</span>
@@ -140,7 +140,7 @@ function TabStrip({ tab, setTab, counts }) {
   { id: "trace", label: "Trace", Icon: I.Trace, badge: counts.trace }];
 
   return (
-    <nav className="aw-tabs" role="tablist">
+    <nav className="aw-tabs" role="tablist" data-comment-anchor="07c0a5a5d7-nav-75-5">
       {tabs.map((t) =>
       <button key={t.id}
       role="tab"

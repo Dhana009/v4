@@ -321,12 +321,12 @@ function StepsTab({ mode = "llm", setMode = () => {} }) {
             <span className="aw-badge-i outline">expected: navigates to /signup?plan=pro</span>
             <span className="aw-badge-i info"><span className="ldot" />1 child op</span>
           </div>
-          <div className="aw-step-attached">
+          <div className="aw-step-attached" data-comment-anchor="50fec2b806-div-41-11">
             <I.Target style={{ width: 12, height: 12, color: "var(--vio)" }} />
             <span>attached element:</span>
             <span className="scope">.ws-plan.featured .ws-plan-tag</span>
             <span className="aw-spacer" style={{ flex: 1 }} />
-            <button className="aw-icon-btn" onClick={link("Pick mode active · click an element on the page")} title="Re-pick element" data-tip="Re-pick element"><I.Target/></button>
+            <button className="aw-icon-btn" data-comment-anchor="3e75d938bc-button-119-13" onClick={link("Pick mode active · click an element on the page")} title="Re-pick element" data-tip="Re-pick element"><I.Target/></button>
           </div>
           <StepFoot id="stp_001" version="v1" lastRun="12m ago"/>
         </div>      </div>
@@ -359,7 +359,7 @@ function StepsTab({ mode = "llm", setMode = () => {} }) {
       data-status="section">
         <span className="aw-step-handle"><I.Drag /></span>
         <span className="aw-step-idx" style={{ background: "var(--vio)", color: "#fff" }}>3</span>
-        <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ flex: 1, minWidth: 0 }} data-comment-anchor="4b60e1055b-div-162-7">
           <div className="aw-step-title">Section: Pricing grid · 4 child operations</div>
           <div className="aw-step-meta">
             <span className="aw-badge-i vio"><span className="ldot" />section step</span>
