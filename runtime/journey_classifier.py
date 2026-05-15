@@ -7,6 +7,13 @@ Source rule: S6-0401 — classify broad user requests into full_journey_automati
 No immediate execution. Clarification for missing data/scope/permissions.
 
 Modularization rule: policy logic in focused runtime/ modules, not agent.py.
+
+Controller integration (runtime_policy §15):
+  classify_journey_intent_via_controller() is the preferred call path so that
+  any future LLM escalation for ambiguous inputs is mediated by
+  LLMRuntimeController (schema-retry + _validate_response).  The current
+  implementation is fully deterministic, so the controller call uses
+  deterministic_safe=True — no model is invoked.
 """
 from __future__ import annotations
 
@@ -137,3 +144,52 @@ def classify_journey_intent(
         missing_fields=missing_fields,
         has_capability_risks=has_capability_risks,
     )
+
+
+def classify_journey_intent_via_controller(
+    user_message: str,
+    context: dict[str, Any] | None = None,
+    *,
+    controller: Any | None = None,
+) -> JourneyClassification:
+    """Classify journey intent, routing telemetry through LLMRuntimeController.
+
+    The classification itself is deterministic (no LLM call).  Passing it
+    through the controller ensures schema-retry and _validate_response are
+    applied for any future LLM escalation path per runtime_policy §15.
+
+    Parameters
+    ----------
+    user_message:
+        Raw user input to classify.
+    context:
+        Optional dict with keys like ``target_pages``.
+    controller:
+        An LLMRuntimeController instance.  If None the function falls back
+        to ``classify_journey_intent`` directly (no telemetry emitted).
+    """
+    classification = classify_journey_intent(user_message, context)
+
+    if controller is not None:
+        _call = getattr(controller, "call", None)
+        if callable(_call):
+            import asyncio
+            _coro = _call(
+                purpose="journey_classifier",
+                messages=[{"role": "user", "content": user_message}],
+                deterministic_safe=True,
+                deterministic_reason=f"keyword_match:{classification.intent_type.value}",
+            )
+            # Support both sync and async controller.call() callers.
+            try:
+                loop = asyncio.get_event_loop()
+                if loop.is_running():
+                    # Already inside an async context — caller must await if needed;
+                    # fire-and-forget for telemetry only (result is deterministic).
+                    loop.create_task(_coro)
+                else:
+                    loop.run_until_complete(_coro)
+            except Exception:  # noqa: BLE001
+                pass  # telemetry errors must never break classification
+
+    return classification

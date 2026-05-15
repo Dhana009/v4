@@ -41,6 +41,11 @@ ALLOWED_PURPOSES = (
     "replay_repair_specialist",
     "user_response_writer",
     "trace_summarizer",
+    # --- classifier routing (deterministic; LLM escalation path mediated by controller) ---
+    "journey_classifier",
+    "failure_classifier",
+    # --- fallback for agent.py paths not yet assigned a dedicated purpose ---
+    "agent_fallback",
 )
 
 CORE_SKILLS = ("llm_runtime_controller",)
@@ -345,6 +350,38 @@ def _build_purpose_policy_map() -> dict[str, dict[str, Any]]:
             skill_names=planner_skill,
             planning_tools=planning_tools_for_purpose("trace_summarizer"),
             token_budget=1000,
+        ),
+        # --- classifier routing purposes ---
+        # journey_classifier: deterministic keyword classification; controller mediates any
+        # future LLM escalation path per runtime_policy §15.
+        "journey_classifier": _purpose_policy(
+            purpose="journey_classifier",
+            model_class="cheap",
+            skill_names=planner_skill,
+            planning_tools=(),
+            token_budget=800,
+        ),
+        # failure_classifier: deterministic error-pattern classification; controller
+        # mediates any future LLM escalation path per runtime_policy §15.
+        "failure_classifier": _purpose_policy(
+            purpose="failure_classifier",
+            model_class="cheap",
+            skill_names=planner_skill,
+            planning_tools=(),
+            token_budget=800,
+        ),
+        # --- agent_fallback purpose ---
+        # Closes the direct model_router.call() bypass in agent.py (lines 1804-1812).
+        # All agent main-loop LLM calls not routed to a specialised purpose flow through
+        # here so schema-retry and _validate_response apply per runtime_policy §15.
+        # TODO(follow-up): replace agent_fallback with dedicated per-purpose routing once
+        # plan-edit / locator-issue / capability / risk classifier slices are complete.
+        "agent_fallback": _purpose_policy(
+            purpose="agent_fallback",
+            model_class="main",
+            skill_names=planner_skill,
+            planning_tools=list(PLANNING_TOOL_NAMES),
+            token_budget=3200,
         ),
     }
 

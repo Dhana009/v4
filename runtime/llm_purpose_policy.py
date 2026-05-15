@@ -35,6 +35,12 @@ REQUIRED_PURPOSE_IDS: tuple[str, ...] = (
     "replay_repair_specialist",
     "user_response_writer",
     "trace_summarizer",
+    # --- classifier routing (deterministic; LLM escalation path mediated by controller) ---
+    "journey_classifier",
+    "failure_classifier",
+    # --- agent_fallback closes direct model_router.call() bypass in agent.py ---
+    # TODO(follow-up): retire once all agent paths have dedicated purposes.
+    "agent_fallback",
 )
 
 ALLOWED_MODEL_CLASSES: frozenset[str] = frozenset({"cheap", "main", "debug"})

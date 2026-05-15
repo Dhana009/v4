@@ -1802,14 +1802,39 @@ class AgentLoop:
                                 "step_plan_normalizer controller did not return raw_response"
                             )
                     else:
-                        response = await self.model_router.call(
-                            purpose=effective_purpose,
-                            client=self.llm.client,
-                            model=model,
-                            messages=context_bundle.messages,
-                            tools=filtered_tools,
-                            tool_choice="auto",
-                        )
+                        # Route through LLMRuntimeController so schema-retry and
+                        # _validate_response apply per runtime_policy §15.
+                        # Closes the direct model_router.call() bypass (audit gap:
+                        # "Controller bypass exists").
+                        # TODO(follow-up): replace agent_fallback with per-purpose
+                        # routing once plan-edit/locator-issue/capability/risk
+                        # classifier slices are complete.
+                        _fb_controller = getattr(self, "_llm_runtime_controller", None)
+                        _fb_call = getattr(_fb_controller, "call_with_raw_response", None) if _fb_controller is not None else None
+                        if callable(_fb_call):
+                            _fb_result = await _fb_call(
+                                purpose="agent_fallback",
+                                messages=context_bundle.messages,
+                                phase=current_phase,
+                                client=self.llm.client,
+                                tools=filtered_tools,
+                                tool_choice="auto",
+                            )
+                            response = _fb_result.get("raw_response") if isinstance(_fb_result, dict) else None
+                            if response is None:
+                                raise RuntimeError(
+                                    "agent_fallback controller did not return raw_response"
+                                )
+                        else:
+                            # Controller not wired — fail closed per runtime_policy §15.
+                            # Direct model_router.call() bypass is NOT allowed; every
+                            # LLM call must go through LLMRuntimeController so that
+                            # schema-retry and _validate_response apply.
+                            raise RuntimeError(
+                                "LLMRuntimeController not wired: cannot call model_router "
+                                "directly (runtime_policy §15 requires controller path). "
+                                "Ensure _llm_runtime_controller is set before this branch."
+                            )
                 except Exception as exc:  # noqa: BLE001
                     record_model_call_end(
                         telemetry,

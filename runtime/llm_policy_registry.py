@@ -201,7 +201,7 @@ class LLMPolicyRegistry:
 # ---------------------------------------------------------------------------
 
 def build_default_registry() -> LLMPolicyRegistry:
-    """Build and return a fresh LLMPolicyRegistry with all 14 purposes."""
+    """Build and return a fresh LLMPolicyRegistry with all 17 purposes."""
     policies: dict[str, LLMPurposePolicy] = {
         "intent_classifier": _build_policy(
             purpose="intent_classifier",
@@ -289,6 +289,30 @@ def build_default_registry() -> LLMPolicyRegistry:
             model_class="cheap",
             skill_names=_PERSONA,
             token_budget=1000,
+        ),
+        # --- classifier routing purposes (runtime_policy §15) ---
+        # Deterministic classifiers routed through controller so any future
+        # LLM escalation path gets schema-retry + _validate_response.
+        "journey_classifier": _build_policy(
+            purpose="journey_classifier",
+            model_class="cheap",
+            skill_names=_PERSONA,
+            token_budget=800,
+        ),
+        "failure_classifier": _build_policy(
+            purpose="failure_classifier",
+            model_class="cheap",
+            skill_names=_PERSONA,
+            token_budget=800,
+        ),
+        # --- agent_fallback purpose (runtime_policy §15) ---
+        # Closes the direct model_router.call() bypass in agent.py.
+        # TODO(follow-up): retire once all agent paths have dedicated purposes.
+        "agent_fallback": _build_policy(
+            purpose="agent_fallback",
+            model_class="main",
+            skill_names=_PERSONA,
+            token_budget=3200,
         ),
     }
     return LLMPolicyRegistry(policies)
