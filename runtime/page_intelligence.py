@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import re
+from collections import OrderedDict
 from dataclasses import dataclass, field, asdict
+from html.parser import HTMLParser
 from typing import Any
 
 from runtime.telemetry import estimate_text_tokens
@@ -184,3 +186,380 @@ def build_page_intelligence_packet(
         sections=sections,
     )
     return packet
+
+
+# ---------------------------------------------------------------------------
+# §3.6 / runtime §11 — deterministic summarize_page (P0 item 9)
+# ---------------------------------------------------------------------------
+
+_IMPLICIT_LANDMARK_ROLES: dict[str, str] = {
+    "header": "banner",
+    "main": "main",
+    "nav": "navigation",
+    "aside": "complementary",
+    "footer": "contentinfo",
+    "form": "form",
+    "search": "search",
+    "section": "region",
+}
+
+_HEADING_TAGS_SET = {"h1", "h2", "h3", "h4", "h5", "h6"}
+
+_LANDMARK_ROLES_SET = {
+    "banner", "main", "navigation", "complementary",
+    "contentinfo", "search", "form", "region",
+}
+
+_ACTION_ROLES = {"button", "submit", "reset", "image"}  # input types that are actions
+_INTERACTIVE_TAGS = {"button", "a", "input", "select", "textarea"}
+
+
+def _norm_ws(text: str) -> str:
+    """Collapse whitespace and strip."""
+    return re.sub(r"\s+", " ", text).strip()
+
+
+class _PageParser(HTMLParser):
+    """Single-pass HTML parser collecting the full element tree."""
+
+    def __init__(self) -> None:
+        super().__init__(convert_charrefs=True)
+        # Flat list of events: ("open", tag, attrs_dict) | ("close", tag) | ("data", text)
+        self._events: list[tuple] = []
+
+    def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
+        d = {k: (v or "") for k, v in attrs}
+        self._events.append(("open", tag.lower(), d))
+
+    def handle_endtag(self, tag: str) -> None:
+        self._events.append(("close", tag.lower(), {}))
+
+    def handle_data(self, data: str) -> None:
+        stripped = data.strip()
+        if stripped:
+            self._events.append(("data", "#text", {"_text": stripped}))
+
+    # Void elements that never get a close tag
+    _VOID = frozenset(
+        "area base br col embed hr img input link meta param source track wbr".split()
+    )
+
+    def events(self) -> list[tuple]:
+        return self._events
+
+
+def _parse_html(html: str) -> list[tuple]:
+    p = _PageParser()
+    p.feed(html)
+    return p.events()
+
+
+def _collect_text_from_events(events: list[tuple], start: int) -> str:
+    """Collect all text data between the open tag at *start* and its matching close."""
+    depth = 0
+    buf: list[str] = []
+    tag_name = events[start][1]
+    for ev in events[start:]:
+        kind = ev[0]
+        if kind == "open":
+            depth += 1
+        elif kind == "close" and ev[1] == tag_name:
+            depth -= 1
+            if depth == 0:
+                break
+        elif kind == "data":
+            buf.append(ev[2]["_text"])
+    return _norm_ws(" ".join(buf))
+
+
+def _build_id_text_map(events: list[tuple]) -> dict[str, str]:
+    """Return {id: text_content} for every element that has an id attribute."""
+    id_map: dict[str, str] = {}
+    for i, ev in enumerate(events):
+        if ev[0] == "open":
+            eid = ev[2].get("id", "")
+            if eid:
+                id_map[eid] = _collect_text_from_events(events, i)
+    return id_map
+
+
+def _build_label_map(events: list[tuple]) -> dict[str, str]:
+    """Return {input_id: label_text} from <label for=...> associations."""
+    label_map: dict[str, str] = {}
+    for i, ev in enumerate(events):
+        if ev[0] == "open" and ev[1] == "label":
+            for_id = ev[2].get("for", "")
+            if for_id:
+                label_map[for_id] = _collect_text_from_events(events, i)
+    return label_map
+
+
+def _extract_title(events: list[tuple]) -> str:
+    for i, ev in enumerate(events):
+        if ev[0] == "open" and ev[1] == "title":
+            return _collect_text_from_events(events, i)
+    return ""
+
+
+def _extract_url(events: list[tuple], dom: dict | None) -> str:
+    if dom and isinstance(dom, dict):
+        return dom.get("url", "")
+    return ""
+
+
+def _selector_hint(attrs: dict) -> str:
+    """Best stable selector hint from element attributes."""
+    testid = attrs.get("data-testid", "")
+    if testid:
+        return f"[data-testid='{testid}']"
+    aria_label = attrs.get("aria-label", "")
+    role = attrs.get("role", "")
+    name = attrs.get("name", "")
+    if aria_label and role:
+        return f"[role='{role}'][aria-label='{aria_label}']"
+    if aria_label:
+        return f"[aria-label='{aria_label}']"
+    if name:
+        return f"[name='{name}']"
+    eid = attrs.get("id", "")
+    if eid:
+        return f"#{eid}"
+    return ""
+
+
+def _events_from_dict(dom: dict) -> list[tuple]:
+    """Convert a dict DOM tree into the same flat event list that the HTML parser emits."""
+    events: list[tuple] = []
+
+    def _walk(node: Any) -> None:
+        if not isinstance(node, dict):
+            return
+        tag = (node.get("tag") or node.get("nodeName") or node.get("type") or "").lower()
+        tag = tag.lstrip("#")
+        if not tag or tag == "document":
+            for child in node.get("children", []):
+                _walk(child)
+            return
+
+        if tag == "text":
+            txt = (node.get("text") or node.get("nodeValue") or "").strip()
+            if txt:
+                events.append(("data", "#text", {"_text": txt}))
+            return
+
+        attrs: dict[str, str] = {}
+        for k, v in (node.get("attributes") or node.get("attrs") or {}).items():
+            attrs[k.lower()] = str(v)
+
+        events.append(("open", tag, attrs))
+        for child in node.get("children", []):
+            _walk(child)
+        events.append(("close", tag, {}))
+
+    _walk(dom)
+    return events
+
+
+def summarize_page(
+    dom_snapshot: "dict | str",
+    *,
+    max_elements: int = 200,
+) -> dict:
+    """Deterministic page summarizer — spec §3.6 / runtime §11.
+
+    Args:
+        dom_snapshot: Either a raw HTML string or a parsed dict tree.
+        max_elements: Hard cap on how many elements are processed.
+
+    Returns:
+        A dict with keys: url, title, headings, landmarks, primary_actions,
+        form_fields, links_count, interactive_count, warnings.
+    """
+    dom_dict: dict | None = None
+    if isinstance(dom_snapshot, dict):
+        dom_dict = dom_snapshot
+        events = _events_from_dict(dom_snapshot)
+    else:
+        events = _parse_html(str(dom_snapshot))
+
+    # Pre-build lookup maps
+    id_text_map = _build_id_text_map(events)
+    label_map = _build_label_map(events)
+
+    url: str = ""
+    if dom_dict:
+        url = dom_dict.get("url", "")
+        if not url:
+            url = dom_dict.get("documentURL", "")
+
+    title: str = _extract_title(events)
+    if not title and dom_dict:
+        title = dom_dict.get("title", "")
+
+    headings: list[dict] = []
+    landmarks: list[dict] = []
+    primary_actions: list[dict] = []
+    form_fields: list[dict] = []
+    warnings: list[str] = []
+
+    links_count = 0
+    interactive_count = 0
+    elements_seen = 0
+
+    # Track heading levels for out-of-order detection
+    last_heading_level: int = 0
+
+    # Track landmark stacks for name extraction
+    # landmark_stack: list of (index_in_landmarks, tag, open_event_index)
+    landmark_stack: list[tuple[int, str, int]] = []
+
+    # We need to process events with context — use index iteration
+    for i, ev in enumerate(events):
+        kind = ev[0]
+        if kind != "open":
+            continue
+        if elements_seen >= max_elements:
+            break
+        elements_seen += 1
+
+        tag = ev[1]
+        attrs = ev[2]
+
+        # ---- headings ----
+        if tag in _HEADING_TAGS_SET:
+            level = int(tag[1])
+            text = _collect_text_from_events(events, i)
+            if text:
+                headings.append({"level": level, "text": text})
+                if last_heading_level > 0 and level > last_heading_level + 1:
+                    warnings.append(
+                        f"heading_out_of_order: h{last_heading_level} → h{level}"
+                    )
+                last_heading_level = level
+
+        # ---- landmarks ----
+        explicit_role = attrs.get("role", "").lower()
+        implicit_role = _IMPLICIT_LANDMARK_ROLES.get(tag, "")
+        landmark_role = explicit_role if explicit_role in _LANDMARK_ROLES_SET else implicit_role
+
+        if landmark_role:
+            name = attrs.get("aria-label", "")
+            if not name:
+                labelledby = attrs.get("aria-labelledby", "")
+                if labelledby:
+                    name = _norm_ws(id_text_map.get(labelledby, ""))
+            entry: dict = {"role": landmark_role, "name": name}
+            landmarks.append(entry)
+            # Track for heading-based name fallback
+            landmark_stack.append((len(landmarks) - 1, tag, i))
+
+        # ---- fill landmark names from first heading inside (deferred) ----
+        # We patch landmark names when we encounter a heading inside a landmark
+        if tag in _HEADING_TAGS_SET and landmark_stack:
+            # Find innermost landmark with no name yet
+            for lm_idx, _lm_tag, _lm_open_i in reversed(landmark_stack):
+                lm = landmarks[lm_idx]
+                if not lm["name"]:
+                    heading_text = _collect_text_from_events(events, i)
+                    if heading_text:
+                        lm["name"] = heading_text
+                    break
+
+        # ---- interactive & links count ----
+        if tag == "a":
+            links_count += 1
+            interactive_count += 1
+        elif tag in _INTERACTIVE_TAGS:
+            interactive_count += 1
+
+        # ---- primary actions: buttons + submit-type inputs (top 10) ----
+        if len(primary_actions) < 10:
+            if tag == "button":
+                label_text = attrs.get("aria-label", "") or _collect_text_from_events(events, i)
+                label_text = _norm_ws(label_text)
+                if label_text:
+                    role_val = attrs.get("role", "button")
+                    hint = _selector_hint(attrs) or f"button:contains('{label_text[:40]}')"
+                    primary_actions.append({
+                        "label": label_text,
+                        "role": role_val or "button",
+                        "selector_hint": hint,
+                    })
+            elif tag == "input":
+                input_type = attrs.get("type", "text").lower()
+                if input_type in ("submit", "button", "reset", "image"):
+                    label_text = (
+                        attrs.get("value", "")
+                        or attrs.get("aria-label", "")
+                        or input_type
+                    )
+                    label_text = _norm_ws(label_text)
+                    hint = _selector_hint(attrs) or f"[type='{input_type}']"
+                    primary_actions.append({
+                        "label": label_text,
+                        "role": "button",
+                        "selector_hint": hint,
+                    })
+
+        # ---- form fields: input/select/textarea ----
+        if tag in ("input", "select", "textarea"):
+            input_type = attrs.get("type", "text").lower()
+            if input_type in ("hidden", "submit", "button", "reset", "image"):
+                continue
+            input_name = attrs.get("name", "")
+            input_id = attrs.get("id", "")
+            required = attrs.get("required", None) is not None or attrs.get("required", "") in ("", "true", "required")
+            # Label resolution: explicit for=, aria-labelledby, aria-label
+            field_label = ""
+            if input_id:
+                field_label = label_map.get(input_id, "")
+            if not field_label:
+                labelledby = attrs.get("aria-labelledby", "")
+                if labelledby:
+                    field_label = _norm_ws(id_text_map.get(labelledby, ""))
+            if not field_label:
+                field_label = attrs.get("aria-label", "")
+            if not field_label:
+                field_label = attrs.get("placeholder", "")
+
+            if not field_label:
+                warnings.append(f"missing_label: {tag}[name={input_name or input_type}]")
+
+            form_fields.append({
+                "label": _norm_ws(field_label),
+                "name": input_name,
+                "type": input_type if tag == "input" else tag,
+                "required": bool(
+                    attrs.get("required") is not None
+                    and attrs.get("required", "false").lower() != "false"
+                    or "required" in attrs
+                ),
+            })
+
+        # ---- img alt-text warnings ----
+        if tag == "img":
+            alt = attrs.get("alt")
+            if alt is None:
+                warnings.append("missing_alt_text: img without alt attribute")
+            elif alt.strip() == "":
+                warnings.append("missing_alt_text: img with empty alt")
+
+    # Clean landmark stack (close tracking not strictly needed for name patching above)
+
+    # De-duplicate warnings while preserving order
+    seen_warnings: dict[str, None] = OrderedDict()
+    for w in warnings:
+        seen_warnings[w] = None
+    warnings = list(seen_warnings.keys())
+
+    return {
+        "url": url,
+        "title": title,
+        "headings": headings,
+        "landmarks": landmarks,
+        "primary_actions": primary_actions[:10],
+        "form_fields": form_fields,
+        "links_count": links_count,
+        "interactive_count": interactive_count,
+        "warnings": warnings,
+    }
