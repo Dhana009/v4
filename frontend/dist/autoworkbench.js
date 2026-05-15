@@ -2949,6 +2949,7 @@ window.TraceTab = TraceTab;
   var backoff = 500;
   var stopped = false;
   function wsUrl() {
+    if (AW && typeof AW.wsUrl === "string" && AW.wsUrl) return AW.wsUrl;
     var proto = location.protocol === "https:" ? "wss:" : "ws:";
     var host = location.host || "127.0.0.1:8765";
     return proto + "//" + host + "/ws";

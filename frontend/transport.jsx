@@ -98,9 +98,13 @@
   var stopped = false;
 
   function wsUrl() {
+    // Overlay injection (browser.py) passes ws URL via window.AW.wsUrl.
+    // When the extension overlay runs on an external site (playwright.dev,
+    // etc.) location.host is the wrong target; we must use the configured
+    // backend URL. Falls back to same-origin for the dev panel served by
+    // server.py, then to 127.0.0.1:8765 for file:// fixtures.
+    if (AW && typeof AW.wsUrl === "string" && AW.wsUrl) return AW.wsUrl;
     var proto = location.protocol === "https:" ? "wss:" : "ws:";
-    // location.host is empty for file:// — fall back to localhost so the
-    // built file is still usable from a static fixture server.
     var host = location.host || "127.0.0.1:8765";
     return proto + "//" + host + "/ws";
   }
