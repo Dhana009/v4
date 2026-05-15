@@ -4,7 +4,11 @@ from dataclasses import dataclass
 from typing import Any, Mapping, Sequence
 
 from runtime.deterministic_fast_path import classify_fast_path
+from runtime.permission_classifier import RISK_LABELS, classify_action_risk
 from runtime.tool_registry import PLANNING_SAFE_TOOL_NAMES, RECORDING_WAIT_SAFE_TOOL_NAMES
+
+# Supported autonomy modes for the permission / risk subsystem (§3.9).
+AUTONOMY_MODES: tuple[str, ...] = ("strict", "balanced", "auto")
 
 
 @dataclass(slots=True)
@@ -157,3 +161,20 @@ class LLMPolicyGateway:
         if phase == "recording":
             return set(RECORDING_WAIT_SAFE_TOOL_NAMES)
         return set()
+
+
+# ---------------------------------------------------------------------------
+# Module-level helper — thin public shim over the classifier
+# ---------------------------------------------------------------------------
+
+def evaluate_permission(action: dict, autonomy_mode: str) -> dict:
+    """Return a risk/permission verdict for *action* under *autonomy_mode*.
+
+    Delegates entirely to ``classify_action_risk``; exists as a stable
+    module-level entry-point for callers that import from this gateway
+    rather than from ``permission_classifier`` directly.
+
+    Returns the same dict shape as ``classify_action_risk``:
+        ``{"risk": str, "permission": str, "reasons": list[str]}``
+    """
+    return classify_action_risk(action, autonomy_mode)
