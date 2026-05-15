@@ -1425,16 +1425,34 @@ function CardE2EPending() {
 // — Empty state ————————————————————————————————————————
 
 function LlmEmpty({ onSeed }) {
+  function handleChipSeed(text) {
+    // Fill composer textarea and notify React-controlled-input shims
+    const ta = document.querySelector('textarea.aw-composer-input');
+    if (ta) {
+      ta.value = text;
+      ta.dispatchEvent(new Event('input', { bubbles: true }));
+      ta.focus();
+    }
+    // Send via window.AW transport; graceful degrade if unavailable
+    const aw = window.AW;
+    if (aw && typeof aw.send === 'function') {
+      const ok = aw.send({ type: 'llm_run', steps: [{ intent: text, expected_outcome: { type: 'not_sure' } }] });
+      if (ok === false) return; // backend busy — composer already filled
+    }
+    // Also call legacy onSeed prop if provided by parent
+    if (typeof onSeed === 'function') onSeed(text);
+  }
+
   return (
     <div className="aw-empty">
       <div className="ic"><I.Spark/></div>
       <h3>Describe what you want to automate or validate.</h3>
       <p>Tell me about a page, attach a selection from the page, or paste a Playwright snippet. I'll plan a flow, ask before running, and record evidence on the way.</p>
       <div className="aw-suggestions">
-        <span className="aw-chip" onClick={onSeed}>Validate this pricing page</span>
-        <span className="aw-chip">Smoke test the login flow</span>
-        <span className="aw-chip">Repair my flaky checkout spec</span>
-        <span className="aw-chip">Record an Add-to-cart journey</span>
+        <button type="button" className="aw-chip" onClick={() => handleChipSeed('Validate this pricing page')}>Validate this pricing page</button>
+        <button type="button" className="aw-chip" onClick={() => handleChipSeed('Smoke test the login flow')}>Smoke test the login flow</button>
+        <button type="button" className="aw-chip" onClick={() => handleChipSeed('Repair my flaky checkout spec')}>Repair my flaky checkout spec</button>
+        <button type="button" className="aw-chip" onClick={() => handleChipSeed('Record an Add-to-cart journey')}>Record an Add-to-cart journey</button>
       </div>
     </div>
   );
