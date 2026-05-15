@@ -640,9 +640,44 @@ function CardOffline() {
         </ul>
       </div>
       <div className="aw-card-foot">
-        <button className="aw-btn primary"><I.Sync/>Reconnect now</button>
-        <button className="aw-btn">View connection log</button>
-        <button className="aw-btn subtle">Switch endpoint</button>
+        <button className="aw-btn primary"
+                onClick={() => {
+                  // T-6: Reconnect now → client-side WS retry. Bypasses
+                  // the current backoff timer and reopens immediately.
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  if (AW && typeof AW.reconnect === 'function') AW.reconnect();
+                }}>
+          <I.Sync/>Reconnect now
+        </button>
+        <button className="aw-btn"
+                onClick={() => {
+                  // T-6: View connection log → surface a quick summary
+                  // pulled from window.AW. A real log viewer modal is a
+                  // follow-up; this keeps the action honest by showing
+                  // exactly what the transport layer holds today.
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  const lines = [
+                    'connection: ' + (AW && AW.connection),
+                    'last event: ' + (AW && AW.lastEvent && AW.lastEvent.type),
+                    'endpoint registry: ' + (AW && AW.endpoints && AW.endpoints.active_id),
+                  ].join('\n');
+                  if (typeof window !== 'undefined' && typeof window.alert === 'function') window.alert(lines);
+                }}>
+          View connection log
+        </button>
+        <button className="aw-btn subtle"
+                onClick={() => {
+                  // T-6: Switch endpoint → typed switch_endpoint command.
+                  // Sprint 7 registry only carries the local endpoint, so
+                  // the backend acks with already_active until the
+                  // registry grows.
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  if (!AW || typeof AW.send !== 'function') return;
+                  const active = (AW.endpoints && AW.endpoints.active_id) || 'local';
+                  AW.send({ type: 'switch_endpoint', endpoint_id: active });
+                }}>
+          Switch endpoint
+        </button>
       </div>
     </div>
   );

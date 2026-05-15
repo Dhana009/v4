@@ -180,6 +180,19 @@
     if (ws) try { ws.close(); } catch (_) {}
   };
 
+  // T-6: explicit reconnect. Cancels the current backoff timer (if any),
+  // resets the delay, closes any lingering socket, and opens a fresh one
+  // immediately. Safe to call from any state.
+  AW.reconnect = function reconnect() {
+    stopped = false;
+    backoff = 500;
+    if (ws) {
+      try { ws.close(); } catch (_) {}
+      ws = null;
+    }
+    open();
+  };
+
   // Kick connection once the document is ready so we don't race with the
   // shadow / babel pipeline.
   if (document.readyState === "loading") {
