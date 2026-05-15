@@ -3,6 +3,8 @@ from __future__ import annotations
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 import inspect
+import logging
+import os
 import time
 from typing import Any
 
@@ -24,6 +26,48 @@ from runtime.tool_schema_policy import (
     planning_tools_for_purpose,
     recovery_tools_for_purpose,
 )
+
+
+# ---------------------------------------------------------------------------
+# Token-cost table (placeholder — per-million-token prices, USD).
+# Keyed by the provider model string returned by resolve_model_name().
+# Fall back to 0.0 if a model is absent and log a warning once.
+# ---------------------------------------------------------------------------
+_COST_TABLE: dict[str, tuple[float, float]] = {
+    # model_name: (input_cost_per_1k_tokens, output_cost_per_1k_tokens)
+    "gpt-4o":           (0.005,   0.015),
+    "gpt-4o-mini":      (0.00015, 0.0006),
+    "gpt-4-turbo":      (0.01,    0.03),
+    "gpt-4":            (0.03,    0.06),
+    "gpt-3.5-turbo":    (0.0005,  0.0015),
+    "claude-3-5-sonnet-20241022": (0.003, 0.015),
+    "claude-3-haiku-20240307":    (0.00025, 0.00125),
+    "claude-3-opus-20240229":     (0.015, 0.075),
+    # cheap / main / debug routing aliases (resolved before lookup — kept as
+    # safety fallback in case the model router returns a class string)
+    "cheap":  (0.00015, 0.0006),
+    "main":   (0.005,   0.015),
+    "debug":  (0.005,   0.015),
+}
+
+_UNKNOWN_MODEL_WARNED: set[str] = set()
+
+_DEFAULT_LLM_BUDGET_USD: float = float(os.environ.get("AUTOWORKBENCH_LLM_BUDGET_USD", "5.0"))
+
+
+def _cost_for_tokens(model: str, tokens_in: int, tokens_out: int) -> float:
+    """Return estimated USD cost; falls back to 0.0 if model unknown."""
+    entry = _COST_TABLE.get(model)
+    if entry is None:
+        if model not in _UNKNOWN_MODEL_WARNED:
+            _UNKNOWN_MODEL_WARNED.add(model)
+            logging.getLogger(__name__).warning(
+                "LLMRuntimeController: unknown model %r in _COST_TABLE; cost defaulting to 0.0",
+                model,
+            )
+        return 0.0
+    cost_in_per_1k, cost_out_per_1k = entry
+    return (tokens_in * cost_in_per_1k + tokens_out * cost_out_per_1k) / 1000.0
 
 
 ALLOWED_PURPOSES = (
@@ -559,6 +603,113 @@ class LLMRuntimeController:
         self.telemetry_sink = telemetry_sink
         self.model_client = model_client or client
         self.model_router = model_router
+
+        # Token accumulator — populated by _accumulate_tokens() after every
+        # live model call.  Keyed by purpose; never cleared within a run.
+        self._token_totals_in: int = 0
+        self._token_totals_out: int = 0
+        self._token_total_cost: float = 0.0
+        self._token_per_purpose: dict[str, dict[str, Any]] = {}
+        self._token_model_breakdown: dict[str, dict[str, Any]] = {}
+        self._token_budget_exceeded_warned: bool = False
+        self._token_budget_usd: float = float(
+            os.environ.get("AUTOWORKBENCH_LLM_BUDGET_USD", str(_DEFAULT_LLM_BUDGET_USD))
+        )
+
+    # ------------------------------------------------------------------
+    # Token accumulation
+    # ------------------------------------------------------------------
+
+    def _accumulate_tokens(
+        self,
+        *,
+        purpose: str,
+        model: str,
+        tokens_in: int,
+        tokens_out: int,
+    ) -> None:
+        """Record token usage for one model call.  Best-effort; never raises."""
+        try:
+            cost = _cost_for_tokens(model, tokens_in, tokens_out)
+            self._token_totals_in += tokens_in
+            self._token_totals_out += tokens_out
+            self._token_total_cost += cost
+
+            # Per-purpose breakdown
+            if purpose not in self._token_per_purpose:
+                self._token_per_purpose[purpose] = {
+                    "tokens_in": 0,
+                    "tokens_out": 0,
+                    "model": model,
+                    "cost_usd": 0.0,
+                    "call_count": 0,
+                }
+            pp = self._token_per_purpose[purpose]
+            pp["tokens_in"] += tokens_in
+            pp["tokens_out"] += tokens_out
+            pp["cost_usd"] += cost
+            pp["call_count"] += 1
+            # Keep most-recent model in the per-purpose record
+            pp["model"] = model
+
+            # Per-model breakdown
+            if model not in self._token_model_breakdown:
+                self._token_model_breakdown[model] = {
+                    "tokens_in": 0,
+                    "tokens_out": 0,
+                    "cost_usd": 0.0,
+                }
+            mb = self._token_model_breakdown[model]
+            mb["tokens_in"] += tokens_in
+            mb["tokens_out"] += tokens_out
+            mb["cost_usd"] += cost
+        except Exception:  # noqa: BLE001
+            pass  # accumulator must never surface errors to callers
+
+    def get_token_report(self) -> dict[str, Any]:
+        """Return a snapshot of accumulated token usage.
+
+        Schema
+        ------
+        {
+            "tokens_in": int,
+            "tokens_out": int,
+            "total_cost_usd": float,
+            "per_purpose": {
+                "<purpose>": {
+                    "tokens_in": int,
+                    "tokens_out": int,
+                    "model": str,
+                    "cost_usd": float,
+                    "call_count": int,
+                }
+            },
+            "model_breakdown": {
+                "<model>": {
+                    "tokens_in": int,
+                    "tokens_out": int,
+                    "cost_usd": float,
+                }
+            },
+            "warning": "budget_exceeded" | None,
+        }
+        """
+        warning: str | None = None
+        if self._token_total_cost > self._token_budget_usd:
+            warning = "budget_exceeded"
+
+        return {
+            "tokens_in": self._token_totals_in,
+            "tokens_out": self._token_totals_out,
+            "total_cost_usd": round(self._token_total_cost, 6),
+            "per_purpose": {
+                p: dict(v) for p, v in self._token_per_purpose.items()
+            },
+            "model_breakdown": {
+                m: dict(v) for m, v in self._token_model_breakdown.items()
+            },
+            "warning": warning,
+        }
 
     def get_purpose_policy(self, purpose: str) -> dict[str, Any]:
         return self._resolve_policy(purpose)
@@ -1113,7 +1264,21 @@ class LLMRuntimeController:
                         tools=tools,
                         tool_choice=tool_choice,
                     )
-                    return await _maybe_await(response)
+                    response = await _maybe_await(response)
+                    # Best-effort token accumulation from router response
+                    try:
+                        _r_usage = getattr(response, "usage", None)
+                        _r_in = getattr(_r_usage, "prompt_tokens", None) if _r_usage else None
+                        _r_out = getattr(_r_usage, "completion_tokens", None) if _r_usage else None
+                        self._accumulate_tokens(
+                            purpose=purpose,
+                            model=model,
+                            tokens_in=int(_r_in or 0),
+                            tokens_out=int(_r_out or 0),
+                        )
+                    except Exception:  # noqa: BLE001
+                        pass
+                    return response
             raise ValueError(f"No model client available for purpose {purpose!r}")
 
         from runtime.log import log as _log, log_error as _log_error
@@ -1153,6 +1318,13 @@ class LLMRuntimeController:
                 content_chars=len(str(content)),
                 in_tok=in_tok,
                 out_tok=out_tok,
+            )
+            # Accumulate token usage for get_token_report()
+            self._accumulate_tokens(
+                purpose=purpose,
+                model=model,
+                tokens_in=int(in_tok or 0),
+                tokens_out=int(out_tok or 0),
             )
         except Exception as exc:  # noqa: BLE001
             _log_error("LLM_RES_PARSE", "could not summarize response", subsys="LLM", purpose=purpose, exc=exc)
