@@ -651,6 +651,47 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 await ws.send_json(_stop_event)
                 continue
 
+            # T-4: pause / resume command handlers.
+            # Minimal surface for the FE buttons; the agent loop will start
+            # honouring `paused` flag in a follow-up task. For now we ack on
+            # the wire so the FE has a typed contract to integrate against,
+            # forward the command onto the agent control_queue so a future
+            # loop tick can react, and emit a typed envelope for the trace.
+            if msg_type in {"pause", "resume"}:
+                current_state = _current_command_state(session)
+                command, rejection = normalize_frontend_command(msg, current_state=current_state)
+                if rejection is not None:
+                    await ws.send_json(rejection)
+                    continue
+                _cmd_run_id = str(msg.get("run_id") or "").strip()
+                _active_run_id = current_state.get("run_id") or ""
+                if _cmd_run_id and _active_run_id and _cmd_run_id != _active_run_id:
+                    await ws.send_json(
+                        build_runtime_rejection_payload(
+                            "STALE_RUN_ID",
+                            f"run_id {_cmd_run_id!r} does not match active run.",
+                            current_state=current_state,
+                            run_id=_active_run_id or None,
+                            recoverable=False,
+                            source="server",
+                        )
+                    )
+                    continue
+                await session.control_queue.put({
+                    "type": msg_type,
+                    "run_id": _active_run_id or _cmd_run_id or "",
+                })
+                ack_event = build_backend_event_envelope(
+                    f"{msg_type}_acknowledged",
+                    {
+                        "run_id": _active_run_id or _cmd_run_id or "",
+                        "status": "queued",
+                    },
+                    source="server",
+                )
+                await ws.send_json(ack_event)
+                continue
+
             # S7-0108: skip_step command handler — PRD-04-CMD-002
             if msg_type == "skip_step":
                 current_state = _current_command_state(session)

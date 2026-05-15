@@ -34,6 +34,9 @@ SUPPORTED_FRONTEND_COMMAND_TYPES = {
     "highlight_locator",
     # E3 (B5) — switch backend endpoint (allowlist only, no raw URL).
     "switch_endpoint",
+    # T-4 — pause / resume the active run from the frontend.
+    "pause",
+    "resume",
 }
 
 

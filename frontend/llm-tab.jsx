@@ -396,8 +396,25 @@ function CardExecution() {
         </div>
       </div>
       <div className="aw-card-foot">
-        <button className="aw-btn"><I.Pause style={{width:11,height:11}}/>Pause</button>
-        <button className="aw-btn danger"><I.Stop style={{width:11,height:11}}/>Stop run</button>
+        <button className="aw-btn"
+                onClick={() => {
+                  // T-4: Pause → typed `pause` command. Backend acks +
+                  // forwards through control_queue. Agent honouring is
+                  // a follow-up; the wire contract lands now.
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  if (AW && typeof AW.send === 'function') AW.send({ type: 'pause' });
+                }}>
+          <I.Pause style={{width:11,height:11}}/>Pause
+        </button>
+        <button className="aw-btn danger"
+                onClick={() => {
+                  // T-4: Stop run → typed `stop_run` command. Backend
+                  // cancels the run_task and emits stop_run_result.
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  if (AW && typeof AW.send === 'function') AW.send({ type: 'stop_run' });
+                }}>
+          <I.Stop style={{width:11,height:11}}/>Stop run
+        </button>
         <span style={{flex:1}}/>
         <span style={{fontSize:11,color:"var(--tx-3)"}}>Tail traces in <button className="aw-link">Trace</button> · evidence in <button className="aw-link">Recorded</button></span>
       </div>
