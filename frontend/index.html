@@ -1,11 +1,54 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta http-equiv="refresh" content="0; url=/panel-v2-preview.html" />
-  <title>AutoWorkbench — Preview</title>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>AutoWorkbench — Playwright Co-pilot</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="anonymous"/>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700&family=Geist+Mono:wght@400;500&display=swap"/>
+<style>
+  /* Host wrapper only — real app styles are scoped inside the shadow root. */
+  html, body { margin: 0; padding: 0; background: #f7f5f0; font-family: 'Geist', system-ui, sans-serif; }
+  #aw-host { display: block; width: 100vw; height: 100vh; }
+</style>
 </head>
 <body>
-  <p>Redirecting to <a href="/panel-v2-preview.html">panel-v2 preview</a>…</p>
+<div id="aw-host"></div>
+
+<script>
+  // Shadow DOM mount. v4 components render inside an isolated shadow root so
+  // styles do not leak into / collide with the host page.
+  (function () {
+    var host = document.getElementById('aw-host');
+    var shadow = host.attachShadow({ mode: 'open' });
+    var root = document.createElement('div');
+    root.id = 'root';
+    shadow.appendChild(root);
+    window.AW_SHADOW = shadow;
+    window.AW_ROOT = root;
+
+    // Inject styles.css into the shadow root so scoping is preserved.
+    fetch('styles.css').then(function (r) { return r.text(); }).then(function (css) {
+      var s = document.createElement('style');
+      s.textContent = css;
+      shadow.insertBefore(s, root);
+    });
+  })();
+</script>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" crossorigin="anonymous"></script>
+
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="icons.jsx"></script>
+<script type="text/babel" src="website.jsx"></script>
+<script type="text/babel" src="chrome.jsx"></script>
+<script type="text/babel" src="llm-tab.jsx"></script>
+<script type="text/babel" src="secondary-tabs.jsx"></script>
+<script type="text/babel" src="transport.jsx"></script>
+<script type="text/babel" src="app.jsx"></script>
+
 </body>
 </html>

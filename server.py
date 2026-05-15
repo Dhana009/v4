@@ -299,6 +299,7 @@ app = FastAPI(lifespan=lifespan)
 from runtime.log import log as _log, log_front as _log_front, log_error as _log_error  # noqa: E402
 from fastapi import Request  # noqa: E402
 from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
+from fastapi.staticfiles import StaticFiles  # noqa: E402
 
 # Frontend may be served from a separate origin (e.g. the static fixture server
 # on :8000) while it POSTs logs to this backend on :8765. Allow all origins on
@@ -1144,6 +1145,14 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 session.disconnect_grace_task = asyncio.create_task(_expire_stale_run_session(session))
         elif _get_active_run_session() is session:
             _set_active_run_session(None)
+
+
+# Serve the v4 frontend (shadow-DOM mounted React + Babel runtime) from the
+# same origin as /ws so the browser does not need CORS to read styles.css or
+# the JSX files. Mounted last so /api/log and /ws keep priority.
+_FRONTEND_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "frontend")
+if os.path.isdir(_FRONTEND_DIR):
+    app.mount("/", StaticFiles(directory=_FRONTEND_DIR, html=True), name="frontend")
 
 
 if __name__ == "__main__":
