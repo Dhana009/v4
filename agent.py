@@ -2146,7 +2146,6 @@ class AgentLoop:
 
                     if (
                         saw_successful_execution_action
-                        and not saw_step_recorded
                         and not had_tool_failure
                         and tool_name not in self.EXECUTION_TOOLS
                         and not (
@@ -2154,6 +2153,9 @@ class AgentLoop:
                             and overlay_message_type == "step_recorded"
                         )
                     ):
+                        # G1: deterministic recorder is the primary path. Run
+                        # it unconditionally; dedup inside `_record_step_payload`
+                        # makes a follow-up LLM `step_recorded` tool call a no-op.
                         auto_recorded_payload = await self._auto_record_successful_step()
                         if auto_recorded_payload is not None:
                             if self._run_completion_requested:
@@ -2433,9 +2435,11 @@ class AgentLoop:
 
                 if (
                     saw_successful_execution_action
-                    and not saw_step_recorded
                     and not had_tool_failure
                 ):
+                    # G1: deterministic recorder is the primary path. Always
+                    # invoke at batch end on success; dedup in
+                    # `_record_step_payload` handles a redundant LLM record.
                     auto_recorded_payload = await self._auto_record_successful_step()
                     if auto_recorded_payload is not None:
                         if self._run_completion_requested:
@@ -6791,6 +6795,48 @@ class AgentLoop:
         payload: dict[str, Any],
         step_context: dict[str, Any] | None = None,
     ) -> dict[str, Any] | None:
+        # G1 dedup guard: deterministic recorder is the primary path; if the
+        # LLM also calls `send_to_overlay(step_recorded)` for the same
+        # (run_id, step_id), the second invocation must be a no-op so we do
+        # not emit a duplicate envelope. Key matches the payloads appended
+        # by `_append_recorded_step_payload` (consumed by server.py:904 save
+        # flow). Idempotency lives in the recorder, not in callers.
+        _dedup_run_id = str(
+            (payload or {}).get("run_id")
+            or self._current_run_session_id()
+            or ""
+        ).strip()
+        _dedup_step_id = str(
+            (payload or {}).get("step_id")
+            or (payload or {}).get("stepId")
+            or (payload or {}).get("id")
+            or (step_context or {}).get("step_id")
+            or ""
+        ).strip()
+        if _dedup_step_id:
+            _existing_payloads = getattr(self, "recorded_step_payloads", None)
+            if isinstance(_existing_payloads, list):
+                for _existing in _existing_payloads:
+                    if not isinstance(_existing, dict):
+                        continue
+                    _existing_step_id = str(
+                        _existing.get("step_id")
+                        or _existing.get("stepId")
+                        or _existing.get("id")
+                        or ""
+                    ).strip()
+                    if _existing_step_id != _dedup_step_id:
+                        continue
+                    _existing_run_id = str(_existing.get("run_id") or "").strip()
+                    if _dedup_run_id and _existing_run_id and _existing_run_id != _dedup_run_id:
+                        continue
+                    print(
+                        "[AGENT] step_recorded dedup: already recorded "
+                        f"run_id={_dedup_run_id or 'n/a'} step_id={_dedup_step_id}; "
+                        "returning cached payload without re-emitting"
+                    )
+                    return deepcopy(_existing)
+
         confirmed_cursor = self._current_confirmed_execution_cursor()
         confirmed_mode = isinstance(confirmed_cursor, dict)
         if confirmed_mode:
@@ -9366,6 +9412,13 @@ class AgentLoop:
                     "requires_confirmation": True,
                     "reason": "step_recorded blocked before confirmed execution.",
                 }
+            # G1: deterministic recorder is now the primary path. We still
+            # accept the LLM tool call for backward compat with existing
+            # system prompts, but `_record_step_payload` dedups on
+            # (run_id, step_id); a duplicate becomes a no-op (no second
+            # `step_recorded` envelope, no second append to
+            # `recorded_step_payloads`).
+            _before_recorded = list(getattr(self, "recorded_step_payloads", []) or [])
             target_step = self._resolve_recording_target_step(payload)
             recorded_payload = await self._record_step_payload(payload, target_step)
             if not recorded_payload:
@@ -9374,7 +9427,16 @@ class AgentLoop:
                     "skipped": True,
                     "reason": "No successful confirmed action to record.",
                 }
+            _is_duplicate = len(getattr(self, "recorded_step_payloads", []) or []) == len(_before_recorded)
+            # `_emit_run_completed_event` is idempotent via
+            # `_run_completed_emitted`, safe to call on duplicates.
             await self._emit_run_completed_event(payload, recorded_payload)
+            if _is_duplicate:
+                print(
+                    "[AGENT] send_to_overlay(step_recorded) is no-op-on-duplicate; "
+                    "deterministic recorder already emitted envelope"
+                )
+                return {"sent": True, "duplicate": True, "payload": recorded_payload}
             return {"sent": True, "payload": recorded_payload}
 
         correction_state = getattr(self, "_active_plan_correction_state", None)

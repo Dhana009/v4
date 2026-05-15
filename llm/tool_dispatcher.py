@@ -279,6 +279,11 @@ class ToolDispatcher:
                     "requires_confirmation": True,
                     "reason": "step_recorded blocked before confirmed execution.",
                 }
+            # G1: deterministic recorder is now the primary path. The LLM tool
+            # call is preserved (signature unchanged), but
+            # `_record_step_payload` dedups on (run_id, step_id) so a redundant
+            # invocation is a no-op: no second envelope, no second append.
+            _before_recorded = list(getattr(self._loop, "recorded_step_payloads", []) or [])
             target_step = self._loop._resolve_recording_target_step(payload)
             recorded_payload = await self._loop._record_step_payload(payload, target_step)
             if not recorded_payload:
@@ -287,7 +292,17 @@ class ToolDispatcher:
                     "skipped": True,
                     "reason": "No successful confirmed action to record.",
                 }
+            _is_duplicate = (
+                len(getattr(self._loop, "recorded_step_payloads", []) or [])
+                == len(_before_recorded)
+            )
             await self._loop._emit_run_completed_event(payload, recorded_payload)
+            if _is_duplicate:
+                print(
+                    "[AGENT] send_to_overlay(step_recorded) is no-op-on-duplicate; "
+                    "deterministic recorder already emitted envelope"
+                )
+                return {"sent": True, "duplicate": True, "payload": recorded_payload}
             return {"sent": True, "payload": recorded_payload}
 
         correction_state = getattr(self._loop, "_active_plan_correction_state", None)
