@@ -173,21 +173,6 @@ function useTweaks(defaults) {
     // can react — the parent message only reaches the host, not peers.
     window.dispatchEvent(new CustomEvent('tweakchange', { detail: edits }));
   }, []);
-  // Transport bridge: backend (transport.jsx) dispatches "aw:set" with an
-  // edits payload; we fold those into the same value bag so live WS events
-  // drive the v4 state machine without touching app.jsx.
-  React.useEffect(() => {
-    const onSet = (e) => {
-      const edits = (e && e.detail) || null;
-      if (!edits || typeof edits !== 'object') return;
-      setValues((prev) => ({ ...prev, ...edits }));
-    };
-    window.addEventListener('aw:set', onSet);
-    window.AW = window.AW || {};
-    window.AW.setTweak = (k, v) =>
-      window.dispatchEvent(new CustomEvent('aw:set', { detail: { [k]: v } }));
-    return () => window.removeEventListener('aw:set', onSet);
-  }, []);
   return [values, setTweak];
 }
 

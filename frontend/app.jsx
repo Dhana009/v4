@@ -236,7 +236,4 @@ function CollapsedRail({ tab, setTab, setCollapsed }) {
   );
 }
 
-(function () {
-  var target = window.AW_ROOT || document.getElementById("root");
-  ReactDOM.createRoot(target).render(<App/>);
-})();
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);
