@@ -48,7 +48,7 @@ def test_invoke_returns_wrapped_response() -> None:
         purpose="step_runner",
         context={"step": 1},
     )
-    result = asyncio.get_event_loop().run_until_complete(orc.invoke(inv))
+    result = asyncio.new_event_loop().run_until_complete(orc.invoke(inv))
     assert result["role"] == AgentRole.STEP_RUNNER.value
     assert result["purpose"] == "step_runner"
     assert result["response"] == {"result": "done"}
@@ -65,8 +65,8 @@ def test_invocation_id_unique_and_role_prefixed() -> None:
         purpose="debug_agent",
         context={},
     )
-    r1 = asyncio.get_event_loop().run_until_complete(orc.invoke(inv))
-    r2 = asyncio.get_event_loop().run_until_complete(orc.invoke(inv))
+    r1 = asyncio.new_event_loop().run_until_complete(orc.invoke(inv))
+    r2 = asyncio.new_event_loop().run_until_complete(orc.invoke(inv))
     assert r1["agent_invocation_id"].startswith("debug_agent-")
     assert r2["agent_invocation_id"].startswith("debug_agent-")
     assert r1["agent_invocation_id"] != r2["agent_invocation_id"]
