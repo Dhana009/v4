@@ -209,6 +209,28 @@ function StepsTab({ mode = "llm", setMode = () => {} }) {
   const [visibleCount, setVisibleCount] = React.useState(5);
   const [extraSteps, setExtraSteps] = React.useState([]);
   const [picking, setPicking] = React.useState(false);
+  const [liveSteps, setLiveSteps] = React.useState([]);
+  React.useEffect(() => {
+    const AW = (typeof window !== 'undefined' && window.AW) || null;
+    if (!AW || typeof AW.on !== 'function') return;
+    const unsubs = [];
+    unsubs.push(AW.on('plan_ready', (env) => {
+      const p = (env && (env.payload || env)) || {};
+      const steps = Array.isArray(p.steps) ? p.steps : [];
+      setLiveSteps(steps.map((s, i) => ({ id: s.id || ('stp_' + String(i + 1).padStart(3, '0')), title: s.description || s.title || String(s), status: 'pending' })));
+    }));
+    unsubs.push(AW.on('step_executing', (env) => {
+      const p = (env && (env.payload || env)) || {};
+      const sid = p.step_id || p.id;
+      setLiveSteps(prev => prev.map(s => s.id === sid ? { ...s, status: 'executing' } : s).concat(prev.find(s => s.id === sid) ? [] : [{ id: sid || ('stp_live_' + Date.now()), title: p.description || p.title || sid || 'Executing…', status: 'executing' }]));
+    }));
+    unsubs.push(AW.on('step_recorded', (env) => {
+      const p = (env && (env.payload || env)) || {};
+      const sid = p.step_id || p.id;
+      setLiveSteps(prev => prev.map(s => s.id === sid ? { ...s, status: 'ok', duration: p.duration_ms } : s));
+    }));
+    return () => unsubs.forEach(u => u && u());
+  }, []);
 
   const fire = () => {};  // toast removed per design feedback — confirmations are inline now
   // expose so inline buttons in step rows can call it
@@ -250,6 +272,36 @@ function StepsTab({ mode = "llm", setMode = () => {} }) {
 
   const activeFilters = Object.values(show).filter(Boolean).length;
   const allOn = activeFilters === 5;
+
+  if (liveSteps.length > 0) {
+    return (
+      <div ref={listRef}>
+        {mode === "manual" && <ManualBuilder/>}
+        <div className="aw-info-strip">
+          <I.Info />
+          <span>Live steps from backend. {liveSteps.length} step{liveSteps.length !== 1 ? 's' : ''}.</span>
+        </div>
+        {liveSteps.map((st, i) => {
+          const statusMap = { ok: { bg: 'var(--grn)', color: '#fff', badge: 'ok', label: 'recorded' }, executing: { bg: 'var(--acc)', color: '#fff', badge: 'info', label: 'executing…' }, pending: { bg: 'var(--bg-card)', color: 'var(--tx-3)', badge: 'outline', label: 'pending' } };
+          const sm = statusMap[st.status] || statusMap.pending;
+          return (
+            <div key={st.id} className="aw-step-row" data-title={(st.title || '').toLowerCase()} data-status={st.status}>
+              <span className="aw-step-handle"><I.Drag /></span>
+              <span className="aw-step-idx" style={{ background: sm.bg, color: sm.color }}>{i + 1}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="aw-step-title">{st.title}</div>
+                <div className="aw-step-meta">
+                  <span className={"aw-badge-i " + sm.badge}><span className="ldot" />{sm.label}</span>
+                  {st.duration != null && <span>· {st.duration}ms</span>}
+                </div>
+                <StepFoot id={st.id} version="v1" lastRun={st.status === 'ok' ? 'just now' : 'never'} />
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  }
 
   return (
     <div ref={listRef}>
@@ -524,6 +576,60 @@ function RecActions({ id, playLabel = "Replay this step" }) {
 }
 
 function RecordedTab() {
+  const [liveRec, setLiveRec] = React.useState([]);
+  React.useEffect(() => {
+    const AW = (typeof window !== 'undefined' && window.AW) || null;
+    if (!AW || typeof AW.on !== 'function') return;
+    const unsubs = [];
+    unsubs.push(AW.on('step_recorded', (env) => {
+      const p = (env && (env.payload || env)) || {};
+      setLiveRec(prev => {
+        const sid = p.step_id || p.id || ('rec_' + Date.now());
+        if (prev.find(r => r.id === sid)) return prev;
+        return [...prev, { id: sid, title: p.description || p.title || sid, duration: p.duration_ms, locator: p.locator, code: p.code_lines }];
+      });
+    }));
+    return () => unsubs.forEach(u => u && u());
+  }, []);
+
+  if (liveRec.length > 0) {
+    return (
+      <div>
+        <div className="aw-info-strip">
+          <I.Camera />
+          <span>Backend-emitted evidence only. {liveRec.length} step{liveRec.length !== 1 ? 's' : ''} recorded.</span>
+          <span className="aw-spacer" />
+          <button className="aw-btn" style={{ padding: "4px 10px" }}><I.Play />Replay all</button>
+        </div>
+        {liveRec.map((rec) => (
+          <div key={rec.id} className="aw-rec-item">
+            <div className="aw-rec-head">
+              <span className="aw-step-idx ok" style={{ background: "var(--grn)", color: "#fff" }}>
+                <I.Check style={{ width: 11, height: 11 }} />
+              </span>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 500 }}>{rec.title} <span style={{ fontFamily: "var(--ff-mono)", fontSize: 10, color: "var(--tx-4)" }}>{rec.id} · v1</span></div>
+                <div className="aw-step-meta" style={{ marginTop: 3 }}>
+                  <span className="aw-badge-i ok"><span className="ldot" />recorded</span>
+                  {rec.locator && <span>locator: <span style={{ fontFamily: "var(--ff-mono)" }}>{rec.locator}</span></span>}
+                  {rec.duration != null && <span>· {rec.duration}ms</span>}
+                </div>
+              </div>
+              <RecActions id={rec.id} />
+            </div>
+            {Array.isArray(rec.code) && rec.code.length > 0 && (
+              <div className="aw-step-ops" style={{ borderLeft: "2px solid var(--grn-soft)", marginTop: 6, paddingLeft: 10 }}>
+                {rec.code.map((line, li) => (
+                  <div key={li} className="aw-step-op"><span className="op-tag">code</span>{line}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="aw-info-strip">
@@ -635,6 +741,49 @@ function RecordedTab() {
 
 function CodeTab() {
   const [moreOpen, setMoreOpen] = React.useState(false);
+  const [liveCode, setLiveCode] = React.useState([]);
+  React.useEffect(() => {
+    const AW = (typeof window !== 'undefined' && window.AW) || null;
+    if (!AW || typeof AW.on !== 'function') return;
+    const unsubs = [];
+    unsubs.push(AW.on('code_update', (env) => {
+      const p = (env && (env.payload || env)) || {};
+      const lines = Array.isArray(p.lines) ? p.lines : (typeof p.code === 'string' ? p.code.split('\n') : []);
+      const file = p.file || p.filename || 'generated.spec.ts';
+      setLiveCode(prev => {
+        const existing = prev.find(c => c.file === file);
+        if (existing) return prev.map(c => c.file === file ? { ...c, lines, ts: Date.now() } : c);
+        return [...prev, { file, lines, ts: Date.now() }];
+      });
+    }));
+    return () => unsubs.forEach(u => u && u());
+  }, []);
+
+  if (liveCode.length > 0) {
+    return (
+      <div>
+        <div className="aw-info-strip" style={{ background: "var(--blu-tint)", borderColor: "#D8E3F2" }}>
+          <I.Info style={{ color: "var(--blu)" }} />
+          <span>Rendered from <span style={{ fontFamily: "var(--ff-mono)" }}>code_update</span> events — frontend does not generate code.</span>
+        </div>
+        {liveCode.map((c) => (
+          <div key={c.file} style={{ padding: "8px 12px 12px" }}>
+            <div className="aw-list-toolbar" style={{ position: "sticky" }}>
+              <span style={{ display: "flex", alignItems: "center", gap: 5, fontSize: 12, minWidth: 0, overflow: "hidden" }}>
+                <I.Doc style={{ width: 12, height: 12, color: "var(--tx-2)", flex: "0 0 12px" }} />
+                <span style={{ fontFamily: "var(--ff-mono)", color: "var(--tx)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{c.file}</span>
+                <span className="aw-badge-i info" style={{ marginLeft: 2, flexShrink: 0 }}><span className="ldot" />live</span>
+              </span>
+              <span className="aw-spacer" />
+              <button className="aw-btn" onClick={() => { try { navigator.clipboard.writeText(c.lines.join('\n')); } catch(e) {} }}><I.Copy />Copy</button>
+            </div>
+            <pre className="aw-code">{c.lines.join('\n')}</pre>
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div>
       <div className="aw-info-strip" style={{ background: "var(--blu-tint)", borderColor: "#D8E3F2" }}>
@@ -742,7 +891,33 @@ function CodeTab() {
 // — TRACE —————————————————————————————————————————————
 
 function TraceTab() {
-  const rows = [
+  const [liveRows, setLiveRows] = React.useState([]);
+  React.useEffect(() => {
+    const AW = (typeof window !== 'undefined' && window.AW) || null;
+    if (!AW || typeof AW.on !== 'function') return;
+    const TRACE_EVENTS = ['step_executing', 'step_recorded', 'plan_ready', 'code_update', 'clarification_needed', 'llm_request', 'llm_response', 'permission_request', 'session_start', 'run_completed'];
+    const unsubs = [];
+    const addRow = (type) => (env) => {
+      const p = (env && (env.payload || env)) || {};
+      const ts = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const summary = p.description || p.title || p.step_id || p.message || type;
+      setLiveRows(prev => [{ t: ts, icon: I.Info, type, desc: String(summary), cls: '', live: true }, ...prev]);
+    };
+    if (typeof AW.on === 'function') {
+      const tryWild = AW.on('*', (env) => {
+        const type = (env && env.type) || 'event';
+        addRow(type)(env);
+      });
+      if (tryWild && typeof tryWild === 'function') {
+        unsubs.push(tryWild);
+      } else {
+        TRACE_EVENTS.forEach(evt => unsubs.push(AW.on(evt, addRow(evt))));
+      }
+    }
+    return () => unsubs.forEach(u => u && u());
+  }, []);
+
+  const mockRows = [
   { t: "11:42:01", icon: I.Spark, type: "session.start", desc: <><b>session_a91</b> · workspace <span style={{ fontFamily: "var(--ff-mono)" }}>acme-qa</span> · policy <span className="aw-badge-i warn"><span className="ldot" />balanced</span></>, cls: "" },
   { t: "11:42:02", icon: I.Globe, type: "page.attach", desc: <>attached to <span style={{ fontFamily: "var(--ff-mono)" }}>https://acme.dev/pricing</span> · dom 814 nodes</>, cls: "io" },
   { t: "11:42:03", icon: I.Spark, type: "llm.request", desc: <>plan-draft · ctx <span className="aw-badge-i acc"><span className="ldot" />section-summaries</span> · tools <span style={{ fontFamily: "var(--ff-mono)" }}>[dom_query, screenshot]</span> · ~1.2k tok</>, cls: "llm" },
@@ -769,9 +944,10 @@ function TraceTab() {
   { t: "11:44:04", icon: I.Check, type: "run.completed", desc: <><b>run_completed</b> · 5 passed · 1 repaired · 0 failed · 31.2s</>, cls: "ok" },
   { t: "11:44:04", icon: I.Info, type: "e2e.pending", desc: <>frontend cannot mark acceptance · paid E2E run scheduled <span style={{ fontFamily: "var(--ff-mono)" }}>02:00 UTC</span></>, cls: "" }];
 
+  const rows = liveRows.length > 0 ? [...liveRows, ...mockRows] : mockRows;
 
   const [q, setQ] = React.useState("");
-  const [scope, setScope] = React.useState("all"); // all | llm | step | permission | error
+  const [scope, setScope] = React.useState("all");
 
   const matchScope = (r) => {
     if (scope === "all") return true;
@@ -786,7 +962,6 @@ function TraceTab() {
     const needle = q.toLowerCase();
     if (r.type.toLowerCase().includes(needle)) return true;
     if (r.t.includes(needle)) return true;
-    // descend into desc text content (JSX) via JSON serialize fallback
     const text = (typeof r.desc === "string" ? r.desc : JSON.stringify(r.desc)).toLowerCase();
     return text.includes(needle);
   };
