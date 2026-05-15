@@ -701,9 +701,40 @@ function CardSchemaError() {
         </div>
       </div>
       <div className="aw-card-foot">
-        <button className="aw-btn primary"><I.Sync/>Ask LLM to repair plan</button>
-        <button className="aw-btn">Edit plan manually</button>
-        <button className="aw-btn subtle">Open raw response</button>
+        <button className="aw-btn primary"
+                onClick={() => {
+                  // T-7: Ask LLM to repair → typed correction with a
+                  // repair hint. Backend correction handler routes
+                  // through control_queue; the agent re-prompts the
+                  // model when it sees the repair flag.
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  if (AW && typeof AW.send === 'function') {
+                    AW.send({ type: 'correction', message: 'Repair the plan: schema validation failed.', repair: 'schema' });
+                  }
+                }}>
+          <I.Sync/>Ask LLM to repair plan
+        </button>
+        <button className="aw-btn"
+                onClick={() => {
+                  // T-7: Edit plan manually → focus the composer with a
+                  // prefix so the user can hand-edit the plan.
+                  const ta = document.querySelector('textarea.aw-composer-input');
+                  if (ta) { ta.focus(); ta.value = 'Repair plan: '; ta.setSelectionRange(ta.value.length, ta.value.length); }
+                }}>
+          Edit plan manually
+        </button>
+        <button className="aw-btn subtle"
+                onClick={() => {
+                  // T-7: Open raw response → surface the last typed
+                  // envelope the transport saw. A dedicated viewer is a
+                  // follow-up; this keeps the action honest.
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  const last = (AW && AW.lastEvent) || null;
+                  const text = last ? JSON.stringify(last, null, 2) : '(no event captured yet)';
+                  if (typeof window !== 'undefined' && typeof window.alert === 'function') window.alert(text);
+                }}>
+          Open raw response
+        </button>
       </div>
     </div>
   );
