@@ -107,29 +107,69 @@ function App() {
   }, []);
   const tokenInfo = liveTokenInfo || { tok: "8.4k", cost: "0.12" };
 
-  const [liveAgents, setLiveAgents] = React.useState(null);
+  const [liveAgentMap, setLiveAgentMap] = React.useState(null);
   React.useEffect(() => {
     const AW = (typeof window !== 'undefined' && window.AW) || null;
     if (!AW || typeof AW.on !== 'function') return;
-    const applyAgent = (p) => {
-      const name = (p && (p.agent_name || p.agent_id || p.purpose || "")) + "";
+    const applyAgentStatus = (p) => {
+      const invId = (p && (p.invocation_id || p.agent_id || p.agent_name || "unknown")) + "";
+      const role = (p && (p.role || p.agent_name || p.purpose || "")) + "";
+      const purpose = (p && (p.purpose || p.description || "")) + "";
       const status = (p && (p.status || p.state || "")) + "";
-      const isRun = status === "running";
-      setLiveAgents((prev) => {
-        const base = prev || ["on","on","on","off","off"];
-        const next = [...base];
-        if (/orchestrat/i.test(name)) next[0] = isRun ? "run" : "on";
-        else if (/page.intel\|locator/i.test(name)) next[1] = isRun ? "run" : "on";
-        else if (/step.run\|executor/i.test(name)) next[2] = isRun ? "run" : "on";
-        else if (/debug/i.test(name)) next[3] = isRun ? "on" : "off";
-        else if (/risk/i.test(name)) next[4] = isRun ? "on" : "off";
+      setLiveAgentMap((prev) => {
+        const next = new Map(prev || []);
+        next.set(invId, { role, purpose, status });
         return next;
       });
     };
-    const off1 = AW.on('agent_status', (env) => applyAgent((env && (env.payload || env)) || {}));
-    const off2 = AW.on('agent_running', (env) => applyAgent((env && (env.payload || env)) || {}));
-    const off3 = AW.on('agent_complete', (env) => applyAgent((env && (env.payload || env)) || {}));
+    const off1 = AW.on('agent_status', (env) => applyAgentStatus((env && (env.payload || env)) || {}));
+    const off2 = AW.on('agent_running', (env) => applyAgentStatus((env && (env.payload || env)) || {}));
+    const off3 = AW.on('agent_complete', (env) => applyAgentStatus((env && (env.payload || env)) || {}));
     return () => { off1 && off1(); off2 && off2(); off3 && off3(); };
+  }, []);
+
+  const liveAgents = React.useMemo(() => {
+    if (!liveAgentMap || liveAgentMap.size === 0) return null;
+    const ROLE_SLOTS = [
+      { slot: 0, pattern: /main_orchestrator|orchestrat/i },
+      { slot: 1, pattern: /page_intelligence|page.intel|locator/i },
+      { slot: 2, pattern: /step_runner|step.run|executor/i },
+      { slot: 3, pattern: /debug_agent|debug/i },
+      { slot: 4, pattern: /codegen_reviewer|risk/i },
+    ];
+    const slots = ["on","on","on","off","off"];
+    liveAgentMap.forEach(({ role, status }) => {
+      const isRun = status === "running";
+      for (const { slot, pattern } of ROLE_SLOTS) {
+        if (pattern.test(role)) {
+          slots[slot] = isRun ? "run" : "on";
+          break;
+        }
+      }
+    });
+    return slots;
+  }, [liveAgentMap]);
+
+  const [liveDebugReport, setLiveDebugReport] = React.useState(null);
+  React.useEffect(() => {
+    const AW = (typeof window !== 'undefined' && window.AW) || null;
+    if (!AW || typeof AW.on !== 'function') return;
+    const off = AW.on('debug_report', (env) => {
+      const p = (env && (env.payload || env)) || {};
+      setLiveDebugReport(p);
+    });
+    return () => off && off();
+  }, []);
+
+  const [liveCodeReview, setLiveCodeReview] = React.useState(null);
+  React.useEffect(() => {
+    const AW = (typeof window !== 'undefined' && window.AW) || null;
+    if (!AW || typeof AW.on !== 'function') return;
+    const off = AW.on('code_review', (env) => {
+      const p = (env && (env.payload || env)) || {};
+      setLiveCodeReview(p);
+    });
+    return () => off && off();
   }, []);
 
   const agentsSummary = liveAgents || (() => {
@@ -181,7 +221,21 @@ function App() {
             mode={t.mode}
             setMode={(v) => setTweak("mode", v)}
           />
-          <TabStrip tab={tab} setTab={setTab} counts={counts}/>
+          {liveDebugReport && liveDebugReport.hypothesis && (
+            <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 12px", background: "var(--ylw-tint, #FBF1D2)", borderBottom: "1px solid #ECD89A", fontSize: 11, color: "#7A5A0E", flexShrink: 0 }}>
+              <I.Alert style={{ width: 11, height: 11, color: "var(--ylw)", flexShrink: 0 }} />
+              <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                debug: {liveDebugReport.hypothesis}
+              </span>
+              <button className="aw-btn" style={{ padding: "2px 8px", fontSize: 11, flexShrink: 0 }} onClick={() => setTab("trace")}>Trace</button>
+            </div>
+          )}
+          <div style={{ position: "relative" }}>
+            <TabStrip tab={tab} setTab={setTab} counts={counts}/>
+            {liveCodeReview && liveCodeReview.score != null && liveCodeReview.score < 70 && (
+              <span style={{ position: "absolute", top: 6, right: 8, width: 7, height: 7, borderRadius: "50%", background: "var(--red)", boxShadow: "0 0 0 2px var(--bg-panel, #fff)", pointerEvents: "none" }} title={"Code review score: " + liveCodeReview.score + "/100"} />
+            )}
+          </div>
           {showNow && <NowStrip {...meta.now}/>}
           <div className="aw-panel-body" ref={bodyRef}>
             {body}

@@ -575,8 +575,42 @@ function RecActions({ id, playLabel = "Replay this step" }) {
 
 }
 
+function RecordingVersions({ versions, onLoad }) {
+  if (!versions || versions.length === 0) return null;
+  return (
+    <div style={{ margin: "8px 0", padding: "8px 12px", background: "var(--bg-inset)", borderRadius: 6, border: "1px solid var(--br)" }}>
+      <div style={{ fontSize: 11, fontWeight: 600, color: "var(--tx-3)", marginBottom: 6, textTransform: "uppercase", letterSpacing: "0.04em" }}>Versions</div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        {versions.map((v) => (
+          <div key={v.version} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+            <span style={{ fontFamily: "var(--ff-mono)", color: "var(--tx-2)", minWidth: 24 }}>v{v.version}</span>
+            {v.current && <span className="aw-badge-i ok" style={{ fontSize: 10 }}><span className="ldot"/>current</span>}
+            {v.note && <span style={{ color: "var(--tx-3)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>({v.note})</span>}
+            {!v.note && <span style={{ flex: 1 }}/>}
+            <button className="aw-link" style={{ fontSize: 11, flexShrink: 0 }} onClick={() => onLoad(v)}>load</button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 function RecordedTab() {
   const [liveRec, setLiveRec] = React.useState([]);
+  const [recordingVersions, setRecordingVersions] = React.useState([]);
+
+  const fetchVersions = React.useCallback(() => {
+    const AW = (typeof window !== 'undefined' && window.AW) || null;
+    if (!AW || typeof AW.send !== 'function') return;
+    AW.send({ command: "list_recordings" });
+  }, []);
+
+  const handleLoadVersion = React.useCallback((v) => {
+    const AW = (typeof window !== 'undefined' && window.AW) || null;
+    if (!AW || typeof AW.send !== 'function') return;
+    AW.send({ command: "load_recording", recording_id: v.recording_id, version: v.version });
+  }, []);
+
   React.useEffect(() => {
     const AW = (typeof window !== 'undefined' && window.AW) || null;
     if (!AW || typeof AW.on !== 'function') return;
@@ -588,9 +622,21 @@ function RecordedTab() {
         if (prev.find(r => r.id === sid)) return prev;
         return [...prev, { id: sid, title: p.description || p.title || sid, duration: p.duration_ms, locator: p.locator, code: p.code_lines }];
       });
+      fetchVersions();
     }));
+    unsubs.push(AW.on('recordings_list_updated', (env) => {
+      const p = (env && (env.payload || env)) || {};
+      const list = Array.isArray(p.versions) ? p.versions : (Array.isArray(p.recordings) ? p.recordings : []);
+      setRecordingVersions(list);
+    }));
+    unsubs.push(AW.on('list_recordings_result', (env) => {
+      const p = (env && (env.payload || env)) || {};
+      const list = Array.isArray(p.versions) ? p.versions : (Array.isArray(p.recordings) ? p.recordings : []);
+      setRecordingVersions(list);
+    }));
+    fetchVersions();
     return () => unsubs.forEach(u => u && u());
-  }, []);
+  }, [fetchVersions]);
 
   if (liveRec.length > 0) {
     return (
@@ -626,6 +672,7 @@ function RecordedTab() {
             )}
           </div>
         ))}
+        <RecordingVersions versions={recordingVersions} onLoad={handleLoadVersion} />
       </div>
     );
   }
@@ -733,15 +780,58 @@ function RecordedTab() {
           <RecActions id="f7a3" />
         </div>
       </div>
+      <RecordingVersions versions={recordingVersions} onLoad={handleLoadVersion} />
     </div>);
 
 }
 
 // — CODE —————————————————————————————————————————————
 
+function CodeReviewSummary({ review, collapsed, onToggle }) {
+  if (!review) return null;
+  const score = review.score != null ? review.score : null;
+  const errors = review.errors != null ? review.errors : (Array.isArray(review.issues) ? review.issues.filter(i => i.severity === 'error').length : 0);
+  const warns = review.warnings != null ? review.warnings : (Array.isArray(review.issues) ? review.issues.filter(i => i.severity === 'warning' || i.severity === 'warn').length : 0);
+  const infos = review.infos != null ? review.infos : (Array.isArray(review.issues) ? review.issues.filter(i => i.severity === 'info').length : 0);
+  const issues = Array.isArray(review.issues) ? review.issues : [];
+  const scoreColor = score == null ? "var(--tx-3)" : score >= 80 ? "var(--grn)" : score >= 70 ? "var(--ylw)" : "var(--red)";
+  return (
+    <div style={{ margin: "8px 12px", padding: "8px 10px", background: "var(--bg-inset)", borderRadius: 6, border: "1px solid var(--br)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, cursor: "pointer" }} onClick={onToggle}>
+        <I.Check style={{ width: 11, height: 11, color: scoreColor }} />
+        <span style={{ fontSize: 12, fontWeight: 600, color: scoreColor }}>
+          {score != null ? ("Score: " + score + "/100") : "Code Review"}
+        </span>
+        <span style={{ fontSize: 12, color: "var(--tx-3)", flex: 1 }}>
+          {" — "}{errors} error{errors !== 1 ? "s" : ""}, {warns} warn{warns !== 1 ? "s" : ""}, {infos} info
+        </span>
+        {issues.length > 0 && (
+          <span style={{ fontSize: 10, color: "var(--tx-3)" }}>{collapsed ? "▸" : "▾"}</span>
+        )}
+      </div>
+      {!collapsed && issues.length > 0 && (
+        <ul style={{ margin: "6px 0 0 0", padding: 0, listStyle: "none", display: "flex", flexDirection: "column", gap: 3 }}>
+          {issues.map((iss, i) => {
+            const sevColor = iss.severity === 'error' ? "var(--red)" : iss.severity === 'warning' || iss.severity === 'warn' ? "var(--ylw)" : "var(--blu)";
+            return (
+              <li key={i} style={{ fontSize: 11, display: "flex", gap: 5, alignItems: "flex-start" }}>
+                <span style={{ color: sevColor, flexShrink: 0, fontWeight: 600 }}>{(iss.severity || "info").slice(0, 1).toUpperCase()}</span>
+                {iss.line && <span style={{ fontFamily: "var(--ff-mono)", color: "var(--tx-3)", flexShrink: 0 }}>L{iss.line}</span>}
+                <span style={{ color: "var(--tx-2)" }}>{iss.message || iss.text || String(iss)}</span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function CodeTab() {
   const [moreOpen, setMoreOpen] = React.useState(false);
   const [liveCode, setLiveCode] = React.useState([]);
+  const [liveCodeReview, setLiveCodeReview] = React.useState(null);
+  const [reviewCollapsed, setReviewCollapsed] = React.useState(false);
   React.useEffect(() => {
     const AW = (typeof window !== 'undefined' && window.AW) || null;
     if (!AW || typeof AW.on !== 'function') return;
@@ -756,12 +846,17 @@ function CodeTab() {
         return [...prev, { file, lines, ts: Date.now() }];
       });
     }));
+    unsubs.push(AW.on('code_review', (env) => {
+      const p = (env && (env.payload || env)) || {};
+      setLiveCodeReview(p);
+    }));
     return () => unsubs.forEach(u => u && u());
   }, []);
 
   if (liveCode.length > 0) {
     return (
       <div>
+        <CodeReviewSummary review={liveCodeReview} collapsed={reviewCollapsed} onToggle={() => setReviewCollapsed(c => !c)} />
         <div className="aw-info-strip" style={{ background: "var(--blu-tint)", borderColor: "#D8E3F2" }}>
           <I.Info style={{ color: "var(--blu)" }} />
           <span>Rendered from <span style={{ fontFamily: "var(--ff-mono)" }}>code_update</span> events — frontend does not generate code.</span>
@@ -786,6 +881,7 @@ function CodeTab() {
 
   return (
     <div>
+      <CodeReviewSummary review={liveCodeReview} collapsed={reviewCollapsed} onToggle={() => setReviewCollapsed(c => !c)} />
       <div className="aw-info-strip" style={{ background: "var(--blu-tint)", borderColor: "#D8E3F2" }}>
         <I.Info style={{ color: "var(--blu)" }} />
         <span>Rendered from <span style={{ fontFamily: "var(--ff-mono)" }}>code_update</span> events — frontend does not generate code.</span>
@@ -897,15 +993,18 @@ function TraceTab() {
     if (!AW || typeof AW.on !== 'function') return;
     const TRACE_EVENTS = ['step_executing', 'step_recorded', 'plan_ready', 'code_update', 'clarification_needed', 'llm_request', 'llm_response', 'permission_request', 'session_start', 'run_completed'];
     const unsubs = [];
-    const addRow = (type) => (env) => {
+    const addRow = (type, extraCls, extraIcon) => (env) => {
       const p = (env && (env.payload || env)) || {};
       const ts = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
-      const summary = p.description || p.title || p.step_id || p.message || type;
-      setLiveRows(prev => [{ t: ts, icon: I.Info, type, desc: String(summary), cls: '', live: true }, ...prev]);
+      const summary = p.description || p.title || p.step_id || p.message || p.hypothesis || type;
+      const icon = extraIcon || I.Info;
+      const cls = extraCls || '';
+      setLiveRows(prev => [{ t: ts, icon, type, desc: String(summary), cls, live: true }, ...prev]);
     };
     if (typeof AW.on === 'function') {
       const tryWild = AW.on('*', (env) => {
         const type = (env && env.type) || 'event';
+        if (type === 'debug_report' || type === 'code_review') return;
         addRow(type)(env);
       });
       if (tryWild && typeof tryWild === 'function') {
@@ -914,6 +1013,23 @@ function TraceTab() {
         TRACE_EVENTS.forEach(evt => unsubs.push(AW.on(evt, addRow(evt))));
       }
     }
+    unsubs.push(AW.on('debug_report', (env) => {
+      const p = (env && (env.payload || env)) || {};
+      const ts = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const hypothesis = p.hypothesis || p.message || 'debug report';
+      const agent = p.agent || p.agent_id || '';
+      const desc = agent ? (hypothesis + " · " + agent) : hypothesis;
+      setLiveRows(prev => [{ t: ts, icon: I.Alert, type: 'debug.report', desc, cls: 'debug-report', live: true }, ...prev]);
+    }));
+    unsubs.push(AW.on('code_review', (env) => {
+      const p = (env && (env.payload || env)) || {};
+      const ts = new Date().toLocaleTimeString('en-US', { hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const score = p.score != null ? ("score " + p.score + "/100") : "code review";
+      const errors = p.errors != null ? (p.errors + " err") : "";
+      const warns = p.warnings != null ? (p.warnings + " warn") : "";
+      const parts = [score, errors, warns].filter(Boolean).join(" · ");
+      setLiveRows(prev => [{ t: ts, icon: I.Code, type: 'code.review', desc: parts, cls: 'code-review', live: true }, ...prev]);
+    }));
     return () => unsubs.forEach(u => u && u());
   }, []);
 
@@ -955,6 +1071,7 @@ function TraceTab() {
     if (scope === "step") return r.type.startsWith("step.") || r.type.startsWith("locator.");
     if (scope === "permission") return r.type.startsWith("permission.");
     if (scope === "error") return r.cls === "err" || r.type.includes("fail") || r.type.includes("recover.");
+    if (scope === "debug") return r.cls === "debug-report" || r.cls === "code-review" || r.type === "debug.report" || r.type === "code.review";
     return true;
   };
   const matchQ = (r) => {
@@ -972,7 +1089,8 @@ function TraceTab() {
   { id: "llm", label: "LLM", count: rows.filter((r) => r.type.startsWith("llm.") || r.cls === "llm").length },
   { id: "step", label: "Step", count: rows.filter((r) => r.type.startsWith("step.") || r.type.startsWith("locator.")).length },
   { id: "permission", label: "Permission", count: rows.filter((r) => r.type.startsWith("permission.")).length },
-  { id: "error", label: "Error", count: rows.filter((r) => r.cls === "err" || r.type.includes("fail") || r.type.includes("recover.")).length }];
+  { id: "error", label: "Error", count: rows.filter((r) => r.cls === "err" || r.type.includes("fail") || r.type.includes("recover.")).length },
+  { id: "debug", label: "Debug/Review", count: rows.filter((r) => r.cls === "debug-report" || r.cls === "code-review" || r.type === "debug.report" || r.type === "code.review").length }];
 
 
   return (
@@ -1021,14 +1139,24 @@ function TraceTab() {
         </div>
       }
 
-      {visible.map((r, i) =>
-      <div key={i} className={"aw-trace-row " + r.cls}>
-          <span className="t">{r.t}</span>
-          <span className="aw-trace-icon"><r.icon style={{ width: 10, height: 10 }} /></span>
-          <span className="type">{r.type}</span>
-          <span className="desc">{r.desc}</span>
-        </div>
-      )}
+      {visible.map((r, i) => {
+        const isDebugReport = r.cls === "debug-report" || r.type === "debug.report";
+        const isCodeReview = r.cls === "code-review" || r.type === "code.review";
+        const rowStyle = isDebugReport
+          ? { background: "rgba(234,179,8,0.08)", borderLeft: "2px solid var(--ylw)" }
+          : isCodeReview
+          ? { background: "rgba(59,130,246,0.07)", borderLeft: "2px solid var(--blu, #3B82F6)" }
+          : {};
+        const iconColor = isDebugReport ? "var(--ylw)" : isCodeReview ? "var(--blu, #3B82F6)" : undefined;
+        return (
+          <div key={i} className={"aw-trace-row " + (r.cls || "")} style={rowStyle}>
+            <span className="t">{r.t}</span>
+            <span className="aw-trace-icon"><r.icon style={{ width: 10, height: 10, color: iconColor }} /></span>
+            <span className="type" style={isDebugReport || isCodeReview ? { fontWeight: 600 } : {}}>{r.type}</span>
+            <span className="desc">{r.desc}</span>
+          </div>
+        );
+      })}
     </div>);
 
 }
