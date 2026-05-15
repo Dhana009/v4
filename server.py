@@ -1388,6 +1388,62 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 )
                 continue
 
+            # W10e: request_session_state — FE sends this after WS reconnect to
+            # re-render the panel without losing state. Server responds with a
+            # typed session_state_snapshot envelope carrying the latest known
+            # values. This is idempotent and never mutates session state.
+            if msg_type == "request_session_state":
+                _snap_fields: dict[str, Any] = {}
+                _snap_field_names = [
+                    "phase",
+                    "last_run_id",
+                    "last_plan_ready_payload",
+                    "last_step_recorded_payload",
+                    "last_code_update_payload",
+                    "recording_count",
+                ]
+                # phase: prefer the live phase tracker, fall back to .phase attr
+                try:
+                    _snap_fields["phase"] = (
+                        getattr(session.agent, "_current_phase", lambda: None)()
+                        or getattr(session.agent, "phase", None)
+                    )
+                except AttributeError:
+                    print("[REQUEST_SESSION_STATE] missing field=phase", flush=True)
+                    _snap_fields["phase"] = None
+                # last_run_id: exposed via _current_run_session_id() or current_run_id attr
+                try:
+                    _rid_getter = getattr(session.agent, "_current_run_session_id", None)
+                    _snap_fields["last_run_id"] = (
+                        _rid_getter() if callable(_rid_getter) else getattr(session.agent, "current_run_id", None)
+                    ) or None
+                except AttributeError:
+                    print("[REQUEST_SESSION_STATE] missing field=last_run_id", flush=True)
+                    _snap_fields["last_run_id"] = None
+                # best-effort for remaining payload fields
+                for _fn in ["last_plan_ready_payload", "last_step_recorded_payload", "last_code_update_payload"]:
+                    try:
+                        _snap_fields[_fn] = getattr(session.agent, _fn, None)
+                    except AttributeError:
+                        print(f"[REQUEST_SESSION_STATE] missing field={_fn}", flush=True)
+                        _snap_fields[_fn] = None
+                # recording_count: length of recorded_steps list if available
+                try:
+                    _rec = getattr(session.agent, "recorded_steps", None)
+                    _snap_fields["recording_count"] = len(_rec) if isinstance(_rec, (list, tuple)) else None
+                except AttributeError:
+                    print("[REQUEST_SESSION_STATE] missing field=recording_count", flush=True)
+                    _snap_fields["recording_count"] = None
+                print(
+                    f"[REQUEST_SESSION_STATE] sent run_id={_snap_fields['last_run_id']!r} phase={_snap_fields['phase']!r}",
+                    flush=True,
+                )
+                await ws.send_json({
+                    "type": "session_state_snapshot",
+                    "payload": _snap_fields,
+                })
+                continue
+
             current_state = _current_command_state(session)
             if not msg_type:
                 await ws.send_json(
