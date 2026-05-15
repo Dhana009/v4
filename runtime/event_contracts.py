@@ -40,6 +40,8 @@ SUPPORTED_FRONTEND_COMMAND_TYPES = {
     # T-5 — request a workspace-local trace bundle. Acked only for now;
     # actual bundling is a follow-up task.
     "download_trace",
+    # T-11 — retry the failed step as-is, no plan correction.
+    "retry_as_is",
 }
 
 

@@ -651,6 +651,30 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 await ws.send_json(_stop_event)
                 continue
 
+            # T-11: retry_as_is command — re-run the failed step without
+            # any plan correction. Forward onto control_queue + ack.
+            if msg_type == "retry_as_is":
+                current_state = _current_command_state(session)
+                command, rejection = normalize_frontend_command(msg, current_state=current_state)
+                if rejection is not None:
+                    await ws.send_json(rejection); continue
+                _step_id = str(msg.get("step_id") or "").strip()
+                _run_id = current_state.get("run_id") or str(msg.get("run_id") or "").strip() or ""
+                await session.control_queue.put({
+                    "type": "retry_as_is",
+                    "step_id": _step_id,
+                    "run_id": _run_id,
+                })
+                await ws.send_json(
+                    build_backend_event_envelope(
+                        "retry_as_is_acknowledged",
+                        {"step_id": _step_id, "run_id": _run_id, "status": "accepted"},
+                        source="server",
+                        run_id=_run_id or None,
+                    )
+                )
+                continue
+
             # T-5: download_trace command handler. Acks the request without
             # actually bundling — the trace pipeline is wired in a later
             # task. The contract lands now so the FE has a typed surface

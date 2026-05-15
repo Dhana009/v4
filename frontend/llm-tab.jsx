@@ -668,12 +668,47 @@ function CardRecovery() {
         </ul>
       </div>
       <div className="aw-card-foot" style={{flexWrap:"wrap"}}>
-        <button className="aw-btn primary"><I.Spark/>Apply LLM repair</button>
-        <button className="aw-btn"><I.Retry style={{width:12,height:12}}/>Retry as-is</button>
-        <button className="aw-btn">Choose another locator</button>
+        <button className="aw-btn primary"
+                onClick={() => {
+                  // T-11: Apply LLM repair → typed correction with a
+                  // repair hint. Backend correction handler routes
+                  // through control_queue; agent re-prompts the model.
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  if (AW && typeof AW.send === 'function') {
+                    AW.send({ type: 'correction', message: 'Apply LLM repair for the failed step.', repair: 'llm', step_id: 'stp_e1f4' });
+                  }
+                }}>
+          <I.Spark/>Apply LLM repair
+        </button>
+        <button className="aw-btn"
+                onClick={() => {
+                  // T-11: Retry as-is → new typed cmd retry_as_is.
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  if (AW && typeof AW.send === 'function') {
+                    AW.send({ type: 'retry_as_is', step_id: 'stp_e1f4' });
+                  }
+                }}>
+          <I.Retry style={{width:12,height:12}}/>Retry as-is
+        </button>
+        <button className="aw-btn"
+                onClick={() => {
+                  // T-11: Choose another locator → flip state so the
+                  // locator-ambiguity card renders, letting the user
+                  // pick a different candidate without losing context.
+                  window.dispatchEvent(new CustomEvent('aw:set', { detail: { state: 'locator' } }));
+                }}>
+          Choose another locator
+        </button>
         <span style={{flex:1}}/>
         <button className="aw-btn subtle"><I.More/></button>
-        <button className="aw-btn danger"><I.Stop style={{width:11,height:11}}/>Stop run</button>
+        <button className="aw-btn danger"
+                onClick={() => {
+                  // T-11: Stop run → typed stop_run.
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  if (AW && typeof AW.send === 'function') AW.send({ type: 'stop_run' });
+                }}>
+          <I.Stop style={{width:11,height:11}}/>Stop run
+        </button>
       </div>
     </div>
   );
