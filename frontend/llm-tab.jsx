@@ -723,16 +723,42 @@ function LlmEmpty({ onSeed }) {
 function Composer() {
   const [sending, setSending] = React.useState(false);
   const [sent, setSent] = React.useState(false);
+  const [error, setError] = React.useState(null);
   const inputRef = React.useRef(null);
+  // T-2: real send through window.AW (set up by transport.jsx). Falls back to
+  // the original mock animation when the backend is not reachable so the
+  // standalone harness keeps working.
   const onSend = () => {
     if (sending) return;
+    const ta = inputRef.current;
+    const text = ((ta && ta.value) || "").trim();
+    if (!text) return;
     setSending(true);
-    setTimeout(() => {
+    setError(null);
+    const finish = (ok) => {
       setSending(false);
-      setSent(true);
-      if (inputRef.current) inputRef.current.value = "";
-      setTimeout(() => setSent(false), 1200);
-    }, 450);
+      if (ok) {
+        if (ta) ta.value = "";
+        setSent(true);
+        setTimeout(() => setSent(false), 1200);
+      }
+    };
+    const AW = (typeof window !== "undefined" && window.AW) || null;
+    if (AW && typeof AW.send === "function") {
+      const ok = AW.send({
+        type: "llm_run",
+        steps: [{ intent: text }],
+      });
+      if (ok) {
+        setTimeout(() => finish(true), 350);
+      } else {
+        setError("Not connected. Reconnecting…");
+        setTimeout(() => finish(false), 350);
+      }
+    } else {
+      // No transport (offline / static fixture). Keep the original mock UX.
+      setTimeout(() => finish(true), 450);
+    }
   };
   const onKey = (e) => {
     if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); }
