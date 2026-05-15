@@ -13,6 +13,7 @@ Gap reference format: <wave-tag>: <module#symbol>
 """
 from __future__ import annotations
 
+import asyncio
 import json
 import tempfile
 from pathlib import Path
@@ -37,6 +38,8 @@ from runtime.event_contracts import (
     build_step_recorded_event,
 )
 from runtime.gap_logger import GapLogger
+from runtime.page_state_model import PageStateObservation, PageStateRequirement
+from runtime.phase_tracker import PhaseTracker
 
 
 # ---------------------------------------------------------------------------
@@ -516,3 +519,265 @@ def test_missing_capability_logged_to_workspace_gap_log() -> None:
         )
         assert advisory["type"] == "capability_gap"
         assert advisory["action"] == "download_file"
+
+
+# ---------------------------------------------------------------------------
+# Shared fixture — minimal AgentLoop double (Wave 6)
+# Constructs via __new__ (no real browser/transport). Stubs out I/O seams so
+# _check_forward_precondition and _record_capability_gap can be called without
+# a running Playwright browser or WebSocket.
+# ---------------------------------------------------------------------------
+
+def _make_agent_loop_double(
+    fake_browser_url: str = "https://example.com/dashboard",
+    workspace_root: str | None = None,
+    emitted_events: list[dict[str, Any]] | None = None,
+) -> Any:
+    """Build a minimal AgentLoop instance (via __new__) with stubs for I/O seams.
+
+    Returns the agent instance.  Captured backend events are appended to the
+    ``emitted_events`` list if supplied, else to ``agent._double_emitted``.
+    """
+    from agent import AgentLoop  # local import — keeps module-level imports clean
+
+    agent = AgentLoop.__new__(AgentLoop)
+
+    # --- Core identity & lifecycle state ---------------------------------
+    agent._run_session_id = "run-double-001"
+    agent.phase = "executing"
+    agent.phase_tracker = PhaseTracker()
+    agent.active_step_id = None
+    agent.active_failed_step_id = None
+    agent.pending_recovery = False
+    agent.completed_step_ids = set()
+    agent.skipped_step_ids = set()
+    agent.current_step_index = 0
+    agent.capability_gaps = []
+    agent._gap_logger = None
+    agent._gap_logger_emitted_keys = set()
+    agent._precondition_failed_emitted = set()
+    agent._last_action_context = None
+    agent._awaiting_step_record = False
+    agent._recording_wait_guard_armed = False
+    agent.last_successful_action = None
+    agent.successful_action_by_step_id = {}
+    agent.successful_actions_by_step_id = {}
+    agent._run_completed_emitted = False
+
+    # --- Workspace for GapLogger -----------------------------------------
+    if workspace_root is not None:
+        agent.workspace_root = workspace_root
+
+    # --- Captured event sink ---------------------------------------------
+    _sink: list[dict[str, Any]] = emitted_events if emitted_events is not None else []
+    agent._double_emitted = _sink
+
+    # --- Stub: _capture_browser_state (async) ----------------------------
+    async def _fake_capture_browser_state():  # type: ignore[return]
+        return {"url": fake_browser_url, "title": "Fake Page Title"}
+
+    agent._capture_browser_state = _fake_capture_browser_state
+
+    # --- Stub: _current_browser_url (sync) --------------------------------
+    agent._current_browser_url = lambda: fake_browser_url  # type: ignore[method-assign]
+
+    # --- Stub: _emit_backend_event_now — capture without a real WS --------
+    def _fake_emit(msg_type: str, **kwargs: Any) -> None:  # type: ignore[return]
+        event = {"type": msg_type, **kwargs}
+        _sink.append(event)
+
+    agent._emit_backend_event_now = _fake_emit  # type: ignore[method-assign]
+
+    # --- Stub: _mark_step_failed  (sync subset needed by precondition) ----
+    # We capture the call but don't drive the full recovery pipeline.
+    agent._mark_step_failed_calls: list[tuple[Any, Any]] = []
+
+    def _fake_mark_step_failed(step: Any, error: Any) -> None:  # type: ignore[return]
+        agent._mark_step_failed_calls.append((step, error))
+        # Minimal side-effects expected by the guard:
+        step_id_val = str((step or {}).get("step_id") if isinstance(step, dict) else "")
+        agent.pending_recovery = True
+        agent.phase = "recovering"
+
+    agent._mark_step_failed = _fake_mark_step_failed  # type: ignore[method-assign]
+
+    return agent
+
+
+# ---------------------------------------------------------------------------
+# Test 5b — real runtime wire-in: _check_forward_precondition emits
+#            precondition_failed and blocks run_completed success
+# PRD 06 criterion 5 (hardened against wired code path, Wave 6)
+# ---------------------------------------------------------------------------
+
+def test_precondition_gate_wired_emits_event_and_blocks_success() -> None:
+    """
+    Wave 6 extension of criterion 5: drive the real AgentLoop._check_forward_precondition
+    code path (not just the event builder) and assert the gate fires.
+
+    Scenario:
+      • Step requires URL ``https://example.com/login``
+      • Fake browser is on ``https://example.com/dashboard``
+      • _check_forward_precondition must return True (blocked)
+      • A ``precondition_failed`` event must appear in the captured sink
+        with type=='page_state_mismatch'
+      • No ``run_completed`` with status=='success' must appear
+    """
+    captured: list[dict[str, Any]] = []
+    agent = _make_agent_loop_double(
+        fake_browser_url="https://example.com/dashboard",
+        emitted_events=captured,
+    )
+
+    req = PageStateRequirement(url_glob="https://example.com/login")
+    step_context = {
+        "step_id": "step-precond-rt-001",
+        "step_number": 1,
+        "intent": "Assert login form visible",
+        "status": "pending",
+    }
+
+    # Drive the real async precondition gate.
+    blocked = asyncio.run(
+        agent._check_forward_precondition(req, step_context, "action_assert", {})
+    )
+
+    # --- gate must have blocked ---
+    assert blocked is True, (
+        "_check_forward_precondition must return True (blocked) when URL doesn't match"
+    )
+
+    # --- precondition_failed must have been emitted via the real code path ---
+    pf_events = [e for e in captured if e.get("type") == "precondition_failed"]
+    assert len(pf_events) >= 1, (
+        "real _check_forward_precondition must emit precondition_failed into the sink"
+    )
+
+    pf = pf_events[0]
+    assert pf["run_id"] == agent._run_session_id
+    assert pf["step_id"] == "step-precond-rt-001"
+
+    # Extract precondition_type from envelope (top-level or payload).
+    pf_type = pf.get("precondition_type") or pf.get("payload", {}).get("precondition_type")
+    # Canonical type for URL mismatch is "page_url" (aligned with event_contracts allowlist).
+    assert pf_type in {"page_url", "page_state_mismatch"}, (
+        f"precondition_type must be page_url or page_state_mismatch; got {pf_type!r}"
+    )
+
+    # --- recovery options must be present (scenarios §5.4) ---
+    options = pf.get("options") or pf.get("payload", {}).get("options", [])
+    assert len(options) > 0, (
+        "precondition_failed envelope must carry at least one recovery option"
+    )
+
+    # --- no run_completed success may appear ---
+    run_completed_success = [
+        e for e in captured
+        if e.get("type") == "run_completed"
+        and (e.get("status") == "success" or e.get("payload", {}).get("status") == "success")
+    ]
+    assert run_completed_success == [], (
+        "run_completed.status='success' must not be emitted while precondition gate is blocking"
+    )
+
+    # --- idempotency: calling again for same step must NOT emit another event ---
+    captured_before = len(captured)
+    blocked2 = asyncio.run(
+        agent._check_forward_precondition(req, step_context, "action_assert", {})
+    )
+    assert blocked2 is True, "idempotent call must still report blocked"
+    new_pf = [e for e in captured[captured_before:] if e.get("type") == "precondition_failed"]
+    assert new_pf == [], "second call for same step must not re-emit precondition_failed"
+
+
+# ---------------------------------------------------------------------------
+# Test 8b — real runtime wire-in: _record_capability_gap writes JSONL
+# PRD 06 criterion 8 (hardened against wired code path, Wave 6)
+# ---------------------------------------------------------------------------
+
+def test_record_capability_gap_wired_writes_jsonl() -> None:
+    """
+    Wave 6 extension of criterion 8: drive the real AgentLoop._record_capability_gap
+    code path and assert the GapLogger JSONL file is written with the §13 schema.
+
+    Scenario:
+      • Unsupported tool ``download_file`` is requested
+      • _record_capability_gap is called with relevant args
+      • capability_gaps.jsonl must exist under <tmp>/autoworkbench-output/
+      • The JSONL record must have all §13 required fields
+      • A ``capability_gap_recorded`` event must appear in the captured sink
+    """
+    captured: list[dict[str, Any]] = []
+
+    with tempfile.TemporaryDirectory() as tmp_workspace:
+        agent = _make_agent_loop_double(
+            fake_browser_url="https://example.com/files",
+            workspace_root=tmp_workspace,
+            emitted_events=captured,
+        )
+        # Pre-set user intent so it flows into GapLogger record.
+        agent._last_user_message = "Download the invoice PDF"
+
+        # Drive the real _record_capability_gap code path.
+        agent._record_capability_gap(
+            category="unsupported_tool",
+            source="agent",
+            severity="warn",
+            message="download_file is not in BASELINE_CAPABILITIES",
+            needed_capability="download_file",
+            tool_name="download_file",
+            operation_id="op_download_1",
+            step_id="step-download",
+        )
+
+        # --- JSONL file must have been created ---
+        jsonl_path = Path(tmp_workspace) / "autoworkbench-output" / "capability_gaps.jsonl"
+        assert jsonl_path.exists(), (
+            "capability_gaps.jsonl must be created by _record_capability_gap"
+        )
+
+        lines = [json.loads(ln) for ln in jsonl_path.read_text().splitlines() if ln.strip()]
+        assert len(lines) >= 1, "at least one JSONL record must be written"
+
+        rec = lines[0]
+        # §13 required fields
+        assert "needed_capability" in rec, "record must contain needed_capability"
+        assert "url" in rec, "record must contain url"
+        assert "severity" in rec, "record must contain severity"
+        assert "source" in rec, "record must contain source"
+        assert "ordinal" in rec, "record must contain ordinal"
+        assert "recorded_at" in rec, "record must contain recorded_at"
+        assert rec["ordinal"] == 1, f"first record ordinal must be 1; got {rec['ordinal']}"
+        assert rec["severity"] == "warn"
+        assert rec["source"] in {"agent", "classifier", "executor", "user"}
+
+        # --- capability_gap_recorded event must appear in the sink ---
+        cg_events = [e for e in captured if e.get("type") == "capability_gap_recorded"]
+        assert len(cg_events) >= 1, (
+            "_record_capability_gap must emit capability_gap_recorded into the event sink"
+        )
+
+        cg = cg_events[0]
+        cg_payload = cg.get("payload", {})
+        assert "needed_capability" in cg_payload, (
+            "capability_gap_recorded payload must include needed_capability"
+        )
+        assert isinstance(cg_payload.get("available_tools"), list), (
+            "capability_gap_recorded payload must include available_tools list"
+        )
+
+        # --- idempotency: second call for same run+ordinal must not duplicate ---
+        # (ordinal key advances, so second call creates a new record — this is
+        # expected; we only verify no EXCEPTION is raised and the file grows)
+        prev_count = len(lines)
+        agent._record_capability_gap(
+            category="unsupported_tool",
+            source="agent",
+            severity="warn",
+            message="download_file is not in BASELINE_CAPABILITIES (retry)",
+            needed_capability="download_file",
+            tool_name="download_file",
+            operation_id="op_download_2",
+        )
+        lines2 = [json.loads(ln) for ln in jsonl_path.read_text().splitlines() if ln.strip()]
+        assert len(lines2) > prev_count, "second distinct gap call must append a new JSONL line"

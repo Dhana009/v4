@@ -48,11 +48,12 @@ def check_page_precondition(step: Any, current_page: str) -> PreconditionCheckRe
     )
 
 
+# Canonical types aligned with event_contracts._PRECONDITION_TYPES allowlist.
 _PRECONDITION_TYPES = (
-    "url_mismatch",
-    "title_mismatch",
-    "element_missing",
-    "element_forbidden_present",
+    "page_url",
+    "element_present",
+    "auth_state",
+    "data_ready",
     "page_state_mismatch",
 )
 
@@ -124,16 +125,19 @@ def evaluate_postcondition(
 
 
 def classify_precondition_mismatch(reasons: list[str]) -> str:
-    """Classify a list of failure reasons into a single precondition mismatch type."""
+    """Classify a list of failure reasons into a single precondition mismatch type.
+
+    Returns a value from the event_contracts._PRECONDITION_TYPES allowlist:
+    ``page_url``, ``element_present``, ``auth_state``, ``data_ready``,
+    or ``page_state_mismatch``.
+    """
     joined = " ".join(reasons).lower()
     if "url_glob" in joined or "path_regex" in joined:
-        return "url_mismatch"
+        return "page_url"
+    if "element_forbidden_present" in joined or "element_missing" in joined:
+        return "element_present"
     if "title_regex" in joined:
-        return "title_mismatch"
-    if "element_forbidden_present" in joined:
-        return "element_forbidden_present"
-    if "element_missing" in joined:
-        return "element_missing"
+        return "page_state_mismatch"
     return "page_state_mismatch"
 
 

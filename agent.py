@@ -29,6 +29,7 @@ from runtime.event_contracts import (
     build_locator_update_request_event_v2,
     build_plan_ready_event,
     build_precondition_failed_event,
+    build_recommendation_ready_event,
     build_recovery_needed_payload,
     build_run_completed_payload,
     build_run_started_payload,
@@ -38,6 +39,7 @@ from runtime.event_contracts import (
     build_step_recorded_event,
     build_step_skipped_payload,
     build_step_validating_payload,
+    build_token_report_event,
 )
 from runtime.gap_logger import GapLogger
 from runtime.page_state_model import (
@@ -54,6 +56,10 @@ from runtime.llm_runtime_controller import LLMRuntimeController, PURPOSE_REGISTR
 from runtime.model_router import ModelRouter
 from runtime.planning_loop_guard import PlanningLoopGuardState, advance_planning_loop_guard
 from runtime.recovery_manager import classify_failure
+from runtime.failure_classifier import (
+    classify_failure_via_controller as _fc_classify,
+    FailureType as _FCType,
+)
 from runtime.recovery_context import (
     build_recovery_diagnoser_context_payload,
     render_recovery_diagnoser_context,
@@ -208,6 +214,7 @@ class AgentLoop:
         self.active_step_id: str | None = None
         self.active_failed_step_id: str | None = None
         self.pending_recovery = False
+        self.recovery_attempts: dict[str, int] = {}  # §11/§15 bounded retry counter
         self.completed_step_ids: set[str] = set()
         self.skipped_step_ids: set[str] = set()
         self.current_step_index = 0
@@ -287,6 +294,7 @@ class AgentLoop:
         self.active_step_id = None
         self.active_failed_step_id = None
         self.pending_recovery = False
+        self.recovery_attempts = {}  # §11/§15 bounded retry counter
         self.completed_step_ids = set()
         self.skipped_step_ids = set()
         self.current_step_index = 0
@@ -446,6 +454,68 @@ class AgentLoop:
             },
         )
 
+    # -------------------------------------------------------------------------
+    # §11 / §15  Bounded recovery helpers
+    # -------------------------------------------------------------------------
+    _RECOVERY_SKIP_LABELS: frozenset[str] = frozenset({
+        "unsupported_capability",
+        "destructive_or_external_side_effect",
+    })
+    # Cap: 1 deterministic re-attempt (attempt==1) + 1 LLM-guided retry (attempt==2).
+    # On the third failure we emit recovery_exhausted and stop.
+    _RECOVERY_MAX_ATTEMPTS: int = 2
+
+    def _bounded_recovery_decision(
+        self,
+        step_id: str,
+        error: str,
+    ) -> str:
+        """Return one of: 'retry' | 'ask_user' | 'exhausted'.
+
+        'retry'     — proceed with normal recovery (deterministic-first, then LLM).
+        'ask_user'  — skip LLM retry; failure_classifier label is non-retryable.
+        'exhausted' — retry cap reached; emit recovery_exhausted and stop.
+        """
+        # Classify error text via failure_classifier to detect non-retryable labels.
+        try:
+            _cap_cls = self._classify_capability(error, ctx={"step_id": step_id})
+            _cap_label = str(_cap_cls.get("label") or "unknown")
+        except Exception:  # noqa: BLE001
+            _cap_label = "unknown"
+
+        if _cap_label in self._RECOVERY_SKIP_LABELS:
+            print(
+                f"[RECOVERY] step={step_id} label={_cap_label} → ask_user (non-retryable)"
+            )
+            return "ask_user"
+
+        attempts = getattr(self, "recovery_attempts", None)
+        if not isinstance(attempts, dict):
+            attempts = {}
+            self.recovery_attempts = attempts
+
+        attempts[step_id] = attempts.get(step_id, 0) + 1
+        attempt_num = attempts[step_id]
+        print(
+            f"[RECOVERY] step={step_id} attempt={attempt_num}/{self._RECOVERY_MAX_ATTEMPTS}"
+        )
+        if attempt_num > self._RECOVERY_MAX_ATTEMPTS:
+            return "exhausted"
+        return "retry"
+
+    def _emit_recovery_exhausted(self, step_id: str, error: str) -> None:
+        """Emit a recovery_exhausted event (dict-shaped via _send)."""
+        run_id = self._current_run_session_id() or ""
+        payload: dict[str, Any] = {
+            "type": "recovery_exhausted",
+            "run_id": run_id,
+            "step_id": step_id,
+            "error_summary": error[:300],
+            "max_attempts": self._RECOVERY_MAX_ATTEMPTS,
+        }
+        self._emit_backend_event_now(payload["type"], **{k: v for k, v in payload.items() if k != "type"})
+        print(f"[RECOVERY] recovery_exhausted emitted for step={step_id}")
+
     async def _emit_run_completed_event(
         self,
         source_payload: dict[str, Any],
@@ -496,6 +566,58 @@ class AgentLoop:
                 if key != "type"
             },
         )
+        # Emit token_report envelope immediately after run_completed.
+        # Best-effort: failures must never propagate to the caller.
+        try:
+            await self._emit_token_report(run_id=run_id)
+        except Exception:  # noqa: BLE001
+            pass
+
+    async def _emit_token_report(self, *, run_id: str) -> None:
+        """Emit a token_report event for the current run.  Best-effort."""
+        controller = getattr(self, "_llm_runtime_controller", None)
+        if controller is None:
+            return
+        get_report = getattr(controller, "get_token_report", None)
+        if not callable(get_report):
+            return
+        try:
+            report = get_report()
+            tokens_in = int(report.get("tokens_in") or 0)
+            tokens_out = int(report.get("tokens_out") or 0)
+            total_cost = float(report.get("total_cost_usd") or 0.0)
+            per_purpose = report.get("per_purpose") or {}
+            model_breakdown = report.get("model_breakdown") or {}
+            warning = report.get("warning")
+
+            # Derive a representative model_class from the model_breakdown
+            # (use "main" as fallback if nothing has been recorded yet).
+            if model_breakdown:
+                _first_model = next(iter(model_breakdown))
+            else:
+                _first_model = "main"
+
+            envelope = build_token_report_event(
+                purpose="run_summary",
+                model_class=_first_model,
+                input_tokens=tokens_in,
+                output_tokens=tokens_out,
+                estimated_cost=total_cost,
+            )
+            # Attach richer breakdown fields directly on the envelope so the
+            # frontend can read them without unwrapping the payload.
+            envelope["run_id"] = run_id
+            envelope["per_purpose"] = per_purpose
+            envelope["model_breakdown"] = model_breakdown
+            if warning:
+                envelope["warning"] = warning
+
+            await self._send(
+                envelope["type"],
+                **{k: v for k, v in envelope.items() if k != "type"},
+            )
+        except Exception:  # noqa: BLE001
+            pass
 
     def _current_phase(self) -> str:
         phase_tracker = getattr(self, "phase_tracker", None)
@@ -2466,6 +2588,53 @@ class AgentLoop:
                     result = await self._dispatch_tool(tool_name, args)
                     print(f"[TOOL RESULT] {self._summarize(result, limit=100)}")
                     self._update_planning_ambiguity_from_tool_result(tool_name, result)
+                    # --- P0 item 3: emit recommendation_ready after dom_extract / Page Intelligence ---
+                    # Natural decision point: dom_extract returns page_intelligence dict with
+                    # headings/ctas/sections. Convert to recommendation options and emit.
+                    # Idempotent per (run_id, step_id) via _recommendation_ready_emitted set.
+                    if tool_name == "dom_extract" and isinstance(result, dict):
+                        _pi = result.get("page_intelligence")
+                        if isinstance(_pi, dict):
+                            try:
+                                _rec_run_id = str(self._current_run_session_id() or "").strip()
+                                _rec_step_id = str(getattr(self, "active_step_id", "") or "").strip() or "unknown"
+                                _rec_idem_key = (_rec_run_id, _rec_step_id)
+                                _rec_emitted = getattr(self, "_recommendation_ready_emitted", None)
+                                if not isinstance(_rec_emitted, set):
+                                    _rec_emitted = set()
+                                    self._recommendation_ready_emitted = _rec_emitted
+                                if _rec_run_id and _rec_idem_key not in _rec_emitted:
+                                    _rec_emitted.add(_rec_idem_key)
+                                    # Build options from page_intelligence: headings + ctas → options
+                                    _rec_options: list[dict] = []
+                                    for _heading in (_pi.get("headings") or [])[:5]:
+                                        _rec_options.append({
+                                            "label": str(_heading),
+                                            "rationale": "heading detected on page",
+                                            "target": str(_heading),
+                                            "confidence": 0.7,
+                                        })
+                                    for _cta in (_pi.get("ctas") or [])[:5]:
+                                        _rec_options.append({
+                                            "label": str(_cta),
+                                            "rationale": "interactive CTA detected on page",
+                                            "target": str(_cta),
+                                            "confidence": 0.8,
+                                        })
+                                    _rec_env = build_recommendation_ready_event(
+                                        _rec_run_id,
+                                        _rec_options,
+                                        source="page_intelligence",
+                                    )
+                                    self._emit_backend_event_now(
+                                        _rec_env["type"],
+                                        **{k: v for k, v in _rec_env.items() if k != "type"},
+                                    )
+                            except Exception as _rec_exc:  # noqa: BLE001
+                                print(
+                                    "[AGENT] recommendation_ready emit failed: "
+                                    f"{type(_rec_exc).__name__}: {_rec_exc}"
+                                )
                     step_context = self._resolve_step_context(tool_name, args, result)
                     tool_failed = result.get("success") is False and not result.get("skipped") and (
                         self._is_browser_state_tool(tool_name) or tool_name == "ask_user"
@@ -4067,6 +4236,23 @@ class AgentLoop:
             )
         except Exception:
             pass
+        # §11 / §15: bounded retry — check cap and classifier label before recovery.
+        _recovery_action = self._bounded_recovery_decision(step_id, context["last_error"])
+        if _recovery_action == "exhausted":
+            self._emit_recovery_exhausted(step_id, context["last_error"])
+            context["status"] = "failed"
+            self.pending_recovery = False
+            print(f"[RECOVERY] cap reached; step={step_id} marked failed (no more retries)")
+            return context
+        if _recovery_action == "ask_user":
+            # Non-retryable label (unsupported_capability / destructive) — skip LLM
+            # recovery; surface via recovery_needed so the user can decide, but set
+            # pending_recovery=False to prevent the recovery diagnoser from firing.
+            self.pending_recovery = False
+            self._emit_recovery_needed_event(context, context["last_error"])
+            print(f"[RECOVERY] non-retryable; step={step_id} escalated to user")
+            return context
+        # Normal retry path.
         self._emit_recovery_needed_event(context, context["last_error"])
         print(f"[AGENT] step recovery_pending: {step_id}")
         return context
@@ -5846,7 +6032,15 @@ class AgentLoop:
                 "current_page": current_page or None,
             },
         )
-        return render_recovery_diagnoser_context(payload)
+        rendered = render_recovery_diagnoser_context(payload)
+        # §11 / §15 repair-scope guard: remind LLM to mutate ONLY the failing op.
+        _attempt = (getattr(self, "recovery_attempts", None) or {}).get(step_id or "", 0)
+        _scope_note = (
+            f"\n[REPAIR SCOPE] Mutate ONLY the locator/action of failed step '{step_id}'."
+            " Do NOT re-plan other steps or change unrelated operations."
+            f" This is retry attempt {_attempt}/{self._RECOVERY_MAX_ATTEMPTS}."
+        )
+        return rendered + _scope_note if rendered else _scope_note
 
     def _synthesize_plan_diff_editor_output(self) -> dict[str, Any]:
         correction_state = getattr(self, "_active_plan_correction_state", None)
