@@ -1115,9 +1115,13 @@ function Composer() {
     };
     const AW = (typeof window !== "undefined" && window.AW) || null;
     if (AW && typeof AW.send === "function") {
+      // PRD 05 §498-887 (Expected Outcome Capture v1) requires click-like
+      // intents to carry an expected_outcome.type. We do not know what
+      // the user wants in advance so we ship "not_sure" which the agent
+      // treats as a valid placeholder per the spec's enum list.
       const ok = AW.send({
         type: "llm_run",
-        steps: [{ intent: text }],
+        steps: [{ intent: text, expected_outcome: { type: "not_sure" } }],
       });
       if (ok) {
         setTimeout(() => finish(true), 350);
