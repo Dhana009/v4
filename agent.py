@@ -137,6 +137,12 @@ EXPECTED_OUTCOME_TYPES: set[str] = {
 }
 CLICK_LIKE_INTENT_PATTERN = re.compile(r"(^|\b)(click|tap|press|open)\b", re.IGNORECASE)
 
+# ISSUE-002: bounded clarification rounds — force plan_ready after this many ask_user calls.
+# Configurable via env AUTOWORKBENCH_MAX_CLARIFICATION_ROUNDS (default 2).
+_MAX_CLARIFICATION_ROUNDS: int = int(
+    os.environ.get("AUTOWORKBENCH_MAX_CLARIFICATION_ROUNDS", "2") or "2"
+)
+
 
 class AgentLoop:
     # Shared stateless resolver — available even when __new__ bypasses __init__
@@ -250,6 +256,8 @@ class AgentLoop:
         self._planning_loop_guard_state: PlanningLoopGuardState = PlanningLoopGuardState()
         self._pending_planning_ambiguity: dict[str, Any] | None = None
         self._step_plan_convergence_narrowing: bool = False
+        # ISSUE-002: bounded clarification rounds — resets per run in _reset_lifecycle_state.
+        self._clarification_round_count: int = 0
         self._active_plan_state: dict[str, Any] | None = None
         self._active_plan_correction_state: dict[str, Any] | None = None
         self._plan_correction_pending = False
@@ -339,6 +347,7 @@ class AgentLoop:
         self._planning_loop_guard_state = PlanningLoopGuardState()
         self._pending_planning_ambiguity = None
         self._step_plan_convergence_narrowing = False
+        self._clarification_round_count = 0  # ISSUE-002: reset per run
         self._clear_confirmed_execution_contract_state()
         self.capability_gaps = []
         self.recorded_step_payloads = []
@@ -2135,14 +2144,44 @@ class AgentLoop:
                     controller_result: dict[str, Any] | None = None
                     if effective_purpose == "step_plan_normalizer":
                         _plan_tool_choice: Any = "auto"
-                        if getattr(self, "_step_plan_convergence_narrowing", False):
+                        _plan_tools_for_call = filtered_tools
+                        _clarification_rounds = getattr(self, "_clarification_round_count", 0)
+                        _max_rounds = _MAX_CLARIFICATION_ROUNDS
+                        if _clarification_rounds >= _max_rounds:
+                            # ISSUE-002: cap hit — force send_to_overlay(plan_ready), drop ask_user.
+                            _plan_tool_choice = {
+                                "type": "function",
+                                "function": {"name": "send_to_overlay"},
+                            }
+                            _plan_tools_for_call = [
+                                t for t in filtered_tools
+                                if not (
+                                    isinstance(t, dict)
+                                    and t.get("function", {}).get("name") == "ask_user"
+                                )
+                            ]
+                            _force_msg = (
+                                f"You have asked the user for clarification {_clarification_rounds} time"
+                                f"{'s' if _clarification_rounds != 1 else ''}. "
+                                "You MUST now call send_to_overlay(message_type='plan_ready') with your best plan "
+                                "based on the conversation so far. Do not call ask_user. Do not call anything else."
+                            )
+                            context_bundle.messages.append({
+                                "role": "user",
+                                "content": _force_msg,
+                            })
+                            print(
+                                f"[CLARIFICATION_CAP] step_plan_normalizer: rounds={_clarification_rounds} "
+                                f">= max={_max_rounds}; forcing tool_choice=send_to_overlay, ask_user dropped"
+                            )
+                        elif getattr(self, "_step_plan_convergence_narrowing", False):
                             _plan_tool_choice = {"type": "function", "function": {"name": "ask_user"}}
                             print("[AGENT] step_plan_normalizer: forcing tool_choice=ask_user after convergence narrowing")
                         controller_result = await self._call_step_plan_normalizer_controller(
                             messages=context_bundle.messages,
                             phase=current_phase,
                             context_mode=execution_context,
-                            tools=filtered_tools,
+                            tools=_plan_tools_for_call,
                             tool_choice=_plan_tool_choice,
                         )
                     elif effective_purpose == "recovery_diagnoser":
@@ -2360,6 +2399,52 @@ class AgentLoop:
                 if not message.tool_calls:
                     final_text = (message.content or "").strip()
                     if effective_purpose == "step_plan_normalizer":
+                        # ISSUE-002 fallback: if the clarification cap was already hit and LLM
+                        # still refuses to emit a tool call, synthesise a heuristic plan_ready
+                        # envelope so the run can proceed rather than looping forever.
+                        _clr_rounds_now = getattr(self, "_clarification_round_count", 0)
+                        if _clr_rounds_now >= _MAX_CLARIFICATION_ROUNDS:
+                            print(
+                                "[FALLBACK_PLAN_READY] reason=llm_failed_to_emit "
+                                f"clarification_rounds={_clr_rounds_now}"
+                            )
+                            _fb_intent = (
+                                str((self.current_steps[0] if self.current_steps else {}).get("intent") or "").strip()
+                                or str(self.last_plan_original_user_intent or "").strip()
+                                or final_text
+                                or "User intent not captured"
+                            )
+                            _fb_step_id = f"step_{uuid4().hex[:8]}"
+                            _fb_run_id = self._current_run_session_id() or "unknown"
+                            _fb_payload: dict[str, Any] = {
+                                "run_id": _fb_run_id,
+                                "summary": _fb_intent,
+                                "steps": [
+                                    {
+                                        "step_id": _fb_step_id,
+                                        "intent": _fb_intent,
+                                        "expected_outcome": {"type": "not_sure"},
+                                    }
+                                ],
+                            }
+                            try:
+                                _fb_env = build_plan_ready_event(
+                                    _fb_run_id,
+                                    _fb_intent,
+                                    _fb_payload["steps"],
+                                    summary=_fb_intent,
+                                )
+                                self._emit_backend_event_now(
+                                    _fb_env["type"],
+                                    **{k: v for k, v in _fb_env.items() if k != "type"},
+                                )
+                            except Exception as _fb_exc:  # noqa: BLE001
+                                print(
+                                    f"[FALLBACK_PLAN_READY] emit error: {type(_fb_exc).__name__}: {_fb_exc}"
+                                )
+                            self._pending_failure_followup = False
+                            self._reset_lifecycle_state()
+                            return
                         retry_message = (
                             "Do not answer planning in plain text. "
                             "Call send_to_overlay(message_type='plan_ready', payload={...}) when the plan is complete, "
@@ -2757,6 +2842,13 @@ class AgentLoop:
 
                     result = await self._dispatch_tool(tool_name, args)
                     print(f"[TOOL RESULT] {self._summarize(result, limit=100)}")
+                    # ISSUE-002: track clarification rounds so we can cap ask_user loops.
+                    if tool_name == "ask_user" and effective_purpose == "step_plan_normalizer":
+                        self._clarification_round_count = getattr(self, "_clarification_round_count", 0) + 1
+                        print(
+                            f"[CLARIFICATION_ROUND] step_plan_normalizer: "
+                            f"round={self._clarification_round_count} max={_MAX_CLARIFICATION_ROUNDS}"
+                        )
                     self._update_planning_ambiguity_from_tool_result(tool_name, result)
                     # --- P0 item 3: emit recommendation_ready after dom_extract / Page Intelligence ---
                     # Natural decision point: dom_extract returns page_intelligence dict with
