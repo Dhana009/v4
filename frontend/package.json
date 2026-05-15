@@ -8,7 +8,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "dev:panel-v2": "vite --host 127.0.0.1",
-    "test:panel-v2": "vitest run tests-dom/panel-v2-smoke.test.jsx tests-dom/panel-v2-static-audit.test.jsx tests-dom/panel-v2-preview.test.jsx"
+    "test:panel-v2": "vitest run tests-dom/panel-v2-smoke.test.jsx tests-dom/panel-v2-static-audit.test.jsx tests-dom/panel-v2-preview.test.jsx tests-dom/panel-v2-preview-route.test.jsx tests-dom/panel-v2-interactions.test.jsx"
   },
   "dependencies": {
     "esbuild": "^0.24.0",
