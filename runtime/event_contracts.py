@@ -851,7 +851,14 @@ _EXECUTION_STARTED_SOURCES = frozenset(
     {"confirmed_plan", "deterministic", "replay", "unknown"}
 )
 _PRECONDITION_TYPES = frozenset(
-    {"page_url", "element_present", "auth_state", "data_ready"}
+    {
+        "page_url",
+        "element_present",
+        "auth_state",
+        "data_ready",
+        # scenarios §5.4 — explicit page_state mismatch precondition.
+        "page_state_mismatch",
+    }
 )
 _LOCATOR_UPDATE_TRIGGERS = frozenset({"user", "weak_score", "failure_recovery"})
 _LOCATOR_UPDATE_STRATEGIES = frozenset({"deterministic", "llm_specialist", "user_pick"})
@@ -2179,6 +2186,337 @@ def build_token_report_event(
         "token_report",
         payload,
         event_id=event_id,
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+# ---------------------------------------------------------------------------
+# G14 / DG3 — typed builders for events historically emitted via raw ``_send``.
+# Pure-add; existing builders are not modified. Each follows the canonical
+# envelope/payload convention used above (run_id passed both at envelope and
+# payload level so dual-shape consumers can read either side).
+# ---------------------------------------------------------------------------
+
+
+def build_plan_ready_event(
+    run_id: str,
+    plan: Mapping[str, Any] | None,
+    steps: list[Mapping[str, Any]] | None,
+    summary: str | None = None,
+    *,
+    source: str | None = "agent",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+    **extra: Any,
+) -> dict[str, Any]:
+    """Typed builder for ``plan_ready``.
+
+    Replaces raw ``_send("plan_ready", ...)`` calls (agent.py:9157 et al.).
+    Schema per PRD v2.3 04_BACKEND_EVENT_CONTRACT.md — payload carries the
+    full ``plan`` object plus a flattened ``steps`` list and human-readable
+    ``summary``. Unknown ``extra`` keys are merged into the payload so
+    callers can attach optional fields (``plan_id``, ``draft``, etc.) without
+    a builder change; envelope-reserved keys are ignored.
+    """
+    run_id_text = _coerce_text(run_id)
+    if not run_id_text:
+        raise ValueError("run_id is required")
+
+    plan_dict = _coerce_mapping(plan)
+    steps_list: list[dict[str, Any]] = []
+    if isinstance(steps, list):
+        for s in steps:
+            if isinstance(s, Mapping):
+                steps_list.append(dict(s))
+
+    payload: dict[str, Any] = {
+        "run_id": run_id_text,
+        "plan": _json_safe_copy(plan_dict),
+        "steps": _json_safe_copy(steps_list),
+    }
+    if summary is not None:
+        payload["summary"] = _coerce_text(summary)
+
+    for key, value in (extra or {}).items():
+        if key in payload:
+            continue
+        payload[key] = _json_safe_copy(value)
+
+    return build_backend_event_envelope(
+        "plan_ready",
+        payload,
+        run_id=run_id_text,
+        event_id=event_id or str(uuid4()),
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+def build_step_recorded_event(
+    run_id: str,
+    step_id: str,
+    payload: Mapping[str, Any] | None = None,
+    *,
+    source: str | None = "agent",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+    **extra: Any,
+) -> dict[str, Any]:
+    """Typed builder for ``step_recorded`` (G14).
+
+    Wraps the existing recorder payload in the canonical envelope so
+    downstream consumers can rely on ``run_id`` / ``step_id`` being present
+    at the payload root regardless of what the caller passed in.
+    """
+    run_id_text = _coerce_text(run_id)
+    step_id_text = _coerce_text(step_id)
+    if not run_id_text:
+        raise ValueError("run_id is required")
+    if not step_id_text:
+        raise ValueError("step_id is required")
+
+    base = _coerce_mapping(payload)
+    out: dict[str, Any] = _json_safe_copy(base)
+    out["run_id"] = run_id_text
+    out["step_id"] = step_id_text
+
+    for key, value in (extra or {}).items():
+        if key in out:
+            continue
+        out[key] = _json_safe_copy(value)
+
+    return build_backend_event_envelope(
+        "step_recorded",
+        out,
+        run_id=run_id_text,
+        event_id=event_id or str(uuid4()),
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+def build_code_update_event(
+    run_id: str,
+    parent_step_id: str,
+    code_lines: list[str] | None,
+    child_operations: list[Mapping[str, Any]] | None,
+    *,
+    source: str | None = "agent",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+    **extra: Any,
+) -> dict[str, Any]:
+    """Typed builder for ``code_update`` (G14).
+
+    PRD 04 — payload carries ``parent_step_id``, the rendered ``code_lines``
+    and the structured ``child_operations`` list that produced them. Extra
+    keys (e.g. ``spec_version``, ``diff``) are merged into the payload.
+    """
+    run_id_text = _coerce_text(run_id)
+    parent_text = _coerce_text(parent_step_id)
+    if not run_id_text:
+        raise ValueError("run_id is required")
+    if not parent_text:
+        raise ValueError("parent_step_id is required")
+
+    safe_code_lines: list[str] = []
+    if isinstance(code_lines, list):
+        for line in code_lines:
+            safe_code_lines.append(str(line) if line is not None else "")
+
+    safe_child_ops: list[dict[str, Any]] = []
+    if isinstance(child_operations, list):
+        for op in child_operations:
+            if isinstance(op, Mapping):
+                safe_child_ops.append(dict(op))
+
+    payload: dict[str, Any] = {
+        "run_id": run_id_text,
+        "parent_step_id": parent_text,
+        "code_lines": _json_safe_copy(safe_code_lines),
+        "child_operations": _json_safe_copy(safe_child_ops),
+    }
+
+    for key, value in (extra or {}).items():
+        if key in payload:
+            continue
+        payload[key] = _json_safe_copy(value)
+
+    return build_backend_event_envelope(
+        "code_update",
+        payload,
+        run_id=run_id_text,
+        event_id=event_id or str(uuid4()),
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+_CAPABILITY_GAP_RECORDED_REQUIRED = (
+    "url",
+    "user_intent",
+    "operation_id",
+    "needed_capability",
+)
+
+
+def build_capability_gap_recorded_event(
+    run_id: str,
+    gap_record: Mapping[str, Any],
+    *,
+    source: str | None = "agent",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    """Typed builder for ``capability_gap_recorded`` (DG3).
+
+    Schema per scenarios §13:
+      ``{ordinal, url, user_intent, operation_id, needed_capability,
+         available_tools, severity, suggested_future_work, source, phase,
+         step_id}``.
+
+    Distinct from ``capability_gap`` (which is the live advisory). This
+    event records the gap into the run trace for later review.
+    """
+    run_id_text = _coerce_text(run_id)
+    if not run_id_text:
+        raise ValueError("run_id is required")
+    if not isinstance(gap_record, Mapping):
+        raise TypeError("gap_record must be a mapping")
+
+    record = dict(gap_record)
+    for key in _CAPABILITY_GAP_RECORDED_REQUIRED:
+        if not _coerce_text(record.get(key)):
+            raise ValueError(f"gap_record.{key} is required")
+
+    tools = record.get("available_tools") or []
+    if not isinstance(tools, list):
+        tools = [tools]
+
+    payload: dict[str, Any] = {
+        "run_id": run_id_text,
+        "ordinal": record.get("ordinal"),
+        "url": _coerce_text(record.get("url")),
+        "user_intent": _coerce_text(record.get("user_intent")),
+        "operation_id": _coerce_text(record.get("operation_id")),
+        "needed_capability": _coerce_text(record.get("needed_capability")),
+        "available_tools": _json_safe_copy(list(tools)),
+        "severity": _coerce_text(record.get("severity")) or "warn",
+        "suggested_future_work": _coerce_text(
+            record.get("suggested_future_work")
+        )
+        or None,
+        "source": _coerce_text(record.get("source")) or "agent",
+        "phase": _coerce_text(record.get("phase")) or None,
+        "step_id": _coerce_text(record.get("step_id")) or None,
+    }
+
+    # Preserve any caller-supplied extras that aren't already represented.
+    for key, value in record.items():
+        if key in payload:
+            continue
+        payload[key] = _json_safe_copy(value)
+
+    return build_backend_event_envelope(
+        "capability_gap_recorded",
+        payload,
+        run_id=run_id_text,
+        event_id=event_id or str(uuid4()),
+        emitted_at=emitted_at,
+        source=source,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Locator update request — PRD 04:57 + scenarios §21.2 alias.
+# The legacy ``build_locator_update_request_event`` (line ~1121) emits
+# ``ambiguity_id`` + ``trigger``; the spec contract calls for an
+# ``update_locator`` action + optional ``constraints`` and a
+# ``requested_action`` field. The v2 builder emits BOTH shapes in a single
+# payload so consumers on either contract continue to work without a
+# breaking change.
+# ---------------------------------------------------------------------------
+
+
+_LOCATOR_UPDATE_REQUESTED_ACTIONS = frozenset(
+    {"update_locator", "rescore", "user_pick", "abort"}
+)
+
+
+def build_locator_update_request_event_v2(
+    run_id: str,
+    ambiguity_id: str,
+    candidates: list[Mapping[str, Any]] | None,
+    requested_action: str,
+    constraints: Mapping[str, Any] | None = None,
+    *,
+    step_id: str | None = None,
+    current_locator: str | None = None,
+    operation_id: str | None = None,
+    source: str | None = "agent",
+    event_id: str | None = None,
+    emitted_at: str | None = None,
+) -> dict[str, Any]:
+    """PRD 04:57 + scenarios §21.2:1814 spec-named alias builder.
+
+    Emits a single ``locator_update_request`` event whose payload carries
+    BOTH the legacy fields (``ambiguity_id``, ``trigger``, ``current_locator``)
+    AND the spec-named fields (``action``, ``requested_action``,
+    ``candidates``, ``constraints``) so both consumer contracts stay green
+    while migration happens. Does not replace the legacy builder.
+    """
+    run_id_text = _coerce_text(run_id)
+    ambig_text = _coerce_text(ambiguity_id)
+    requested_text = _coerce_text(requested_action)
+    if not run_id_text:
+        raise ValueError("run_id is required")
+    if not ambig_text:
+        raise ValueError("ambiguity_id is required")
+    if requested_text not in _LOCATOR_UPDATE_REQUESTED_ACTIONS:
+        raise ValueError(
+            "requested_action must be one of "
+            f"{sorted(_LOCATOR_UPDATE_REQUESTED_ACTIONS)}, got {requested_action!r}"
+        )
+
+    safe_candidates: list[dict[str, Any]] = []
+    if isinstance(candidates, list):
+        for cand in candidates:
+            if isinstance(cand, Mapping):
+                safe_candidates.append(dict(cand))
+
+    constraints_dict = _coerce_mapping(constraints) if constraints is not None else None
+
+    payload: dict[str, Any] = {
+        "run_id": run_id_text,
+        "ambiguity_id": ambig_text,
+        # Spec-named fields (PRD 04:57 + §21.2).
+        "action": "update_locator",
+        "requested_action": requested_text,
+        "candidates": _json_safe_copy(safe_candidates),
+        # Legacy fields — keep "trigger" populated for old consumers; map
+        # ``user_pick`` -> ``user`` for the legacy enum.
+        "trigger": "user" if requested_text == "user_pick" else "failure_recovery",
+    }
+    if constraints_dict is not None:
+        payload["constraints"] = _json_safe_copy(constraints_dict)
+    if step_id:
+        payload["step_id"] = _coerce_text(step_id)
+    if current_locator:
+        loc_text = _coerce_text(current_locator)
+        if len(loc_text) > 1024:
+            raise ValueError(
+                "current_locator exceeds 1024-char DOM-injection guard"
+            )
+        payload["current_locator"] = loc_text
+    if operation_id:
+        payload["operation_id"] = _coerce_text(operation_id)
+
+    return build_backend_event_envelope(
+        "locator_update_request",
+        payload,
+        run_id=run_id_text,
+        event_id=event_id or str(uuid4()),
         emitted_at=emitted_at,
         source=source,
     )
