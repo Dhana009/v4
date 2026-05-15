@@ -651,6 +651,80 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 await ws.send_json(_stop_event)
                 continue
 
+            # T-12: launch_chromium command — calls browser.launch_browser
+            # so the FE can recover from a no-browser state without a
+            # backend restart. Emits browser_ready on success or a typed
+            # error envelope on failure.
+            if msg_type == "launch_chromium":
+                current_state = _current_command_state(session)
+                command, rejection = normalize_frontend_command(msg, current_state=current_state)
+                if rejection is not None:
+                    await ws.send_json(rejection); continue
+                try:
+                    await launch_browser()
+                    _BOOT_STATE["browser_ok"] = True
+                    _BOOT_STATE["browser_error"] = None
+                    await ws.send_json(
+                        build_backend_event_envelope(
+                            "launch_chromium_acknowledged",
+                            {"status": "accepted", "applied": True},
+                            source="server",
+                        )
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    _BOOT_STATE["browser_ok"] = False
+                    _BOOT_STATE["browser_error"] = str(exc) or type(exc).__name__
+                    await ws.send_json(
+                        build_runtime_rejection_payload(
+                            "BROWSER_LAUNCH_FAILED",
+                            f"launch_browser failed: {type(exc).__name__}",
+                            current_state=current_state,
+                            recoverable=True,
+                            source="server",
+                        )
+                    )
+                continue
+
+            # T-12: attach_existing_tab — user supplies a URL of a tab
+            # to attach to. Acked only for now; the actual CDP attach
+            # is a follow-up. URL is echoed in the ack so the UI can
+            # surface it; never executed by the server.
+            if msg_type == "attach_existing_tab":
+                current_state = _current_command_state(session)
+                command, rejection = normalize_frontend_command(msg, current_state=current_state)
+                if rejection is not None:
+                    await ws.send_json(rejection); continue
+                _url = str(msg.get("url") or "").strip()
+                await session.control_queue.put({
+                    "type": "attach_existing_tab",
+                    "url": _url,
+                })
+                await ws.send_json(
+                    build_backend_event_envelope(
+                        "attach_existing_tab_acknowledged",
+                        {"url": _url, "status": "accepted", "applied": False},
+                        source="server",
+                    )
+                )
+                continue
+
+            # T-12: keep_plan_as_draft — user defers running; backend just
+            # acks and the FE state machine returns to idle/draft.
+            if msg_type == "keep_plan_as_draft":
+                current_state = _current_command_state(session)
+                command, rejection = normalize_frontend_command(msg, current_state=current_state)
+                if rejection is not None:
+                    await ws.send_json(rejection); continue
+                await session.control_queue.put({"type": "keep_plan_as_draft"})
+                await ws.send_json(
+                    build_backend_event_envelope(
+                        "keep_plan_as_draft_acknowledged",
+                        {"status": "accepted"},
+                        source="server",
+                    )
+                )
+                continue
+
             # T-11: retry_as_is command — re-run the failed step without
             # any plan correction. Forward onto control_queue + ack.
             if msg_type == "retry_as_is":

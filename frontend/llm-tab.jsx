@@ -926,9 +926,38 @@ function CardNoBrowser() {
         </ul>
       </div>
       <div className="aw-card-foot">
-        <button className="aw-btn primary"><I.Play/>Launch chromium</button>
-        <button className="aw-btn">Attach existing tab…</button>
-        <button className="aw-btn subtle">Keep plan as draft</button>
+        <button className="aw-btn primary"
+                onClick={() => {
+                  // T-12: Launch chromium → typed cmd. Backend calls
+                  // browser.launch_browser and emits browser_ready or
+                  // BROWSER_LAUNCH_FAILED.
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  if (AW && typeof AW.send === 'function') AW.send({ type: 'launch_chromium' });
+                }}>
+          <I.Play/>Launch chromium
+        </button>
+        <button className="aw-btn"
+                onClick={() => {
+                  // T-12: Attach existing tab → prompt for URL then
+                  // send typed attach_existing_tab. Backend acks only.
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  if (!AW || typeof AW.send !== 'function') return;
+                  const url = (typeof window !== 'undefined' && typeof window.prompt === 'function')
+                    ? window.prompt('URL of the tab to attach:', 'https://acme.dev/pricing')
+                    : '';
+                  if (url == null) return;
+                  AW.send({ type: 'attach_existing_tab', url: String(url) });
+                }}>
+          Attach existing tab…
+        </button>
+        <button className="aw-btn subtle"
+                onClick={() => {
+                  // T-12: Keep plan as draft → typed defer cmd.
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  if (AW && typeof AW.send === 'function') AW.send({ type: 'keep_plan_as_draft' });
+                }}>
+          Keep plan as draft
+        </button>
       </div>
     </div>
   );

@@ -42,6 +42,10 @@ SUPPORTED_FRONTEND_COMMAND_TYPES = {
     "download_trace",
     # T-11 — retry the failed step as-is, no plan correction.
     "retry_as_is",
+    # T-12 — browser lifecycle from the no-browser card.
+    "launch_chromium",
+    "attach_existing_tab",
+    "keep_plan_as_draft",
 }
 
 
