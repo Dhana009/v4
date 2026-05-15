@@ -651,6 +651,63 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 await ws.send_json(_stop_event)
                 continue
 
+            # T-13: add_api_key command — accepts an OpenAI key in the
+            # message body, writes it to the process environment so the
+            # next LLMClient() ctor succeeds, and flips _BOOT_STATE.
+            # The key is NEVER echoed back over the wire; the ack only
+            # confirms acceptance and that the boot state was updated.
+            if msg_type == "add_api_key":
+                current_state = _current_command_state(session)
+                command, rejection = normalize_frontend_command(msg, current_state=current_state)
+                if rejection is not None:
+                    await ws.send_json(rejection); continue
+                _key = str(msg.get("key") or "").strip()
+                _provider = str(msg.get("provider") or "openai").strip().lower() or "openai"
+                if not _key or not _key.startswith("sk-"):
+                    await ws.send_json(
+                        build_runtime_rejection_payload(
+                            "INVALID_API_KEY",
+                            "add_api_key requires a non-empty key starting with 'sk-'.",
+                            current_state=current_state,
+                            recoverable=True,
+                            source="server",
+                        )
+                    )
+                    continue
+                # Write to process env. Persist to .env is intentionally
+                # out of scope for this slice — restart picks up env only.
+                os.environ["OPENAI_API_KEY"] = _key
+                _BOOT_STATE["api_key_ok"] = True
+                _BOOT_STATE["api_key_reason"] = None
+                await ws.send_json(
+                    build_backend_event_envelope(
+                        "add_api_key_acknowledged",
+                        {"provider": _provider, "status": "accepted", "applied": True},
+                        source="server",
+                    )
+                )
+                continue
+
+            # T-13: use_workspace_key command — instructs the backend to
+            # pick up the shared workspace key (e.g. from a settings file
+            # outside the per-user env). Ack only for now; the resolver
+            # lives in a follow-up since it needs a workspace config
+            # schema decision (open ambiguity in integration map §10).
+            if msg_type == "use_workspace_key":
+                current_state = _current_command_state(session)
+                command, rejection = normalize_frontend_command(msg, current_state=current_state)
+                if rejection is not None:
+                    await ws.send_json(rejection); continue
+                await session.control_queue.put({"type": "use_workspace_key"})
+                await ws.send_json(
+                    build_backend_event_envelope(
+                        "use_workspace_key_acknowledged",
+                        {"status": "accepted", "applied": False},
+                        source="server",
+                    )
+                )
+                continue
+
             # T-12: launch_chromium command — calls browser.launch_browser
             # so the FE can recover from a no-browser state without a
             # backend restart. Emits browser_ready on success or a typed

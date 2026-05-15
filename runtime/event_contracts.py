@@ -46,6 +46,9 @@ SUPPORTED_FRONTEND_COMMAND_TYPES = {
     "launch_chromium",
     "attach_existing_tab",
     "keep_plan_as_draft",
+    # T-13 — api key lifecycle from the apikey card.
+    "add_api_key",
+    "use_workspace_key",
 }
 
 

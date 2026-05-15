@@ -981,8 +981,31 @@ function CardApiKey() {
         </div>
       </div>
       <div className="aw-card-foot">
-        <button className="aw-btn primary"><I.Key/>Add key…</button>
-        <button className="aw-link" style={{marginLeft:4}}>Use shared workspace key</button>
+        <button className="aw-btn primary"
+                onClick={() => {
+                  // T-13: Add key → prompt for the OpenAI key, then
+                  // typed add_api_key. Backend writes to process env
+                  // and flips _BOOT_STATE.api_key_ok. The key never
+                  // appears on the wire beyond this single outbound
+                  // send (backend never echoes it back).
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  if (!AW || typeof AW.send !== 'function') return;
+                  const key = (typeof window !== 'undefined' && typeof window.prompt === 'function')
+                    ? window.prompt('Paste OpenAI API key (starts with sk-):', '')
+                    : '';
+                  if (!key) return;
+                  AW.send({ type: 'add_api_key', provider: 'openai', key: String(key).trim() });
+                }}>
+          <I.Key/>Add key…
+        </button>
+        <button className="aw-link" style={{marginLeft:4}}
+                onClick={() => {
+                  // T-13: Use shared workspace key → typed cmd.
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  if (AW && typeof AW.send === 'function') AW.send({ type: 'use_workspace_key' });
+                }}>
+          Use shared workspace key
+        </button>
         <span style={{flex:1}}/>
         <span className="aw-card-foot-hint"><I.Lock style={{width:11,height:11}}/>Keys are stored encrypted per workspace</span>
       </div>
