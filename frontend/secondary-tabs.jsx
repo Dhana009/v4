@@ -987,6 +987,34 @@ function CodeTab() {
 // — TRACE —————————————————————————————————————————————
 
 function TraceTab() {
+  const [capGaps, setCapGaps] = React.useState([]);
+  const [capGapsOpen, setCapGapsOpen] = React.useState(true);
+  React.useEffect(() => {
+    const AW = (typeof window !== 'undefined' && window.AW) || null;
+    if (!AW || typeof AW.on !== 'function') return;
+    const unsub = AW.on('capability_gap_recorded', (env) => {
+      const p = (env && (env.payload || env)) || {};
+      setCapGaps(prev => [...prev, {
+        ordinal: p.ordinal != null ? p.ordinal : prev.length + 1,
+        needed_capability: p.needed_capability || p.capability || '',
+        severity: p.severity || '',
+        url: p.url || '',
+      }]);
+    });
+    return () => unsub && unsub();
+  }, []);
+
+  const [tokenReport, setTokenReport] = React.useState(null);
+  React.useEffect(() => {
+    const AW = (typeof window !== 'undefined' && window.AW) || null;
+    if (!AW || typeof AW.on !== 'function') return;
+    const unsub = AW.on('token_report', (env) => {
+      const p = (env && (env.payload || env)) || {};
+      setTokenReport(p);
+    });
+    return () => unsub && unsub();
+  }, []);
+
   const [liveRows, setLiveRows] = React.useState([]);
   React.useEffect(() => {
     const AW = (typeof window !== 'undefined' && window.AW) || null;
@@ -1093,8 +1121,108 @@ function TraceTab() {
   { id: "debug", label: "Debug/Review", count: rows.filter((r) => r.cls === "debug-report" || r.cls === "code-review" || r.type === "debug.report" || r.type === "code.review").length }];
 
 
+  const severityCls = (sev) => {
+    if (!sev) return '';
+    const s = sev.toLowerCase();
+    if (s === 'high' || s === 'critical') return 'err';
+    if (s === 'medium' || s === 'med') return 'warn';
+    return '';
+  };
+
+  const tokenPurposes = tokenReport && Array.isArray(tokenReport.purposes)
+    ? tokenReport.purposes
+    : tokenReport && tokenReport.purpose
+    ? [tokenReport]
+    : [];
+
   return (
     <div>
+      {/* ── Capability Gaps ──────────────────────────────── */}
+      <div style={{ borderBottom: "1px solid var(--bdr)" }}>
+        <button
+          className="aw-trace-scope"
+          style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", padding: "7px 12px", background: "none", border: "none", cursor: "pointer", fontWeight: 600, fontSize: 11, color: "var(--tx)", textAlign: "left" }}
+          onClick={() => setCapGapsOpen(o => !o)}
+          aria-expanded={capGapsOpen}
+        >
+          <I.Alert style={{ width: 11, height: 11, color: "var(--red)" }} />
+          <span>Capability gaps ({capGaps.length})</span>
+          <span style={{ flex: 1 }} />
+          <span style={{ fontSize: 10, color: "var(--tx-3)" }}>{capGapsOpen ? "▲" : "▼"}</span>
+        </button>
+        {capGapsOpen && (
+          capGaps.length === 0
+            ? <div style={{ padding: "10px 14px 12px", fontSize: 11, color: "var(--tx-3)" }}>No gaps captured yet.</div>
+            : <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                  <thead>
+                    <tr style={{ borderBottom: "1px solid var(--bdr)" }}>
+                      <th style={{ padding: "4px 8px 4px 14px", textAlign: "left", fontWeight: 600, color: "var(--tx-3)", whiteSpace: "nowrap" }}>#</th>
+                      <th style={{ padding: "4px 8px", textAlign: "left", fontWeight: 600, color: "var(--tx-3)", whiteSpace: "nowrap" }}>Needed capability</th>
+                      <th style={{ padding: "4px 8px", textAlign: "left", fontWeight: 600, color: "var(--tx-3)", whiteSpace: "nowrap" }}>Severity</th>
+                      <th style={{ padding: "4px 8px 4px 8px", textAlign: "left", fontWeight: 600, color: "var(--tx-3)" }}>URL</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {capGaps.map((g, i) => (
+                      <tr key={i} style={{ borderBottom: "1px solid var(--bdr-faint, var(--bdr))" }}>
+                        <td style={{ padding: "4px 8px 4px 14px", fontFamily: "var(--ff-mono)", color: "var(--tx-3)" }}>{g.ordinal}</td>
+                        <td style={{ padding: "4px 8px", fontFamily: "var(--ff-mono)" }}>{g.needed_capability || <span style={{ color: "var(--tx-3)" }}>—</span>}</td>
+                        <td style={{ padding: "4px 8px" }}>
+                          {g.severity
+                            ? <span className={"aw-badge-i " + severityCls(g.severity)}><span className="ldot" />{g.severity}</span>
+                            : <span style={{ color: "var(--tx-3)" }}>—</span>}
+                        </td>
+                        <td style={{ padding: "4px 8px", fontFamily: "var(--ff-mono)", maxWidth: 180, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                          {g.url
+                            ? <span title={g.url}>{g.url}</span>
+                            : <span style={{ color: "var(--tx-3)" }}>—</span>}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+        )}
+      </div>
+
+      {/* ── Token Efficiency ─────────────────────────────── */}
+      <div style={{ borderBottom: "1px solid var(--bdr)" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, padding: "7px 12px", fontWeight: 600, fontSize: 11, color: "var(--tx)" }}>
+          <I.Spark style={{ width: 11, height: 11, color: "var(--vio)" }} />
+          <span>Token efficiency</span>
+        </div>
+        {!tokenReport
+          ? <div style={{ padding: "10px 14px 12px", fontSize: 11, color: "var(--tx-3)" }}>Awaiting token_report…</div>
+          : tokenPurposes.length === 0
+          ? <div style={{ padding: "10px 14px 12px", fontSize: 11, color: "var(--tx-3)" }}>token_report received — no per-purpose breakdown available.</div>
+          : <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                <thead>
+                  <tr style={{ borderBottom: "1px solid var(--bdr)" }}>
+                    <th style={{ padding: "4px 8px 4px 14px", textAlign: "left", fontWeight: 600, color: "var(--tx-3)", whiteSpace: "nowrap" }}>Purpose</th>
+                    <th style={{ padding: "4px 8px", textAlign: "right", fontWeight: 600, color: "var(--tx-3)", whiteSpace: "nowrap" }}>Tok in</th>
+                    <th style={{ padding: "4px 8px", textAlign: "right", fontWeight: 600, color: "var(--tx-3)", whiteSpace: "nowrap" }}>Tok out</th>
+                    <th style={{ padding: "4px 8px", textAlign: "right", fontWeight: 600, color: "var(--tx-3)", whiteSpace: "nowrap" }}>Calls</th>
+                    <th style={{ padding: "4px 8px 4px 8px", textAlign: "right", fontWeight: 600, color: "var(--tx-3)", whiteSpace: "nowrap" }}>Cost $</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tokenPurposes.map((row, i) => (
+                    <tr key={i} style={{ borderBottom: "1px solid var(--bdr-faint, var(--bdr))" }}>
+                      <td style={{ padding: "4px 8px 4px 14px", fontFamily: "var(--ff-mono)" }}>{row.purpose || <span style={{ color: "var(--tx-3)" }}>—</span>}</td>
+                      <td style={{ padding: "4px 8px", textAlign: "right", fontFamily: "var(--ff-mono)" }}>{row.tokens_in != null ? row.tokens_in.toLocaleString() : <span style={{ color: "var(--tx-3)" }}>—</span>}</td>
+                      <td style={{ padding: "4px 8px", textAlign: "right", fontFamily: "var(--ff-mono)" }}>{row.tokens_out != null ? row.tokens_out.toLocaleString() : <span style={{ color: "var(--tx-3)" }}>—</span>}</td>
+                      <td style={{ padding: "4px 8px", textAlign: "right", fontFamily: "var(--ff-mono)" }}>{row.calls != null ? row.calls : <span style={{ color: "var(--tx-3)" }}>—</span>}</td>
+                      <td style={{ padding: "4px 8px", textAlign: "right", fontFamily: "var(--ff-mono)" }}>{row.cost_usd != null ? ("$" + Number(row.cost_usd).toFixed(4)) : <span style={{ color: "var(--tx-3)" }}>—</span>}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+        }
+      </div>
+
       <div className="aw-list-toolbar">
         <span className="aw-search" style={{ flex: 1, minWidth: 0, maxWidth: 220 }}>
           <I.Search style={{ width: 11, height: 11, color: "var(--tx-3)" }} />
