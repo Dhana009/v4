@@ -25,7 +25,8 @@ export function PortalMenu({ triggerRef, open, onClose, width = 220, children })
 
 export function Header({ status, dock, setDock, collapsed, setCollapsed, tokenInfo, runState,
   agentsOpen, setAgentsOpen, agentsSummary, pageUrl = "acme.dev/pricing",
-  mode = "llm", setMode = () => {}, isLive = false }) {
+  mode = "llm", setMode = () => {}, isLive = false,
+  theme = "light", onThemeToggle = () => {} }) {
   const [dockMenu, setDockMenu] = useState(false);
   const dockTriggerRef = useRef(null);
   const dockIconFor = (kind) => kind === "left" ? I.DockL : kind === "top" ? I.DockTop : kind === "float" ? I.Float : I.Dock;
@@ -119,6 +120,12 @@ export function Header({ status, dock, setDock, collapsed, setCollapsed, tokenIn
           </PortalMenu>
         </div>
         <button className="aw-icon-btn" onClick={() => setCollapsed(!collapsed)} title="Collapse" data-tip="Collapse"><I.Min /></button>
+        <button className="aw-icon-btn" onClick={onThemeToggle}
+                data-testid="aw-theme-toggle"
+                title={theme === "dark" ? "Switch to light theme" : "Switch to dark theme"}
+                data-tip="Toggle theme">
+          {theme === "dark" ? <I.Sun style={{ width: 13, height: 13 }} /> : <I.Moon style={{ width: 13, height: 13 }} />}
+        </button>
         {!isLive && (
           <button className="aw-icon-btn"
                   onClick={() => {

@@ -1084,7 +1084,7 @@
             }
             return dispatcher.useContext(Context);
           }
-          function useState7(initialState) {
+          function useState12(initialState) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useState(initialState);
           }
@@ -1092,11 +1092,11 @@
             var dispatcher = resolveDispatcher();
             return dispatcher.useReducer(reducer2, initialArg, init);
           }
-          function useRef6(initialValue) {
+          function useRef11(initialValue) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useRef(initialValue);
           }
-          function useEffect5(create, deps) {
+          function useEffect8(create, deps) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useEffect(create, deps);
           }
@@ -1104,15 +1104,15 @@
             var dispatcher = resolveDispatcher();
             return dispatcher.useInsertionEffect(create, deps);
           }
-          function useLayoutEffect3(create, deps) {
+          function useLayoutEffect4(create, deps) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useLayoutEffect(create, deps);
           }
-          function useCallback3(callback, deps) {
+          function useCallback4(callback, deps) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useCallback(callback, deps);
           }
-          function useMemo4(create, deps) {
+          function useMemo7(create, deps) {
             var dispatcher = resolveDispatcher();
             return dispatcher.useMemo(create, deps);
           }
@@ -1875,19 +1875,19 @@
           exports.memo = memo;
           exports.startTransition = startTransition;
           exports.unstable_act = act;
-          exports.useCallback = useCallback3;
+          exports.useCallback = useCallback4;
           exports.useContext = useContext;
           exports.useDebugValue = useDebugValue;
           exports.useDeferredValue = useDeferredValue;
-          exports.useEffect = useEffect5;
+          exports.useEffect = useEffect8;
           exports.useId = useId;
           exports.useImperativeHandle = useImperativeHandle;
           exports.useInsertionEffect = useInsertionEffect;
-          exports.useLayoutEffect = useLayoutEffect3;
-          exports.useMemo = useMemo4;
+          exports.useLayoutEffect = useLayoutEffect4;
+          exports.useMemo = useMemo7;
           exports.useReducer = useReducer;
-          exports.useRef = useRef6;
-          exports.useState = useState7;
+          exports.useRef = useRef11;
+          exports.useState = useState12;
           exports.useSyncExternalStore = useSyncExternalStore;
           exports.useTransition = useTransition;
           exports.version = ReactVersion;
@@ -2434,7 +2434,7 @@
           var HostPortal = 4;
           var HostComponent = 5;
           var HostText = 6;
-          var Fragment7 = 7;
+          var Fragment13 = 7;
           var Mode = 8;
           var ContextConsumer = 9;
           var ContextProvider = 10;
@@ -3591,7 +3591,7 @@
                 return "DehydratedFragment";
               case ForwardRef:
                 return getWrappedName$1(type, type.render, "ForwardRef");
-              case Fragment7:
+              case Fragment13:
                 return "Fragment";
               case HostComponent:
                 return type;
@@ -12020,7 +12020,7 @@
               }
             }
             function updateFragment2(returnFiber, current2, fragment, lanes, key) {
-              if (current2 === null || current2.tag !== Fragment7) {
+              if (current2 === null || current2.tag !== Fragment13) {
                 var created = createFiberFromFragment(fragment, returnFiber.mode, lanes, key);
                 created.return = returnFiber;
                 return created;
@@ -12423,7 +12423,7 @@
                 if (child.key === key) {
                   var elementType = element.type;
                   if (elementType === REACT_FRAGMENT_TYPE) {
-                    if (child.tag === Fragment7) {
+                    if (child.tag === Fragment13) {
                       deleteRemainingChildren(returnFiber, child.sibling);
                       var existing = useFiber(child, element.props.children);
                       existing.return = returnFiber;
@@ -17899,7 +17899,7 @@
                 var _resolvedProps2 = workInProgress2.elementType === type ? _unresolvedProps2 : resolveDefaultProps(type, _unresolvedProps2);
                 return updateForwardRef(current2, workInProgress2, type, _resolvedProps2, renderLanes2);
               }
-              case Fragment7:
+              case Fragment13:
                 return updateFragment(current2, workInProgress2, renderLanes2);
               case Mode:
                 return updateMode(current2, workInProgress2, renderLanes2);
@@ -18171,7 +18171,7 @@
               case SimpleMemoComponent:
               case FunctionComponent:
               case ForwardRef:
-              case Fragment7:
+              case Fragment13:
               case Mode:
               case Profiler:
               case ContextConsumer:
@@ -22432,7 +22432,7 @@
             return fiber;
           }
           function createFiberFromFragment(elements, mode, lanes, key) {
-            var fiber = createFiber(Fragment7, elements, key, mode);
+            var fiber = createFiber(Fragment13, elements, key, mode);
             fiber.lanes = lanes;
             return fiber;
           }
@@ -22609,7 +22609,7 @@
             return root2;
           }
           var ReactVersion = "18.3.1";
-          function createPortal(children, containerInfo, implementation) {
+          function createPortal2(children, containerInfo, implementation) {
             var key = arguments.length > 3 && arguments[3] !== void 0 ? arguments[3] : null;
             {
               checkKeyStringCoercion(key);
@@ -23466,7 +23466,7 @@
             if (!isValidContainer(container)) {
               throw new Error("Target container is not a DOM element.");
             }
-            return createPortal(children, container, null, key);
+            return createPortal2(children, container, null, key);
           }
           function renderSubtreeIntoContainer(parentComponent, element, containerNode, callback) {
             return unstable_renderSubtreeIntoContainer(parentComponent, element, containerNode, callback);
@@ -24464,11 +24464,11 @@
               return jsxWithValidation(type, props, key, false);
             }
           }
-          var jsx10 = jsxWithValidationDynamic;
-          var jsxs10 = jsxWithValidationStatic;
+          var jsx18 = jsxWithValidationDynamic;
+          var jsxs17 = jsxWithValidationStatic;
           exports.Fragment = REACT_FRAGMENT_TYPE;
-          exports.jsx = jsx10;
-          exports.jsxs = jsxs10;
+          exports.jsx = jsx18;
+          exports.jsxs = jsxs17;
         })();
       }
     }
@@ -24487,7 +24487,7 @@
   });
 
   // src/main.jsx
-  var import_react9 = __toESM(require_react());
+  var import_react15 = __toESM(require_react());
   var import_client = __toESM(require_client());
 
   // icons.jsx
@@ -29036,6 +29036,4533 @@
   }
   window.IDEPanel = IDEPanel;
 
+  // src/panel-v2-adapter/feature-flag.js
+  function shouldUseV2Panel() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      if (params.has("panel")) {
+        return params.get("panel") === "v2";
+      }
+      return localStorage.getItem("awPanelVersion") === "v2";
+    } catch {
+      return false;
+    }
+  }
+
+  // src/panel-v2-adapter/live-host.jsx
+  var import_react11 = __toESM(require_react());
+
+  // src/panel-v2/app.jsx
+  var import_react10 = __toESM(require_react());
+
+  // src/panel-v2/icons.jsx
+  var import_jsx_runtime7 = __toESM(require_jsx_runtime());
+  var I2 = {};
+  var mk3 = (paths, vb = "0 0 24 24") => (props = {}) => /* @__PURE__ */ (0, import_jsx_runtime7.jsx)(
+    "svg",
+    {
+      viewBox: vb,
+      fill: "none",
+      stroke: "currentColor",
+      strokeWidth: "1.5",
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      "aria-hidden": "true",
+      ...props,
+      children: paths
+    }
+  );
+  I2.Bolt = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M13 3 4 14h7l-1 7 9-11h-7l1-7z" }));
+  I2.Chat = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M21 12a8 8 0 0 1-11.6 7.1L4 21l1.9-5.4A8 8 0 1 1 21 12z" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "9", cy: "12", r: ".75", fill: "currentColor" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "12", cy: "12", r: ".75", fill: "currentColor" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "15", cy: "12", r: ".75", fill: "currentColor" })
+  ] }));
+  I2.Steps = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M9 6h11M9 12h11M9 18h11" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M5 6h.01M5 12h.01M5 18h.01", strokeWidth: "2" })
+  ] }));
+  I2.Camera = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("rect", { x: "3", y: "7", width: "18", height: "13", rx: "2.5" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M9 7l1.5-2.5h3L15 7" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "12", cy: "13.5", r: "3" })
+  ] }));
+  I2.Code = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsx)(import_jsx_runtime7.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M9 8l-4 4 4 4M15 8l4 4-4 4" }) }));
+  I2.Trace = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M4 7h7M4 12h12M4 17h9" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "15", cy: "7", r: "1.2" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "19", cy: "12", r: "1.2" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "16", cy: "17", r: "1.2" })
+  ] }));
+  I2.Plug = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsx)(import_jsx_runtime7.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M9 2v6M15 2v6M7 8h10v3a5 5 0 0 1-10 0V8zM12 16v5" }) }));
+  I2.Settings = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "12", cy: "12", r: "3" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M12 2v3M12 19v3M5 5l2 2M17 17l2 2M2 12h3M19 12h3M5 19l2-2M17 7l2-2" })
+  ] }));
+  I2.Dock = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("rect", { x: "3", y: "4", width: "18", height: "16", rx: "2" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M15 4v16" })
+  ] }));
+  I2.DockL = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("rect", { x: "3", y: "4", width: "18", height: "16", rx: "2" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M9 4v16" })
+  ] }));
+  I2.DockTop = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("rect", { x: "3", y: "4", width: "18", height: "16", rx: "2" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M3 10h18" })
+  ] }));
+  I2.Float = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("rect", { x: "3", y: "4", width: "14", height: "12", rx: "2" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("rect", { x: "7", y: "8", width: "14", height: "12", rx: "2" })
+  ] }));
+  I2.Min = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsx)(import_jsx_runtime7.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M5 12h14" }) }));
+  I2.X = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsx)(import_jsx_runtime7.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M6 6l12 12M18 6 6 18" }) }));
+  I2.Spark = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "12", cy: "12", r: "2", fill: "currentColor", stroke: "none" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M12 4v3M12 17v3M4 12h3M17 12h3M6.3 6.3l2 2M15.7 15.7l2 2M6.3 17.7l2-2M15.7 8.3l2-2" })
+  ] }));
+  I2.Check = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsx)(import_jsx_runtime7.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "m5 12 5 5L20 7" }) }));
+  I2.Play = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsx)(import_jsx_runtime7.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M6 4v16l14-8z", fill: "currentColor", stroke: "none" }) }));
+  I2.Pause = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsx)(import_jsx_runtime7.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M7 4h4v16H7zM13 4h4v16h-4z", fill: "currentColor", stroke: "none" }) }));
+  I2.Stop = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsx)(import_jsx_runtime7.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("rect", { x: "6", y: "6", width: "12", height: "12", rx: "1.5", fill: "currentColor", stroke: "none" }) }));
+  I2.Retry = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M21 12a9 9 0 1 1-3-6.7L21 8" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M21 3v5h-5" })
+  ] }));
+  I2.Skip = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M5 4v16l9-8z", fill: "currentColor", stroke: "none" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M19 4v16" })
+  ] }));
+  I2.Plus = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsx)(import_jsx_runtime7.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M12 5v14M5 12h14" }) }));
+  I2.Caret = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsx)(import_jsx_runtime7.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "m6 9 6 6 6-6" }) }));
+  I2.CaretR = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsx)(import_jsx_runtime7.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "m9 6 6 6-6 6" }) }));
+  I2.Send = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsx)(import_jsx_runtime7.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M22 2 11 13M22 2l-7 20-4-9-9-4z" }) }));
+  I2.Paperclip = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsx)(import_jsx_runtime7.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "m21 11-9 9a5.5 5.5 0 0 1-7.8-7.8l9-9a4 4 0 0 1 5.7 5.7l-9 9a2.5 2.5 0 0 1-3.5-3.5l8.5-8.5" }) }));
+  I2.Mouse = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M5 3l7 18 2-8 8-2z", fill: "currentColor", stroke: "none", opacity: ".15" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M5 3l7 18 2-8 8-2z" })
+  ] }));
+  I2.Eye = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "12", cy: "12", r: "3" })
+  ] }));
+  I2.Alert = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M12 9v4M12 17h.01", strokeLinecap: "round" })
+  ] }));
+  I2.Info = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "12", cy: "12", r: "9" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M12 8h.01M11 12h1v5h1" })
+  ] }));
+  I2.Copy = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("rect", { x: "8", y: "8", width: "13", height: "13", rx: "2" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3" })
+  ] }));
+  I2.Download = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsx)(import_jsx_runtime7.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M12 3v13M6 10l6 6 6-6M4 21h16" }) }));
+  I2.Filter = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsx)(import_jsx_runtime7.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M3 5h18l-7 9v6l-4-2v-4z" }) }));
+  I2.Folder = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsx)(import_jsx_runtime7.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" }) }));
+  I2.Lock = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("rect", { x: "4", y: "11", width: "16", height: "9", rx: "2" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M8 11V7a4 4 0 1 1 8 0v4" })
+  ] }));
+  I2.Shield = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsx)(import_jsx_runtime7.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z" }) }));
+  I2.Target = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "12", cy: "12", r: "8" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M12 4v3M12 17v3M4 12h3M17 12h3" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "12", cy: "12", r: "1.2", fill: "currentColor", stroke: "none" })
+  ] }));
+  I2.Drag = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "9", cy: "6", r: "1.2", fill: "currentColor" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "15", cy: "6", r: "1.2", fill: "currentColor" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "9", cy: "12", r: "1.2", fill: "currentColor" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "15", cy: "12", r: "1.2", fill: "currentColor" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "9", cy: "18", r: "1.2", fill: "currentColor" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "15", cy: "18", r: "1.2", fill: "currentColor" })
+  ] }));
+  I2.More = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "6", cy: "12", r: "1.4", fill: "currentColor" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "12", cy: "12", r: "1.4", fill: "currentColor" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "18", cy: "12", r: "1.4", fill: "currentColor" })
+  ] }));
+  I2.Sync = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M21 12A9 9 0 0 0 6 5.3L3 8" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M3 12a9 9 0 0 0 15 6.7L21 16" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M21 3v5h-5M3 21v-5h5" })
+  ] }));
+  I2.Repeat = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsx)(import_jsx_runtime7.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M17 3 21 7l-4 4M3 11V9a4 4 0 0 1 4-4h14M7 21l-4-4 4-4M21 13v2a4 4 0 0 1-4 4H3" }) }));
+  I2.Layers = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M12 3 3 8l9 5 9-5z" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M3 13l9 5 9-5" })
+  ] }));
+  I2.Diff = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsx)(import_jsx_runtime7.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M9 4v12M3 10l6-6 6 6M15 20V8M21 14l-6 6-6-6" }) }));
+  I2.Key = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "8", cy: "15", r: "4" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "m11 12 9-9M16 7l3 3M14 9l2 2" })
+  ] }));
+  I2.Branch = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "6", cy: "6", r: "2" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "6", cy: "18", r: "2" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "18", cy: "9", r: "2" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M6 8v8M16.5 10.5C15 14 11 14 8 14" })
+  ] }));
+  I2.Doc = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsx)(import_jsx_runtime7.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9zM14 3v6h6M8 13h8M8 17h6" }) }));
+  I2.Globe = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "12", cy: "12", r: "9" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18" })
+  ] }));
+  I2.Search = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "11", cy: "11", r: "7" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "m20 20-3.5-3.5" })
+  ] }));
+  I2.Sun = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(import_jsx_runtime7.Fragment, { children: [
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("circle", { cx: "12", cy: "12", r: "4" }),
+    /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M12 2v2M12 20v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M2 12h2M20 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42" })
+  ] }));
+  I2.Moon = mk3(/* @__PURE__ */ (0, import_jsx_runtime7.jsx)(import_jsx_runtime7.Fragment, { children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("path", { d: "M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" }) }));
+
+  // src/panel-v2/tweaks-panel.jsx
+  var import_react6 = __toESM(require_react());
+  var import_jsx_runtime8 = __toESM(require_jsx_runtime());
+  var __TWEAKS_STYLE = `
+  .twk-panel{position:fixed;right:16px;bottom:16px;z-index:2147483646;width:280px;
+    max-height:calc(100vh - 32px);display:flex;flex-direction:column;
+    transform:scale(var(--dc-inv-zoom,1));transform-origin:bottom right;
+    background:rgba(250,249,247,.78);color:#29261b;
+    -webkit-backdrop-filter:blur(24px) saturate(160%);backdrop-filter:blur(24px) saturate(160%);
+    border:.5px solid rgba(255,255,255,.6);border-radius:14px;
+    box-shadow:0 1px 0 rgba(255,255,255,.5) inset,0 12px 40px rgba(0,0,0,.18);
+    font:11.5px/1.4 ui-sans-serif,system-ui,-apple-system,sans-serif;overflow:hidden}
+  .twk-hd{display:flex;align-items:center;justify-content:space-between;
+    padding:10px 8px 10px 14px;cursor:move;user-select:none}
+  .twk-hd b{font-size:12px;font-weight:600;letter-spacing:.01em}
+  .twk-x{appearance:none;border:0;background:transparent;color:rgba(41,38,27,.55);
+    width:22px;height:22px;border-radius:6px;cursor:default;font-size:13px;line-height:1}
+  .twk-x:hover{background:rgba(0,0,0,.06);color:#29261b}
+  .twk-body{padding:2px 14px 14px;display:flex;flex-direction:column;gap:10px;
+    overflow-y:auto;overflow-x:hidden;min-height:0;
+    scrollbar-width:thin;scrollbar-color:rgba(0,0,0,.15) transparent}
+  .twk-body::-webkit-scrollbar{width:8px}
+  .twk-body::-webkit-scrollbar-track{background:transparent;margin:2px}
+  .twk-body::-webkit-scrollbar-thumb{background:rgba(0,0,0,.15);border-radius:4px;
+    border:2px solid transparent;background-clip:content-box}
+  .twk-body::-webkit-scrollbar-thumb:hover{background:rgba(0,0,0,.25);
+    border:2px solid transparent;background-clip:content-box}
+  .twk-row{display:flex;flex-direction:column;gap:5px}
+  .twk-row-h{flex-direction:row;align-items:center;justify-content:space-between;gap:10px}
+  .twk-lbl{display:flex;justify-content:space-between;align-items:baseline;
+    color:rgba(41,38,27,.72)}
+  .twk-lbl>span:first-child{font-weight:500}
+  .twk-val{color:rgba(41,38,27,.5);font-variant-numeric:tabular-nums}
+
+  .twk-sect{font-size:10px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;
+    color:rgba(41,38,27,.45);padding:10px 0 0}
+  .twk-sect:first-child{padding-top:0}
+
+  .twk-field{appearance:none;box-sizing:border-box;width:100%;min-width:0;height:26px;padding:0 8px;
+    border:.5px solid rgba(0,0,0,.1);border-radius:7px;
+    background:rgba(255,255,255,.6);color:inherit;font:inherit;outline:none}
+  .twk-field:focus{border-color:rgba(0,0,0,.25);background:rgba(255,255,255,.85)}
+  select.twk-field{padding-right:22px;
+    background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path fill='rgba(0,0,0,.5)' d='M0 0h10L5 6z'/></svg>");
+    background-repeat:no-repeat;background-position:right 8px center}
+
+  .twk-slider{appearance:none;-webkit-appearance:none;width:100%;height:4px;margin:6px 0;
+    border-radius:999px;background:rgba(0,0,0,.12);outline:none}
+  .twk-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;
+    width:14px;height:14px;border-radius:50%;background:#fff;
+    border:.5px solid rgba(0,0,0,.12);box-shadow:0 1px 3px rgba(0,0,0,.2);cursor:default}
+  .twk-slider::-moz-range-thumb{width:14px;height:14px;border-radius:50%;
+    background:#fff;border:.5px solid rgba(0,0,0,.12);box-shadow:0 1px 3px rgba(0,0,0,.2);cursor:default}
+
+  .twk-seg{position:relative;display:flex;padding:2px;border-radius:8px;
+    background:rgba(0,0,0,.06);user-select:none}
+  .twk-seg-thumb{position:absolute;top:2px;bottom:2px;border-radius:6px;
+    background:rgba(255,255,255,.9);box-shadow:0 1px 2px rgba(0,0,0,.12);
+    transition:left .15s cubic-bezier(.3,.7,.4,1),width .15s}
+  .twk-seg.dragging .twk-seg-thumb{transition:none}
+  .twk-seg button{appearance:none;position:relative;z-index:1;flex:1;border:0;
+    background:transparent;color:inherit;font:inherit;font-weight:500;min-height:22px;
+    border-radius:6px;cursor:default;padding:4px 6px;line-height:1.2;
+    overflow-wrap:anywhere}
+
+  .twk-toggle{position:relative;width:32px;height:18px;border:0;border-radius:999px;
+    background:rgba(0,0,0,.15);transition:background .15s;cursor:default;padding:0}
+  .twk-toggle[data-on="1"]{background:#34c759}
+  .twk-toggle i{position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;
+    background:#fff;box-shadow:0 1px 2px rgba(0,0,0,.25);transition:transform .15s}
+  .twk-toggle[data-on="1"] i{transform:translateX(14px)}
+
+  .twk-num{display:flex;align-items:center;box-sizing:border-box;min-width:0;height:26px;padding:0 0 0 8px;
+    border:.5px solid rgba(0,0,0,.1);border-radius:7px;background:rgba(255,255,255,.6)}
+  .twk-num-lbl{font-weight:500;color:rgba(41,38,27,.6);cursor:ew-resize;
+    user-select:none;padding-right:8px}
+  .twk-num input{flex:1;min-width:0;height:100%;border:0;background:transparent;
+    font:inherit;font-variant-numeric:tabular-nums;text-align:right;padding:0 8px 0 0;
+    outline:none;color:inherit;-moz-appearance:textfield}
+  .twk-num input::-webkit-inner-spin-button,.twk-num input::-webkit-outer-spin-button{
+    -webkit-appearance:none;margin:0}
+  .twk-num-unit{padding-right:8px;color:rgba(41,38,27,.45)}
+
+  .twk-btn{appearance:none;height:26px;padding:0 12px;border:0;border-radius:7px;
+    background:rgba(0,0,0,.78);color:#fff;font:inherit;font-weight:500;cursor:default}
+  .twk-btn:hover{background:rgba(0,0,0,.88)}
+  .twk-btn.secondary{background:rgba(0,0,0,.06);color:inherit}
+  .twk-btn.secondary:hover{background:rgba(0,0,0,.1)}
+
+  .twk-swatch{appearance:none;-webkit-appearance:none;width:56px;height:22px;
+    border:.5px solid rgba(0,0,0,.1);border-radius:6px;padding:0;cursor:default;
+    background:transparent;flex-shrink:0}
+  .twk-swatch::-webkit-color-swatch-wrapper{padding:0}
+  .twk-swatch::-webkit-color-swatch{border:0;border-radius:5.5px}
+  .twk-swatch::-moz-color-swatch{border:0;border-radius:5.5px}
+
+  .twk-chips{display:flex;gap:6px}
+  .twk-chip{position:relative;appearance:none;flex:1;min-width:0;height:46px;
+    padding:0;border:0;border-radius:6px;overflow:hidden;cursor:default;
+    box-shadow:0 0 0 .5px rgba(0,0,0,.12),0 1px 2px rgba(0,0,0,.06);
+    transition:transform .12s cubic-bezier(.3,.7,.4,1),box-shadow .12s}
+  .twk-chip:hover{transform:translateY(-1px);
+    box-shadow:0 0 0 .5px rgba(0,0,0,.18),0 4px 10px rgba(0,0,0,.12)}
+  .twk-chip[data-on="1"]{box-shadow:0 0 0 1.5px rgba(0,0,0,.85),
+    0 2px 6px rgba(0,0,0,.15)}
+  .twk-chip>span{position:absolute;top:0;bottom:0;right:0;width:34%;
+    display:flex;flex-direction:column;box-shadow:-1px 0 0 rgba(0,0,0,.1)}
+  .twk-chip>span>i{flex:1;box-shadow:0 -1px 0 rgba(0,0,0,.1)}
+  .twk-chip>span>i:first-child{box-shadow:none}
+  .twk-chip svg{position:absolute;top:6px;left:6px;width:13px;height:13px;
+    filter:drop-shadow(0 1px 1px rgba(0,0,0,.3))}
+`;
+  function useTweaks(defaults) {
+    const [values, setValues] = (0, import_react6.useState)(defaults);
+    const setTweak = (0, import_react6.useCallback)((keyOrEdits, val) => {
+      const edits = typeof keyOrEdits === "object" && keyOrEdits !== null ? keyOrEdits : { [keyOrEdits]: val };
+      setValues((prev) => ({ ...prev, ...edits }));
+      window.parent.postMessage({ type: "__edit_mode_set_keys", edits }, "*");
+      window.dispatchEvent(new CustomEvent("tweakchange", { detail: edits }));
+    }, []);
+    return [values, setTweak];
+  }
+  function TweaksPanel({ title = "Tweaks", noDeckControls = false, children }) {
+    const [open, setOpen] = (0, import_react6.useState)(false);
+    const dragRef = (0, import_react6.useRef)(null);
+    const hasDeckStage = (0, import_react6.useMemo)(
+      () => typeof document !== "undefined" && !!document.querySelector("deck-stage"),
+      []
+    );
+    const [railEnabled, setRailEnabled] = (0, import_react6.useState)(
+      () => hasDeckStage && !!document.querySelector("deck-stage")?._railEnabled
+    );
+    (0, import_react6.useEffect)(() => {
+      if (!hasDeckStage || railEnabled) return void 0;
+      const onMsg = (e) => {
+        if (e.data && e.data.type === "__omelette_rail_enabled") setRailEnabled(true);
+      };
+      window.addEventListener("message", onMsg);
+      return () => window.removeEventListener("message", onMsg);
+    }, [hasDeckStage, railEnabled]);
+    const [railVisible, setRailVisible] = (0, import_react6.useState)(() => {
+      try {
+        return localStorage.getItem("deck-stage.railVisible") !== "0";
+      } catch (e) {
+        return true;
+      }
+    });
+    const toggleRail = (on) => {
+      setRailVisible(on);
+      window.postMessage({ type: "__deck_rail_visible", on }, "*");
+    };
+    const offsetRef = (0, import_react6.useRef)({ x: 16, y: 16 });
+    const PAD = 16;
+    const clampToViewport = (0, import_react6.useCallback)(() => {
+      const panel = dragRef.current;
+      if (!panel) return;
+      const w = panel.offsetWidth, h = panel.offsetHeight;
+      const maxRight = Math.max(PAD, window.innerWidth - w - PAD);
+      const maxBottom = Math.max(PAD, window.innerHeight - h - PAD);
+      offsetRef.current = {
+        x: Math.min(maxRight, Math.max(PAD, offsetRef.current.x)),
+        y: Math.min(maxBottom, Math.max(PAD, offsetRef.current.y))
+      };
+      panel.style.right = offsetRef.current.x + "px";
+      panel.style.bottom = offsetRef.current.y + "px";
+    }, []);
+    (0, import_react6.useEffect)(() => {
+      if (!open) return;
+      clampToViewport();
+      if (typeof ResizeObserver === "undefined") {
+        window.addEventListener("resize", clampToViewport);
+        return () => window.removeEventListener("resize", clampToViewport);
+      }
+      const ro = new ResizeObserver(clampToViewport);
+      ro.observe(document.documentElement);
+      return () => ro.disconnect();
+    }, [open, clampToViewport]);
+    (0, import_react6.useEffect)(() => {
+      const onMsg = (e) => {
+        const t = e?.data?.type;
+        if (t === "__activate_edit_mode") setOpen(true);
+        else if (t === "__deactivate_edit_mode") setOpen(false);
+      };
+      window.addEventListener("message", onMsg);
+      window.parent.postMessage({ type: "__edit_mode_available" }, "*");
+      return () => window.removeEventListener("message", onMsg);
+    }, []);
+    const dismiss = () => {
+      setOpen(false);
+      window.parent.postMessage({ type: "__edit_mode_dismissed" }, "*");
+    };
+    const onDragStart = (e) => {
+      const panel = dragRef.current;
+      if (!panel) return;
+      const r = panel.getBoundingClientRect();
+      const sx = e.clientX, sy = e.clientY;
+      const startRight = window.innerWidth - r.right;
+      const startBottom = window.innerHeight - r.bottom;
+      const move = (ev) => {
+        offsetRef.current = {
+          x: startRight - (ev.clientX - sx),
+          y: startBottom - (ev.clientY - sy)
+        };
+        clampToViewport();
+      };
+      const up = () => {
+        window.removeEventListener("mousemove", move);
+        window.removeEventListener("mouseup", up);
+      };
+      window.addEventListener("mousemove", move);
+      window.addEventListener("mouseup", up);
+    };
+    if (!open) return null;
+    return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(import_jsx_runtime8.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("style", { children: __TWEAKS_STYLE }),
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(
+        "div",
+        {
+          ref: dragRef,
+          className: "twk-panel",
+          "data-noncommentable": "",
+          style: { right: offsetRef.current.x, bottom: offsetRef.current.y },
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "twk-hd", onMouseDown: onDragStart, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("b", { children: title }),
+              /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
+                "button",
+                {
+                  className: "twk-x",
+                  "aria-label": "Close tweaks",
+                  onMouseDown: (e) => e.stopPropagation(),
+                  onClick: dismiss,
+                  children: "\u2715"
+                }
+              )
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "twk-body", children: [
+              children,
+              hasDeckStage && railEnabled && !noDeckControls && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(TweakSection, { label: "Deck", children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(TweakToggle, { label: "Thumbnail rail", value: railVisible, onChange: toggleRail }) })
+            ] })
+          ]
+        }
+      )
+    ] });
+  }
+  function TweakSection({ label, children }) {
+    return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(import_jsx_runtime8.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "twk-sect", children: label }),
+      children
+    ] });
+  }
+  function TweakRow({ label, value, children, inline = false }) {
+    return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: inline ? "twk-row twk-row-h" : "twk-row", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "twk-lbl", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: label }),
+        value != null && /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "twk-val", children: value })
+      ] }),
+      children
+    ] });
+  }
+  function TweakSlider({ label, value, min = 0, max = 100, step = 1, unit = "", onChange }) {
+    return /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(TweakRow, { label, value: `${value}${unit}`, children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
+      "input",
+      {
+        type: "range",
+        className: "twk-slider",
+        min,
+        max,
+        step,
+        value,
+        onChange: (e) => onChange(Number(e.target.value))
+      }
+    ) });
+  }
+  function TweakToggle({ label, value, onChange }) {
+    return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "twk-row twk-row-h", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "twk-lbl", children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { children: label }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
+        "button",
+        {
+          type: "button",
+          className: "twk-toggle",
+          "data-on": value ? "1" : "0",
+          role: "switch",
+          "aria-checked": !!value,
+          onClick: () => onChange(!value),
+          children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("i", {})
+        }
+      )
+    ] });
+  }
+  function TweakRadio({ label, value, options, onChange }) {
+    const trackRef = (0, import_react6.useRef)(null);
+    const [dragging, setDragging] = (0, import_react6.useState)(false);
+    const valueRef = (0, import_react6.useRef)(value);
+    valueRef.current = value;
+    const labelLen = (o) => String(typeof o === "object" ? o.label : o).length;
+    const maxLen = options.reduce((m, o) => Math.max(m, labelLen(o)), 0);
+    const fitsAsSegments = maxLen <= ({ 2: 16, 3: 10 }[options.length] ?? 0);
+    if (!fitsAsSegments) {
+      const resolve = (s) => {
+        const m = options.find((o) => String(typeof o === "object" ? o.value : o) === s);
+        return m === void 0 ? s : typeof m === "object" ? m.value : m;
+      };
+      return /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
+        TweakSelect,
+        {
+          label,
+          value,
+          options,
+          onChange: (s) => onChange(resolve(s))
+        }
+      );
+    }
+    const opts = options.map((o) => typeof o === "object" ? o : { value: o, label: o });
+    const idx = Math.max(0, opts.findIndex((o) => o.value === value));
+    const n = opts.length;
+    const segAt = (clientX) => {
+      const r = trackRef.current.getBoundingClientRect();
+      const inner = r.width - 4;
+      const i = Math.floor((clientX - r.left - 2) / inner * n);
+      return opts[Math.max(0, Math.min(n - 1, i))].value;
+    };
+    const onPointerDown = (e) => {
+      setDragging(true);
+      const v0 = segAt(e.clientX);
+      if (v0 !== valueRef.current) onChange(v0);
+      const move = (ev) => {
+        if (!trackRef.current) return;
+        const v = segAt(ev.clientX);
+        if (v !== valueRef.current) onChange(v);
+      };
+      const up = () => {
+        setDragging(false);
+        window.removeEventListener("pointermove", move);
+        window.removeEventListener("pointerup", up);
+      };
+      window.addEventListener("pointermove", move);
+      window.addEventListener("pointerup", up);
+    };
+    return /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(TweakRow, { label, children: /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(
+      "div",
+      {
+        ref: trackRef,
+        role: "radiogroup",
+        onPointerDown,
+        className: dragging ? "twk-seg dragging" : "twk-seg",
+        children: [
+          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
+            "div",
+            {
+              className: "twk-seg-thumb",
+              style: {
+                left: `calc(2px + ${idx} * (100% - 4px) / ${n})`,
+                width: `calc((100% - 4px) / ${n})`
+              }
+            }
+          ),
+          opts.map((o) => /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("button", { type: "button", role: "radio", "aria-checked": o.value === value, children: o.label }, o.value))
+        ]
+      }
+    ) });
+  }
+  function TweakSelect({ label, value, options, onChange }) {
+    return /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(TweakRow, { label, children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("select", { className: "twk-field", value, onChange: (e) => onChange(e.target.value), children: options.map((o) => {
+      const v = typeof o === "object" ? o.value : o;
+      const l = typeof o === "object" ? o.label : o;
+      return /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("option", { value: v, children: l }, v);
+    }) }) });
+  }
+
+  // src/panel-v2/website.jsx
+  var import_jsx_runtime9 = __toESM(require_jsx_runtime());
+  function Website({ highlight }) {
+    return /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "aw-website", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("style", { children: `
+        .aw-website {
+          height: 100%; overflow-y: auto;
+          background: var(--bg-website);
+          font-family: var(--ff);
+          color: #1a1814;
+        }
+        .ws-bar {
+          position: sticky; top: 0; z-index: 5;
+          background: rgba(250,246,238,.92);
+          backdrop-filter: blur(8px);
+          border-bottom: 1px solid #E8DFCB;
+          display: flex; align-items: center;
+          padding: 9px 28px; gap: 10px;
+          font-size: 12px;
+        }
+        .ws-bar .btn { display: inline-flex; align-items: center; gap: 6px; padding: 4px 8px; border-radius: 6px; color: #6B6259; }
+        .ws-bar .btn:hover { background: rgba(0,0,0,.04); }
+        .ws-bar .url {
+          flex: 1; max-width: 600px;
+          padding: 5px 10px;
+          background: #FFFFFF;
+          border: 1px solid #E8DFCB;
+          border-radius: 999px;
+          font-size: 12px; color: #5A5247;
+          display: inline-flex; align-items: center; gap: 7px;
+          margin: 0 8px;
+        }
+        .ws-bar .url svg { width: 12px; height: 12px; color: #5F8A6B; }
+        .ws-bar .url .host { color: #221E18; font-weight: 500; }
+        .ws-bar .tabs { display: flex; gap: 4px; }
+        .ws-tab {
+          padding: 5px 14px 7px 12px;
+          border-radius: 8px 8px 0 0;
+          background: #FFFFFF;
+          border: 1px solid #E8DFCB;
+          border-bottom: 0;
+          font-size: 11.5px; color: #221E18;
+          display: inline-flex; align-items: center; gap: 6px;
+          margin-bottom: -1px;
+          max-width: 200px;
+        }
+        .ws-tab .fav { width: 10px; height: 10px; border-radius: 2px; background: linear-gradient(135deg,#D97742,#BE5F2D); flex: 0 0 10px; }
+        .ws-tab .tx { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+        .ws-topnav {
+          display: flex; align-items: center; gap: 22px;
+          padding: 18px 56px;
+          font-size: 13px; color: #4A4239;
+        }
+        .ws-topnav .logo {
+          font-weight: 700; font-size: 17px; letter-spacing: -0.02em; color: #1a1814;
+          display: inline-flex; align-items: center; gap: 8px;
+        }
+        .ws-topnav .logo i {
+          width: 22px; height: 22px; border-radius: 7px;
+          background: linear-gradient(135deg,#D97742,#BE5F2D);
+        }
+        .ws-topnav a { color: #4A4239; text-decoration: none; }
+        .ws-topnav a:hover { color: #1a1814; }
+        .ws-topnav .right { margin-left: auto; display: flex; gap: 14px; align-items: center; white-space: nowrap; }
+        .ws-topnav .cta {
+          background: #1a1814; color: #FAF6EE; padding: 7px 14px;
+          border-radius: 999px; font-weight: 500; font-size: 12.5px;
+          white-space: nowrap;
+        }
+
+        .ws-hero {
+          padding: 48px 56px 22px; max-width: 1080px;
+        }
+        .ws-eyebrow {
+          font-size: 12.5px; color: #BE5F2D; font-weight: 600;
+          letter-spacing: 0.04em; text-transform: uppercase; margin-bottom: 16px;
+        }
+        .ws-h1 {
+          font-size: 56px; line-height: 1.04; font-weight: 600;
+          letter-spacing: -0.025em; color: #1a1814;
+          margin: 0 0 18px;
+          max-width: 880px;
+        }
+        .ws-h1 em { font-style: normal; color: #BE5F2D; }
+        .ws-sub {
+          font-size: 17px; color: #5A5247; line-height: 1.55;
+          max-width: 620px; margin: 0 0 24px;
+        }
+        .ws-hero-ctas { display: flex; gap: 10px; }
+        .ws-hero-ctas .btn {
+          padding: 11px 20px; border-radius: 999px; font-size: 14px; font-weight: 500;
+          white-space: nowrap;
+        }
+        .ws-hero-ctas .btn.primary { background: #1a1814; color: #FAF6EE; position: relative; }
+        .ws-hero-ctas .btn.ghost { background: transparent; border: 1px solid #D9CFB7; color: #1a1814; }
+        .ws-hero-ctas .btn:hover { transform: translateY(-1px); }
+        .ws-hero-ctas .btn.primary.highlight, .ws-hero-ctas .btn.ghost.highlight {
+          outline: 3px solid rgba(217,119,66,.35); outline-offset: 3px;
+        }
+        .ws-hero-ctas .pulse {
+          position: absolute; inset: -6px;
+          border: 2px dashed #D97742;
+          border-radius: 999px;
+          animation: ws-pulse 1.8s ease-in-out infinite;
+          pointer-events: none;
+        }
+        @keyframes ws-pulse {
+          0%,100% { opacity: .55; transform: scale(1); }
+          50% { opacity: .15; transform: scale(1.04); }
+        }
+
+        .ws-section { padding: 32px 56px; max-width: 1180px; }
+        .ws-section h2 {
+          font-size: 28px; font-weight: 600; letter-spacing: -0.02em;
+          margin: 0 0 4px; color: #1a1814;
+        }
+        .ws-section .h2-sub { color: #5A5247; font-size: 14px; margin-bottom: 22px; }
+
+        .ws-plans {
+          display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+        }
+        .ws-plan {
+          background: #FFFFFF;
+          border: 1px solid #E8DFCB;
+          border-radius: 18px;
+          padding: 22px 22px 18px;
+          display: flex; flex-direction: column;
+          position: relative;
+        }
+        .ws-plan.featured {
+          border-color: #BE5F2D;
+          background: linear-gradient(180deg, #FFF8EE 0%, #FFFFFF 50%);
+          box-shadow: 0 1px 0 rgba(0,0,0,.02), 0 10px 26px -10px rgba(190,95,45,.22);
+        }
+        .ws-plan-tag {
+          position: absolute; top: 14px; right: 14px;
+          font-size: 10.5px; font-weight: 600; letter-spacing: 0.04em;
+          text-transform: uppercase; color: #BE5F2D;
+          background: #FCEFE0; padding: 3px 9px; border-radius: 999px;
+        }
+        .ws-plan-name { font-size: 14px; font-weight: 600; color: #5A5247; }
+        .ws-plan-price { font-size: 38px; font-weight: 600; letter-spacing: -0.02em; color: #1a1814; margin: 6px 0 2px; }
+        .ws-plan-price small { font-size: 14px; font-weight: 500; color: #8A8275; }
+        .ws-plan-desc { font-size: 13px; color: #5A5247; line-height: 1.5; margin-bottom: 14px; min-height: 38px; }
+        .ws-plan-cta {
+          padding: 9px 14px; border-radius: 999px;
+          background: #1a1814; color: #FAF6EE; text-align: center;
+          font-size: 13px; font-weight: 500; margin-bottom: 18px;
+          position: relative;
+        }
+        .ws-plan.featured .ws-plan-cta { background: #D97742; }
+        .ws-plan-cta.highlight {
+          outline: 3px solid rgba(217,119,66,.35); outline-offset: 3px;
+        }
+        .ws-plan-feat { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 9px; font-size: 12.5px; color: #4A4239; }
+        .ws-plan-feat li { display: flex; gap: 8px; align-items: flex-start; }
+        .ws-plan-feat li::before {
+          content: ""; width: 14px; height: 14px; flex: 0 0 14px; margin-top: 1px;
+          background-color: #5F8A6B; -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='none' stroke='black' stroke-width='3' d='M5 12l5 5L20 7'/></svg>") center/contain no-repeat;
+                  mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><path fill='none' stroke='black' stroke-width='3' d='M5 12l5 5L20 7'/></svg>") center/contain no-repeat;
+        }
+
+        .ws-faq { display: flex; flex-direction: column; gap: 10px; max-width: 760px; }
+        .ws-faq-row {
+          padding: 14px 18px; background: #FFFFFF;
+          border: 1px solid #E8DFCB; border-radius: 14px;
+          display: flex; align-items: center; justify-content: space-between;
+          font-size: 14px; color: #1a1814; font-weight: 500;
+        }
+        .ws-faq-row .car { color: #8A8275; }
+
+        .ws-foot {
+          padding: 36px 56px 56px;
+          border-top: 1px solid #E8DFCB;
+          color: #5A5247;
+          margin-top: 32px;
+          display: flex; justify-content: space-between;
+          font-size: 12.5px;
+        }
+        .ws-foot a { color: #5A5247; text-decoration: none; }
+        .ws-foot a:hover { color: #1a1814; }
+
+        .ws-ring {
+          outline: 3px solid rgba(217,119,66,.45);
+          outline-offset: 4px;
+          border-radius: 8px;
+        }
+      ` }),
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "ws-bar", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { className: "btn", children: "\u2039" }),
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { className: "btn", children: "\u203A" }),
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { className: "btn", children: "\u21BB" }),
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "url", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("svg", { viewBox: "0 0 24 24", fill: "none", stroke: "currentColor", strokeWidth: "2", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("path", { d: "M5 11V8a7 7 0 1 1 14 0v3" }),
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("rect", { x: "4", y: "11", width: "16", height: "9", rx: "2" })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { className: "host", children: "acme.dev" }),
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { style: { color: "#9A8F84" }, children: "/pricing" })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "tabs", children: /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("span", { className: "ws-tab", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { className: "fav" }),
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { className: "tx", children: "Pricing \u2014 Acme" }),
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { style: { color: "#9A8F84" }, children: "\xD7" })
+        ] }) })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "ws-topnav", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("span", { className: "logo", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("i", {}),
+          " Acme"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("a", { children: "Product" }),
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("a", { children: "Solutions" }),
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("a", { children: "Docs" }),
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("a", { style: { color: "#1a1814", fontWeight: 500 }, children: "Pricing" }),
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("a", { children: "Changelog" }),
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("span", { className: "right", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("a", { children: "Sign in" }),
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("a", { className: "cta", children: "Get started" })
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "ws-hero", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "ws-eyebrow", children: "Pricing" }),
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("h1", { className: "ws-h1", children: [
+          "Plans that scale with your ",
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("em", { children: "QA team" }),
+          ", not your headcount."
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("p", { className: "ws-sub", children: "Start free. Add seats when you need them. Bring your own infra or run on ours \u2014 every plan includes parallel runs, full traces, and the Playwright primitives you already use." }),
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "ws-hero-ctas", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("a", { className: "btn primary " + (highlight === "hero-cta" ? "highlight" : ""), children: [
+            "Get started",
+            highlight === "hero-cta" && /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { className: "pulse" })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("a", { className: "ghost btn", children: "Talk to sales" })
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "ws-section", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("h2", { children: "Choose a plan" }),
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "h2-sub", children: "Monthly billing. Switch anytime." }),
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "ws-plans", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "ws-plan", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "ws-plan-name", children: "Starter" }),
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "ws-plan-price", children: [
+              "$0",
+              /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("small", { children: " / mo" })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "ws-plan-desc", children: "For individuals automating their own work." }),
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("a", { className: "ws-plan-cta", children: "Get started" }),
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("ul", { className: "ws-plan-feat", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("li", { children: "1 workspace" }),
+              /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("li", { children: "1 concurrent run" }),
+              /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("li", { children: "Community support" }),
+              /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("li", { children: "7-day trace retention" })
+            ] })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "ws-plan featured", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "ws-plan-tag", children: "Most popular" }),
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "ws-plan-name", children: "Pro" }),
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "ws-plan-price", children: [
+              "$49",
+              /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("small", { children: " / mo" })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "ws-plan-desc", children: "For QA teams that ship every week." }),
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("a", { className: "ws-plan-cta " + (highlight === "pro-cta" ? "highlight" : ""), children: "Start free trial" }),
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("ul", { className: "ws-plan-feat", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("li", { children: "Unlimited workspaces" }),
+              /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("li", { children: "10 concurrent runs" }),
+              /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("li", { children: "Email support, 24h SLA" }),
+              /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("li", { children: "90-day trace retention" }),
+              /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("li", { children: "SSO via Google & Microsoft" })
+            ] })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "ws-plan", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "ws-plan-name", children: "Enterprise" }),
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "ws-plan-price", children: "Custom" }),
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "ws-plan-desc", children: "SAML, audit log, dedicated infra, procurement support." }),
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("a", { className: "ws-plan-cta", children: "Talk to sales" }),
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("ul", { className: "ws-plan-feat", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("li", { children: "Unlimited concurrent runs" }),
+              /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("li", { children: "SAML SSO + SCIM" }),
+              /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("li", { children: "Dedicated support engineer" }),
+              /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("li", { children: "Custom retention & regions" }),
+              /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("li", { children: "Audit log + DPA" })
+            ] })
+          ] })
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "ws-section", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("h2", { children: "Frequently asked" }),
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: "h2-sub", children: "Things teams ask before they switch to Acme." }),
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "ws-faq", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "ws-faq-row", children: [
+            "Can I bring my existing Playwright tests? ",
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { className: "car", children: "+" })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "ws-faq-row", children: [
+            "How does parallel run pricing work? ",
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { className: "car", children: "+" })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "ws-faq-row", children: [
+            "Do you support flaky-test auto-quarantine? ",
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { className: "car", children: "+" })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "ws-faq-row", children: [
+            "Where is data stored? ",
+            /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("span", { className: "car", children: "+" })
+          ] })
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { className: "ws-foot", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { children: "\xA9 2026 Acme Labs \xB7 Built in San Francisco" }),
+        /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)("div", { style: { display: "flex", gap: 18 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("a", { children: "Status" }),
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("a", { children: "Docs" }),
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("a", { children: "Privacy" }),
+          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("a", { children: "Security" })
+        ] })
+      ] })
+    ] });
+  }
+
+  // src/panel-v2/chrome.jsx
+  var import_react7 = __toESM(require_react());
+  var import_react_dom2 = __toESM(require_react_dom());
+  var import_jsx_runtime10 = __toESM(require_jsx_runtime());
+  function PortalMenu2({ triggerRef, open, onClose, width = 220, children }) {
+    const [pos, setPos] = (0, import_react7.useState)({ top: -9999, left: -9999 });
+    (0, import_react7.useLayoutEffect)(() => {
+      if (!open || !triggerRef.current) return;
+      const r = triggerRef.current.getBoundingClientRect();
+      const left = Math.max(8, Math.min(r.right - width, window.innerWidth - width - 8));
+      setPos({ top: r.bottom + 4, left });
+    }, [open]);
+    if (!open) return null;
+    return (0, import_react_dom2.createPortal)(
+      /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)(import_jsx_runtime10.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("div", { className: "aw-dock-scrim", onClick: onClose }),
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(
+          "div",
+          {
+            className: "aw-dock-menu",
+            role: "menu",
+            style: { position: "fixed", top: pos.top, left: pos.left, minWidth: width, right: "auto" },
+            children
+          }
+        )
+      ] }),
+      document.body
+    );
+  }
+  function Header2({
+    status,
+    dock,
+    setDock,
+    collapsed,
+    setCollapsed,
+    tokenInfo,
+    runState,
+    agentsOpen,
+    setAgentsOpen,
+    agentsSummary,
+    pageUrl = "acme.dev/pricing",
+    mode = "llm",
+    setMode = () => {
+    },
+    isLive = false,
+    theme = "light",
+    onThemeToggle = () => {
+    }
+  }) {
+    const [dockMenu, setDockMenu] = (0, import_react7.useState)(false);
+    const dockTriggerRef = (0, import_react7.useRef)(null);
+    const dockIconFor2 = (kind) => kind === "left" ? I2.DockL : kind === "top" ? I2.DockTop : kind === "float" ? I2.Float : I2.Dock;
+    const DockIcon = dockIconFor2(dock);
+    const statusMap = {
+      connected: { cls: "ok", label: "Connected" },
+      busy: { cls: "busy", label: "Running" },
+      reconnect: { cls: "warn", label: "Reconnecting" },
+      offline: { cls: "err", label: "Offline" },
+      error: { cls: "err", label: "LLM error" }
+    };
+    const s = statusMap[status] || statusMap.connected;
+    return /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("header", { className: "aw-header", children: /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { className: "aw-header-main", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { className: "aw-brand", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "aw-logo", "aria-hidden": "true" }),
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { children: "AutoWorkbench" })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "aw-brand-divider" }),
+      /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("span", { className: "aw-status-pill " + s.cls, title: "Backend " + s.label + " \xB7 Complete LLM Mode", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "aw-dot" }),
+        s.label
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)(
+        "span",
+        {
+          className: "aw-mode-switch",
+          role: "tablist",
+          "data-tip": isLive ? "Interaction mode switching not yet wired to backend" : "Interaction mode",
+          "data-tip-pos": "bottom-right",
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(
+              "button",
+              {
+                role: "tab",
+                "aria-selected": mode === "llm",
+                className: "aw-mode-opt " + (mode === "llm" ? "active" : ""),
+                disabled: isLive,
+                onClick: () => setMode("llm"),
+                children: "LLM"
+              }
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(
+              "button",
+              {
+                role: "tab",
+                "aria-selected": mode === "manual",
+                className: "aw-mode-opt " + (mode === "manual" ? "active" : ""),
+                disabled: isLive,
+                onClick: () => setMode("manual"),
+                children: "Manual"
+              }
+            )
+          ]
+        }
+      ),
+      /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)(
+        "button",
+        {
+          className: "aw-agents-btn " + (agentsOpen ? "open" : ""),
+          onClick: () => setAgentsOpen(!agentsOpen),
+          title: "Agent Control Center",
+          "data-tip": "Agent Control Center",
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(I2.Layers, { style: { width: 11, height: 11 } }),
+            /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { children: "Agents" }),
+            /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "dots", children: agentsSummary.map((c, i) => /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("i", { className: c }, i)) })
+          ]
+        }
+      ),
+      /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("span", { className: "aw-status-pill shrinkable", title: "Current page \xB7 " + pageUrl, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(I2.Globe, { style: { width: 10, height: 10, color: "var(--tx-3)" } }),
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "v", children: pageUrl.replace(/^[^/]+/, "") })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "aw-spacer" }),
+      /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("span", { className: "aw-status-pill aw-token-pill", title: "Session: " + tokenInfo.tok + " tokens \xB7 $" + tokenInfo.cost + " \xB7 run " + runState, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(I2.Spark, { style: { width: 10, height: 10, color: "var(--acc-2)" } }),
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "v", children: tokenInfo.tok }),
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "k", children: "\xB7" }),
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("span", { className: "v", style: { color: "var(--tx-2)" }, children: [
+          "$",
+          tokenInfo.cost
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { className: "aw-dock-wrap", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(
+          "button",
+          {
+            ref: dockTriggerRef,
+            className: "aw-icon-btn " + (dockMenu ? "active" : ""),
+            onClick: () => setDockMenu(!dockMenu),
+            title: "Dock position",
+            "data-tip": "Dock position",
+            children: /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(DockIcon, {})
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)(PortalMenu2, { triggerRef: dockTriggerRef, open: dockMenu, onClose: () => setDockMenu(false), width: 230, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("div", { className: "aw-dock-menu-label", children: "Dock position" }),
+          [
+            { kind: "right", Icon: I2.Dock, label: "Dock right", desc: "Beside the page on the right" },
+            { kind: "left", Icon: I2.DockL, label: "Dock left", desc: "Beside the page on the left" },
+            { kind: "top", Icon: I2.DockTop, label: "Dock top", desc: "Above the page, full width" },
+            { kind: "float", Icon: I2.Float, label: "Floating", desc: "Overlay on top of the page" }
+          ].map((d) => /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)(
+            "button",
+            {
+              className: "aw-dock-opt " + (dock === d.kind ? "active" : ""),
+              onClick: () => {
+                setDock(d.kind);
+                setDockMenu(false);
+              },
+              children: [
+                /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(d.Icon, {}),
+                /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("span", { className: "aw-dock-opt-main", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "aw-dock-opt-t", children: d.label }),
+                  /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "aw-dock-opt-d", children: d.desc })
+                ] }),
+                dock === d.kind && /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(I2.Check, { style: { width: 12, height: 12, color: "var(--acc-2)", flex: "0 0 12px" } })
+              ]
+            },
+            d.kind
+          )),
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("div", { className: "aw-dock-menu-sep" }),
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("button", { className: "aw-dock-opt", onClick: () => {
+            setCollapsed(!collapsed);
+            setDockMenu(false);
+          }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(I2.Min, {}),
+            /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("span", { className: "aw-dock-opt-main", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "aw-dock-opt-t", children: collapsed ? "Expand panel" : "Collapse to rail" }),
+              /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "aw-dock-opt-d", children: "Slim icon rail beside page" })
+            ] })
+          ] })
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("button", { className: "aw-icon-btn", onClick: () => setCollapsed(!collapsed), title: "Collapse", "data-tip": "Collapse", children: /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(I2.Min, {}) }),
+      /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(
+        "button",
+        {
+          className: "aw-icon-btn",
+          onClick: onThemeToggle,
+          "data-testid": "aw-theme-toggle",
+          title: theme === "dark" ? "Switch to light theme" : "Switch to dark theme",
+          "data-tip": "Toggle theme",
+          children: theme === "dark" ? /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(I2.Sun, { style: { width: 13, height: 13 } }) : /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(I2.Moon, { style: { width: 13, height: 13 } })
+        }
+      ),
+      !isLive && /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(
+        "button",
+        {
+          className: "aw-icon-btn",
+          onClick: () => {
+            window.postMessage({ type: "__activate_edit_mode" }, "*");
+            try {
+              window.parent.postMessage({ type: "__activate_edit_mode" }, "*");
+            } catch (e) {
+            }
+          },
+          title: "Settings & Tweaks",
+          "data-tip": "Settings & Tweaks",
+          children: /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(I2.Settings, {})
+        }
+      )
+    ] }) });
+  }
+  function TabStrip2({ tab, setTab, counts }) {
+    const tabs = [
+      { id: "llm", label: "LLM", Icon: I2.Spark, badge: counts.llm },
+      { id: "steps", label: "Steps", Icon: I2.Steps, badge: counts.steps },
+      { id: "rec", label: "Recorded", Icon: I2.Camera, badge: counts.rec },
+      { id: "code", label: "Code", Icon: I2.Code, badge: counts.code },
+      { id: "trace", label: "Trace", Icon: I2.Trace, badge: counts.trace }
+    ];
+    return /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("nav", { className: "aw-tabs", role: "tablist", children: tabs.map(
+      (t) => /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)(
+        "button",
+        {
+          role: "tab",
+          "aria-selected": tab === t.id,
+          className: "aw-tab " + (tab === t.id ? "active" : ""),
+          onClick: () => setTab(t.id),
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(t.Icon, { style: { width: 13, height: 13 } }),
+            t.label,
+            t.badge != null && /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "aw-badge", children: t.badge })
+          ]
+        },
+        t.id
+      )
+    ) });
+  }
+  function NowStrip2({ kind = "idle", state, task, refLabel, primaryLabel, primaryIcon: PI }) {
+    return /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { className: "aw-now " + kind, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "aw-now-rail" }),
+      /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { className: "aw-now-main", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { className: "aw-now-eyebrow", children: [
+          "Current task",
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "aw-now-state", children: state })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { className: "aw-now-task", children: [
+          task,
+          refLabel && /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "ref", children: refLabel })
+        ] })
+      ] }),
+      primaryLabel && /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("div", { className: "aw-now-actions", children: /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("button", { className: "aw-btn primary", children: [
+        PI && /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(PI, {}),
+        primaryLabel
+      ] }) })
+    ] });
+  }
+  function Footer2({ phase, event, blocker, nextAction, busy }) {
+    return /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("footer", { className: "aw-footer", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("span", { className: "aw-footer-phase", children: [
+        busy && /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("span", { className: "aw-bar", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("i", {}),
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("i", {}),
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("i", {}),
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("i", {})
+        ] }),
+        phase
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("span", { className: "aw-footer-event", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "em", children: "last:" }),
+        " ",
+        event,
+        blocker && /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)(import_jsx_runtime10.Fragment, { children: [
+          " \xB7 ",
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("span", { style: { color: "var(--red)", fontWeight: 500 }, children: [
+            "blocked: ",
+            blocker
+          ] })
+        ] })
+      ] }),
+      nextAction && /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("span", { className: "aw-footer-next", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(I2.CaretR, { style: { width: 11, height: 11 } }),
+        nextAction
+      ] })
+    ] });
+  }
+  function AgentsPopover2({ onClose, state, isLive = false, agents = null }) {
+    if (isLive) {
+      const list = Array.isArray(agents) ? agents : [];
+      const hasPayload = list.length > 0;
+      return /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { className: "aw-agents-pop", role: "dialog", "aria-label": "Agent Control Center", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { className: "aw-agents-head", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "aw-card-icon", style: { width: 22, height: 22, borderRadius: 6, background: "var(--acc-tint)", color: "var(--acc-2)" }, children: /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(I2.Layers, { style: { width: 12, height: 12 } }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("div", { children: /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("div", { className: "t", children: "Agent Control Center" }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "sub", children: "Read-only" }),
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "x", onClick: onClose, children: /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(I2.X, { style: { width: 13, height: 13 } }) })
+        ] }),
+        !hasPayload ? /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { className: "aw-agents-empty", "data-testid": "aw-agents-empty", role: "status", style: { padding: "14px 16px", fontSize: 12, color: "var(--tx-3)", display: "flex", gap: 8, alignItems: "flex-start" }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(I2.Info, { style: { width: 11, height: 11, flex: "0 0 11px", marginTop: 2 } }),
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("span", { children: [
+            "No agent registry payload yet. Backend will emit ",
+            /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("code", { children: "agent_settings" }),
+            " on the next WS connect."
+          ] })
+        ] }) : list.map((a) => {
+          const status = a.status || "standby";
+          const cls = status === "running" ? "running" : status === "active" ? "active" : status === "disabled" ? "disabled" : "standby";
+          return /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { className: "aw-agent-row " + cls, "data-testid": `aw-agent-row-${a.key}`, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "aw-agent-av", children: a.initials }),
+            /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { children: [
+              /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { className: "aw-agent-name", children: [
+                a.name,
+                a.required ? /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "aw-pin-required", children: "Required" }) : null
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("div", { className: "aw-agent-model", children: a.model }),
+              /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { className: "aw-agent-last", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "em", children: "last:" }),
+                " ",
+                a.last ?? "\u2014"
+              ] })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { className: "aw-agent-ctrl", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("span", { className: "aw-agent-status " + cls, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "ldot" }),
+                status === "queued" ? "queued" : status
+              ] }),
+              a.required ? /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("button", { type: "button", className: "aw-toggle on locked", "aria-label": "locked on", title: "Required \u2014 always on", disabled: true }) : /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(
+                "button",
+                {
+                  type: "button",
+                  className: "aw-toggle " + (status === "disabled" ? "" : "on"),
+                  "data-testid": `aw-agent-toggle-${a.key}`,
+                  title: "Read-only \u2014 per-agent toggles ship in a later batch",
+                  disabled: true
+                }
+              )
+            ] })
+          ] }, a.key);
+        }),
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { className: "aw-agents-foot", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(I2.Info, { style: { width: 11, height: 11 } }),
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { children: "Agent registry is live (read-only). Per-agent enable/disable ships next." }),
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { style: { flex: 1 } })
+        ] })
+      ] });
+    }
+    const isRunning = ["exec", "locator", "recover"].includes(state);
+    const isDone = state === "done";
+    const orchestratorStatus = state === "idle" ? "standby" : state === "planning" || state === "diff" || state === "plan" || state === "recommend" ? "active" : isRunning ? "running" : "active";
+    const stepRunnerStatus = isRunning ? "running" : isDone ? "standby" : "standby";
+    const debugStatus = state === "recover" ? "active" : "standby";
+    const codegenStatus = isRunning || isDone ? "queued" : "standby";
+    const agentsDemo = [
+      {
+        key: "orch",
+        name: "Main Orchestrator",
+        initials: "MO",
+        model: "gpt-4-class \xB7 200k ctx",
+        status: orchestratorStatus,
+        last: state === "exec" ? "Watching step 3 \xB7 stp_c4d7" : state === "locator" ? "Pausing run \xB7 3 candidates" : state === "recover" ? "Coordinating LLM repair proposal" : state === "plan" ? "Drafted plan v2 \xB7 6 steps" : state === "done" ? "Run completed \xB7 31.2s" : "Waiting on user input",
+        required: true
+      },
+      {
+        key: "pi",
+        name: "Page Intelligence",
+        initials: "PI",
+        model: "claude-haiku-class \xB7 DOM tool",
+        status: state === "planning" ? "running" : "standby",
+        last: /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)(import_jsx_runtime10.Fragment, { children: [
+          "Cached ",
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { style: { fontFamily: "var(--ff-mono)", color: "var(--tx-2)" }, children: "acme.dev/pricing" }),
+          " \xB7 18 sections \xB7 14s ago"
+        ] }),
+        required: false,
+        toggle: true,
+        ctrl: ["Run now", "Clear cache"]
+      },
+      {
+        key: "sr",
+        name: "Step Runner",
+        initials: "SR",
+        model: "internal \xB7 Playwright runtime",
+        status: stepRunnerStatus,
+        last: isRunning ? "Validating locator stp_c4d7 (resolve)" : "Idle \xB7 awaiting plan confirmation",
+        required: true
+      },
+      {
+        key: "dbg",
+        name: "Debug Agent",
+        initials: "DA",
+        model: "gpt-4-class \xB7 trace-aware",
+        status: debugStatus,
+        last: state === "recover" ? 'Proposed: relax toHaveText \u2192 toContainText("$49")' : "Auto-activates on any step failure",
+        required: false,
+        toggle: true
+      },
+      {
+        key: "cg",
+        name: "Codegen Reviewer",
+        initials: "CR",
+        model: "gpt-4-class \xB7 style + locator linter",
+        status: codegenStatus,
+        last: isDone ? "Reviewed +47 lines \xB7 1 fragile locator flagged" : "Runs after each recorded step",
+        required: false,
+        toggle: true
+      },
+      {
+        key: "judge",
+        name: "Risk Judge (opt-in)",
+        initials: "RJ",
+        model: "claude-class \xB7 policy-grader",
+        status: "disabled",
+        last: "Off \xB7 enable to grade high-risk operations before execution",
+        required: false,
+        toggle: false
+      }
+    ];
+    return /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { className: "aw-agents-pop", role: "dialog", "aria-label": "Agent Control Center", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { className: "aw-agents-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "aw-card-icon", style: { width: 22, height: 22, borderRadius: 6, background: "var(--acc-tint)", color: "var(--acc-2)" }, children: /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(I2.Layers, { style: { width: 12, height: 12 } }) }),
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("div", { children: /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("div", { className: "t", children: "Agent Control Center" }) }),
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "sub", children: "5 active \xB7 1 off" }),
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "x", onClick: onClose, children: /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(I2.X, { style: { width: 13, height: 13 } }) })
+      ] }),
+      agentsDemo.map((a) => {
+        const cls = a.status === "running" ? "running" : a.status === "active" ? "active" : a.status === "disabled" ? "disabled" : "standby";
+        return /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { className: "aw-agent-row " + cls, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "aw-agent-av", children: a.initials }),
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { className: "aw-agent-name", children: [
+              a.name,
+              a.required && /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "aw-pin-required", children: "Required" })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("div", { className: "aw-agent-model", children: a.model }),
+            /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { className: "aw-agent-last", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "em", children: "last:" }),
+              " ",
+              a.last
+            ] }),
+            a.ctrl && /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("div", { style: { display: "flex", gap: 6, marginTop: 7 }, children: a.ctrl.map(
+              (c) => /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("button", { className: "aw-btn", style: { padding: "3px 8px", fontSize: 11 }, children: c }, c)
+            ) })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { className: "aw-agent-ctrl", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("span", { className: "aw-agent-status " + cls, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { className: "ldot" }),
+              a.status === "queued" ? "queued" : a.status
+            ] }),
+            a.toggle != null && (a.required ? /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("button", { className: "aw-toggle on locked", "aria-label": "locked on", disabled: true }) : /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("button", { className: "aw-toggle " + (a.status === "disabled" ? "" : "on") }))
+          ] })
+        ] }, a.key);
+      }),
+      /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("div", { className: "aw-agents-foot", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(I2.Info, { style: { width: 11, height: 11 } }),
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { children: "Main Orchestrator and Step Runner cannot be disabled while LLM Mode is running." }),
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsx)("span", { style: { flex: 1 } }),
+        /* @__PURE__ */ (0, import_jsx_runtime10.jsxs)("button", { className: "aw-link", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime10.jsx)(I2.Trace, { style: { width: 11, height: 11, display: "inline", verticalAlign: "-1px", marginRight: 3 } }),
+          "Open agent trace"
+        ] })
+      ] })
+    ] });
+  }
+
+  // src/panel-v2/llm-tab.jsx
+  var import_react8 = __toESM(require_react());
+  var import_jsx_runtime11 = __toESM(require_jsx_runtime());
+  function Bubble2({ children, time = "11:42" }) {
+    return /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-msg-user", children: [
+      children,
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { style: { fontSize: 10.5, color: "#9A6E4A", marginTop: 4, opacity: 0.65 }, children: time })
+    ] });
+  }
+  function Sys2({ from = "AutoWorkbench", time = "11:42", initials = "AW", children }) {
+    return /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-msg-system", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "aw-avatar", children: initials }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-msg-content", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-msg-from", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("b", { children: from }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-tstamp", children: [
+            "\xB7 ",
+            time
+          ] })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "aw-msg-body", children })
+      ] })
+    ] });
+  }
+  function Reason({ children, head = "Analyzing page" }) {
+    return /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-reason", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-think-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Spark, { style: { width: 11, height: 11, color: "var(--tx-3)" } }),
+        head
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("ul", { children })
+    ] });
+  }
+  function Conf2({ level }) {
+    const cls = level >= 0.8 ? "high" : level >= 0.5 ? "med" : "low";
+    const txt = level >= 0.8 ? "High" : level >= 0.5 ? "Medium" : "Low";
+    return /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { style: { display: "inline-flex", alignItems: "center", gap: 4 }, children: [
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-conf " + cls, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("i", {}),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("i", {}),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("i", {})
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { style: { fontSize: 11, color: "var(--tx-3)" }, children: [
+        txt,
+        " \xB7 ",
+        Math.round(level * 100),
+        "%"
+      ] })
+    ] });
+  }
+  function CardClarification2() {
+    const [pick, setPick] = (0, import_react8.useState)(null);
+    return /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card clarify needs-input", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Info, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-title", children: "Clarification needed" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-state", children: "Decision required" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-card-source llm", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "src-dot" }),
+          "LLM proposal"
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-body", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("p", { children: [
+          "Should I recommend ",
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("b", { children: "smoke" }),
+          ", ",
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("b", { children: "sanity" }),
+          ", or ",
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("b", { children: "exhaustive regression" }),
+          " checks for this pricing page? Each option changes scope and runtime."
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { style: { display: "flex", flexDirection: "column", gap: 6, marginTop: 8 }, children: [
+          { id: "smoke", t: "Smoke", d: "5\u20137 assertions \xB7 ~30s \xB7 catches obvious breakage" },
+          { id: "sanity", t: "Sanity", d: "10\u201315 assertions \xB7 ~2min \xB7 core flows + visible content" },
+          { id: "regress", t: "Exhaustive regression", d: "40+ assertions \xB7 ~10min \xB7 every section, every plan" }
+        ].map((o) => /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)(
+          "label",
+          {
+            onClick: () => setPick(o.id),
+            style: {
+              display: "flex",
+              gap: 9,
+              padding: "9px 11px",
+              border: "1px solid " + (pick === o.id ? "var(--acc)" : "var(--br)"),
+              background: pick === o.id ? "#FFF8EE" : "var(--bg-card)",
+              borderRadius: 9,
+              cursor: "pointer",
+              alignItems: "flex-start"
+            },
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: {
+                width: 14,
+                height: 14,
+                borderRadius: "50%",
+                border: "1.5px solid " + (pick === o.id ? "var(--acc)" : "var(--br-strong)"),
+                background: pick === o.id ? "radial-gradient(circle, var(--acc) 40%, white 45%)" : "white",
+                flex: "0 0 14px",
+                marginTop: 2
+              } }),
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { children: [
+                /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { fontSize: 12.5, fontWeight: 500 }, children: o.t }),
+                /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { display: "block", fontSize: 11.5, color: "var(--tx-3)", marginTop: 1 }, children: o.d })
+              ] })
+            ]
+          },
+          o.id
+        )) })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-foot", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn primary", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Send, {}),
+          "Submit answer"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("button", { className: "aw-btn subtle", children: "Let LLM decide" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { flex: 1 } }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { fontSize: 11, color: "var(--tx-4)" }, children: "Pauses execution until answered" })
+      ] })
+    ] });
+  }
+  function CardRecommendation2() {
+    const [items, setItems] = (0, import_react8.useState)([
+      { id: "rec_1", t: 'Hero heading visible and contains "plans that scale"', checked: true, scope: "section.hero" },
+      { id: "rec_2", t: "Three pricing cards rendered (Starter, Pro, Enterprise)", checked: true, scope: "section.pricing" },
+      { id: "rec_3", t: 'Pro plan shows "Most popular" tag', checked: true, scope: "section.pricing > .featured" },
+      { id: "rec_4", t: "All CTA buttons are enabled and have href", checked: true, scope: "section.pricing a.cta, .hero a.btn.primary" },
+      { id: "rec_5", t: "FAQ accordion expands when first row clicked", checked: false, scope: "section.faq .row[0]" },
+      { id: "rec_6", t: "Footer status link navigates to status.acme.dev", checked: true, scope: 'footer a[href*="status"]' }
+    ]);
+    const toggle = (id) => setItems(items.map((i) => i.id === id ? { ...i, checked: !i.checked } : i));
+    return /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card plan needs-input", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Layers, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-title", children: "Recommended assertions" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-state", children: "Review" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-card-source llm", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "src-dot" }),
+          "LLM proposal \xB7 not executable"
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-body", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("p", { style: { color: "var(--tx-2)", fontSize: 12 }, children: "Based on DOM analysis I found a hero, a 3-card pricing grid, a 4-row FAQ, and a footer. Pick the ones to assert \u2014 you can also ask for a specific Pro plan price below." }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { style: { display: "flex", flexDirection: "column", gap: 2, marginTop: 8 }, children: items.map((it, idx) => /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("label", { style: {
+          display: "flex",
+          gap: 9,
+          padding: "7px 8px",
+          borderRadius: 6,
+          background: idx % 2 ? "var(--bg-soft)" : "transparent",
+          cursor: "pointer",
+          alignItems: "flex-start"
+        }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(
+            "input",
+            {
+              type: "checkbox",
+              checked: it.checked,
+              onChange: () => toggle(it.id),
+              style: { marginTop: 3, accentColor: "var(--acc)" }
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { style: { flex: 1, minWidth: 0 }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { fontSize: 12.5, color: it.checked ? "var(--tx)" : "var(--tx-3)", textDecoration: it.checked ? "none" : "line-through" }, children: it.t }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { display: "block", fontSize: 10.5, color: "var(--tx-4)", fontFamily: "var(--ff-mono)", marginTop: 2 }, children: it.scope })
+          ] })
+        ] }, it.id)) })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-foot", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn primary", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Check, {}),
+          "Use selected"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Plus, {}),
+          "Add my own assertion"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("button", { className: "aw-btn subtle", children: "Group differently" })
+      ] })
+    ] });
+  }
+  function CardPlanDiff2() {
+    return /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card diff needs-input", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Diff, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-title", children: "Plan revision proposed" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-state", children: "Review" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-card-source llm", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "src-dot" }),
+          "LLM proposal \xB7 v2 \xB7 2 changes"
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-body", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("p", { style: { color: "var(--tx-2)", fontSize: 12 }, children: "You asked to drop the FAQ check and assert the exact Pro plan price. Here is the proposed delta to the plan." }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-diff", style: { marginTop: 6, display: "flex", flexDirection: "column", gap: 1 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-diff-row ctx", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-diff-sign", children: " " }),
+            "plan.steps[3]  CTA buttons enabled and have href"
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-diff-row ctx", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-diff-sign", children: " " }),
+            'plan.steps[4]  Pro card shows "Most popular" tag'
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-diff-row rem", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-diff-sign", children: "-" }),
+            "plan.steps[5]  FAQ accordion expands when first row clicked"
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-diff-row add", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-diff-sign", children: "+" }),
+            'plan.steps[5]  Pro plan price equals "$49 / mo"'
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-diff-row ctx", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-diff-sign", children: " " }),
+            "plan.steps[6]  Footer status link navigates to status.acme.dev"
+          ] })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "aw-card-section-title", children: "Impact" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("ul", { className: "aw-dotlist", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("li", { className: "ok", children: "Faster: removes 1 click interaction step (~600ms saved)" }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("li", { children: [
+            "Adds a brittle exact-string assertion \u2014 flags as ",
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-badge-i warn", children: "fragile copy" })
+          ] })
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-foot", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn primary", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Check, {}),
+          "Apply changes"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("button", { className: "aw-btn", children: "Keep editing" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn subtle", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Retry, { style: { width: 12, height: 12 } }),
+          "Revert"
+        ] })
+      ] })
+    ] });
+  }
+  function CardPlanReady2({ status = "ready", onCommand, runId }) {
+    return /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card plan needs-input", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Layers, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-title", children: "Plan ready \xB7 sanity check on /pricing" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-state", children: "Confirm to run" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-card-source backend", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "src-dot" }),
+          "Backend event \xB7 plan_ready"
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-body", style: { paddingBottom: 6 }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { style: { display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 8, marginBottom: 8 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-status-pill", style: { justifySelf: "start" }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-dot", style: { background: "var(--blu)" } }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "k", children: "steps" }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "v", children: "6" })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-status-pill", style: { justifySelf: "start" }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-dot", style: { background: "var(--vio)" } }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "k", children: "ops" }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "v", children: "11" })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-status-pill", style: { justifySelf: "start" }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-dot", style: { background: "var(--grn)" } }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "k", children: "est" }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "v", children: "~28s" })
+          ] })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step pending", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-step-idx", children: "1" }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-main", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-title", children: [
+              "Verify hero heading ",
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "id", children: "stp_a1f3" })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-meta", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-badge-i ok", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "ldot" }),
+                "strong locator"
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { children: [
+                "scope: ",
+                /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "mono", children: "section.hero" })
+              ] })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "aw-step-ops", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-op", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "op-tag", children: "assert" }),
+              'visible \xB7 text contains "plans that scale"'
+            ] }) })
+          ] })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step pending", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-step-idx", children: "2" }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-main", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-title", children: [
+              "Three pricing cards present ",
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "id", children: "stp_b2c9" })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-meta", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-badge-i ok", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "ldot" }),
+                "strong locator"
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { children: [
+                "scope: ",
+                /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "mono", children: "section.pricing" })
+              ] })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-ops", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-op", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "op-tag", children: "count" }),
+                ".ws-plan count === 3"
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-op", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "op-tag", children: "assert" }),
+                "each card has name + price + cta"
+              ] })
+            ] })
+          ] })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step pending", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-step-idx", children: "3" }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-main", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-title", children: [
+              'Pro card marked "Most popular" ',
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "id", children: "stp_c4d7" })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-meta", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-badge-i ok", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "ldot" }),
+                "strong locator"
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { children: [
+                "scope: ",
+                /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "mono", children: ".ws-plan.featured" })
+              ] })
+            ] })
+          ] })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step pending", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-step-idx", children: "4" }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-main", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-title", children: [
+              "All CTA buttons enabled ",
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "id", children: "stp_d8e2" })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-meta", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-badge-i warn", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "ldot" }),
+                "ambiguous locator"
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { children: "4 candidates" })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-ops", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-op", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "op-tag", children: "forEach" }),
+                "a.btn.primary, a.ws-plan-cta"
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-op", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "op-tag", children: "assert" }),
+                "enabled \xB7 has href"
+              ] })
+            ] })
+          ] })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step pending", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-step-idx", children: "5" }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-main", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-title", children: [
+              'Pro price equals "$49 / mo" ',
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "id", children: "stp_e1f4" })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-meta", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-badge-i warn", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "ldot" }),
+                "fragile copy"
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { children: [
+                "scope: ",
+                /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "mono", children: ".ws-plan.featured .ws-plan-price" })
+              ] })
+            ] })
+          ] })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step pending", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-step-idx", children: "6" }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-main", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-title", children: [
+              "Footer status link points at status.acme.dev ",
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "id", children: "stp_f7a3" })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "aw-step-meta", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-badge-i ok", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "ldot" }),
+              "strong locator"
+            ] }) })
+          ] })
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-foot", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn primary", onClick: () => onCommand?.("confirm_plan", { run_id: runId }), children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Play, {}),
+          "Confirm & run",
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-kbd", children: "\u2318\u21B5" })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Diff, {}),
+          "Edit plan"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("button", { className: "aw-btn subtle", children: "Run first 3 only" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { flex: 1 } }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { fontSize: 11, color: "var(--tx-4)" }, children: "Backend will validate locators before execution" })
+      ] })
+    ] });
+  }
+  function CardPermission2({ onCommand, runId } = {}) {
+    return /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card perm needs-input", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Shield, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-title", children: "Permission required \xB7 medium-risk action" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-state", style: { background: "var(--ylw-soft)", color: "#7A5A0E", borderColor: "#ECD89A" }, children: "Decision required" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-card-source backend", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "src-dot" }),
+          "policy \xB7 balanced"
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "aw-card-body", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-fail-grid", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "k", children: "operation" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "v mono", children: 'page.click("a.btn.primary[Get started]")' }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "k", children: "on step" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "v", children: "stp_d8e2 \xB7 CTA buttons enabled" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "k", children: "risk" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "v", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-badge-i warn", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "ldot" }),
+            "navigation"
+          ] }),
+          " \xB7 may leave /pricing"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "k", children: "why" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "v", children: "Verifying enabled state requires actuating the button. The CTA may navigate to /signup." })
+      ] }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-foot", style: { flexWrap: "wrap" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn primary", onClick: () => onCommand?.("permission_allow", { run_id: runId }), children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Check, {}),
+          "Allow once"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("button", { className: "aw-btn", children: "Allow for this plan" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { flex: 1 } }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("button", { className: "aw-btn subtle", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.More, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn danger", onClick: () => onCommand?.("permission_deny", { run_id: runId }), children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Stop, { style: { width: 11, height: 11 } }),
+          "Deny"
+        ] })
+      ] })
+    ] });
+  }
+  function CardExecution2({ onCommand, runId } = {}) {
+    return /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card exec running", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Play, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-title", children: "Executing plan v2" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-state", children: "Step 3 of 6" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-card-source backend", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "src-dot" }),
+          "Step Runner \xB7 live"
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-body", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "aw-prog", style: { marginBottom: 10 } }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step ok", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-step-idx", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Check, { style: { width: 11, height: 11 } }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-main", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "aw-step-title", children: "Verify hero heading" }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-meta", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-badge-i ok", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "ldot" }),
+                "recorded"
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { children: [
+                "locator ",
+                /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "mono", children: "role=heading[level=1]" })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { children: "\xB7 412ms" })
+            ] })
+          ] })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step ok", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-step-idx", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Check, { style: { width: 11, height: 11 } }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-main", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "aw-step-title", children: "Three pricing cards present" }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-meta", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-badge-i ok", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "ldot" }),
+                "recorded"
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { children: "count = 3 \xB7 138ms" }),
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { children: [
+                "\xB7 ",
+                /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("button", { className: "aw-link", children: "code_update" })
+              ] })
+            ] })
+          ] })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step run", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-step-idx", children: "3" }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-main", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-title", children: [
+              'Pro card marked "Most popular" ',
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "id", children: "stp_c4d7" })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-meta", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-badge-i info", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "ldot" }),
+                "resolving locator\u2026"
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { children: [
+                "scope ",
+                /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "mono", children: ".ws-plan.featured" })
+              ] })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "aw-step-ops", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-op", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "op-tag", children: "wait" }),
+              "locator stable \xB7 2 candidates collapsing to 1"
+            ] }) })
+          ] })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step pending", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-step-idx", children: "4" }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-step-main", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "aw-step-title", children: "All CTA buttons enabled" }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "aw-step-meta", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-badge-i outline", children: "queued" }) })
+          ] })
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-foot", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Pause, { style: { width: 11, height: 11 } }),
+          "Pause"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn danger", onClick: () => onCommand?.("stop_run", { run_id: runId }), children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Stop, { style: { width: 11, height: 11 } }),
+          "Stop run"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { flex: 1 } }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { style: { fontSize: 11, color: "var(--tx-3)" }, children: [
+          "Tail traces in ",
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("button", { className: "aw-link", children: "Trace" }),
+          " \xB7 evidence in ",
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("button", { className: "aw-link", children: "Recorded" })
+        ] })
+      ] })
+    ] });
+  }
+  function CardLocatorAmbiguity2() {
+    const [pick, setPick] = (0, import_react8.useState)("hero");
+    const [showDiag, setShowDiag] = (0, import_react8.useState)(false);
+    const cands = [
+      {
+        id: "header",
+        t: 'Header CTA \u2014 "Get started"',
+        scope: "nav.ws-topnav .cta",
+        conf: 0.92,
+        risk: "safe-read",
+        preview: "getByRole('link', { name: 'Get started' }).first()",
+        diag: "role=link \xB7 accessible name unique \xB7 stable across renders \xB7 no positional fallback"
+      },
+      {
+        id: "hero",
+        t: 'Hero CTA \u2014 "Get started"',
+        scope: ".ws-hero a.btn.primary",
+        conf: 0.71,
+        risk: "medium",
+        preview: "page.locator('.ws-hero a.btn.primary')",
+        diag: "class-based \xB7 1 match in scope \xB7 navigates to /signup \xB7 permission required to actuate"
+      },
+      {
+        id: "starter",
+        t: 'Starter plan CTA \u2014 "Get started"',
+        scope: ".ws-plan:nth(1) .ws-plan-cta",
+        conf: 0.34,
+        risk: "medium",
+        preview: "page.getByText('Get started').nth(2)",
+        diag: "positional nth() \xB7 breaks if a plan card is added or reordered"
+      }
+    ];
+    const pickedIdx = cands.findIndex((c) => c.id === pick);
+    const picked = cands[pickedIdx];
+    return /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card locator blocking", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Target, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-title", children: 'Choose the correct "Get started" button' }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-state", children: "Execution paused" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-card-source backend", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "src-dot" }),
+          "Step Runner \xB7 3 matches"
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-body", style: { padding: "14px 14px 12px" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("p", { style: { margin: "0 0 12px", fontSize: 12.5, color: "var(--tx-2)" }, children: [
+          "Three visible matches were found while resolving ",
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { fontFamily: "var(--ff-mono)", color: "var(--tx)" }, children: "stp_d8e2" }),
+          ". I won't pick on your behalf \u2014 choose one, ask me to refine the locator, or narrow the scope."
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { style: { display: "flex", flexDirection: "column", gap: 8 }, children: cands.map((c, i) => /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-cand " + (pick === c.id ? "selected" : ""), onClick: () => setPick(c.id), children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-cand-num", children: i + 1 }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-cand-main", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { style: { display: "flex", alignItems: "center", gap: 8, justifyContent: "space-between" }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-cand-title", children: c.t }),
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(Conf2, { level: c.conf })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-cand-meta", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { children: [
+                "scope: ",
+                /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { fontFamily: "var(--ff-mono)", color: "var(--tx-2)" }, children: c.scope })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { children: "\xB7" }),
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { children: [
+                "risk: ",
+                /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-badge-i " + (c.risk === "safe-read" ? "ok" : "warn"), children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "ldot" }),
+                  c.risk
+                ] })
+              ] })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "aw-cand-loc", children: c.preview }),
+            showDiag && /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { style: { marginTop: 6, fontSize: 11, color: "var(--tx-3)", lineHeight: 1.5 }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { color: "var(--tx-4)", fontWeight: 600, letterSpacing: "0.04em", fontSize: 9.5, textTransform: "uppercase" }, children: "Diagnostics" }),
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("br", {}),
+              c.diag
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-cand-actions", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn", onClick: (e) => {
+                e.stopPropagation();
+                setPick(c.id);
+              }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Check, {}),
+                " ",
+                pick === c.id ? "Selected" : "Select"
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn subtle", onClick: (e) => e.stopPropagation(), children: [
+                /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Eye, {}),
+                "Highlight"
+              ] })
+            ] })
+          ] })
+        ] }, c.id)) }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)(
+          "button",
+          {
+            className: "aw-link",
+            style: { marginTop: 10, fontSize: 11.5 },
+            onClick: () => setShowDiag(!showDiag),
+            children: [
+              showDiag ? "Hide" : "Show",
+              " per-candidate diagnostics"
+            ]
+          }
+        )
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-foot", style: { flexWrap: "wrap" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { style: { fontSize: 11.5, color: "var(--tx-3)" }, children: [
+          "Selected: ",
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("b", { style: { color: "var(--tx)" }, children: [
+            "candidate ",
+            pickedIdx + 1
+          ] }),
+          " \u2014 ",
+          picked.t
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { flex: 1 } }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Spark, {}),
+          "Ask LLM for better locator"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("button", { className: "aw-btn", children: "Change scope" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn danger", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Stop, { style: { width: 11, height: 11 } }),
+          "Stop"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn primary", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Check, {}),
+          "Use candidate ",
+          pickedIdx + 1
+        ] })
+      ] })
+    ] });
+  }
+  function CardRecovery2() {
+    return /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card recover blocking", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Alert, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-title", children: "Recovery needed \xB7 step 5" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-state", children: "Run blocked" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-card-source backend", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "src-dot" }),
+          "Debug Agent \xB7 1 attempt left"
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-body", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-fail-grid", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "k", children: "step" }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "v", children: 'stp_e1f4 \xB7 Pro price equals "$49 / mo"' }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "k", children: "operation" }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "v mono", children: "expect(locator).toHaveText('$49 / mo')" }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "k", children: "expected" }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "v mono", style: { color: "#2F6B3D" }, children: '"$49 / mo"' }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "k", children: "actual" }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "v mono", style: { color: "#8A3A2E" }, children: [
+            '"$49 /mo"  ',
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { color: "var(--tx-3)" }, children: "(missing space)" })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "k", children: "failed at" }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "v", children: "assertion layer \xB7 locator matched 1 element" }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "k", children: "evidence" }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "v", style: { display: "flex", gap: 8, flexWrap: "wrap" }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-link", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Camera, { style: { width: 11, height: 11, display: "inline", marginRight: 3, verticalAlign: "-1px" } }),
+              "screenshot"
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-link", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Doc, { style: { width: 11, height: 11, display: "inline", marginRight: 3, verticalAlign: "-1px" } }),
+              "trace.zip"
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-link", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Trace, { style: { width: 11, height: 11, display: "inline", marginRight: 3, verticalAlign: "-1px" } }),
+              "open trace"
+            ] })
+          ] })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "aw-card-section-title", children: "Recovery attempts" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("ul", { className: "aw-dotlist", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("li", { className: "no", children: "deterministic retry \xD7 2 \u2014 same text returned" }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("li", { className: "no", children: "whitespace normalization \u2014 heuristic disabled by policy" }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("li", { className: "ok", children: [
+            "LLM repair available: relax to ",
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { fontFamily: "var(--ff-mono)", color: "var(--tx)" }, children: 'toContainText("$49")' })
+          ] })
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-foot", style: { flexWrap: "wrap" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn primary", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Spark, {}),
+          "Apply LLM repair"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Retry, { style: { width: 12, height: 12 } }),
+          "Retry as-is"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("button", { className: "aw-btn", children: "Choose another locator" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { flex: 1 } }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("button", { className: "aw-btn subtle", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.More, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn danger", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Stop, { style: { width: 11, height: 11 } }),
+          "Stop run"
+        ] })
+      ] })
+    ] });
+  }
+  function CardCompleted2() {
+    return /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card done", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Check, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-title", children: "Run completed" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-state", children: "6 / 6 recorded" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-card-source backend", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "src-dot" }),
+          "Backend event \xB7 run_completed"
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-body", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { style: { display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, marginBottom: 10 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-status-pill", style: { justifySelf: "start" }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-dot", style: { background: "var(--grn)" } }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "k", children: "passed" }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "v", children: "5" })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-status-pill", style: { justifySelf: "start" }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-dot", style: { background: "var(--ylw)" } }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "k", children: "repaired" }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "v", children: "1" })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-status-pill", style: { justifySelf: "start" }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-dot", style: { background: "var(--red)" } }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "k", children: "failed" }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "v", children: "0" })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-status-pill", style: { justifySelf: "start" }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-dot", style: { background: "var(--blu)" } }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "k", children: "elapsed" }),
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "v", children: "31.2s" })
+          ] })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("ul", { className: "aw-dotlist", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("li", { className: "ok", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "sec", children: "Recorded" }),
+            "6 parent steps \xB7 11 child operations"
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("li", { className: "ok", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "sec", children: "Code" }),
+            "updated ",
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: "tests/pricing.spec.ts" }),
+            " \xB7 +47 lines"
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("li", { className: "ok", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "sec", children: "Trace" }),
+            "artifacts saved \xB7 ",
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("button", { className: "aw-link", children: "view" })
+          ] })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "aw-card-section-title", children: "Acceptance gate" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("p", { style: { margin: 0, fontSize: 12, color: "var(--tx-2)" }, children: [
+          "Paid E2E suite has not been run yet \u2014 frontend cannot mark this fully accepted. Backend will surface a ",
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-badge-i acc", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "ldot" }),
+            "e2e_pending"
+          ] }),
+          " event when the nightly run finishes."
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-foot", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn primary", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Repeat, {}),
+          "Replay all"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Branch, {}),
+          "Save as suite"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Code, {}),
+          "Open code"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn subtle", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Download, {}),
+          "Download trace"
+        ] })
+      ] })
+    ] });
+  }
+  function CardOffline2() {
+    return /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card recover blocking", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Plug, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-title", children: "Backend unavailable" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-state", children: "Holding state" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-card-source backend", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "src-dot" }),
+          "ws disconnected \xB7 14s"
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-body", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("p", { style: { margin: "0 0 6px" }, children: [
+          "The frontend lost its websocket to ",
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: "autoworkbench-runner" }),
+          " 14s ago. ",
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("b", { children: "I will not infer success or failure of in-flight steps." })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("ul", { className: "aw-dotlist", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("li", { className: "no", children: [
+            "last event: ",
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: "step.running stp_c4d7" })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("li", { children: [
+            "auto-reconnect in ",
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: "3s\u2026" }),
+            " (attempt 2 of 5)"
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("li", { children: "any in-flight code_update / recorded events will replay on reconnect" })
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-foot", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn primary", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Sync, {}),
+          "Reconnect now"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("button", { className: "aw-btn", children: "View connection log" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("button", { className: "aw-btn subtle", children: "Switch endpoint" })
+      ] })
+    ] });
+  }
+  function CardSchemaError2() {
+    return /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card warn blocking", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Alert, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-title", children: "Schema validation failed" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-state", children: "Nothing executed" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-card-source llm", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "src-dot" }),
+          "llm_response_invalid"
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-body", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("p", { style: { margin: "0 0 6px", fontSize: 12.5 }, children: [
+          "The LLM returned a plan that does not match ",
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: "plan.v3.schema.json" }),
+          ". Nothing was executed."
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-fail-grid", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "k", children: "at" }),
+          "          ",
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "v mono", children: "$.steps[2].operations[0].kind" }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "k", children: "expected" }),
+          "    ",
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "v mono", children: "one of: assert | click | fill | navigate | wait" }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "k", children: "received" }),
+          "    ",
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "v mono", children: [
+            '"check-presence"  ',
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { color: "var(--tx-3)" }, children: "(unknown)" })
+          ] })
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-foot", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn primary", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Sync, {}),
+          "Ask LLM to repair plan"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("button", { className: "aw-btn", children: "Edit plan manually" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("button", { className: "aw-btn subtle", children: "Open raw response" })
+      ] })
+    ] });
+  }
+  function CardNoBrowser2() {
+    return /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card recover blocking", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Globe, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-title", children: "No browser session attached" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-state", children: "Cannot start run" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-card-source backend", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "src-dot" }),
+          "Step Runner \xB7 idle"
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-body", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("p", { style: { margin: "0 0 6px" }, children: "Backend is connected, but there is no Playwright browser context to drive. Plan was drafted but cannot be executed." }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("ul", { className: "aw-dotlist", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("li", { className: "no", children: [
+            "no active context \xB7 ",
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: "browserType: chromium" }),
+            " requested"
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("li", { children: "page intelligence cache available \xB7 14s old" }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("li", { children: "safe actions: launch new context, attach existing, or keep plan as draft" })
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-foot", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn primary", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Play, {}),
+          "Launch chromium"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("button", { className: "aw-btn", children: "Attach existing tab\u2026" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("button", { className: "aw-btn subtle", children: "Keep plan as draft" })
+      ] })
+    ] });
+  }
+  function CardApiKey2() {
+    return /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card warn blocking", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Key, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-title", children: "LLM provider key missing" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-state", children: "No model calls possible" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-card-source backend", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "src-dot" }),
+          "config \xB7 auth"
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-body", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("p", { style: { margin: "0 0 6px" }, children: "The Main Orchestrator agent needs a model provider key to draft plans or repairs. Backend lifecycle continues to flow but no new LLM calls can be made." }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-fail-grid", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "k", children: "missing" }),
+          " ",
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "v mono", children: [
+            "ANTHROPIC_API_KEY ",
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { color: "var(--tx-3)" }, children: "or" }),
+            " OPENAI_API_KEY"
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "k", children: "policy" }),
+          "  ",
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "v", children: "workspace \xB7 Acme QA \xB7 keys not in env" }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "k", children: "impact" }),
+          "  ",
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "v", children: "planning, clarification, repair, codegen reviewer all paused" })
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-foot", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn primary", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Key, {}),
+          "Add key\u2026"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("button", { className: "aw-link", style: { marginLeft: 4 }, children: "Use shared workspace key" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { flex: 1 } }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-card-foot-hint", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Lock, { style: { width: 11, height: 11 } }),
+          "Keys are stored encrypted per workspace"
+        ] })
+      ] })
+    ] });
+  }
+  function CardOtp2() {
+    return /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card perm needs-input", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Key, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-title", children: "Human input required \xB7 OTP / 2FA" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-state", style: { background: "var(--ylw-soft)", color: "#7A5A0E", borderColor: "#ECD89A" }, children: "Awaiting you" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-card-source backend", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "src-dot" }),
+          "Step Runner \xB7 human_input"
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-body", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("p", { style: { margin: "0 0 8px" }, children: [
+          "Step 4 ran into a one-time code prompt at ",
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: "acme.dev/auth/otp" }),
+          ". Backend will not type values it cannot derive from your test data. Provide the code or skip the step."
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { style: { display: "flex", gap: 8, alignItems: "center" }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(
+            "input",
+            {
+              type: "text",
+              placeholder: "6-digit code",
+              style: {
+                flex: 1,
+                maxWidth: 180,
+                padding: "7px 10px",
+                fontFamily: "var(--ff-mono)",
+                fontSize: 14,
+                letterSpacing: "0.2em",
+                border: "1px solid var(--br)",
+                borderRadius: 8,
+                background: "var(--bg-card)",
+                outline: "none"
+              }
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { fontSize: 11.5, color: "var(--tx-3)" }, children: "received via Authenticator app" })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { style: { marginTop: 10, fontSize: 11.5, color: "var(--tx-3)" }, children: [
+          "Backend redacts the value from screenshots and trace. ",
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("button", { className: "aw-link", children: "View redaction policy" })
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-foot", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn primary", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Send, {}),
+          "Submit code"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Skip, { style: { width: 11, height: 11 } }),
+          "Skip this step"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("button", { className: "aw-btn subtle", children: "Pause run for manual login" })
+      ] })
+    ] });
+  }
+  function CardE2EPending2() {
+    return /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card warn", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-icon", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Branch, {}) }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-title", children: "Paid E2E suite pending final acceptance" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-card-state", style: { background: "var(--blu-soft)", color: "var(--blu)", borderColor: "#D8E3F2" }, children: "Not run yet" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-card-source backend", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "src-dot" }),
+          "scheduled \xB7 nightly"
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-body", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("p", { style: { margin: "0 0 6px" }, children: [
+          "The local plan recorded cleanly, but the paid end-to-end suite (real card, real signup, real Stripe) has not been run for this commit.",
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("b", { children: " Frontend will not mark this work accepted" }),
+          " \u2014 that gate is owned by the backend after the nightly E2E run."
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("ul", { className: "aw-dotlist", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("li", { children: [
+            "scheduled ",
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: "02:00 UTC" }),
+            " \xB7 ~3h 22m from now"
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("li", { children: [
+            "cost cap ",
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: "$4.20" }),
+            " per run \xB7 uses real Stripe test cards"
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("li", { children: [
+            "completion will arrive as ",
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: "e2e_pending \u2192 e2e_passed" }),
+            " events"
+          ] })
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-card-foot", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Bolt, {}),
+          "Trigger E2E now ($4.20)"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("button", { className: "aw-btn subtle", children: "Notify me when E2E completes" })
+      ] })
+    ] });
+  }
+  function LlmEmpty2({ onSeed }) {
+    return /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-empty", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "ic", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Spark, {}) }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("h3", { children: "Describe what you want to automate or validate." }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("p", { children: "Tell me about a page, attach a selection from the page, or paste a Playwright snippet. I'll plan a flow, ask before running, and record evidence on the way." }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-suggestions", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-chip", onClick: onSeed, children: "Validate this pricing page" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-chip", children: "Smoke test the login flow" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-chip", children: "Repair my flaky checkout spec" }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-chip", children: "Record an Add-to-cart journey" })
+      ] })
+    ] });
+  }
+  function Composer2({ onCommand, runId } = {}) {
+    const [sending, setSending] = (0, import_react8.useState)(false);
+    const [sent, setSent] = (0, import_react8.useState)(false);
+    const inputRef = (0, import_react8.useRef)(null);
+    const onSend = () => {
+      if (sending) return;
+      if (onCommand) {
+        const text = inputRef.current?.value ?? "";
+        if (inputRef.current) inputRef.current.value = "";
+        onCommand("correction", { run_id: runId, text });
+        return;
+      }
+      setSending(true);
+      setTimeout(() => {
+        setSending(false);
+        setSent(true);
+        if (inputRef.current) inputRef.current.value = "";
+        setTimeout(() => setSent(false), 1200);
+      }, 450);
+    };
+    const onKey = (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        onSend();
+      }
+    };
+    return /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "aw-composer", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-composer-box", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-composer-actions", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-context-chip", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Globe, {}),
+          " /pricing"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-context-chip", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Target, {}),
+          " 2 selected"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("span", { className: "aw-context-chip", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Doc, {}),
+          " users.csv"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("button", { className: "aw-btn subtle", style: { padding: "2px 5px", fontSize: 10.5, height: 18 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Plus, {}),
+          "Add"
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(
+        "textarea",
+        {
+          ref: inputRef,
+          className: "aw-composer-input",
+          rows: 1,
+          placeholder: "Reply, refine the plan, or paste a step\u2026",
+          defaultValue: "",
+          onKeyDown: onKey
+        }
+      ),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-composer-actions", style: { justifyContent: "space-between" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { style: { display: "flex", gap: 2, alignItems: "center" }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("button", { className: "aw-icon-btn", title: "Attach", "data-tip": "Attach", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Paperclip, {}) }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("button", { className: "aw-icon-btn", title: "Pick element", "data-tip": "Pick element", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Mouse, {}) }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("button", { className: "aw-icon-btn", title: "Attach screenshot", "data-tip": "Attach screenshot", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Camera, {}) }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { fontSize: 10.5, color: "var(--tx-4)", marginLeft: 6 }, children: "complete-llm \xB7 gpt-class" })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(
+          "button",
+          {
+            className: "aw-btn primary aw-send " + (sending ? "sending " : "") + (sent ? "sent" : ""),
+            style: { padding: "5px 10px", fontSize: 11.5, height: 24, minWidth: 74, justifyContent: "center" },
+            onClick: onSend,
+            disabled: sending,
+            children: sending ? /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)(import_jsx_runtime11.Fragment, { children: [
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-send-spin" }),
+              "Sending"
+            ] }) : sent ? /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)(import_jsx_runtime11.Fragment, { children: [
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Check, {}),
+              "Sent"
+            ] }) : /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)(import_jsx_runtime11.Fragment, { children: [
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(I2.Send, {}),
+              "Send",
+              /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { className: "aw-kbd", children: "\u21B5" })
+            ] })
+          }
+        )
+      ] })
+    ] }) });
+  }
+  function LlmThread2({ state, mode, onCommand, runId }) {
+    if (state === "idle") return /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(LlmEmpty2, { onSeed: () => {
+    } });
+    const order = ["planning", "clarify", "recommend", "plan", "diff", "permit", "exec", "locator", "recover", "done"];
+    const show = (k) => order.indexOf(state) >= order.indexOf(k);
+    return /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("div", { className: "aw-thread", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("div", { className: "aw-day-sep", children: "Session started \xB7 today, 11:42 AM" }),
+      /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(Bubble2, { time: "11:42", children: "Validate this pricing page. Use the design system tokens we agreed on and make sure the Pro plan price is exactly what marketing approved." }),
+      show("planning") && /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)(Sys2, { time: "11:42", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("p", { children: [
+          "On it. Scanning ",
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("b", { children: "acme.dev/pricing" }),
+          " with the page-intelligence tool \u2014 I'll group what I see, then ask before running anything."
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)(Reason, { head: "Page analysis", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("li", { children: "DOM ready \xB7 18 sections discovered" }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("li", { children: "Detected: hero, 3-card pricing grid, FAQ accordion, footer" }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("li", { children: [
+            "Found ",
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("b", { children: "3 visible" }),
+            ' "Get started" links \u2014 flag for locator review'
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("li", { children: [
+            "No ",
+            /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: "data-testid" }),
+            " attributes \u2014 relying on role + text"
+          ] })
+        ] })
+      ] }),
+      show("clarify") && /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(Sys2, { time: "11:43", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("p", { children: "Before I draft a plan \u2014 what depth do you want?" }) }),
+      show("clarify") && /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(CardClarification2, {}),
+      show("recommend") && /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)(import_jsx_runtime11.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(Bubble2, { time: "11:44", children: "Sanity is fine for now." }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(Sys2, { time: "11:44", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("p", { children: "Good. Here are the assertions I'd run \u2014 uncheck anything that isn't valuable yet." }) }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(CardRecommendation2, {})
+      ] }),
+      show("plan") && /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)(import_jsx_runtime11.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(Bubble2, { time: "11:45", children: 'Drop the FAQ check, and add an exact assertion that the Pro plan price equals "$49 / mo".' }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(Sys2, { time: "11:45", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("p", { children: "Got it. Drafting plan v2 with those changes." }) })
+      ] }),
+      show("diff") && /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(CardPlanDiff2, {}),
+      show("plan") && /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(CardPlanReady2, { onCommand, runId }),
+      show("permit") && /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(Sys2, { time: "11:46", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("p", { children: "Before I touch a CTA, I need permission for one medium-risk action." }) }),
+      show("permit") && /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(CardPermission2, { onCommand, runId }),
+      show("exec") && /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)(import_jsx_runtime11.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(Bubble2, { time: "11:46", children: "Allow once. Run the plan." }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(Sys2, { time: "11:46", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)("p", { children: [
+          "Running plan v2. I'll record evidence after each successful operation; ",
+          /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("button", { className: "aw-link", children: "Trace" }),
+          " tails live."
+        ] }) }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(CardExecution2, { onCommand, runId })
+      ] }),
+      show("locator") && /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(Sys2, { time: "11:47", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("p", { children: `Step 4 hit a snag \u2014 three "Get started" links and I can't tell which one you mean. Stopping execution until you choose or the backend confirms a unique candidate.` }) }),
+      show("locator") && /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(CardLocatorAmbiguity2, {}),
+      show("recover") && /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(Sys2, { time: "11:48", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("p", { children: "Step 5 failed the assertion \u2014 the Pro card renders the price without a space between number and unit. Deterministic recovery didn't help; the LLM has a suggested repair." }) }),
+      show("recover") && /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(CardRecovery2, {}),
+      show("done") && /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)(import_jsx_runtime11.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(Bubble2, { time: "11:49", children: "Apply the repair." }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(Sys2, { time: "11:49", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("p", { children: "Repair applied, step recorded, code updated. Run finished." }) }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(CardCompleted2, {})
+      ] }),
+      state === "offline" && /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)(import_jsx_runtime11.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(Sys2, { time: "11:46", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("p", { children: "Lost connection mid-step. Holding state." }) }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(CardOffline2, {})
+      ] }),
+      state === "schema" && /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)(import_jsx_runtime11.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(Sys2, { time: "11:47", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("p", { children: "The model returned something I can't safely execute." }) }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(CardSchemaError2, {})
+      ] }),
+      state === "nobrowser" && /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)(import_jsx_runtime11.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(Sys2, { time: "11:42", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("p", { children: "I have your plan ready, but I can't find a browser to run it against." }) }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(CardNoBrowser2, {})
+      ] }),
+      state === "apikey" && /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)(import_jsx_runtime11.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(Sys2, { time: "11:42", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("p", { children: "I can't reach a model provider \u2014 the workspace has no key configured." }) }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(CardApiKey2, {})
+      ] }),
+      state === "otp" && /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)(import_jsx_runtime11.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(Sys2, { time: "11:46", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("p", { children: "Step 4 navigated to a login flow that asks for a 2FA code." }) }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(CardOtp2, {})
+      ] }),
+      state === "e2e" && /* @__PURE__ */ (0, import_jsx_runtime11.jsxs)(import_jsx_runtime11.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(Bubble2, { time: "11:49", children: "Apply the repair." }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(Sys2, { time: "11:49", children: /* @__PURE__ */ (0, import_jsx_runtime11.jsx)("p", { children: "Repair applied, step recorded, code updated. Local run finished \u2014 the paid E2E suite is still pending." }) }),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(CardCompleted2, {}),
+        /* @__PURE__ */ (0, import_jsx_runtime11.jsx)(CardE2EPending2, {})
+      ] })
+    ] });
+  }
+
+  // src/panel-v2/secondary-tabs.jsx
+  var import_react9 = __toESM(require_react());
+  var import_jsx_runtime12 = __toESM(require_jsx_runtime());
+  function ManualBuilder() {
+    const [action, setAction] = (0, import_react9.useState)("click");
+    const [assertion, setAssertion] = (0, import_react9.useState)("visible");
+    const [expected, setExpected] = (0, import_react9.useState)("");
+    const [picked, setPicked] = (0, import_react9.useState)({
+      name: '"Start free trial" button',
+      role: "link",
+      text: "Start free trial",
+      cand: [
+        { id: "c1", loc: "getByRole('link', { name: 'Start free trial' })", conf: 0.92 },
+        { id: "c2", loc: ".ws-plan.featured a.ws-plan-cta", conf: 0.71 }
+      ],
+      chosen: "c1",
+      matched: 1
+    });
+    const [picking, setPicking] = (0, import_react9.useState)(false);
+    const actions = ["click", "fill", "press", "hover", "select option", "check", "upload file", "submit", "navigate"];
+    const assertions = ["visible", "hidden", "enabled", "disabled", "has text", "exact text", "has value", "checked", "url matches", "title matches", "count equals", "attribute equals"];
+    const needsExpected = ["fill", "press", "select option", "has text", "exact text", "has value", "url matches", "title matches", "count equals", "attribute equals"].includes(assertion) || ["fill", "press", "select option"].includes(action);
+    return /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-manual", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-manual-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-manual-eyebrow", children: "Manual mode \xB7 deterministic" }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { flex: 1 } }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-badge-i outline", "data-tip": "LLM is only used if you explicitly ask", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Shield, { style: { width: 11, height: 11, marginRight: 3 } }),
+          " no LLM by default"
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-manual-row", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-manual-label", children: "Element" }),
+        picked ? /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-manual-picked", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Target, { style: { width: 12, height: 12, color: "var(--vio)" } }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-manual-picked-name", children: picked.name }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-manual-picked-meta", children: [
+            "role: ",
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("b", { children: picked.role }),
+            ' \xB7 text: "',
+            picked.text,
+            '"'
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { flex: 1 } }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(
+            "button",
+            {
+              className: "aw-icon-btn",
+              title: "Re-pick",
+              "data-tip": "Re-pick element",
+              onClick: () => setPicking(true),
+              children: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Target, {})
+            }
+          )
+        ] }) : /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("button", { className: "aw-btn primary", onClick: () => setPicking(true), children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Mouse, {}),
+          "Pick an element on the page"
+        ] })
+      ] }),
+      picked && /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-manual-row", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-manual-label", children: "Locator" }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("div", { className: "aw-manual-cands", children: picked.cand.map((c) => /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(
+          "label",
+          {
+            className: "aw-manual-cand " + (picked.chosen === c.id ? "active" : ""),
+            onClick: () => setPicked({ ...picked, chosen: c.id }),
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(
+                "input",
+                {
+                  type: "radio",
+                  checked: picked.chosen === c.id,
+                  readOnly: true,
+                  style: { accentColor: "var(--acc)" }
+                }
+              ),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-manual-cand-loc", children: c.loc }),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-conf " + (c.conf >= 0.8 ? "high" : c.conf >= 0.5 ? "med" : "low"), children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("i", {}),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("i", {}),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("i", {})
+              ] })
+            ]
+          },
+          c.id
+        )) })
+      ] }),
+      picked && /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-manual-row", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-manual-label", children: "Validate" }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-badge-i ok", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "ldot" }),
+          "matches ",
+          picked.matched,
+          " element \xB7 backend-validated"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { flex: 1 } }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("button", { className: "aw-link", "data-tip": "Re-run Step Runner validation", children: "Re-validate" })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-manual-row", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-manual-label", children: "Action" }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("select", { className: "aw-manual-select", value: action, onChange: (e) => setAction(e.target.value), children: actions.map((a) => /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("option", { value: a, children: a }, a)) })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-manual-row", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-manual-label", children: "Assert" }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("select", { className: "aw-manual-select", value: assertion, onChange: (e) => setAssertion(e.target.value), children: assertions.map((a) => /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("option", { value: a, children: a }, a)) }),
+        needsExpected && /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(
+          "input",
+          {
+            className: "aw-manual-input",
+            placeholder: "expected value\u2026",
+            value: expected,
+            onChange: (e) => setExpected(e.target.value)
+          }
+        )
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-manual-foot", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("button", { className: "aw-btn primary", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Plus, {}),
+          "Add as step"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("button", { className: "aw-btn", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Play, {}),
+          "Run now"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { flex: 1 } }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("button", { className: "aw-link", "data-tip": "Send this step to the LLM if you want help", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Spark, { style: { width: 11, height: 11, marginRight: 3, verticalAlign: "-1px" } }),
+          "Ask LLM for help"
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("div", { className: "aw-manual-note", children: "Backend validates locator + action. Step is recorded only after successful execution. Code is emitted by backend." })
+    ] });
+  }
+  function StepFoot({ id, version = "v1", lastRun = "never", canDup = true }) {
+    const [open, setOpen] = (0, import_react9.useState)(false);
+    return /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-step-foot", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-step-foot-meta", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-step-foot-id", "data-tip": "Stable backend ID", "data-tip-pos": "bottom-right", children: id }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-step-foot-sep", children: "\xB7" }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { children: version }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-step-foot-sep", children: "\xB7" }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { children: [
+          "last run ",
+          lastRun
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-spacer" }),
+      canDup && /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("button", { className: "aw-icon-btn", title: "Duplicate", "data-tip": "Duplicate step", children: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Copy, {}) }),
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-dock-wrap", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(
+          "button",
+          {
+            className: "aw-icon-btn " + (open ? "active" : ""),
+            onClick: () => setOpen(!open),
+            title: "More options",
+            "data-tip": "More options",
+            children: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.More, {})
+          }
+        ),
+        open && /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(import_jsx_runtime12.Fragment, { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("div", { className: "aw-dock-scrim", onClick: () => setOpen(false) }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-dock-menu", role: "menu", style: { minWidth: 210 }, "data-tip-pos": "bottom-right", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("button", { className: "aw-dock-opt", onClick: () => setOpen(false), children: [
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Play, {}),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-dock-opt-main", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-t", children: "Run this step" }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-d", children: "Send through LLM now" })
+              ] })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("button", { className: "aw-dock-opt", onClick: () => setOpen(false), children: [
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Target, {}),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-dock-opt-main", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-t", children: "Re-pick element" }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-d", children: "Re-attach DOM target" })
+              ] })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("button", { className: "aw-dock-opt", onClick: () => setOpen(false), children: [
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Spark, {}),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-dock-opt-main", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-t", children: "Improve locator" }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-d", children: "Ask LLM for a stronger selector" })
+              ] })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("div", { className: "aw-dock-menu-sep" }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("button", { className: "aw-dock-opt", onClick: () => setOpen(false), children: [
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Eye, {}),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-dock-opt-main", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-t", children: "View step JSON" }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-d", children: "Inspect raw step payload" })
+              ] })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("button", { className: "aw-dock-opt", onClick: () => setOpen(false), children: [
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Skip, {}),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-dock-opt-main", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-t", children: "Skip in next run" }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-d", children: "Don't include this step" })
+              ] })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("button", { className: "aw-dock-opt", onClick: () => setOpen(false), style: { color: "var(--red)" }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.X, {}),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-dock-opt-main", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-t", children: "Delete step" }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-d", children: "Removes from this plan" })
+              ] })
+            ] })
+          ] })
+        ] })
+      ] })
+    ] });
+  }
+  var STEP_STATUS = {
+    ok: { label: "Ready \xB7 strong locator", count: 1 },
+    weak: { label: "Weak locator", count: 1 },
+    section: { label: "Section step", count: 1 },
+    blocked: { label: "Blocked \xB7 missing data", count: 1 },
+    wrongPage: { label: "Wrong current page", count: 1 }
+  };
+  function StepsTab2({ mode = "llm", setMode = () => {
+  } }) {
+    const [q, setQ] = (0, import_react9.useState)("");
+    const [filterOpen, setFilterOpen] = (0, import_react9.useState)(false);
+    const filterTriggerRef = (0, import_react9.useRef)(null);
+    const [show, setShow] = (0, import_react9.useState)({ ok: true, weak: true, section: true, blocked: true, wrongPage: true });
+    const listRef = (0, import_react9.useRef)(null);
+    const [visibleCount, setVisibleCount] = (0, import_react9.useState)(5);
+    const [extraSteps, setExtraSteps] = (0, import_react9.useState)([]);
+    const [picking, setPicking] = (0, import_react9.useState)(false);
+    const fire = () => {
+    };
+    const link = (msg) => (e) => {
+      e.preventDefault();
+      fire(msg);
+    };
+    const addStep = () => {
+      const n = extraSteps.length + 6;
+      const id = "stp_" + String(n).padStart(3, "0");
+      setExtraSteps([...extraSteps, {
+        id,
+        title: "New step \xB7 describe what to assert or perform",
+        status: "ok"
+      }]);
+    };
+    const togglePick = () => {
+      setPicking((p) => !p);
+    };
+    (0, import_react9.useEffect)(() => {
+      if (!listRef.current) return;
+      const rows = listRef.current.querySelectorAll(".aw-step-row");
+      let visible = 0;
+      rows.forEach((r) => {
+        const title = (r.dataset.title || "").toLowerCase();
+        const st = r.dataset.status || "";
+        const matchesQ = !q || title.includes(q.toLowerCase());
+        const matchesS = !!show[st];
+        const showRow = matchesQ && matchesS;
+        r.style.display = showRow ? "" : "none";
+        if (showRow) visible++;
+      });
+      setVisibleCount(visible);
+    }, [q, show]);
+    const activeFilters = Object.values(show).filter(Boolean).length;
+    const allOn = activeFilters === 5;
+    return /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { ref: listRef, children: [
+      mode === "manual" && /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(ManualBuilder, {}),
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-list-toolbar", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { style: { display: "flex", alignItems: "center", gap: 6, fontSize: 12 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { color: "var(--tx-3)" }, children: visibleCount === 5 ? "5 steps" : `${visibleCount} of 5` }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { color: "var(--tx-4)" }, children: "\xB7" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { color: "var(--tx-3)" }, children: "2 ready" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { color: "var(--tx-4)" }, children: "\xB7" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { color: "var(--tx-3)" }, children: "3 blocked" })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-spacer" }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-search", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Search, { style: { width: 11, height: 11, color: "var(--tx-3)" } }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("input", { placeholder: "Filter\u2026", value: q, onChange: (e) => setQ(e.target.value) }),
+          q && /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(
+            "button",
+            {
+              className: "aw-icon-btn",
+              style: { width: 16, height: 16, marginLeft: 2 },
+              onClick: () => setQ(""),
+              title: "Clear",
+              "data-tip": "Clear",
+              children: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.X, { style: { width: 9, height: 9 } })
+            }
+          )
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-dock-wrap", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(
+            "button",
+            {
+              ref: filterTriggerRef,
+              className: "aw-btn " + (filterOpen ? "" : ""),
+              onClick: () => setFilterOpen(!filterOpen),
+              title: "Filter by status",
+              "data-tip": "Filter by status",
+              style: !allOn ? { borderColor: "var(--acc)", color: "var(--acc-2)" } : {},
+              children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Filter, {}),
+                !allOn && /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { fontSize: 10.5, fontWeight: 600 }, children: activeFilters })
+              ]
+            }
+          ),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(PortalMenu2, { triggerRef: filterTriggerRef, open: filterOpen, onClose: () => setFilterOpen(false), width: 220, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("div", { className: "aw-dock-menu-label", children: "Show steps with status" }),
+            Object.entries(STEP_STATUS).map(([key, info]) => /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("label", { className: "aw-dock-opt", style: { cursor: "pointer" }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(
+                "input",
+                {
+                  type: "checkbox",
+                  checked: show[key],
+                  onChange: (e) => setShow({ ...show, [key]: e.target.checked }),
+                  style: { accentColor: "var(--acc)", marginTop: 1 }
+                }
+              ),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-main", children: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-t", children: info.label }) })
+            ] }, key)),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("div", { className: "aw-dock-menu-sep" }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("button", { className: "aw-dock-opt", onClick: () => setShow({ ok: true, weak: true, section: true, blocked: true, wrongPage: true }), children: [
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Check, {}),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-main", children: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-t", children: "Show all" }) })
+            ] })
+          ] })
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-info-strip", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Info, {}),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { children: "Display order is cosmetic \u2014 stable IDs persist across reorders." }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-spacer" }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("button", { className: "aw-btn primary", style: { padding: "4px 10px" }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Play, {}),
+          "Run all"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("button", { className: "aw-btn", style: { padding: "4px 10px" }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Play, {}),
+          "Run selected"
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(
+        "div",
+        {
+          className: "aw-step-row",
+          "data-title": "Click Most popular tag and confirm it routes to Pro signup",
+          "data-status": "ok",
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-step-handle", children: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Drag, {}) }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-step-idx pending", style: { background: "var(--bg-card)", border: "1px dashed var(--br-strong)", color: "var(--tx-3)" }, children: "1" }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { style: { flex: 1, minWidth: 0 }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("div", { className: "aw-step-title", children: 'Click "Most popular" tag and confirm it routes to Pro signup' }),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-step-meta", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-badge-i ok", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "ldot" }),
+                  "strong locator"
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-badge-i outline", children: "expected: navigates to /signup?plan=pro" }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-badge-i info", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "ldot" }),
+                  "1 child op"
+                ] })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-step-attached", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Target, { style: { width: 12, height: 12, color: "var(--vio)" } }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { children: "attached element:" }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "scope", children: ".ws-plan.featured .ws-plan-tag" }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-spacer", style: { flex: 1 } }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("button", { className: "aw-icon-btn", onClick: link("Pick mode active \xB7 click an element on the page"), title: "Re-pick element", "data-tip": "Re-pick element", children: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Target, {}) })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(StepFoot, { id: "stp_001", version: "v1", lastRun: "12m ago" })
+            ] }),
+            "      "
+          ]
+        }
+      ),
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(
+        "div",
+        {
+          className: "aw-step-row",
+          "data-title": "Each pricing card has a CTA that contains Get started or Talk to sales",
+          "data-status": "weak",
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-step-handle", children: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Drag, {}) }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-step-idx warn", style: { background: "var(--ylw)", color: "#fff" }, children: "2" }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { style: { flex: 1, minWidth: 0 }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("div", { className: "aw-step-title", children: 'Each pricing card has a CTA that contains "Get started" or "Talk to sales"' }),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-step-meta", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-badge-i warn", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "ldot" }),
+                  "weak locator"
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-badge-i outline", children: "forEach .ws-plan" })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-step-attached", style: { borderColor: "#ECD89A", background: "#FBF1D2" }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Alert, { style: { width: 12, height: 12, color: "var(--ylw)" } }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { style: { color: "#7A5A0E" }, children: [
+                  "Locator ",
+                  /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "scope", children: "div:nth-child(2)" }),
+                  " is positional \u2014 will break if a card is added. "
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("button", { className: "aw-link", style: { color: "var(--ylw)" }, onClick: link("Asking LLM for a stronger selector\u2026"), children: "Improve locator" }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { color: "#7A5A0E" }, children: "\xB7" }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("button", { className: "aw-link", style: { color: "var(--ylw)" }, onClick: link("Loading candidate locators\u2026"), children: "View candidates" })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(StepFoot, { id: "stp_002", version: "v3", lastRun: "1h ago" })
+            ] }),
+            "      "
+          ]
+        }
+      ),
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(
+        "div",
+        {
+          className: "aw-step-row",
+          "data-title": "Section Pricing grid 4 child operations",
+          "data-status": "section",
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-step-handle", children: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Drag, {}) }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-step-idx", style: { background: "var(--vio)", color: "#fff" }, children: "3" }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { style: { flex: 1, minWidth: 0 }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("div", { className: "aw-step-title", children: "Section: Pricing grid \xB7 4 child operations" }),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-step-meta", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-badge-i vio", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "ldot" }),
+                  "section step"
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-badge-i outline", children: "scope: section.pricing" })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-step-attached", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Layers, { style: { width: 12, height: 12, color: "var(--vio)" } }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { children: "section attached:" }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "scope", children: 'main > section[aria-label="Pricing"]' })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { style: { marginTop: 8, borderLeft: "2px solid var(--vio-soft)", paddingLeft: 10, display: "flex", flexDirection: "column", gap: 4 }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-step-op", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "op-tag", style: { background: "var(--vio-soft)", color: "var(--vio)" }, children: "3.1" }),
+                  " Count cards equals 3"
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-step-op", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "op-tag", style: { background: "var(--vio-soft)", color: "var(--vio)" }, children: "3.2" }),
+                  " Each card exposes name + price + cta"
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-step-op", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "op-tag", style: { background: "var(--vio-soft)", color: "var(--vio)" }, children: "3.3" }),
+                  " Pro card highlighted (badge or color)"
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-step-op", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "op-tag", style: { background: "var(--vio-soft)", color: "var(--vio)" }, children: "3.4" }),
+                  " Cards reachable by keyboard tab order"
+                ] })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(StepFoot, { id: "stp_003", version: "v1", lastRun: "never" })
+            ] }),
+            "      "
+          ]
+        }
+      ),
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(
+        "div",
+        {
+          className: "aw-step-row",
+          "data-title": "Fill Salary Analyzer form with sample dataset",
+          "data-status": "blocked",
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-step-handle", children: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Drag, {}) }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-step-idx err", style: { background: "var(--red)", color: "#fff" }, children: "4" }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { style: { flex: 1, minWidth: 0 }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("div", { className: "aw-step-title", children: "Fill Salary Analyzer form with sample dataset" }),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-step-meta", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-badge-i err", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "ldot" }),
+                  "blocked: missing test data"
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-badge-i outline", children: "requires: salaries.csv" })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-step-attached", style: { borderColor: "#E8B9AE", background: "#FBEEEA" }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Doc, { style: { width: 12, height: 12, color: "var(--red)" } }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { style: { color: "#8A3A2E" }, children: [
+                  "Step references ",
+                  /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "scope", children: "salaries.csv" }),
+                  " \u2014 not uploaded."
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-spacer", style: { flex: 1 } }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("button", { className: "aw-link", style: { color: "var(--red)" }, onClick: link("Open file picker \xB7 CSV/JSON accepted"), children: "Upload now" })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(StepFoot, { id: "stp_004", version: "v2", lastRun: "never" })
+            ] }),
+            "      "
+          ]
+        }
+      ),
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(
+        "div",
+        {
+          className: "aw-step-row",
+          "data-title": "Verify docs sidebar contains Quickstart",
+          "data-status": "wrongPage",
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-step-handle", children: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Drag, {}) }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-step-idx warn", style: { background: "var(--ylw)", color: "#fff" }, children: "5" }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { style: { flex: 1, minWidth: 0 }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("div", { className: "aw-step-title", children: 'Verify docs sidebar contains "Quickstart"' }),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-step-meta", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-badge-i warn", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "ldot" }),
+                  "wrong current page"
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-badge-i outline", children: "expected: /docs \xB7 current: /pricing" })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-step-attached", style: { borderColor: "#ECD89A", background: "#FBF1D2" }, children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Globe, { style: { width: 12, height: 12, color: "var(--ylw)" } }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { style: { color: "#7A5A0E" }, children: [
+                  "I will navigate to ",
+                  /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "scope", children: "/docs" }),
+                  " before running this step."
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-spacer", style: { flex: 1 } }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("button", { className: "aw-link", style: { color: "var(--ylw)" }, onClick: link("Edit precondition for this step"), children: "Change precondition" })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(StepFoot, { id: "stp_005", version: "v1", lastRun: "yesterday" })
+            ] }),
+            "      "
+          ]
+        }
+      ),
+      extraSteps.map((st, i) => /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(
+        "div",
+        {
+          className: "aw-step-row aw-step-new",
+          "data-title": st.title.toLowerCase(),
+          "data-status": st.status,
+          children: [
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-step-handle", children: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Drag, {}) }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-step-idx pending", style: { background: "var(--bg-card)", border: "1px dashed var(--br-strong)", color: "var(--tx-3)" }, children: 6 + i }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { style: { flex: 1, minWidth: 0 }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("div", { className: "aw-step-title", children: st.title }),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-step-meta", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-badge-i ok", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "ldot" }),
+                  "new \xB7 just added"
+                ] }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-badge-i outline", children: "no locator yet" })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(StepFoot, { id: st.id, version: "draft", lastRun: "never" })
+            ] })
+          ]
+        },
+        st.id
+      )),
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-step-add", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(
+          "button",
+          {
+            className: "aw-btn primary",
+            style: { padding: "7px 14px" },
+            onClick: addStep,
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Plus, {}),
+              "Add step"
+            ]
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(
+          "button",
+          {
+            className: "aw-btn " + (picking ? "primary" : ""),
+            style: { padding: "7px 12px" },
+            onClick: togglePick,
+            children: [
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Mouse, {}),
+              picking ? "Cancel pick" : "Pick element from page"
+            ]
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-spacer", style: { flex: 1 } }),
+        picking ? /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-pick-inline", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-pick-pulse" }),
+          "Pick mode active"
+        ] }) : /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { fontSize: 11, color: "var(--tx-3)" }, children: extraSteps.length > 0 ? `${5 + extraSteps.length} total \xB7 new appends below` : "New steps append below" })
+      ] })
+    ] });
+  }
+  function RecActions({ id, playLabel = "Replay this step" }) {
+    const [open, setOpen] = (0, import_react9.useState)(false);
+    return /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(import_jsx_runtime12.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("button", { className: "aw-icon-btn", title: playLabel, children: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Play, {}) }),
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-dock-wrap", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(
+          "button",
+          {
+            className: "aw-icon-btn " + (open ? "active" : ""),
+            onClick: () => setOpen(!open),
+            title: "More",
+            "data-tip": "More",
+            children: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.More, {})
+          }
+        ),
+        open && /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(import_jsx_runtime12.Fragment, { children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("div", { className: "aw-dock-scrim", onClick: () => setOpen(false) }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-dock-menu", role: "menu", style: { minWidth: 200 }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("button", { className: "aw-dock-opt", onClick: () => setOpen(false), children: [
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Camera, {}),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-dock-opt-main", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-t", children: "Open evidence" }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-d", children: "Screenshot \xB7 trace \xB7 artifacts" })
+              ] })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("button", { className: "aw-dock-opt", onClick: () => setOpen(false), children: [
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Diff, {}),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-dock-opt-main", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-t", children: "Compare with previous" }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-d", children: "Diff this run vs the last" })
+              ] })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("button", { className: "aw-dock-opt", onClick: () => setOpen(false), children: [
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Code, {}),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-dock-opt-main", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-t", children: "Jump to code" }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-d", children: "Show the matching line" })
+              ] })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("div", { className: "aw-dock-menu-sep" }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("button", { className: "aw-dock-opt", onClick: () => setOpen(false), children: [
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Download, {}),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-dock-opt-main", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-t", children: "Download trace" }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-d", children: "Playwright trace.zip" })
+              ] })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("button", { className: "aw-dock-opt", onClick: () => setOpen(false), children: [
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Skip, {}),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-dock-opt-main", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-t", children: "Skip in next run" }),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-d", children: "Don't include this step" })
+              ] })
+            ] })
+          ] })
+        ] })
+      ] })
+    ] });
+  }
+  function RecordedTab2() {
+    return /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-info-strip", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Camera, {}),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { children: "Backend-emitted evidence only. Skipped or unresolved steps are not shown as recorded." }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-spacer" }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("button", { className: "aw-btn", style: { padding: "4px 10px" }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Play, {}),
+          "Replay all"
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-rec-item", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-rec-head", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-step-idx ok", style: { background: "var(--grn)", color: "#fff" }, children: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Check, { style: { width: 11, height: 11 } }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { style: { flex: 1 }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { style: { fontSize: 13, fontWeight: 500 }, children: [
+              "Verify hero heading ",
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { fontFamily: "var(--ff-mono)", fontSize: 10, color: "var(--tx-4)" }, children: "rec_a1f3 \xB7 v1" })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-step-meta", style: { marginTop: 3 }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-badge-i ok", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "ldot" }),
+                "recorded"
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { children: [
+                "locator: ",
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { style: { fontFamily: "var(--ff-mono)" }, children: [
+                  "getByRole('heading', ",
+                  `{ level: 1 }`,
+                  ")"
+                ] })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { children: "\xB7 412ms" }),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { children: "\xB7 1 assertion" })
+            ] })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(RecActions, { id: "a1f3" })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("div", { className: "aw-step-ops", style: { borderLeft: "2px solid var(--grn-soft)", marginTop: 6, paddingLeft: 10 }, children: /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-step-op", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "op-tag", children: "assert" }),
+          'visible \xB7 text contains "plans that scale" \xB7 ',
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-badge-i ok", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "ldot" }),
+            "pass"
+          ] })
+        ] }) })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-rec-item", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-rec-head", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-step-idx ok", style: { background: "var(--grn)", color: "#fff" }, children: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Check, { style: { width: 11, height: 11 } }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { style: { flex: 1 }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { style: { fontSize: 13, fontWeight: 500 }, children: [
+              "Three pricing cards present ",
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { fontFamily: "var(--ff-mono)", fontSize: 10, color: "var(--tx-4)" }, children: "rec_b2c9 \xB7 v1" })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-step-meta", style: { marginTop: 3 }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-badge-i ok", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "ldot" }),
+                "recorded"
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { children: [
+                "locator: ",
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: "locator('.ws-plan')" })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { children: "\xB7 138ms \xB7 count = 3" })
+            ] })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(RecActions, { id: "b2c9" })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("div", { className: "aw-rec-shot" })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-rec-item", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-rec-head", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-step-idx", style: { background: "var(--ylw)", color: "#fff" }, children: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Sync, { style: { width: 11, height: 11 } }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { style: { flex: 1 }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { style: { fontSize: 13, fontWeight: 500 }, children: [
+              'Pro price equals "$49 / mo" ',
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { fontFamily: "var(--ff-mono)", fontSize: 10, color: "var(--tx-4)" }, children: "rec_e1f4 \xB7 v2 (repaired)" })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-step-meta", style: { marginTop: 3 }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-badge-i warn", children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "ldot" }),
+                "repaired"
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { children: "\xB7 622ms" })
+            ] })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(RecActions, { id: "e1f4" })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-diff", style: { marginTop: 8, display: "flex", flexDirection: "column", gap: 1 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-diff-row rem", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-diff-sign", children: "-" }),
+            "expect(loc).toHaveText('$49 / mo')"
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-diff-row add", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-diff-sign", children: "+" }),
+            "expect(loc).toContainText('$49')"
+          ] })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-step-meta", style: { marginTop: 8, color: "var(--tx-3)" }, children: [
+          "repair reason: actual text was ",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { fontFamily: "var(--ff-mono)", color: "var(--tx-2)" }, children: '"$49 /mo"' }),
+          " \xB7 relaxed by LLM repair with user approval"
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("div", { className: "aw-rec-item", children: /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-rec-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-step-idx", style: { background: "var(--bg-inset)", color: "var(--tx-3)", border: "1px dashed var(--br-strong)" }, children: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Skip, { style: { width: 10, height: 10 } }) }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { style: { flex: 1 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { style: { fontSize: 13, fontWeight: 500, color: "var(--tx-3)" }, children: [
+            "FAQ accordion expands when first row clicked ",
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { fontFamily: "var(--ff-mono)", fontSize: 10, color: "var(--tx-4)" }, children: "stp_faq \xB7 skipped" })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-step-meta", style: { marginTop: 3 }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-badge-i outline", children: "skipped by user \xB7 pre-run" }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { children: "not recorded \u2014 no evidence to show" })
+          ] })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(RecActions, { id: "faq", playLabel: "Include and run this step" })
+      ] }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("div", { className: "aw-rec-item", children: /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-rec-head", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-step-idx ok", style: { background: "var(--grn)", color: "#fff" }, children: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Check, { style: { width: 11, height: 11 } }) }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { style: { flex: 1 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { style: { fontSize: 13, fontWeight: 500 }, children: [
+            "Footer status link points at status.acme.dev ",
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { fontFamily: "var(--ff-mono)", fontSize: 10, color: "var(--tx-4)" }, children: "rec_f7a3 \xB7 v1" })
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-step-meta", style: { marginTop: 3 }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-badge-i ok", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "ldot" }),
+              "recorded"
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { children: [
+              "locator: ",
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: "getByRole('contentinfo').getByText('Status')" })
+            ] }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { children: "\xB7 89ms" })
+          ] })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(RecActions, { id: "f7a3" })
+      ] }) })
+    ] });
+  }
+  function CodeTab2() {
+    const [moreOpen, setMoreOpen] = (0, import_react9.useState)(false);
+    return /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-info-strip", style: { background: "var(--blu-tint)", borderColor: "#D8E3F2" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Info, { style: { color: "var(--blu)" } }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { children: [
+          "Rendered from ",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: "code_update" }),
+          " events \u2014 frontend does not generate code."
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-list-toolbar", style: { position: "sticky" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { style: { display: "flex", alignItems: "center", gap: 5, fontSize: 12, minWidth: 0, overflow: "hidden" }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Doc, { style: { width: 12, height: 12, color: "var(--tx-2)", flex: "0 0 12px" } }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { fontFamily: "var(--ff-mono)", color: "var(--tx)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }, children: "tests/pricing.spec.ts" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-badge-i info", style: { marginLeft: 2, flexShrink: 0 }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "ldot" }),
+            "4s ago"
+          ] })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-spacer" }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("button", { className: "aw-btn", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Copy, {}),
+          "Copy"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-dock-wrap", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(
+            "button",
+            {
+              className: "aw-icon-btn " + (moreOpen ? "active" : ""),
+              onClick: () => setMoreOpen(!moreOpen),
+              title: "More options",
+              "data-tip": "More options",
+              children: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.More, {})
+            }
+          ),
+          moreOpen && /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(import_jsx_runtime12.Fragment, { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("div", { className: "aw-dock-scrim", onClick: () => setMoreOpen(false) }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-dock-menu", role: "menu", style: { minWidth: 200 }, children: [
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("button", { className: "aw-dock-opt", onClick: () => setMoreOpen(false), children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Download, {}),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-dock-opt-main", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-t", children: "Save to disk" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-d", children: "Write the spec file locally" })
+                ] })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("button", { className: "aw-dock-opt", onClick: () => setMoreOpen(false), children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Eye, {}),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-dock-opt-main", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-t", children: "View raw" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-d", children: "Open the source as plain text" })
+                ] })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("button", { className: "aw-dock-opt", onClick: () => setMoreOpen(false), children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Branch, {}),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-dock-opt-main", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-t", children: "Open in editor" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-d", children: "Hand off to your IDE" })
+                ] })
+              ] }),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("div", { className: "aw-dock-menu-sep" }),
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("button", { className: "aw-dock-opt", onClick: () => setMoreOpen(false), children: [
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Sync, {}),
+                /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-dock-opt-main", children: [
+                  /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-t", children: "Re-generate from recordings" }),
+                  /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-dock-opt-d", children: "Rebuild from latest evidence" })
+                ] })
+              ] })
+            ] })
+          ] })
+        ] })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { style: { padding: "8px 12px 12px" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { style: { display: "flex", gap: 4, marginBottom: 8, flexWrap: "wrap" }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-badge-i warn", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "ldot" }),
+            "1 fragile locator"
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-badge-i outline", children: "2 placeholders" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-badge-i info", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "ldot" }),
+            "5 recorded"
+          ] })
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("pre", { className: "aw-code", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "com", children: "// generated by AutoWorkbench \xB7 do not edit manually" }),
+          "\n",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "kw", children: "import" }),
+          " ",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "pun", children: "{" }),
+          " ",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "var", children: "test" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "pun", children: "," }),
+          " ",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "var", children: "expect" }),
+          " ",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "pun", children: "}" }),
+          " ",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "kw", children: "from" }),
+          " ",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "str", children: "'@playwright/test'" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "pun", children: ";" }),
+          "\n",
+          "\n",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "fn", children: "test" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "pun", children: "(" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "str", children: "'pricing page \xB7 sanity'" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "pun", children: "," }),
+          " ",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "kw", children: "async" }),
+          " ",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "pun", children: [
+            "(",
+            "{"
+          ] }),
+          " ",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "var", children: "page" }),
+          " ",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "pun", children: [
+            "}",
+            ")"
+          ] }),
+          " ",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "pun", children: [
+            "=> ",
+            "{"
+          ] }),
+          "\n",
+          "  ",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "kw", children: "await" }),
+          " ",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "var", children: "page" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "pun", children: "." }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "fn", children: "goto" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "pun", children: "(" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "str", children: "'https://acme.dev/pricing'" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "pun", children: ");" }),
+          "\n",
+          "\n",
+          "  ",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "com", children: "// rec_a1f3 \xB7 hero heading" }),
+          "\n",
+          "  ",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "kw", children: "await" }),
+          " ",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "fn", children: "expect" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "pun", children: "(" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "var", children: "page" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "pun", children: "." }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "fn", children: "getByRole" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "pun", children: "(" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "str", children: "'heading'" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "pun", children: [
+            ", ",
+            "{",
+            " level: "
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "num", children: "1" }),
+          " ",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "pun", children: [
+            "}",
+            "))."
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "fn", children: "toContainText" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "pun", children: "(" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "str", children: "'plans that scale'" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "pun", children: ");" }),
+          "\n",
+          "\n",
+          "  ",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "com", children: "// rec_b2c9 \xB7 three pricing cards" }),
+          "\n",
+          "  ",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "kw", children: "const" }),
+          " ",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "var", children: "cards" }),
+          " ",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "pun", children: "=" }),
+          " ",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "var", children: "page" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "pun", children: "." }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "fn", children: "locator" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "pun", children: "(" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "str", children: "'.ws-plan'" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "pun", children: ");" }),
+          "\n",
+          "  ",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "kw", children: "await" }),
+          " ",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "fn", children: "expect" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "pun", children: "(" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "var", children: "cards" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "pun", children: ")." }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "fn", children: "toHaveCount" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "pun", children: "(" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "num", children: "3" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "pun", children: ");" }),
+          "\n",
+          "\n",
+          "  ",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "com", children: "// rec_e1f4 \xB7 pro price (repaired: exact \u2192 contains)" }),
+          "\n",
+          "  ",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "kw", children: "await" }),
+          " ",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "fn", children: "expect" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "pun", children: "(" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "var", children: "page" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "pun", children: "." }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "fn", children: "locator" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "pun", children: "(" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "str", children: "'.ws-plan.featured .ws-plan-price'" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "pun", children: "))." }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "fn", children: "toContainText" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "pun", children: "(" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "str", children: "'$49'" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "pun", children: ");" }),
+          "\n",
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "pun", children: [
+            "}",
+            ");"
+          ] }),
+          "\n"
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("div", { className: "aw-card-section-title", children: "Warnings inline" }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("ul", { className: "aw-dotlist", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("li", { className: "no", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "sec", children: "L18" }),
+            "fragile selector ",
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: "a.ws-plan-cta" }),
+            " \u2014 three matches at runtime, indexed by order. Consider role + accessible name."
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("li", { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "sec", children: "L24" }),
+            "repaired assertion uses ",
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: "toContainText" }),
+            "; original exact match preserved in ",
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("button", { className: "aw-link", children: "replay history" }),
+            "."
+          ] }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("li", { className: "no", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "sec", children: "code_gen" }),
+            "FAQ accordion step skipped by user \u2014 no code emitted (would have been a click + visibility assertion)."
+          ] })
+        ] })
+      ] })
+    ] });
+  }
+  function TraceTab2() {
+    const rows = [
+      { t: "11:42:01", icon: I2.Spark, type: "session.start", desc: /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(import_jsx_runtime12.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("b", { children: "session_a91" }),
+        " \xB7 workspace ",
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: "acme-qa" }),
+        " \xB7 policy ",
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-badge-i warn", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "ldot" }),
+          "balanced"
+        ] })
+      ] }), cls: "" },
+      { t: "11:42:02", icon: I2.Globe, type: "page.attach", desc: /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(import_jsx_runtime12.Fragment, { children: [
+        "attached to ",
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: "https://acme.dev/pricing" }),
+        " \xB7 dom 814 nodes"
+      ] }), cls: "io" },
+      { t: "11:42:03", icon: I2.Spark, type: "llm.request", desc: /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(import_jsx_runtime12.Fragment, { children: [
+        "plan-draft \xB7 ctx ",
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-badge-i acc", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "ldot" }),
+          "section-summaries"
+        ] }),
+        " \xB7 tools ",
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: "[dom_query, screenshot]" }),
+        " \xB7 ~1.2k tok"
+      ] }), cls: "llm" },
+      { t: "11:42:06", icon: I2.Spark, type: "llm.response", desc: /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(import_jsx_runtime12.Fragment, { children: [
+        "plan-v1 \xB7 6 steps \xB7 validated against schema \xB7 cost ",
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: "$0.012" })
+      ] }), cls: "llm" },
+      { t: "11:42:06", icon: I2.Info, type: "plan.proposed", desc: /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(import_jsx_runtime12.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("b", { children: "plan_proposed" }),
+        " \xB7 awaiting user review"
+      ] }), cls: "" },
+      { t: "11:43:42", icon: I2.Diff, type: "plan.revised", desc: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(import_jsx_runtime12.Fragment, { children: "user requested change \xB7 plan-v2 emitted \xB7 1 add, 1 remove" }), cls: "" },
+      { t: "11:43:42", icon: I2.Check, type: "plan.confirmed", desc: /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(import_jsx_runtime12.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("b", { children: "plan_confirmed" }),
+        " \xB7 6 steps queued"
+      ] }), cls: "ok" },
+      { t: "11:43:42", icon: I2.Shield, type: "permission.req", desc: /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(import_jsx_runtime12.Fragment, { children: [
+        "medium risk \xB7 ",
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: 'page.click("a.btn.primary[Get started]")' })
+      ] }), cls: "warn" },
+      { t: "11:43:46", icon: I2.Check, type: "permission.allow", desc: /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(import_jsx_runtime12.Fragment, { children: [
+        "user allowed once \xB7 scope ",
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: "plan_v2" })
+      ] }), cls: "ok" },
+      { t: "11:43:47", icon: I2.Play, type: "step.start", desc: /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(import_jsx_runtime12.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("b", { children: "stp_a1f3" }),
+        " \xB7 verify hero heading"
+      ] }), cls: "" },
+      { t: "11:43:47", icon: I2.Target, type: "locator.resolved", desc: /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(import_jsx_runtime12.Fragment, { children: [
+        "unique \xB7 ",
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: "role=heading[level=1]" })
+      ] }), cls: "ok" },
+      { t: "11:43:47", icon: I2.Check, type: "step.recorded", desc: /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(import_jsx_runtime12.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("b", { children: "stp_a1f3" }),
+        " recorded \xB7 412ms \xB7 code_update emitted"
+      ] }), cls: "ok" },
+      { t: "11:43:47", icon: I2.Play, type: "step.start", desc: /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(import_jsx_runtime12.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("b", { children: "stp_b2c9" }),
+        " \xB7 3 pricing cards present"
+      ] }), cls: "" },
+      { t: "11:43:47", icon: I2.Check, type: "step.recorded", desc: /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(import_jsx_runtime12.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("b", { children: "stp_b2c9" }),
+        " recorded \xB7 138ms \xB7 count=3"
+      ] }), cls: "ok" },
+      { t: "11:43:47", icon: I2.Target, type: "locator.ambig", desc: /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(import_jsx_runtime12.Fragment, { children: [
+        "step ",
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("b", { children: "stp_c4d7" }),
+        ' \xB7 3 candidates for "Get started" \u2014 pausing run'
+      ] }), cls: "warn" },
+      { t: "11:43:54", icon: I2.Check, type: "locator.chosen", desc: /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(import_jsx_runtime12.Fragment, { children: [
+        "user selected candidate #2 \xB7 ",
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: ".ws-hero a.btn.primary" })
+      ] }), cls: "ok" },
+      { t: "11:43:56", icon: I2.Alert, type: "step.failed", desc: /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(import_jsx_runtime12.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("b", { children: "stp_e1f4" }),
+        " \xB7 assertion mismatch \xB7 evidence saved"
+      ] }), cls: "err" },
+      { t: "11:43:57", icon: I2.Sync, type: "recover.attempt", desc: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(import_jsx_runtime12.Fragment, { children: "deterministic retry \xD7 2 \xB7 same result \xB7 escalating to LLM" }), cls: "warn" },
+      { t: "11:43:59", icon: I2.Spark, type: "llm.repair", desc: /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(import_jsx_runtime12.Fragment, { children: [
+        "proposed: relax ",
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: "toHaveText" }),
+        " \u2192 ",
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: 'toContainText("$49")' })
+      ] }), cls: "llm" },
+      { t: "11:44:03", icon: I2.Check, type: "recover.applied", desc: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(import_jsx_runtime12.Fragment, { children: "user approved repair \xB7 re-running stp_e1f4" }), cls: "ok" },
+      { t: "11:44:03", icon: I2.Check, type: "step.recorded", desc: /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(import_jsx_runtime12.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("b", { children: "stp_e1f4" }),
+        " recorded \xB7 622ms \xB7 v2 (repaired)"
+      ] }), cls: "ok" },
+      { t: "11:44:04", icon: I2.Code, type: "code.update", desc: /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(import_jsx_runtime12.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: "tests/pricing.spec.ts" }),
+        " +47 lines \xB7 checksum ",
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: "c1f8a\u2026" })
+      ] }), cls: "" },
+      { t: "11:44:04", icon: I2.Lock, type: "redact.scan", desc: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(import_jsx_runtime12.Fragment, { children: "screenshot redacted \xB7 0 PII matches \xB7 all clear" }), cls: "" },
+      { t: "11:44:04", icon: I2.Check, type: "run.completed", desc: /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(import_jsx_runtime12.Fragment, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("b", { children: "run_completed" }),
+        " \xB7 5 passed \xB7 1 repaired \xB7 0 failed \xB7 31.2s"
+      ] }), cls: "ok" },
+      { t: "11:44:04", icon: I2.Info, type: "e2e.pending", desc: /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(import_jsx_runtime12.Fragment, { children: [
+        "frontend cannot mark acceptance \xB7 paid E2E run scheduled ",
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { fontFamily: "var(--ff-mono)" }, children: "02:00 UTC" })
+      ] }), cls: "" }
+    ];
+    const [q, setQ] = (0, import_react9.useState)("");
+    const [scope, setScope] = (0, import_react9.useState)("all");
+    const matchScope = (r) => {
+      if (scope === "all") return true;
+      if (scope === "llm") return r.type.startsWith("llm.") || r.cls === "llm";
+      if (scope === "step") return r.type.startsWith("step.") || r.type.startsWith("locator.");
+      if (scope === "permission") return r.type.startsWith("permission.");
+      if (scope === "error") return r.cls === "err" || r.type.includes("fail") || r.type.includes("recover.");
+      return true;
+    };
+    const matchQ = (r) => {
+      if (!q) return true;
+      const needle = q.toLowerCase();
+      if (r.type.toLowerCase().includes(needle)) return true;
+      if (r.t.includes(needle)) return true;
+      const text = (typeof r.desc === "string" ? r.desc : JSON.stringify(r.desc)).toLowerCase();
+      return text.includes(needle);
+    };
+    const visible = rows.filter((r) => matchScope(r) && matchQ(r));
+    const scopes = [
+      { id: "all", label: "All", count: rows.length },
+      { id: "llm", label: "LLM", count: rows.filter((r) => r.type.startsWith("llm.") || r.cls === "llm").length },
+      { id: "step", label: "Step", count: rows.filter((r) => r.type.startsWith("step.") || r.type.startsWith("locator.")).length },
+      { id: "permission", label: "Permission", count: rows.filter((r) => r.type.startsWith("permission.")).length },
+      { id: "error", label: "Error", count: rows.filter((r) => r.cls === "err" || r.type.includes("fail") || r.type.includes("recover.")).length }
+    ];
+    return /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-list-toolbar", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { className: "aw-search", style: { flex: 1, minWidth: 0, maxWidth: 220 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Search, { style: { width: 11, height: 11, color: "var(--tx-3)" } }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("input", { placeholder: "Filter events\u2026", value: q, onChange: (e) => setQ(e.target.value), style: { flex: 1, minWidth: 0 } }),
+          q && /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(
+            "button",
+            {
+              className: "aw-icon-btn",
+              style: { width: 16, height: 16 },
+              onClick: () => setQ(""),
+              title: "Clear",
+              "data-tip": "Clear search",
+              children: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.X, { style: { width: 9, height: 9 } })
+            }
+          )
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-spacer" }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("span", { style: { fontSize: 11, color: "var(--tx-3)" }, children: [
+          visible.length,
+          " / ",
+          rows.length
+        ] }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("button", { className: "aw-btn", title: "Download trace", "data-tip": "Download trace.zip", children: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Download, {}) })
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("div", { className: "aw-trace-scopes", children: scopes.map(
+        (sc) => /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)(
+          "button",
+          {
+            className: "aw-trace-scope " + (scope === sc.id ? "active" : ""),
+            onClick: () => setScope(sc.id),
+            children: [
+              sc.label,
+              /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-trace-scope-n", children: sc.count })
+            ]
+          },
+          sc.id
+        )
+      ) }),
+      /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-info-strip", style: { background: "#FBEEEA", borderColor: "#E8B9AE", color: "#8A3A2E" }, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(I2.Alert, { style: { color: "var(--red)" } }),
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { style: { flex: 1, minWidth: 0 }, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("div", { style: { fontWeight: 600, color: "#8A3A2E" }, children: "Failure detail \xB7 stp_e1f4 \xB7 resolved by repair" }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { style: { display: "grid", gridTemplateColumns: "68px 1fr", gap: "2px 8px", marginTop: 4, fontFamily: "var(--ff-mono)", fontSize: 11, color: "var(--tx)" }, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { color: "var(--tx-3)" }, children: "expected" }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { children: '"$49 / mo"' }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { color: "var(--tx-3)" }, children: "actual" }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { children: '"$49 /mo"' }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { color: "var(--tx-3)" }, children: "layer" }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { children: "assertion (locator matched 1)" }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { style: { color: "var(--tx-3)" }, children: "next" }),
+            /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { children: "retry \xB7 select candidate \xB7 repair \xB7 skip \xB7 stop" })
+          ] })
+        ] })
+      ] }),
+      visible.length === 0 && /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { style: { padding: "32px 14px", textAlign: "center", color: "var(--tx-3)", fontSize: 12 }, children: [
+        "No events match your filter.",
+        /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("button", { className: "aw-link", style: { marginLeft: 6 }, onClick: () => {
+          setQ("");
+          setScope("all");
+        }, children: "Reset" })
+      ] }),
+      visible.map(
+        (r, i) => /* @__PURE__ */ (0, import_jsx_runtime12.jsxs)("div", { className: "aw-trace-row " + r.cls, children: [
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "t", children: r.t }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "aw-trace-icon", children: /* @__PURE__ */ (0, import_jsx_runtime12.jsx)(r.icon, { style: { width: 10, height: 10 } }) }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "type", children: r.type }),
+          /* @__PURE__ */ (0, import_jsx_runtime12.jsx)("span", { className: "desc", children: r.desc })
+        ] }, i)
+      )
+    ] });
+  }
+
+  // src/panel-v2-adapter/types.js
+  var PANEL_V2_VIEW_MODEL_VERSION = "panel-v2.viewmodel.v1";
+
+  // src/panel-v2-adapter/demo-bridge.js
+  var DEMO_TWEAK_DEFAULTS = {
+    "tab": "llm",
+    "state": "locator",
+    "dock": "right",
+    "panelWidth": 420,
+    "collapsed": false,
+    "connection": "connected",
+    "showWebsite": true,
+    "highlight": "hero-cta",
+    "agentsOpen": false,
+    "theme": "light",
+    "mode": "llm"
+  };
+  var DEMO_STATE_META = {
+    idle: {
+      phase: "Idle",
+      event: "session ready \xB7 waiting on user",
+      next: "Describe a flow",
+      conn: "connected",
+      busy: false,
+      now: { kind: "idle", state: "Idle", task: "Tell me what to automate or validate. I'll plan a flow before running anything.", primaryLabel: null }
+    },
+    planning: {
+      phase: "Analyzing page",
+      event: "dom_query \xB7 814 nodes scanned",
+      next: "Awaiting plan",
+      conn: "connected",
+      busy: true,
+      now: { kind: "run", state: "Analyzing", task: "Page Intelligence is scanning acme.dev/pricing \u2014 18 sections found so far.", primaryLabel: null }
+    },
+    clarify: {
+      phase: "Clarification needed",
+      event: "asked about test depth",
+      next: "Answer to continue",
+      conn: "connected",
+      busy: false,
+      now: { kind: "decide", state: "Clarification", task: "Choose how deep this run should go \u2014 smoke, sanity, or regression.", refLabel: "step 0 of 0", primaryLabel: "Jump to question" }
+    },
+    recommend: {
+      phase: "Recommendation review",
+      event: "rendered 6 candidate assertions",
+      next: "Use selected",
+      conn: "connected",
+      busy: false,
+      now: { kind: "decide", state: "Review", task: "Pick which assertions to include before I draft a plan.", primaryLabel: "Use selected (5)" }
+    },
+    plan: {
+      phase: "Plan review",
+      event: "plan_ready \xB7 6 steps \xB7 ~28s",
+      next: "Confirm & run",
+      conn: "connected",
+      busy: false,
+      now: { kind: "decide", state: "Confirm to run", task: "Plan v2 is ready \u2014 6 steps, ~28s, one fragile copy assertion flagged.", primaryLabel: "Confirm & run" }
+    },
+    diff: {
+      phase: "Plan revision",
+      event: "plan_v2 \xB7 +1 / -1",
+      next: "Apply changes",
+      conn: "connected",
+      busy: false,
+      now: { kind: "decide", state: "Plan diff", task: "I drafted plan v2 with your edits \u2014 accept the changes to continue.", primaryLabel: "Apply changes" }
+    },
+    permit: {
+      phase: "Permission required",
+      event: "medium-risk click on a.btn.primary",
+      next: "Allow or deny",
+      conn: "connected",
+      busy: false,
+      now: { kind: "decide", state: "Permission", task: "Need permission for one medium-risk click before step 4 can run.", refLabel: "stp_d8e2", primaryLabel: "Allow once" }
+    },
+    exec: {
+      phase: "Executing",
+      event: "stp_c4d7 \xB7 resolving locator\u2026",
+      next: "Wait or pause",
+      conn: "busy",
+      busy: true,
+      now: { kind: "run", state: "Step 3 of 6", task: 'Resolving locator for the "Most popular" tag in the Pro card.', refLabel: "stp_c4d7", primaryLabel: "Pause" }
+    },
+    locator: {
+      phase: "Locator ambiguity",
+      event: '3 matches for "Get started"',
+      next: "Choose candidate",
+      conn: "connected",
+      busy: false,
+      blocker: "ambiguous locator",
+      now: { kind: "block", state: "Execution paused", task: 'Three visible "Get started" links \u2014 pick a candidate or let me find a unique one.', refLabel: "stp_d8e2", primaryLabel: "Choose candidate" }
+    },
+    recover: {
+      phase: "Recovery needed",
+      event: "stp_e1f4 \xB7 assertion mismatch",
+      next: "Apply LLM repair",
+      conn: "connected",
+      busy: false,
+      blocker: "1 failed step",
+      now: { kind: "block", state: "Run blocked", task: 'Assertion failed \u2014 actual text was "$49 /mo". Repair, retry, or skip.', refLabel: "stp_e1f4", primaryLabel: "Apply LLM repair" }
+    },
+    done: {
+      phase: "Completed",
+      event: "run_completed \xB7 5/6 + 1 repaired",
+      next: "Replay or save suite",
+      conn: "connected",
+      busy: false,
+      now: { kind: "ok", state: "Completed", task: "6 of 6 recorded \xB7 1 repaired \xB7 31.2s \xB7 paid E2E still pending.", primaryLabel: "Replay all" }
+    },
+    offline: {
+      phase: "Disconnected",
+      event: "ws closed \xB7 attempt 2 of 5",
+      next: "Reconnect",
+      conn: "offline",
+      busy: false,
+      blocker: "backend unreachable",
+      now: { kind: "block", state: "Disconnected", task: "Lost the websocket mid-step. I won't infer success or failure on my own.", primaryLabel: "Reconnect now" }
+    },
+    schema: {
+      phase: "Schema invalid",
+      event: "llm response failed plan.v3",
+      next: "Ask LLM to repair",
+      conn: "error",
+      busy: false,
+      blocker: "invalid plan payload",
+      now: { kind: "block", state: "Schema invalid", task: "Model returned an unknown operation kind. Nothing executed.", primaryLabel: "Ask LLM to repair" }
+    },
+    nobrowser: {
+      phase: "Waiting on browser",
+      event: "no Playwright context attached",
+      next: "Launch chromium",
+      conn: "connected",
+      busy: false,
+      blocker: "no browser context",
+      now: { kind: "block", state: "Cannot start", task: "Backend is up but there's no browser to drive. Launch one or attach an existing tab.", primaryLabel: "Launch chromium" }
+    },
+    apikey: {
+      phase: "Auth required",
+      event: "no provider key in workspace",
+      next: "Add API key",
+      conn: "connected",
+      busy: false,
+      blocker: "missing API key",
+      now: { kind: "block", state: "No model key", task: "Main Orchestrator can't call the model \u2014 workspace has no key configured.", primaryLabel: "Add key" }
+    },
+    otp: {
+      phase: "Human input required",
+      event: "OTP prompt at /auth/otp",
+      next: "Submit code",
+      conn: "connected",
+      busy: false,
+      blocker: "awaiting OTP",
+      now: { kind: "decide", state: "Awaiting OTP", task: "Step 4 hit a 2FA prompt \u2014 type the 6-digit code from your authenticator.", refLabel: "stp_d8e2", primaryLabel: "Submit code" }
+    },
+    e2e: {
+      phase: "Acceptance pending",
+      event: "local run done \xB7 E2E queued",
+      next: "Wait for E2E or trigger now",
+      conn: "connected",
+      busy: false,
+      now: { kind: "ok", state: "Local done \xB7 E2E pending", task: "Local run is recorded, but the paid E2E suite hasn't run for this commit yet.", primaryLabel: "Trigger E2E now" }
+    }
+  };
+
+  // src/panel-v2/app.jsx
+  var import_jsx_runtime13 = __toESM(require_jsx_runtime());
+  function App({ viewModel, onCommand, mode, onCollapseChange, onDockChange } = {}) {
+    const isLive = mode === "live" && viewModel != null;
+    const tweakDefaults = (0, import_react10.useMemo)(() => {
+      try {
+        const saved = localStorage.getItem("aw-theme");
+        if (saved === "dark" || saved === "light") return { ...DEMO_TWEAK_DEFAULTS, theme: saved };
+      } catch {
+      }
+      return DEMO_TWEAK_DEFAULTS;
+    }, []);
+    const [t, setTweak] = useTweaks(tweakDefaults);
+    const [tab, setTabLocal] = (0, import_react10.useState)(isLive ? "llm" : t.tab);
+    (0, import_react10.useEffect)(() => {
+      if (!isLive) setTabLocal(t.tab);
+    }, [t.tab, isLive]);
+    const setTab = (id) => {
+      setTabLocal(id);
+      if (!isLive) setTweak("tab", id);
+    };
+    const setDock = (d) => {
+      setTweak("dock", d);
+      if (isLive && typeof onDockChange === "function") onDockChange(d);
+    };
+    const setCollapsed = (v) => setTweak("collapsed", v);
+    const setAgentsOpen = (v) => setTweak("agentsOpen", v);
+    (0, import_react10.useEffect)(() => {
+      if (isLive && typeof onCollapseChange === "function") {
+        onCollapseChange(!!t.collapsed);
+      }
+    }, [t.collapsed, isLive, onCollapseChange]);
+    const panelRef = (0, import_react10.useRef)(null);
+    (0, import_react10.useEffect)(() => {
+      const theme = t.theme || "light";
+      try {
+        localStorage.setItem("aw-theme", theme);
+      } catch {
+      }
+      if (isLive) {
+        const node = panelRef.current;
+        const rootNode = node && typeof node.getRootNode === "function" ? node.getRootNode() : null;
+        const hostEl = rootNode && typeof rootNode === "object" && "host" in rootNode ? rootNode.host : null;
+        if (hostEl && typeof hostEl.setAttribute === "function") {
+          hostEl.setAttribute("data-theme", theme);
+          return;
+        }
+      }
+      document.documentElement.dataset.theme = theme;
+    }, [t.theme, isLive]);
+    const livePhase = isLive ? viewModel.runtime?.phase ?? "idle" : null;
+    const liveRunId = isLive ? viewModel.runtime?.runId ?? null : null;
+    const liveCounts = isLive ? viewModel.counts ?? { steps: 0, rec: 0, code: 0, trace: 0 } : null;
+    const liveConnection = isLive ? viewModel.runtime?.connection ?? "connected" : null;
+    const liveAgents = isLive ? Array.isArray(viewModel.agents) ? viewModel.agents : null : null;
+    const meta = DEMO_STATE_META[t.state] || DEMO_STATE_META.idle;
+    const statusKey = isLive ? liveConnection === "offline" ? "offline" : liveConnection === "busy" ? "busy" : "connected" : meta.conn === "offline" ? "offline" : meta.conn === "error" ? "error" : meta.conn === "busy" ? "busy" : t.connection === "reconnect" ? "reconnect" : "connected";
+    const runId = isLive ? liveRunId : t.state === "idle" ? "\u2014" : "run_a91b";
+    const tokenInfo = { tok: "8.4k", cost: "0.12" };
+    const counts = isLive ? liveCounts : { llm: null, steps: 5, rec: 4, code: 1, trace: 25 };
+    const activeState = isLive ? livePhase : t.state;
+    const agentsSummary = (() => {
+      const isRun = ["exec", "locator", "recover"].includes(activeState);
+      const isPlanning = ["planning", "clarify", "recommend", "plan", "diff"].includes(activeState);
+      return [
+        isRun || isPlanning ? "on" : "on",
+        activeState === "planning" ? "run" : "on",
+        isRun ? "run" : "on",
+        activeState === "recover" ? "on" : "off",
+        "off"
+      ];
+    })();
+    const stageCls = "aw-stage dock-" + t.dock + (t.collapsed ? " collapsed" : "");
+    const bodyRef = (0, import_react10.useRef)(null);
+    (0, import_react10.useEffect)(() => {
+      if (bodyRef.current) bodyRef.current.scrollTop = bodyRef.current.scrollHeight;
+    }, [activeState, tab]);
+    let body;
+    if (tab === "llm") body = /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(LlmThread2, { state: activeState, mode: t.mode, onCommand: isLive ? onCommand : void 0, runId: isLive ? runId : void 0 });
+    else if (tab === "steps") body = /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(StepsTab2, { mode: t.mode, setMode: (v) => setTweak("mode", v) });
+    else if (tab === "rec") body = /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(RecordedTab2, {});
+    else if (tab === "code") body = /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(CodeTab2, {});
+    else if (tab === "trace") body = /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(TraceTab2, {});
+    const showNow = tab === "llm" && activeState !== "idle";
+    const panelStyle = isLive ? { width: "100%", height: "100%" } : { width: t.dock === "top" ? "100%" : t.panelWidth };
+    const wide = isLive || t.dock === "top" || t.panelWidth >= 620 ? "1" : "0";
+    const panel = /* @__PURE__ */ (0, import_jsx_runtime13.jsxs)(
+      "aside",
+      {
+        ref: panelRef,
+        className: "aw-panel",
+        "data-wide": wide,
+        style: panelStyle,
+        children: [
+          /* @__PURE__ */ (0, import_jsx_runtime13.jsx)("div", { className: "aw-resize" }),
+          !t.collapsed && /* @__PURE__ */ (0, import_jsx_runtime13.jsxs)(import_jsx_runtime13.Fragment, { children: [
+            /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(
+              Header2,
+              {
+                status: statusKey,
+                dock: t.dock,
+                setDock,
+                collapsed: t.collapsed,
+                setCollapsed,
+                tokenInfo,
+                runState: runId,
+                agentsOpen: t.agentsOpen,
+                setAgentsOpen,
+                agentsSummary,
+                mode: t.mode,
+                setMode: (v) => setTweak("mode", v),
+                isLive,
+                theme: t.theme || "light",
+                onThemeToggle: () => setTweak("theme", (t.theme || "light") === "dark" ? "light" : "dark")
+              }
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(TabStrip2, { tab, setTab, counts }),
+            showNow && /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(NowStrip2, { ...isLive ? {} : meta.now }),
+            /* @__PURE__ */ (0, import_jsx_runtime13.jsx)("div", { className: "aw-panel-body", ref: bodyRef, children: body }),
+            tab === "llm" && activeState !== "idle" && /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(
+              Composer2,
+              {
+                onCommand: isLive ? onCommand : void 0,
+                runId: isLive ? runId : void 0
+              }
+            ),
+            /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(
+              Footer2,
+              {
+                phase: isLive ? livePhase : meta.phase,
+                event: isLive ? void 0 : meta.event,
+                blocker: isLive ? void 0 : meta.blocker,
+                nextAction: isLive ? void 0 : meta.next,
+                busy: isLive ? void 0 : meta.busy
+              }
+            ),
+            t.agentsOpen && /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(
+              AgentsPopover2,
+              {
+                state: activeState,
+                onClose: () => setAgentsOpen(false),
+                isLive,
+                agents: liveAgents
+              }
+            )
+          ] }),
+          t.collapsed && /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(CollapsedRail2, { tab, setTab: (id) => {
+            setTab(id);
+            setCollapsed(false);
+          }, setCollapsed })
+        ]
+      }
+    );
+    if (isLive) {
+      return panel;
+    }
+    return /* @__PURE__ */ (0, import_jsx_runtime13.jsxs)(import_jsx_runtime13.Fragment, { children: [
+      /* @__PURE__ */ (0, import_jsx_runtime13.jsxs)("div", { className: stageCls, children: [
+        /* @__PURE__ */ (0, import_jsx_runtime13.jsx)("main", { className: "aw-site", children: t.showWebsite && /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(Website, { highlight: t.highlight }) }),
+        panel
+      ] }),
+      /* @__PURE__ */ (0, import_jsx_runtime13.jsxs)(TweaksPanel, { children: [
+        /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(TweakSection, { label: "Panel" }),
+        /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(
+          TweakRadio,
+          {
+            label: "Dock",
+            value: t.dock,
+            options: ["right", "left", "top", "float"],
+            onChange: (v) => setTweak("dock", v)
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(
+          TweakSlider,
+          {
+            label: "Panel width",
+            value: t.panelWidth,
+            min: 360,
+            max: 720,
+            step: 10,
+            unit: "px",
+            onChange: (v) => setTweak("panelWidth", v)
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(TweakToggle, { label: "Collapsed", value: t.collapsed, onChange: (v) => setTweak("collapsed", v) }),
+        /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(TweakToggle, { label: "Show website behind", value: t.showWebsite, onChange: (v) => setTweak("showWebsite", v) }),
+        /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(TweakSection, { label: "Active tab" }),
+        /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(
+          TweakRadio,
+          {
+            label: "Tab",
+            value: tab,
+            options: ["llm", "steps", "rec", "code", "trace"],
+            onChange: (v) => setTab(v)
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(TweakSection, { label: "Lifecycle state (LLM tab)" }),
+        /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(
+          TweakSelect,
+          {
+            label: "State",
+            value: t.state,
+            options: [
+              "idle",
+              "planning",
+              "clarify",
+              "recommend",
+              "plan",
+              "diff",
+              "permit",
+              "exec",
+              "locator",
+              "recover",
+              "done",
+              "offline",
+              "schema",
+              "nobrowser",
+              "apikey",
+              "otp",
+              "e2e"
+            ],
+            onChange: (v) => setTweak("state", v)
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(TweakSection, { label: "Theme" }),
+        /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(
+          TweakRadio,
+          {
+            label: "Theme",
+            value: t.theme,
+            options: ["light", "dark"],
+            onChange: (v) => setTweak("theme", v)
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(TweakSection, { label: "Interaction mode" }),
+        /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(
+          TweakRadio,
+          {
+            label: "Mode",
+            value: t.mode,
+            options: ["llm", "manual"],
+            onChange: (v) => setTweak("mode", v)
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(TweakSection, { label: "Overlays" }),
+        /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(
+          TweakToggle,
+          {
+            label: "Agent Control Center",
+            value: t.agentsOpen,
+            onChange: (v) => setTweak("agentsOpen", v)
+          }
+        ),
+        /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(TweakSection, { label: "Page highlight" }),
+        /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(
+          TweakRadio,
+          {
+            label: "Highlight CTA",
+            value: t.highlight,
+            options: ["none", "hero-cta", "pro-cta"],
+            onChange: (v) => setTweak("highlight", v)
+          }
+        )
+      ] })
+    ] });
+  }
+  function CollapsedRail2({ tab, setTab, setCollapsed }) {
+    const items = [
+      { id: "llm", Icon: I2.Spark },
+      { id: "steps", Icon: I2.Steps },
+      { id: "rec", Icon: I2.Camera },
+      { id: "code", Icon: I2.Code },
+      { id: "trace", Icon: I2.Trace }
+    ];
+    return /* @__PURE__ */ (0, import_jsx_runtime13.jsxs)("div", { className: "aw-collapsed-rail", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime13.jsx)("button", { className: "aw-icon-btn", onClick: () => setCollapsed(false), title: "Expand", children: /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(I2.CaretR, { style: { transform: "rotate(180deg)" } }) }),
+      /* @__PURE__ */ (0, import_jsx_runtime13.jsx)("div", { className: "aw-rail-sep" }),
+      items.map((i) => /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(
+        "button",
+        {
+          className: "aw-icon-btn " + (tab === i.id ? "active" : ""),
+          onClick: () => setTab(i.id),
+          children: /* @__PURE__ */ (0, import_jsx_runtime13.jsx)(i.Icon, {})
+        },
+        i.id
+      )),
+      /* @__PURE__ */ (0, import_jsx_runtime13.jsx)("div", { className: "aw-rail-sep" }),
+      /* @__PURE__ */ (0, import_jsx_runtime13.jsx)("button", { className: "aw-icon-btn", title: "Status", children: /* @__PURE__ */ (0, import_jsx_runtime13.jsx)("span", { style: { width: 8, height: 8, borderRadius: "50%", background: "var(--grn)", boxShadow: "0 0 0 2px rgba(79,138,91,.18)" } }) })
+    ] });
+  }
+
+  // src/panel-v2-adapter/state-bridge.js
+  function derivePhaseFromStore(storeState, transport) {
+    if (!storeState) return derivePhaseFromTransport(transport);
+    const { connectionStatus } = transport;
+    if (connectionStatus === "offline") return "offline";
+    if (storeState.no_browser_state) return "nobrowser";
+    if (storeState.api_key_required_state) return "apikey";
+    if (storeState.pending_permission) return "permit";
+    if (storeState.pending_recovery) return "recover";
+    const phase = storeState.phase;
+    const mode = storeState.interaction_mode;
+    if (phase === "awaiting_confirmation") {
+      if (mode === "clarification") return "clarify";
+      if (mode === "plan_review") return "plan";
+      return "plan";
+    }
+    if (phase === "executing") return "exec";
+    if (phase === "recovery") return "recover";
+    if (phase === "completed") return "done";
+    if (phase === "planning") return "planning";
+    return "idle";
+  }
+  function derivePhaseFromTransport(transport) {
+    const { connectionStatus, runState, interactionMode } = transport;
+    if (connectionStatus === "offline") return "offline";
+    if (runState === "idle" || !runState) return "idle";
+    if (runState === "planning") return "planning";
+    if (runState === "awaiting_confirmation") {
+      if (interactionMode === "plan_review") return "plan";
+      if (interactionMode === "clarification") return "clarify";
+      return "plan";
+    }
+    if (runState === "executing") return "exec";
+    if (runState === "recovery") return "recover";
+    if (runState === "completed") return "done";
+    return "idle";
+  }
+  function deriveConnection(transport) {
+    const { connectionStatus, runState } = transport;
+    if (connectionStatus === "offline") return "offline";
+    if (runState === "executing") return "busy";
+    return connectionStatus || "connected";
+  }
+  function mapTransportToViewModel(transport, storeState) {
+    const phase = derivePhaseFromStore(storeState, transport);
+    const connection = deriveConnection(transport);
+    const pendingSteps = storeState?.pending_steps ?? transport.pendingSteps ?? [];
+    const recordedSteps = storeState?.recorded_steps ?? transport.recordedSteps ?? [];
+    const codePreview = storeState?.code_preview ?? transport.codePreview ?? null;
+    const traceEntries = storeState?.trace_entries ?? transport.traceEntries ?? [];
+    const conversation = transport.conversation ?? [];
+    const runId = storeState?.run_id ?? transport.run_id ?? null;
+    const agents = storeState?.agents ?? null;
+    return {
+      _version: PANEL_V2_VIEW_MODEL_VERSION,
+      mode: "live",
+      runtime: {
+        phase,
+        connection,
+        runId,
+        pageUrl: transport.pageUrl ?? null
+      },
+      counts: {
+        steps: pendingSteps.length,
+        rec: recordedSteps.length,
+        code: codePreview ? 1 : 0,
+        trace: traceEntries.length
+      },
+      llm: {
+        messages: conversation
+      },
+      agents,
+      steps: pendingSteps,
+      recorded: recordedSteps,
+      code: codePreview,
+      trace: traceEntries
+    };
+  }
+
+  // src/store/types.js
+  var EVENT_TYPES = (
+    /** @type {const} */
+    {
+      session_state: "session_state",
+      run_started: "run_started",
+      plan_ready: "plan_ready",
+      clarification_needed: "clarification_needed",
+      run_completed: "run_completed",
+      runtime_rejected: "runtime_rejected",
+      step_validating: "step_validating",
+      step_executing: "step_executing",
+      step_failed: "step_failed",
+      step_skipped: "step_skipped",
+      step_recorded: "step_recorded",
+      permission_required: "permission_required",
+      recommendation_ready: "recommendation_ready",
+      recovery_needed: "recovery_needed",
+      code_update: "code_update",
+      export_code_result: "export_code_result",
+      recovery_resolved: "recovery_resolved",
+      schema_error: "schema_error",
+      llm_thinking: "llm_thinking",
+      llm_result: "llm_result",
+      status: "status",
+      error: "error",
+      // E1 (B1) — backend agent registry + control mode for AgentsPopover.
+      agent_settings: "agent_settings",
+      // E2 (B2) — state-card events.
+      no_browser: "no_browser",
+      api_key_required: "api_key_required",
+      human_input_required: "human_input_required",
+      e2e_pending: "e2e_pending",
+      // E3 (B5) — endpoint registry advertised on WS connect.
+      endpoint_registry: "endpoint_registry",
+      // E4 (B8/B9/B10) — execution lifecycle events.
+      execution_started: "execution_started",
+      operation_executed: "operation_executed",
+      operation_failed: "operation_failed",
+      precondition_failed: "precondition_failed",
+      locator_update_request: "locator_update_request",
+      locator_update_applied: "locator_update_applied"
+    }
+  );
+
+  // src/commands/command-builder.js
+  var FRONTEND_COMMAND_SCHEMA_VERSION = "autoworkbench.command.v1";
+  function createCommandId() {
+    const crypto = globalThis?.crypto;
+    if (crypto && typeof crypto.randomUUID === "function") {
+      return crypto.randomUUID();
+    }
+    return `cmd-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  }
+  function buildCommand(type, payload, runId) {
+    return {
+      version: FRONTEND_COMMAND_SCHEMA_VERSION,
+      command_id: createCommandId(),
+      type,
+      run_id: runId ?? payload?.run_id ?? null,
+      payload: payload ?? {},
+      timestamp: Date.now()
+    };
+  }
+
+  // src/panel-v2-adapter/command-bridge.js
+  var PANEL_V2_SUPPORTED_ACTIONS = [
+    "stop_run",
+    "correction",
+    "confirm_plan",
+    "confirmed",
+    "skip_step",
+    "option_selected",
+    "permission_allow",
+    "permission_deny"
+  ];
+  var PANEL_V2_DEFERRED_ACTIONS = [
+    "update_agent_settings",
+    "select_locator_candidate",
+    "apply_recovery",
+    "revalidate_locator"
+  ];
+  function buildPanelV2Command(action, payload, runId) {
+    if (PANEL_V2_DEFERRED_ACTIONS.includes(action)) {
+      return { supported: false, command: null, reason: `${action} is deferred \u2014 not yet wired in panel-v2` };
+    }
+    if (!PANEL_V2_SUPPORTED_ACTIONS.includes(action)) {
+      return { supported: false, command: null, reason: `${action} is not a known panel-v2 action` };
+    }
+    if (action === "permission_allow" || action === "permission_deny") {
+      const decision = action === "permission_allow" ? "allow" : "deny";
+      const cmd2 = buildCommand("permission_decision", { ...payload ?? {}, decision }, runId);
+      return { supported: true, command: cmd2 };
+    }
+    const cmd = buildCommand(action, payload ?? {}, runId);
+    return { supported: true, command: cmd };
+  }
+
+  // src/panel-v2-adapter/live-host.jsx
+  var import_jsx_runtime14 = __toESM(require_jsx_runtime());
+  function PanelV2LiveHost({ transport, storeState, onSendCommand, onCollapseChange, onDockChange }) {
+    const vm = (0, import_react11.useMemo)(
+      () => mapTransportToViewModel(transport ?? {}, storeState ?? null),
+      [transport, storeState]
+    );
+    const onCommand = (0, import_react11.useMemo)(() => {
+      if (!onSendCommand) return void 0;
+      return (action, payload) => {
+        const runId = payload?.run_id ?? vm.runtime?.runId ?? null;
+        const result = buildPanelV2Command(action, payload, runId);
+        if (result.supported && result.command) {
+          onSendCommand(result.command);
+        }
+      };
+    }, [onSendCommand, vm]);
+    return /* @__PURE__ */ (0, import_jsx_runtime14.jsx)(
+      App,
+      {
+        viewModel: vm,
+        mode: "live",
+        onCommand,
+        onCollapseChange,
+        onDockChange
+      }
+    );
+  }
+
   // src/host/host.jsx
   var SHADOW_HOST_ID = "aw-shadow-host";
   var SHADOW_MOUNT_ID = "aw-shadow-mount";
@@ -29190,51 +33717,6 @@
     }
     return null;
   }
-
-  // src/store/types.js
-  var EVENT_TYPES = (
-    /** @type {const} */
-    {
-      session_state: "session_state",
-      run_started: "run_started",
-      plan_ready: "plan_ready",
-      clarification_needed: "clarification_needed",
-      run_completed: "run_completed",
-      runtime_rejected: "runtime_rejected",
-      step_validating: "step_validating",
-      step_executing: "step_executing",
-      step_failed: "step_failed",
-      step_skipped: "step_skipped",
-      step_recorded: "step_recorded",
-      permission_required: "permission_required",
-      recommendation_ready: "recommendation_ready",
-      recovery_needed: "recovery_needed",
-      code_update: "code_update",
-      export_code_result: "export_code_result",
-      recovery_resolved: "recovery_resolved",
-      schema_error: "schema_error",
-      llm_thinking: "llm_thinking",
-      llm_result: "llm_result",
-      status: "status",
-      error: "error",
-      // E1 (B1) — backend agent registry + control mode for AgentsPopover.
-      agent_settings: "agent_settings",
-      // E2 (B2) — state-card events.
-      no_browser: "no_browser",
-      api_key_required: "api_key_required",
-      human_input_required: "human_input_required",
-      e2e_pending: "e2e_pending",
-      // E3 (B5) — endpoint registry advertised on WS connect.
-      endpoint_registry: "endpoint_registry",
-      // E4 (B8/B9/B10) — execution lifecycle events.
-      execution_started: "execution_started",
-      operation_executed: "operation_executed",
-      operation_failed: "operation_failed",
-      precondition_failed: "precondition_failed",
-      locator_update_request: "locator_update_request",
-      locator_update_applied: "locator_update_applied"
-    }
-  );
 
   // src/store/reducer.js
   function createInitialState() {
@@ -29548,10 +34030,10 @@
   }
 
   // src/panel-hooks/use-plan-ready-auto-tab.js
-  var import_react6 = __toESM(require_react());
+  var import_react12 = __toESM(require_react());
   function usePlanReadyAutoTab({ plan, phase, currentTab, setTab }) {
-    const lastSeenPlanRef = (0, import_react6.useRef)(null);
-    (0, import_react6.useEffect)(() => {
+    const lastSeenPlanRef = (0, import_react12.useRef)(null);
+    (0, import_react12.useEffect)(() => {
       const previous = lastSeenPlanRef.current;
       lastSeenPlanRef.current = plan;
       if (!plan) return;
@@ -29831,146 +34313,146 @@ test('pricing page \xB7 sanity', async ({ page }) => {
   };
 
   // src/demo/website-preview.jsx
-  var import_react7 = __toESM(require_react());
-  var import_jsx_runtime7 = __toESM(require_jsx_runtime());
+  var import_react13 = __toESM(require_react());
+  var import_jsx_runtime15 = __toESM(require_jsx_runtime());
   function WebsitePreview({ highlight = "hero-cta" }) {
-    return /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "aw-website", "data-testid": "aw-website-preview", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("style", { children: WEBSITE_CSS }),
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "ws-bar", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "btn", children: "\u2190" }),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "btn", children: "\u2192" }),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "btn", children: "\u27F3" }),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "url", "data-testid": "aw-website-url", children: "acme.dev/pricing" }),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "tabs", children: /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "ws-tab", children: "Pricing \u2014 Acme" }) })
+    return /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("div", { className: "aw-website", "data-testid": "aw-website-preview", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("style", { children: WEBSITE_CSS }),
+      /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("div", { className: "ws-bar", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("span", { className: "btn", children: "\u2190" }),
+        /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("span", { className: "btn", children: "\u2192" }),
+        /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("span", { className: "btn", children: "\u27F3" }),
+        /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("span", { className: "url", "data-testid": "aw-website-url", children: "acme.dev/pricing" }),
+        /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("div", { className: "tabs", children: /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("span", { className: "ws-tab", children: "Pricing \u2014 Acme" }) })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("nav", { className: "ws-topnav", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "logo", children: "Acme" }),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { className: "topnav-links", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("a", { children: "Product" }),
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("a", { children: "Solutions" }),
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("a", { children: "Docs" }),
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("a", { className: "active", children: "Pricing" }),
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("a", { children: "Changelog" })
+      /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("nav", { className: "ws-topnav", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("span", { className: "logo", children: "Acme" }),
+        /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("span", { className: "topnav-links", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("a", { children: "Product" }),
+          /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("a", { children: "Solutions" }),
+          /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("a", { children: "Docs" }),
+          /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("a", { className: "active", children: "Pricing" }),
+          /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("a", { children: "Changelog" })
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { className: "right", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("a", { className: "signin", children: "Sign in" }),
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("a", { className: "cta" + (highlight === "hero-cta" ? "" : ""), "data-testid": "aw-website-signin-cta", children: "Get started" })
+        /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("span", { className: "right", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("a", { className: "signin", children: "Sign in" }),
+          /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("a", { className: "cta" + (highlight === "hero-cta" ? "" : ""), "data-testid": "aw-website-signin-cta", children: "Get started" })
         ] })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("section", { className: "ws-hero", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "ws-eyebrow", children: "PRICING" }),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("h1", { className: "ws-h1", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("section", { className: "ws-hero", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("span", { className: "ws-eyebrow", children: "PRICING" }),
+        /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("h1", { className: "ws-h1", children: [
           "Plans that scale with your ",
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("em", { children: "QA team" }),
+          /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("em", { children: "QA team" }),
           ", not your headcount."
         ] }),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("p", { className: "ws-sub", children: "Start free. Add seats when you need them. Cancel anytime \u2014 no card required." }),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "ws-hero-ctas", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(
+        /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("p", { className: "ws-sub", children: "Start free. Add seats when you need them. Cancel anytime \u2014 no card required." }),
+        /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("div", { className: "ws-hero-ctas", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)(
             "a",
             {
               className: "btn primary" + (highlight === "hero-cta" ? " highlight" : ""),
               "data-testid": "aw-website-hero-cta",
               children: [
                 "Get started",
-                highlight === "hero-cta" ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "pulse" }) : null
+                highlight === "hero-cta" ? /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("span", { className: "pulse" }) : null
               ]
             }
           ),
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("a", { className: "btn ghost", children: "Talk to sales" })
+          /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("a", { className: "btn ghost", children: "Talk to sales" })
         ] })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("section", { className: "ws-section", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("h2", { children: "Choose a plan" }),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("p", { className: "h2-sub", children: "Monthly billing. Switch anytime." }),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "ws-plans", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "ws-plan", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "ws-plan-name", children: "Starter" }),
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "ws-plan-price", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("section", { className: "ws-section", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("h2", { children: "Choose a plan" }),
+        /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("p", { className: "h2-sub", children: "Monthly billing. Switch anytime." }),
+        /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("div", { className: "ws-plans", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("div", { className: "ws-plan", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("div", { className: "ws-plan-name", children: "Starter" }),
+            /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("div", { className: "ws-plan-price", children: [
               "$0",
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "per", children: "/mo" })
+              /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("span", { className: "per", children: "/mo" })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "ws-plan-desc", children: "For individuals automating their own work." }),
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("a", { className: "btn ws-plan-cta", children: "Get started" }),
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("ul", { className: "ws-plan-feat", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("li", { children: "1 workspace" }),
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("li", { children: "1 concurrent run" }),
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("li", { children: "Community support" }),
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("li", { children: "7-day trace retention" })
+            /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("div", { className: "ws-plan-desc", children: "For individuals automating their own work." }),
+            /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("a", { className: "btn ws-plan-cta", children: "Get started" }),
+            /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("ul", { className: "ws-plan-feat", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("li", { children: "1 workspace" }),
+              /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("li", { children: "1 concurrent run" }),
+              /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("li", { children: "Community support" }),
+              /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("li", { children: "7-day trace retention" })
             ] })
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "ws-plan featured", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "ws-plan-tag", children: "Most popular" }),
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "ws-plan-name", children: "Pro" }),
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "ws-plan-price", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("div", { className: "ws-plan featured", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("div", { className: "ws-plan-tag", children: "Most popular" }),
+            /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("div", { className: "ws-plan-name", children: "Pro" }),
+            /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("div", { className: "ws-plan-price", children: [
               "$49",
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "per", children: "/mo" })
+              /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("span", { className: "per", children: "/mo" })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "ws-plan-desc", children: "For QA teams that ship every week." }),
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)(
+            /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("div", { className: "ws-plan-desc", children: "For QA teams that ship every week." }),
+            /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)(
               "a",
               {
                 className: "btn primary ws-plan-cta" + (highlight === "pro-cta" ? " highlight" : ""),
                 "data-testid": "aw-website-pro-cta",
                 children: [
                   "Start free trial",
-                  highlight === "pro-cta" ? /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "pulse" }) : null
+                  highlight === "pro-cta" ? /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("span", { className: "pulse" }) : null
                 ]
               }
             ),
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("ul", { className: "ws-plan-feat", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("li", { children: "Unlimited workspaces" }),
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("li", { children: "10 concurrent runs" }),
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("li", { children: "Email support, 24h SLA" }),
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("li", { children: "90-day trace retention" }),
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("li", { children: "SSO via Google & Microsoft" })
+            /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("ul", { className: "ws-plan-feat", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("li", { children: "Unlimited workspaces" }),
+              /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("li", { children: "10 concurrent runs" }),
+              /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("li", { children: "Email support, 24h SLA" }),
+              /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("li", { children: "90-day trace retention" }),
+              /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("li", { children: "SSO via Google & Microsoft" })
             ] })
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "ws-plan", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "ws-plan-name", children: "Enterprise" }),
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "ws-plan-price", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("div", { className: "ws-plan", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("div", { className: "ws-plan-name", children: "Enterprise" }),
+            /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("div", { className: "ws-plan-price", children: [
               "Custom",
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "per" })
+              /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("span", { className: "per" })
             ] }),
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("div", { className: "ws-plan-desc", children: "SAML, audit log, dedicated capacity." }),
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("a", { className: "btn ws-plan-cta", children: "Talk to sales" }),
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("ul", { className: "ws-plan-feat", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("li", { children: "Everything in Pro" }),
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("li", { children: "SAML SSO + SCIM" }),
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("li", { children: "Audit log + DPA" }),
-              /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("li", { children: "Dedicated capacity" })
+            /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("div", { className: "ws-plan-desc", children: "SAML, audit log, dedicated capacity." }),
+            /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("a", { className: "btn ws-plan-cta", children: "Talk to sales" }),
+            /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("ul", { className: "ws-plan-feat", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("li", { children: "Everything in Pro" }),
+              /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("li", { children: "SAML SSO + SCIM" }),
+              /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("li", { children: "Audit log + DPA" }),
+              /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("li", { children: "Dedicated capacity" })
             ] })
           ] })
         ] })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("section", { className: "ws-section", children: [
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("h2", { children: "Frequently asked" }),
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "ws-faq", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "ws-faq-row", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "car", children: "+" }),
+      /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("section", { className: "ws-section", children: [
+        /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("h2", { children: "Frequently asked" }),
+        /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("div", { className: "ws-faq", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("div", { className: "ws-faq-row", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("span", { className: "car", children: "+" }),
             "Can I bring my existing Playwright tests?"
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "ws-faq-row", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "car", children: "+" }),
+          /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("div", { className: "ws-faq-row", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("span", { className: "car", children: "+" }),
             "How does parallel run pricing work?"
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "ws-faq-row", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "car", children: "+" }),
+          /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("div", { className: "ws-faq-row", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("span", { className: "car", children: "+" }),
             "Do you support flaky-test auto-quarantine?"
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("div", { className: "ws-faq-row", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("span", { className: "car", children: "+" }),
+          /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("div", { className: "ws-faq-row", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("span", { className: "car", children: "+" }),
             "Where is data stored?"
           ] })
         ] })
       ] }),
-      /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("footer", { className: "ws-foot", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("footer", { className: "ws-foot", children: [
         "\xA9 2026 Acme Labs \xB7 Built in San Francisco",
-        /* @__PURE__ */ (0, import_jsx_runtime7.jsxs)("span", { className: "ws-foot-links", children: [
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("a", { children: "Status" }),
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("a", { children: "Docs" }),
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("a", { children: "Privacy" }),
-          /* @__PURE__ */ (0, import_jsx_runtime7.jsx)("a", { children: "Security" })
+        /* @__PURE__ */ (0, import_jsx_runtime15.jsxs)("span", { className: "ws-foot-links", children: [
+          /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("a", { children: "Status" }),
+          /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("a", { children: "Docs" }),
+          /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("a", { children: "Privacy" }),
+          /* @__PURE__ */ (0, import_jsx_runtime15.jsx)("a", { children: "Security" })
         ] })
       ] })
     ] });
@@ -30099,8 +34581,8 @@ test('pricing page \xB7 sanity', async ({ page }) => {
 `;
 
   // src/demo/tweaks-panel.jsx
-  var import_react8 = __toESM(require_react());
-  var import_jsx_runtime8 = __toESM(require_jsx_runtime());
+  var import_react14 = __toESM(require_react());
+  var import_jsx_runtime16 = __toESM(require_jsx_runtime());
   var SECTIONS = [
     {
       id: "panel",
@@ -30214,7 +34696,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
     }
   }
   function Toggle({ value, onChange, testid }) {
-    return /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
+    return /* @__PURE__ */ (0, import_jsx_runtime16.jsx)(
       "button",
       {
         type: "button",
@@ -30222,12 +34704,12 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         "data-testid": testid,
         "aria-pressed": value ? "true" : "false",
         onClick: () => onChange(!value),
-        children: /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "twk-thumb" })
+        children: /* @__PURE__ */ (0, import_jsx_runtime16.jsx)("span", { className: "twk-thumb" })
       }
     );
   }
   function Radio({ value, options, onChange, testid }) {
-    return /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "twk-seg", role: "group", "data-testid": testid, children: options.map((opt) => /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
+    return /* @__PURE__ */ (0, import_jsx_runtime16.jsx)("span", { className: "twk-seg", role: "group", "data-testid": testid, children: options.map((opt) => /* @__PURE__ */ (0, import_jsx_runtime16.jsx)(
       "button",
       {
         type: "button",
@@ -30241,8 +34723,8 @@ test('pricing page \xB7 sanity', async ({ page }) => {
     )) });
   }
   function Slider({ value, min, max, step, unit, onChange, testid }) {
-    return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { className: "twk-slider", children: [
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
+    return /* @__PURE__ */ (0, import_jsx_runtime16.jsxs)("span", { className: "twk-slider", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime16.jsx)(
         "input",
         {
           type: "range",
@@ -30254,33 +34736,33 @@ test('pricing page \xB7 sanity', async ({ page }) => {
           onChange: (e) => onChange(Number(e.target.value))
         }
       ),
-      /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("span", { className: "twk-num", children: [
+      /* @__PURE__ */ (0, import_jsx_runtime16.jsxs)("span", { className: "twk-num", children: [
         value,
         unit
       ] })
     ] });
   }
   function Select({ value, options, onChange, testid }) {
-    return /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
+    return /* @__PURE__ */ (0, import_jsx_runtime16.jsx)(
       "select",
       {
         className: "twk-select",
         value,
         "data-testid": testid,
         onChange: (e) => onChange(e.target.value),
-        children: options.map((opt) => /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("option", { value: opt, children: opt }, opt))
+        children: options.map((opt) => /* @__PURE__ */ (0, import_jsx_runtime16.jsx)("option", { value: opt, children: opt }, opt))
       }
     );
   }
-  function TweaksPanel({
+  function TweaksPanel2({
     value = DEFAULT_TWEAKS,
     onChange = () => {
     },
     defaultOpen = false
   }) {
-    const [open, setOpen] = (0, import_react8.useState)(defaultOpen);
-    const panelRef = (0, import_react8.useRef)(null);
-    (0, import_react8.useEffect)(() => {
+    const [open, setOpen] = (0, import_react14.useState)(defaultOpen);
+    const panelRef = (0, import_react14.useRef)(null);
+    (0, import_react14.useEffect)(() => {
       function onMessage(ev) {
         if (!ev || !ev.data || typeof ev.data.type !== "string") return;
         if (ev.data.type === "__activate_edit_mode") setOpen(true);
@@ -30295,7 +34777,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       broadcast(edits);
     };
     if (!open) return null;
-    return /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)(
+    return /* @__PURE__ */ (0, import_jsx_runtime16.jsxs)(
       "aside",
       {
         ref: panelRef,
@@ -30304,9 +34786,9 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         "aria-label": "Tweaks panel",
         "data-testid": "aw-tweaks-panel",
         children: [
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("header", { className: "twk-hd", children: [
-            /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "twk-title", children: "Tweaks" }),
-            /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
+          /* @__PURE__ */ (0, import_jsx_runtime16.jsxs)("header", { className: "twk-hd", children: [
+            /* @__PURE__ */ (0, import_jsx_runtime16.jsx)("span", { className: "twk-title", children: "Tweaks" }),
+            /* @__PURE__ */ (0, import_jsx_runtime16.jsx)(
               "button",
               {
                 type: "button",
@@ -30318,18 +34800,18 @@ test('pricing page \xB7 sanity', async ({ page }) => {
               }
             )
           ] }),
-          /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "twk-body", children: SECTIONS.map((sec) => /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("section", { className: "twk-sect", "data-testid": `aw-tweaks-section-${sec.id}`, children: [
-            /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("div", { className: "twk-sect-label", children: sec.label }),
-            sec.fields.map((f) => /* @__PURE__ */ (0, import_jsx_runtime8.jsxs)("div", { className: "twk-row", children: [
-              /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "twk-lbl", children: f.label }),
-              /* @__PURE__ */ (0, import_jsx_runtime8.jsx)("span", { className: "twk-val", children: f.kind === "toggle" ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
+          /* @__PURE__ */ (0, import_jsx_runtime16.jsx)("div", { className: "twk-body", children: SECTIONS.map((sec) => /* @__PURE__ */ (0, import_jsx_runtime16.jsxs)("section", { className: "twk-sect", "data-testid": `aw-tweaks-section-${sec.id}`, children: [
+            /* @__PURE__ */ (0, import_jsx_runtime16.jsx)("div", { className: "twk-sect-label", children: sec.label }),
+            sec.fields.map((f) => /* @__PURE__ */ (0, import_jsx_runtime16.jsxs)("div", { className: "twk-row", children: [
+              /* @__PURE__ */ (0, import_jsx_runtime16.jsx)("span", { className: "twk-lbl", children: f.label }),
+              /* @__PURE__ */ (0, import_jsx_runtime16.jsx)("span", { className: "twk-val", children: f.kind === "toggle" ? /* @__PURE__ */ (0, import_jsx_runtime16.jsx)(
                 Toggle,
                 {
                   value: !!value[f.key],
                   onChange: (v) => setKey(f.key, v),
                   testid: `aw-tweaks-${f.key}`
                 }
-              ) : f.kind === "radio" ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
+              ) : f.kind === "radio" ? /* @__PURE__ */ (0, import_jsx_runtime16.jsx)(
                 Radio,
                 {
                   value: value[f.key],
@@ -30337,7 +34819,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
                   onChange: (v) => setKey(f.key, v),
                   testid: `aw-tweaks-${f.key}`
                 }
-              ) : f.kind === "slider" ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
+              ) : f.kind === "slider" ? /* @__PURE__ */ (0, import_jsx_runtime16.jsx)(
                 Slider,
                 {
                   value: Number(value[f.key]),
@@ -30348,7 +34830,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
                   onChange: (v) => setKey(f.key, v),
                   testid: `aw-tweaks-${f.key}`
                 }
-              ) : f.kind === "select" ? /* @__PURE__ */ (0, import_jsx_runtime8.jsx)(
+              ) : f.kind === "select" ? /* @__PURE__ */ (0, import_jsx_runtime16.jsx)(
                 Select,
                 {
                   value: value[f.key],
@@ -30365,7 +34847,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
   }
 
   // src/main.jsx
-  var import_jsx_runtime9 = __toESM(require_jsx_runtime());
+  var import_jsx_runtime17 = __toESM(require_jsx_runtime());
   var VALID_TABS = /* @__PURE__ */ new Set(["workbench", "llm", "steps", "code", "debug"]);
   var DEFAULT_CONFIG = {
     state: "idle",
@@ -30376,7 +34858,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
   var SHADOW_STYLE_ID = "aw-shadow-style";
   var SHADOW_STYLE_FLAG = "data-autoworkbench-shadow-style";
   var AUTOWORKBENCH_STYLE_ID = "autoworkbench-style";
-  var FRONTEND_COMMAND_SCHEMA_VERSION = "autoworkbench.command.v1";
+  var FRONTEND_COMMAND_SCHEMA_VERSION2 = "autoworkbench.command.v1";
   var RUN_STATE_ALIASES = {
     idle: "idle",
     planning: "planning",
@@ -30560,7 +35042,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
     const normalizedPayload = payload && typeof payload === "object" ? { ...payload } : {};
     const envelope = {
       type: firstNonEmptyText(commandType),
-      schema_version: FRONTEND_COMMAND_SCHEMA_VERSION,
+      schema_version: FRONTEND_COMMAND_SCHEMA_VERSION2,
       command_id: createFrontendCommandId(),
       source: "frontend",
       payload: normalizedPayload
@@ -31772,7 +36254,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
     };
   }
   function useAutoWorkbenchTransport(config) {
-    const wsUrl = (0, import_react9.useMemo)(
+    const wsUrl = (0, import_react15.useMemo)(
       () => resolveWsUrl(config),
       [
         config?.wsUrl,
@@ -31788,86 +36270,86 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         config?.host
       ]
     );
-    const [connectionStatus, setConnectionStatus] = (0, import_react9.useState)("disconnected");
-    const [runState, setRunStateRaw] = (0, import_react9.useState)(() => normalizeRunState(config.runState ?? config.state) || "idle");
-    const setRunState = (0, import_react9.useCallback)((next) => {
+    const [connectionStatus, setConnectionStatus] = (0, import_react15.useState)("disconnected");
+    const [runState, setRunStateRaw] = (0, import_react15.useState)(() => normalizeRunState(config.runState ?? config.state) || "idle");
+    const setRunState = (0, import_react15.useCallback)((next) => {
       setRunStateRaw((prev) => {
         const nv = typeof next === "function" ? next(prev) : next;
         if (nv !== prev) log("STATE", { field: "runState", from: prev, to: nv });
         return nv;
       });
     }, []);
-    const [conversation, setConversation] = (0, import_react9.useState)([]);
-    const [timeline, setTimeline] = (0, import_react9.useState)([]);
-    const [traceEntries, setTraceEntries] = (0, import_react9.useState)(() => normalizeTraceEntries(config.traceEntries));
-    const [plan, setPlan] = (0, import_react9.useState)(null);
-    const [codePreview, setCodePreview] = (0, import_react9.useState)("");
-    const [lastError, setLastError] = (0, import_react9.useState)("");
-    const [lastEvent, setLastEvent] = (0, import_react9.useState)(null);
-    const [lastSavedSnapshot, setLastSavedSnapshot] = (0, import_react9.useState)(null);
-    const [pendingCommands, setPendingCommands] = (0, import_react9.useState)(() => normalizePendingCommands(config.pendingCommands));
-    const [pendingSteps, setPendingSteps] = (0, import_react9.useState)(() => normalizePendingSteps(config.pendingSteps));
-    const [recordedSteps, setRecordedSteps] = (0, import_react9.useState)(() => normalizeRecordedSteps(config.recordedSteps));
-    const [lastReplayByStepId, setLastReplayByStepId] = (0, import_react9.useState)({});
-    const [codeDiagnostics, setCodeDiagnostics] = (0, import_react9.useState)(() => normalizeCodeDiagnostics(config.codeDiagnostics));
-    const [codeSaveResult, setCodeSaveResult] = (0, import_react9.useState)(null);
-    const [interactionMode, setInteractionModeRaw] = (0, import_react9.useState)(
+    const [conversation, setConversation] = (0, import_react15.useState)([]);
+    const [timeline, setTimeline] = (0, import_react15.useState)([]);
+    const [traceEntries, setTraceEntries] = (0, import_react15.useState)(() => normalizeTraceEntries(config.traceEntries));
+    const [plan, setPlan] = (0, import_react15.useState)(null);
+    const [codePreview, setCodePreview] = (0, import_react15.useState)("");
+    const [lastError, setLastError] = (0, import_react15.useState)("");
+    const [lastEvent, setLastEvent] = (0, import_react15.useState)(null);
+    const [lastSavedSnapshot, setLastSavedSnapshot] = (0, import_react15.useState)(null);
+    const [pendingCommands, setPendingCommands] = (0, import_react15.useState)(() => normalizePendingCommands(config.pendingCommands));
+    const [pendingSteps, setPendingSteps] = (0, import_react15.useState)(() => normalizePendingSteps(config.pendingSteps));
+    const [recordedSteps, setRecordedSteps] = (0, import_react15.useState)(() => normalizeRecordedSteps(config.recordedSteps));
+    const [lastReplayByStepId, setLastReplayByStepId] = (0, import_react15.useState)({});
+    const [codeDiagnostics, setCodeDiagnostics] = (0, import_react15.useState)(() => normalizeCodeDiagnostics(config.codeDiagnostics));
+    const [codeSaveResult, setCodeSaveResult] = (0, import_react15.useState)(null);
+    const [interactionMode, setInteractionModeRaw] = (0, import_react15.useState)(
       () => normalizeInteractionMode(config.interactionMode ?? config.mode ?? config.runState ?? config.state) || "idle"
     );
-    const setInteractionMode = (0, import_react9.useCallback)((next) => {
+    const setInteractionMode = (0, import_react15.useCallback)((next) => {
       setInteractionModeRaw((prev) => {
         const nv = typeof next === "function" ? next(prev) : next;
         if (nv !== prev) log("STATE", { field: "interactionMode", from: prev, to: nv });
         return nv;
       });
     }, []);
-    const [planCorrectionText, setPlanCorrectionText] = (0, import_react9.useState)("");
-    const [clarificationQuestion, setClarificationQuestion] = (0, import_react9.useState)("");
-    const [clarificationOptions, setClarificationOptions] = (0, import_react9.useState)([]);
-    const [clarificationAnswerText, setClarificationAnswerText] = (0, import_react9.useState)("");
-    const [recoveryText, setRecoveryText] = (0, import_react9.useState)("");
-    const [activePickerStepId, setActivePickerStepId] = (0, import_react9.useState)("");
-    const socketRef = (0, import_react9.useRef)(null);
-    const retryRef = (0, import_react9.useRef)(null);
-    const attemptRef = (0, import_react9.useRef)(0);
-    const mountedRef = (0, import_react9.useRef)(true);
-    const planRef = (0, import_react9.useRef)(null);
-    const pendingCommandsRef = (0, import_react9.useRef)([]);
-    const activePickerStepIdRef = (0, import_react9.useRef)("");
-    const pendingStepsRef = (0, import_react9.useRef)([]);
-    (0, import_react9.useLayoutEffect)(() => {
+    const [planCorrectionText, setPlanCorrectionText] = (0, import_react15.useState)("");
+    const [clarificationQuestion, setClarificationQuestion] = (0, import_react15.useState)("");
+    const [clarificationOptions, setClarificationOptions] = (0, import_react15.useState)([]);
+    const [clarificationAnswerText, setClarificationAnswerText] = (0, import_react15.useState)("");
+    const [recoveryText, setRecoveryText] = (0, import_react15.useState)("");
+    const [activePickerStepId, setActivePickerStepId] = (0, import_react15.useState)("");
+    const socketRef = (0, import_react15.useRef)(null);
+    const retryRef = (0, import_react15.useRef)(null);
+    const attemptRef = (0, import_react15.useRef)(0);
+    const mountedRef = (0, import_react15.useRef)(true);
+    const planRef = (0, import_react15.useRef)(null);
+    const pendingCommandsRef = (0, import_react15.useRef)([]);
+    const activePickerStepIdRef = (0, import_react15.useRef)("");
+    const pendingStepsRef = (0, import_react15.useRef)([]);
+    (0, import_react15.useLayoutEffect)(() => {
       pendingCommandsRef.current = pendingCommands;
     }, [pendingCommands]);
-    (0, import_react9.useLayoutEffect)(() => {
+    (0, import_react15.useLayoutEffect)(() => {
       activePickerStepIdRef.current = activePickerStepId;
     }, [activePickerStepId]);
-    (0, import_react9.useLayoutEffect)(() => {
+    (0, import_react15.useLayoutEffect)(() => {
       pendingStepsRef.current = pendingSteps;
     }, [pendingSteps]);
-    (0, import_react9.useLayoutEffect)(() => {
+    (0, import_react15.useLayoutEffect)(() => {
       planRef.current = plan;
     }, [plan]);
-    const updatePendingSteps = (0, import_react9.useCallback)((updater) => {
+    const updatePendingSteps = (0, import_react15.useCallback)((updater) => {
       setPendingSteps((current) => {
         const next = typeof updater === "function" ? updater(current) : updater;
         pendingStepsRef.current = next;
         return next;
       });
     }, []);
-    const updatePendingCommands = (0, import_react9.useCallback)((updater) => {
+    const updatePendingCommands = (0, import_react15.useCallback)((updater) => {
       setPendingCommands((current) => {
         const next = typeof updater === "function" ? updater(current) : updater;
         pendingCommandsRef.current = next;
         return next;
       });
     }, []);
-    const recordTraceEntry = (0, import_react9.useCallback)((traceEntry) => {
+    const recordTraceEntry = (0, import_react15.useCallback)((traceEntry) => {
       if (!traceEntry || typeof traceEntry !== "object") {
         return;
       }
       setTraceEntries((current) => mergeTraceEntryList(current, traceEntry));
     }, []);
-    const recordPendingCommand = (0, import_react9.useCallback)(
+    const recordPendingCommand = (0, import_react15.useCallback)(
       (commandEnvelope, metadata = {}) => {
         const commandId = firstNonEmptyText(commandEnvelope?.command_id, commandEnvelope?.commandId);
         const commandType = firstNonEmptyText(commandEnvelope?.type);
@@ -31887,7 +36369,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       },
       [updatePendingCommands]
     );
-    const acknowledgePendingCommands = (0, import_react9.useCallback)(
+    const acknowledgePendingCommands = (0, import_react15.useCallback)(
       (eventType, metadata = {}) => {
         updatePendingCommands((current) => {
           const index = current.findIndex((command) => command && command.status === "pending");
@@ -31907,7 +36389,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       },
       [updatePendingCommands]
     );
-    const rejectPendingCommand = (0, import_react9.useCallback)(
+    const rejectPendingCommand = (0, import_react15.useCallback)(
       (commandId, metadata = {}) => {
         const rejectionId = firstNonEmptyText(commandId);
         if (!rejectionId) {
@@ -31933,7 +36415,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       },
       [updatePendingCommands]
     );
-    const updateLastReplayByStepId = (0, import_react9.useCallback)((stepId, replayStatus) => {
+    const updateLastReplayByStepId = (0, import_react15.useCallback)((stepId, replayStatus) => {
       const replayStepId = firstNonEmptyText(stepId);
       if (!replayStepId) {
         return;
@@ -31943,17 +36425,17 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         [replayStepId]: replayStatus
       }));
     }, []);
-    const appendTimeline = (0, import_react9.useCallback)((label, level = "ok") => {
+    const appendTimeline = (0, import_react15.useCallback)((label, level = "ok") => {
       const entry = normalizeTimelineEntry(label, level);
       setTimeline((current) => [...current.slice(-39), entry]);
       setLastEvent({ type: "timeline", ...entry });
     }, []);
-    const appendConversation = (0, import_react9.useCallback)((role, text) => {
+    const appendConversation = (0, import_react15.useCallback)((role, text) => {
       const entry = normalizeConversationEntry(role, text);
       setConversation((current) => [...current.slice(-29), entry]);
       setLastEvent({ type: "conversation", ...entry });
     }, []);
-    const sendPayload = (0, import_react9.useCallback)(
+    const sendPayload = (0, import_react15.useCallback)(
       (payload, offlineMessage = "WebSocket not connected.") => {
         const socket = socketRef.current;
         const t = payload?.type ?? "?";
@@ -31978,7 +36460,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       },
       [appendTimeline]
     );
-    const updatePendingStepIntent = (0, import_react9.useCallback)((stepId, intent) => {
+    const updatePendingStepIntent = (0, import_react15.useCallback)((stepId, intent) => {
       updatePendingSteps(
         (current) => current.map((step) => {
           if (step.id !== stepId) {
@@ -32002,7 +36484,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         })
       );
     }, [updatePendingSteps]);
-    const updatePendingStepExpectedOutcome = (0, import_react9.useCallback)((stepId, expectedOutcome) => {
+    const updatePendingStepExpectedOutcome = (0, import_react15.useCallback)((stepId, expectedOutcome) => {
       updatePendingSteps(
         (current) => current.map((step) => {
           if (step.id !== stepId) {
@@ -32023,7 +36505,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         })
       );
     }, [updatePendingSteps]);
-    const updatePendingStepElementTarget = (0, import_react9.useCallback)((stepId, selectedCandidateIndex) => {
+    const updatePendingStepElementTarget = (0, import_react15.useCallback)((stepId, selectedCandidateIndex) => {
       updatePendingSteps(
         (current) => current.map((step) => {
           if (step.id !== stepId) {
@@ -32048,7 +36530,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         })
       );
     }, [updatePendingSteps]);
-    const removePendingStep = (0, import_react9.useCallback)(
+    const removePendingStep = (0, import_react15.useCallback)(
       (stepId) => {
         if (!stepId) {
           return;
@@ -32068,11 +36550,11 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       },
       [appendTimeline, updatePendingSteps]
     );
-    const addPendingStep = (0, import_react9.useCallback)(() => {
+    const addPendingStep = (0, import_react15.useCallback)(() => {
       updatePendingSteps((current) => [...current, createPendingStep("")]);
       appendTimeline("Step added.", "ok");
     }, [appendTimeline, updatePendingSteps]);
-    const handleReplayRecordedStep = (0, import_react9.useCallback)(
+    const handleReplayRecordedStep = (0, import_react15.useCallback)(
       (step) => {
         const stepId = firstNonEmptyText(step?.id, step?.step_id, step?.stepId);
         const title = firstNonEmptyText(step?.display_title, step?.element_name, step?.action, stepId, "Recorded step");
@@ -32093,7 +36575,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       },
       [appendTimeline, sendPayload]
     );
-    const handleReplayAllRecordedSteps = (0, import_react9.useCallback)(() => {
+    const handleReplayAllRecordedSteps = (0, import_react15.useCallback)(() => {
       const sent = sendPayload(
         {
           type: "replay_all",
@@ -32105,7 +36587,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         appendTimeline("Replay all requested.", "active");
       }
     }, [appendTimeline, sendPayload]);
-    const handleCopyRecordedStep = (0, import_react9.useCallback)(
+    const handleCopyRecordedStep = (0, import_react15.useCallback)(
       (step) => {
         const line = firstNonEmptyText(step?.generated_line);
         if (!line) {
@@ -32120,7 +36602,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       },
       [appendTimeline]
     );
-    const handleExportCode = (0, import_react9.useCallback)(
+    const handleExportCode = (0, import_react15.useCallback)(
       ({ code, path } = {}) => {
         const codeStr = typeof code === "string" ? code : "";
         if (!codeStr) {
@@ -32136,7 +36618,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       },
       [appendTimeline, sendPayload]
     );
-    const handleImproveLocator = (0, import_react9.useCallback)(
+    const handleImproveLocator = (0, import_react15.useCallback)(
       ({ step_id } = {}) => {
         const stepIdStr = typeof step_id === "string" ? step_id.trim() : "";
         if (!stepIdStr) {
@@ -32153,7 +36635,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       },
       [appendTimeline, sendPayload]
     );
-    const handleViewCandidates = (0, import_react9.useCallback)(
+    const handleViewCandidates = (0, import_react15.useCallback)(
       ({ step_id } = {}) => {
         const stepIdStr = typeof step_id === "string" ? step_id.trim() : "";
         if (!stepIdStr) {
@@ -32170,7 +36652,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       },
       [appendTimeline, sendPayload]
     );
-    const handleCopyCodeToClipboard = (0, import_react9.useCallback)(
+    const handleCopyCodeToClipboard = (0, import_react15.useCallback)(
       ({ code } = {}) => {
         const codeStr = typeof code === "string" ? code : codePreview;
         const text = typeof codeStr === "string" ? codeStr : "";
@@ -32186,7 +36668,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       },
       [appendTimeline, codePreview]
     );
-    const handleAttachElement = (0, import_react9.useCallback)(
+    const handleAttachElement = (0, import_react15.useCallback)(
       (stepId) => {
         if (!stepId) {
           return;
@@ -32207,7 +36689,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       },
       [appendTimeline, sendPayload]
     );
-    const handleComposerPick = (0, import_react9.useCallback)(() => {
+    const handleComposerPick = (0, import_react15.useCallback)(() => {
       const newStep = createPendingStep("");
       updatePendingSteps((current) => [...current, newStep]);
       setActivePickerStepId(newStep.id);
@@ -32227,7 +36709,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         );
       }
     }, [appendTimeline, sendPayload, updatePendingSteps]);
-    const handleRunPendingSteps = (0, import_react9.useCallback)(() => {
+    const handleRunPendingSteps = (0, import_react15.useCallback)(() => {
       const readySteps = [];
       for (const step of pendingSteps) {
         if (!step || typeof step !== "object" || step.recorded === true) {
@@ -32264,7 +36746,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         "WebSocket not connected."
       );
     }, [appendTimeline, pendingSteps, sendPayload]);
-    const handleSaveSnapshot = (0, import_react9.useCallback)(() => {
+    const handleSaveSnapshot = (0, import_react15.useCallback)(() => {
       sendPayload(
         {
           type: "save_snapshot"
@@ -32272,19 +36754,19 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         "WebSocket not connected."
       );
     }, [sendPayload]);
-    const getActiveRunId = (0, import_react9.useCallback)(() => {
+    const getActiveRunId = (0, import_react15.useCallback)(() => {
       const currentPlan = planRef.current && typeof planRef.current === "object" ? planRef.current : null;
       const rawPlan = currentPlan && typeof currentPlan.raw === "object" ? currentPlan.raw : {};
       return firstNonEmptyText(rawPlan.run_id, rawPlan.runId);
     }, []);
-    const handleResolveBlocked = (0, import_react9.useCallback)((cmd) => {
+    const handleResolveBlocked = (0, import_react15.useCallback)((cmd) => {
       if (!cmd || !cmd.type) return;
       const runId = firstNonEmptyText(cmd.run_id, getActiveRunId());
       const payload = runId ? { ...cmd, run_id: runId } : { ...cmd };
       const envelope = buildFrontendCommandEnvelope(cmd.type, payload);
       sendPayload(envelope, "WebSocket not connected \u2014 cannot dispatch resolve_blocked.");
     }, [getActiveRunId, sendPayload]);
-    const handleChangePrecondition = (0, import_react9.useCallback)((cmd) => {
+    const handleChangePrecondition = (0, import_react15.useCallback)((cmd) => {
       if (!cmd || !cmd.step_id) return;
       const runId = firstNonEmptyText(cmd.run_id, getActiveRunId());
       if (!runId) return;
@@ -32292,7 +36774,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       const envelope = buildFrontendCommandEnvelope("change_precondition", payload);
       sendPayload(envelope, "WebSocket not connected \u2014 cannot dispatch change_precondition.");
     }, [getActiveRunId, sendPayload]);
-    const handleNavigateToExpected = (0, import_react9.useCallback)((cmd) => {
+    const handleNavigateToExpected = (0, import_react15.useCallback)((cmd) => {
       if (!cmd || !cmd.step_id) return;
       const runId = firstNonEmptyText(cmd.run_id, getActiveRunId());
       if (!runId) return;
@@ -32300,7 +36782,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       const envelope = buildFrontendCommandEnvelope("navigate_to_expected", payload);
       sendPayload(envelope, "WebSocket not connected \u2014 cannot dispatch navigate_to_expected.");
     }, [getActiveRunId, sendPayload]);
-    const handleConfirmPlan = (0, import_react9.useCallback)(() => {
+    const handleConfirmPlan = (0, import_react15.useCallback)(() => {
       const currentPlan = planRef.current && typeof planRef.current === "object" ? planRef.current : null;
       const rawPlan = currentPlan && typeof currentPlan.raw === "object" ? currentPlan.raw : {};
       const commandPayload = {};
@@ -32327,7 +36809,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         appendTimeline("Confirmation sent.", "ok");
       }
     }, [appendConversation, appendTimeline, recordPendingCommand, sendPayload]);
-    const handleSendPlanCorrection = (0, import_react9.useCallback)(() => {
+    const handleSendPlanCorrection = (0, import_react15.useCallback)(() => {
       const correction = planCorrectionText.trim();
       if (!correction) {
         appendTimeline("Correction is empty.", "warn");
@@ -32359,7 +36841,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         appendTimeline("Correction sent.", "ok");
       }
     }, [appendConversation, appendTimeline, plan, planCorrectionText, recordPendingCommand, sendPayload]);
-    const handleSendClarificationAnswer = (0, import_react9.useCallback)(
+    const handleSendClarificationAnswer = (0, import_react15.useCallback)(
       (answerOverride = "") => {
         const answer = firstNonEmptyText(answerOverride, clarificationAnswerText).trim();
         if (!answer) {
@@ -32389,7 +36871,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       },
       [appendConversation, appendTimeline, clarificationAnswerText, recordPendingCommand, sendPayload]
     );
-    const handleSendRecoveryInstruction = (0, import_react9.useCallback)(() => {
+    const handleSendRecoveryInstruction = (0, import_react15.useCallback)(() => {
       const instruction = recoveryText.trim();
       if (!instruction) {
         appendTimeline("Recovery instruction is empty.", "warn");
@@ -32414,7 +36896,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         setRecoveryText("");
       }
     }, [appendConversation, appendTimeline, recordPendingCommand, recoveryText, sendPayload]);
-    const handleBackendMessage = (0, import_react9.useCallback)(
+    const handleBackendMessage = (0, import_react15.useCallback)(
       (message) => {
         const type = String(message?.type || "status").toLowerCase();
         const payload = message?.payload;
@@ -32892,7 +37374,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       },
       [acknowledgePendingCommands, appendConversation, appendTimeline, rejectPendingCommand]
     );
-    (0, import_react9.useEffect)(() => {
+    (0, import_react15.useEffect)(() => {
       mountedRef.current = true;
       return () => {
         mountedRef.current = false;
@@ -32909,7 +37391,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         }
       };
     }, []);
-    (0, import_react9.useEffect)(() => {
+    (0, import_react15.useEffect)(() => {
       let cancelled = false;
       const clearRetry = () => {
         if (retryRef.current) {
@@ -33097,7 +37579,8 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       handleCopyCodeToClipboard,
       handleComposerPick,
       handleImproveLocator,
-      handleViewCandidates
+      handleViewCandidates,
+      sendCommand: (payload) => sendPayload(payload, "panel-v2: WebSocket not connected.")
     };
   }
   var HEADER_TO_CTRL_DOCK = {
@@ -33115,14 +37598,14 @@ test('pricing page \xB7 sanity', async ({ page }) => {
   function AutoWorkbenchRuntime({ config }) {
     const normalized = normalizeConfig(config);
     const transport = useFrontendEventStore(config);
-    const [tab, setTab] = (0, import_react9.useState)(normalized.tab);
-    const [dock, setDockLocal] = (0, import_react9.useState)(() => CTRL_TO_HEADER_DOCK[getDockMode()] || "right");
+    const [tab, setTab] = (0, import_react15.useState)(normalized.tab);
+    const [dock, setDockLocal] = (0, import_react15.useState)(() => CTRL_TO_HEADER_DOCK[getDockMode()] || "right");
     const inStage = config?.inStage === true;
-    const [panelWidth, setPanelWidth] = (0, import_react9.useState)(() => {
+    const [panelWidth, setPanelWidth] = (0, import_react15.useState)(() => {
       const stored = getStoredSize();
       return stored && stored.width || normalized.panelWidth || 460;
     });
-    const setDock = (0, import_react9.useCallback)((nextHeaderMode) => {
+    const setDock = (0, import_react15.useCallback)((nextHeaderMode) => {
       const ctrlMode = HEADER_TO_CTRL_DOCK[nextHeaderMode] || "dock-right";
       setDockLocal(nextHeaderMode);
       if (currentHostNode) applyDock(currentHostNode, ctrlMode);
@@ -33130,7 +37613,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       const width = typeof normalized.panelWidth === "number" ? normalized.panelWidth : 460;
       updateCompensation(ctrlMode, { width });
     }, [normalized.panelWidth]);
-    (0, import_react9.useEffect)(() => {
+    (0, import_react15.useEffect)(() => {
       setTab(normalized.tab);
     }, [normalized.tab]);
     usePlanReadyAutoTab({
@@ -33205,10 +37688,22 @@ test('pricing page \xB7 sanity', async ({ page }) => {
         position: "relative"
       };
     })();
-    const onResize = (0, import_react9.useCallback)(({ width, height }) => {
+    const onResize = (0, import_react15.useCallback)(({ width, height }) => {
       if (typeof width === "number" && Number.isFinite(width)) setPanelWidth(width);
     }, []);
-    return /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { style: outerStyle, "data-aw-dock": dock, children: /* @__PURE__ */ (0, import_jsx_runtime9.jsx)("div", { className: `aw-density-${normalized.density}`, style: innerStyle, children: IDEPanel2 ? /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(
+    const useV2 = shouldUseV2Panel();
+    const [v2Collapsed, setV2Collapsed] = (0, import_react15.useState)(false);
+    const v2OuterStyle = useV2 && v2Collapsed && !inStage && dock !== "top" ? { ...outerStyle, width: 44 } : outerStyle;
+    return /* @__PURE__ */ (0, import_jsx_runtime17.jsx)("div", { style: v2OuterStyle, "data-aw-dock": dock, "data-aw-collapsed": useV2 && v2Collapsed ? "1" : "0", children: /* @__PURE__ */ (0, import_jsx_runtime17.jsx)("div", { className: `aw-density-${normalized.density}`, style: innerStyle, children: useV2 ? /* @__PURE__ */ (0, import_jsx_runtime17.jsx)(
+      PanelV2LiveHost,
+      {
+        transport,
+        storeState: transport.storeState,
+        onSendCommand: transport.sendCommand,
+        onCollapseChange: setV2Collapsed,
+        onDockChange: setDock
+      }
+    ) : IDEPanel2 ? /* @__PURE__ */ (0, import_jsx_runtime17.jsx)(
       IDEPanel2,
       {
         state: panelState,
@@ -33242,7 +37737,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
     ) : null }) });
   }
   function useFrontendEventStore(config) {
-    const [storeState, storeDispatch] = import_react9.default.useReducer(reducer, null, createInitialState);
+    const [storeState, storeDispatch] = import_react15.default.useReducer(reducer, null, createInitialState);
     const transport = useAutoWorkbenchTransport(config);
     if (config?.demo === true) {
       const seededAgents = Array.isArray(config?.agents) && (!storeState.agents || storeState.agents.length === 0) ? config.agents : storeState.agents;
@@ -33301,7 +37796,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       currentHostNode = node;
       currentMountNode = mountNode;
     }
-    currentRoot.render(/* @__PURE__ */ (0, import_jsx_runtime9.jsx)(AutoWorkbenchRuntime, { config }));
+    currentRoot.render(/* @__PURE__ */ (0, import_jsx_runtime17.jsx)(AutoWorkbenchRuntime, { config }));
   }
   function mount(root, config = {}) {
     let activeConfig = config;
@@ -33332,9 +37827,9 @@ test('pricing page \xB7 sanity', async ({ page }) => {
     unmountHost();
   }
   function PreviewShell({ container }) {
-    const [tweaks, setTweaks] = import_react9.default.useState(DEFAULT_TWEAKS);
-    const panelHostRef = import_react9.default.useRef(null);
-    import_react9.default.useEffect(() => {
+    const [tweaks, setTweaks] = import_react15.default.useState(DEFAULT_TWEAKS);
+    const panelHostRef = import_react15.default.useRef(null);
+    import_react15.default.useEffect(() => {
       if (!panelHostRef.current) return;
       if (panelHostRef.current.__awMounted) return;
       mount(panelHostRef.current, {
@@ -33344,7 +37839,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       });
       panelHostRef.current.__awMounted = true;
     }, []);
-    import_react9.default.useEffect(() => {
+    import_react15.default.useEffect(() => {
       try {
         window.dispatchEvent(new CustomEvent("aw-preview-tweaks", { detail: tweaks }));
       } catch (_) {
@@ -33363,7 +37858,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
       cellStyle.top = 16;
       cellStyle.bottom = 16;
     }
-    return /* @__PURE__ */ (0, import_jsx_runtime9.jsxs)(
+    return /* @__PURE__ */ (0, import_jsx_runtime17.jsxs)(
       "div",
       {
         "data-testid": "aw-preview-stage",
@@ -33378,7 +37873,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
           background: "var(--bg-page, #E9E3D2)"
         },
         children: [
-          tweaks.showWebsite && dock !== "float" ? /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(
+          tweaks.showWebsite && dock !== "float" ? /* @__PURE__ */ (0, import_jsx_runtime17.jsx)(
             "div",
             {
               "data-testid": "aw-website-region",
@@ -33391,10 +37886,10 @@ test('pricing page \xB7 sanity', async ({ page }) => {
                 background: "var(--bg-website, #FAF5EB)",
                 order: dock === "left" ? 2 : 1
               },
-              children: /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(WebsitePreview, { highlight: tweaks.highlight })
+              children: /* @__PURE__ */ (0, import_jsx_runtime17.jsx)(WebsitePreview, { highlight: tweaks.highlight })
             }
           ) : null,
-          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(
+          /* @__PURE__ */ (0, import_jsx_runtime17.jsx)(
             "div",
             {
               ref: panelHostRef,
@@ -33406,7 +37901,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
               }
             }
           ),
-          /* @__PURE__ */ (0, import_jsx_runtime9.jsx)(TweaksPanel, { value: tweaks, onChange: setTweaks, defaultOpen: false })
+          /* @__PURE__ */ (0, import_jsx_runtime17.jsx)(TweaksPanel2, { value: tweaks, onChange: setTweaks, defaultOpen: false })
         ]
       }
     );
@@ -33416,7 +37911,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
     root.id = "aw-preview-root";
     container.appendChild(root);
     const r = (0, import_client.createRoot)(root);
-    r.render(/* @__PURE__ */ (0, import_jsx_runtime9.jsx)(PreviewShell, { container }));
+    r.render(/* @__PURE__ */ (0, import_jsx_runtime17.jsx)(PreviewShell, { container }));
     return root;
   }
   window.AutoWorkbench = {

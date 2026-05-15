@@ -1,6 +1,6 @@
 // app.jsx — top-level glue: stage + panel chrome + tabs + tweaks + agents + now-strip
 import './styles.css';
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import { I } from './icons.jsx';
 import { useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakSlider, TweakToggle, TweakSelect } from './tweaks-panel.jsx';
 import { Website } from './website.jsx';
@@ -12,7 +12,14 @@ import { DEMO_TWEAK_DEFAULTS, DEMO_STATE_META } from '../panel-v2-adapter/demo-b
 export function App({ viewModel, onCommand, mode, onCollapseChange, onDockChange } = {}) {
   const isLive = mode === "live" && viewModel != null;
 
-  const [t, setTweak] = useTweaks(DEMO_TWEAK_DEFAULTS);
+  const tweakDefaults = useMemo(() => {
+    try {
+      const saved = localStorage.getItem("aw-theme");
+      if (saved === "dark" || saved === "light") return { ...DEMO_TWEAK_DEFAULTS, theme: saved };
+    } catch {}
+    return DEMO_TWEAK_DEFAULTS;
+  }, []);
+  const [t, setTweak] = useTweaks(tweakDefaults);
   const [tab, setTabLocal] = useState(isLive ? "llm" : t.tab);
   useEffect(() => { if (!isLive) setTabLocal(t.tab); }, [t.tab, isLive]);
 
@@ -37,6 +44,7 @@ export function App({ viewModel, onCommand, mode, onCollapseChange, onDockChange
   const panelRef = useRef(null);
   useEffect(() => {
     const theme = t.theme || "light";
+    try { localStorage.setItem("aw-theme", theme); } catch {}
     if (isLive) {
       const node = panelRef.current;
       const rootNode = node && typeof node.getRootNode === "function" ? node.getRootNode() : null;
@@ -130,6 +138,8 @@ export function App({ viewModel, onCommand, mode, onCollapseChange, onDockChange
             mode={t.mode}
             setMode={(v) => setTweak("mode", v)}
             isLive={isLive}
+            theme={t.theme || "light"}
+            onThemeToggle={() => setTweak("theme", (t.theme || "light") === "dark" ? "light" : "dark")}
           />
           <TabStrip tab={tab} setTab={setTab} counts={counts}/>
           {showNow && <NowStrip {...(isLive ? {} : meta.now)}/>}
