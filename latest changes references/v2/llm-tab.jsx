@@ -302,9 +302,8 @@ function CardPermission() {
       <div className="aw-card-foot" style={{flexWrap:"wrap"}}>
         <button className="aw-btn primary"><I.Check/>Allow once</button>
         <button className="aw-btn">Allow for this plan</button>
-        <span style={{flex:1}}/>
-        <button className="aw-btn subtle"><I.More/></button>
-        <button className="aw-btn danger"><I.Stop style={{width:11,height:11}}/>Deny</button>
+        <button className="aw-btn">Edit plan to skip click</button>
+        <button className="aw-btn danger"><I.Stop style={{width:11,height:11}}/>Deny &amp; stop</button>
       </div>
     </div>
   );
@@ -376,83 +375,54 @@ function CardExecution() {
 
 function CardLocatorAmbiguity() {
   const [pick, setPick] = useStateLlm("hero");
-  const [showDiag, setShowDiag] = useStateLlm(false);
   const cands = [
-    { id:"header", t:'Header CTA — "Get started"', scope:"nav.ws-topnav .cta",         conf:0.92, risk:"safe-read",
-      preview:'getByRole(\'link\', { name: \'Get started\' }).first()',
-      diag:'role=link · accessible name unique · stable across renders · no positional fallback',
-    },
-    { id:"hero",   t:'Hero CTA — "Get started"',   scope:".ws-hero a.btn.primary",     conf:0.71, risk:"medium",
-      preview:'page.locator(\'.ws-hero a.btn.primary\')',
-      diag:'class-based · 1 match in scope · navigates to /signup · permission required to actuate',
-    },
-    { id:"starter",t:'Starter plan CTA — "Get started"', scope:".ws-plan:nth(1) .ws-plan-cta", conf:0.34, risk:"medium",
-      preview:'page.getByText(\'Get started\').nth(2)',
-      diag:'positional nth() · breaks if a plan card is added or reordered',
-    },
+    { id:"header", t:'Header CTA — "Get started"', scope:"nav.ws-topnav .cta", conf:0.92, risk:"safe-read",  preview:'getByRole(\'link\', { name: \'Get started\' }).first()' },
+    { id:"hero",   t:'Hero CTA — "Get started"',   scope:".ws-hero .btn.primary", conf:0.71, risk:"medium",  preview:'page.locator(\'.ws-hero a.btn.primary\')' },
+    { id:"starter",t:'Starter plan CTA — "Get started"', scope:".ws-plan:nth(1) .ws-plan-cta", conf:0.34, risk:"medium", preview:'page.getByText(\'Get started\').nth(2)' },
   ];
-  const pickedIdx = cands.findIndex(c => c.id === pick);
-  const picked = cands[pickedIdx];
   return (
     <div className="aw-card locator blocking">
       <div className="aw-card-head">
         <span className="aw-card-icon"><I.Target/></span>
-        <span className="aw-card-title">Choose the correct "Get started" button</span>
+        <span className="aw-card-title">Locator ambiguity — choose a candidate</span>
         <span className="aw-card-state">Execution paused</span>
         <span className="aw-card-source backend"><span className="src-dot"/>Step Runner · 3 matches</span>
       </div>
-      <div className="aw-card-body" style={{padding:"14px 14px 12px"}}>
-        <p style={{margin:"0 0 12px", fontSize:12.5, color:"var(--tx-2)"}}>
-          Three visible matches were found while resolving <span style={{fontFamily:"var(--ff-mono)",color:"var(--tx)"}}>stp_d8e2</span>.
-          I won't pick on your behalf — choose one, ask me to refine the locator, or narrow the scope.
+      <div className="aw-card-body">
+        <p style={{color:"var(--tx-2)", fontSize:12, marginBottom:8}}>
+          I found <b>3 visible "Get started" links</b> on /pricing. Execution is paused until you pick one or I find a unique candidate.
         </p>
-        <div style={{display:"flex", flexDirection:"column", gap:8}}>
-          {cands.map((c,i) => (
-            <div key={c.id} className={"aw-cand " + (pick === c.id ? "selected" : "")} onClick={() => setPick(c.id)}>
-              <span className="aw-cand-num">{i+1}</span>
-              <div className="aw-cand-main">
-                <div style={{display:"flex", alignItems:"center", gap:8, justifyContent:"space-between"}}>
-                  <span className="aw-cand-title">{c.t}</span>
-                  <Conf level={c.conf}/>
-                </div>
-                <div className="aw-cand-meta">
-                  <span>scope: <span style={{fontFamily:"var(--ff-mono)", color:"var(--tx-2)"}}>{c.scope}</span></span>
-                  <span>·</span>
-                  <span>risk: <span className={"aw-badge-i " + (c.risk === "safe-read" ? "ok" : "warn")}><span className="ldot"/>{c.risk}</span></span>
-                </div>
-                <div className="aw-cand-loc">{c.preview}</div>
-                {showDiag && (
-                  <div style={{marginTop:6, fontSize:11, color:"var(--tx-3)", lineHeight:1.5}}>
-                    <span style={{color:"var(--tx-4)",fontWeight:600,letterSpacing:"0.04em",fontSize:9.5,textTransform:"uppercase"}}>Diagnostics</span><br/>
-                    {c.diag}
-                  </div>
-                )}
-                <div className="aw-cand-actions">
-                  <button className="aw-btn" onClick={(e) => { e.stopPropagation(); setPick(c.id); }}>
-                    <I.Check/> {pick === c.id ? "Selected" : "Select"}
-                  </button>
-                  <button className="aw-btn subtle" onClick={(e) => e.stopPropagation()}>
-                    <I.Eye/>Highlight
-                  </button>
-                </div>
+        {cands.map((c,i) => (
+          <div key={c.id} className={"aw-cand " + (pick === c.id ? "selected" : "")} onClick={() => setPick(c.id)}>
+            <span className="aw-cand-num">{i+1}</span>
+            <div className="aw-cand-main">
+              <div style={{display:"flex", alignItems:"center", gap:8, justifyContent:"space-between"}}>
+                <span className="aw-cand-title">{c.t}</span>
+                <Conf level={c.conf}/>
+              </div>
+              <div className="aw-cand-loc">{c.preview}</div>
+              <div className="aw-cand-meta">
+                <span>scope: <span style={{fontFamily:"var(--ff-mono)", color:"var(--tx-2)"}}>{c.scope}</span></span>
+                <span>·</span>
+                <span>risk: <span className={"aw-badge-i " + (c.risk === "safe-read" ? "ok" : "warn")}><span className="ldot"/>{c.risk}</span></span>
+              </div>
+              <div className="aw-cand-actions">
+                <button className="aw-btn" onClick={(e) => { e.stopPropagation(); setPick(c.id); }}>
+                  <I.Check/> Select
+                </button>
+                <button className="aw-btn subtle" onClick={(e) => e.stopPropagation()}>
+                  <I.Eye/>Highlight in page
+                </button>
               </div>
             </div>
-          ))}
-        </div>
-        <button className="aw-link" style={{marginTop:10, fontSize:11.5}}
-                onClick={() => setShowDiag(!showDiag)}>
-          {showDiag ? "Hide" : "Show"} per-candidate diagnostics
-        </button>
+          </div>
+        ))}
       </div>
       <div className="aw-card-foot" style={{flexWrap:"wrap"}}>
-        <span style={{fontSize:11.5, color:"var(--tx-3)"}}>
-          Selected: <b style={{color:"var(--tx)"}}>candidate {pickedIdx+1}</b> — {picked.t}
-        </span>
-        <span style={{flex:1}}/>
+        <button className="aw-btn primary"><I.Check/>Use candidate {cands.findIndex(c => c.id === pick)+1}</button>
         <button className="aw-btn"><I.Spark/>Ask LLM for better locator</button>
         <button className="aw-btn">Change scope</button>
-        <button className="aw-btn danger"><I.Stop style={{width:11,height:11}}/>Stop</button>
-        <button className="aw-btn primary"><I.Check/>Use candidate {pickedIdx+1}</button>
+        <button className="aw-btn subtle"><I.Stop style={{width:11,height:11}}/>Stop run</button>
       </div>
     </div>
   );
@@ -492,8 +462,8 @@ function CardRecovery() {
         <button className="aw-btn primary"><I.Spark/>Apply LLM repair</button>
         <button className="aw-btn"><I.Retry style={{width:12,height:12}}/>Retry as-is</button>
         <button className="aw-btn">Choose another locator</button>
-        <span style={{flex:1}}/>
-        <button className="aw-btn subtle"><I.More/></button>
+        <button className="aw-btn">Provide instruction…</button>
+        <button className="aw-btn"><I.Skip style={{width:11,height:11}}/>Skip step</button>
         <button className="aw-btn danger"><I.Stop style={{width:11,height:11}}/>Stop run</button>
       </div>
     </div>
@@ -721,52 +691,27 @@ function LlmEmpty({ onSeed }) {
 // — Composer (sticky at bottom of LLM tab) ————————————————————————————————————————
 
 function Composer() {
-  const [sending, setSending] = React.useState(false);
-  const [sent, setSent] = React.useState(false);
-  const inputRef = React.useRef(null);
-  const onSend = () => {
-    if (sending) return;
-    setSending(true);
-    setTimeout(() => {
-      setSending(false);
-      setSent(true);
-      if (inputRef.current) inputRef.current.value = "";
-      setTimeout(() => setSent(false), 1200);
-    }, 450);
-  };
-  const onKey = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); }
-  };
   return (
     <div className="aw-composer">
       <div className="aw-composer-box">
-        <div className="aw-composer-actions">
+        <div className="aw-composer-actions" style={{marginBottom:2}}>
           <span className="aw-context-chip"><I.Globe/> /pricing</span>
-          <span className="aw-context-chip"><I.Target/> 2 selected</span>
+          <span className="aw-context-chip"><I.Target/> 2 selected elements</span>
           <span className="aw-context-chip"><I.Doc/> users.csv</span>
-          <button className="aw-btn subtle" style={{padding:"2px 5px",fontSize:10.5,height:18}}>
-            <I.Plus/>Add
+          <button className="aw-btn subtle" style={{padding:"3px 7px",fontSize:11}}>
+            <I.Plus/>Add context
           </button>
         </div>
-        <textarea ref={inputRef} className="aw-composer-input" rows={1}
+        <textarea className="aw-composer-input" rows={2}
                   placeholder="Reply, refine the plan, or paste a step…"
-                  defaultValue=""
-                  onKeyDown={onKey}></textarea>
-        <div className="aw-composer-actions" style={{justifyContent:"space-between"}}>
-          <div style={{display:"flex", gap:2, alignItems:"center"}}>
-            <button className="aw-icon-btn" title="Attach" data-tip="Attach"><I.Paperclip/></button>
-            <button className="aw-icon-btn" title="Pick element" data-tip="Pick element"><I.Mouse/></button>
-            <button className="aw-icon-btn" title="Attach screenshot" data-tip="Attach screenshot"><I.Camera/></button>
-            <span style={{fontSize:10.5, color:"var(--tx-4)", marginLeft:6}}>complete-llm · gpt-class</span>
-          </div>
-          <button className={"aw-btn primary aw-send " + (sending ? "sending " : "") + (sent ? "sent" : "")}
-                  style={{padding:"5px 10px",fontSize:11.5,height:24,minWidth:74,justifyContent:"center"}}
-                  onClick={onSend}
-                  disabled={sending}>
-            {sending ? (<><span className="aw-send-spin"/>Sending</>)
-             : sent ? (<><I.Check/>Sent</>)
-             : (<><I.Send/>Send<span className="aw-kbd">↵</span></>)}
-          </button>
+                  defaultValue=""></textarea>
+        <div className="aw-composer-actions">
+          <button className="aw-icon-btn" title="Attach"><I.Paperclip/></button>
+          <button className="aw-icon-btn" title="Pick element"><I.Mouse/></button>
+          <button className="aw-icon-btn" title="Attach screenshot"><I.Camera/></button>
+          <span className="aw-spacer" style={{flex:1}}/>
+          <span style={{fontSize:11, color:"var(--tx-4)"}}>complete-llm · gpt-class · plan-aware</span>
+          <button className="aw-btn primary"><I.Send/>Send<span className="aw-kbd">↵</span></button>
         </div>
       </div>
     </div>

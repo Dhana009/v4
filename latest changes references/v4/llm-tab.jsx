@@ -721,22 +721,6 @@ function LlmEmpty({ onSeed }) {
 // — Composer (sticky at bottom of LLM tab) ————————————————————————————————————————
 
 function Composer() {
-  const [sending, setSending] = React.useState(false);
-  const [sent, setSent] = React.useState(false);
-  const inputRef = React.useRef(null);
-  const onSend = () => {
-    if (sending) return;
-    setSending(true);
-    setTimeout(() => {
-      setSending(false);
-      setSent(true);
-      if (inputRef.current) inputRef.current.value = "";
-      setTimeout(() => setSent(false), 1200);
-    }, 450);
-  };
-  const onKey = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); }
-  };
   return (
     <div className="aw-composer">
       <div className="aw-composer-box">
@@ -748,24 +732,18 @@ function Composer() {
             <I.Plus/>Add
           </button>
         </div>
-        <textarea ref={inputRef} className="aw-composer-input" rows={1}
+        <textarea className="aw-composer-input" rows={1}
                   placeholder="Reply, refine the plan, or paste a step…"
-                  defaultValue=""
-                  onKeyDown={onKey}></textarea>
+                  defaultValue=""></textarea>
         <div className="aw-composer-actions" style={{justifyContent:"space-between"}}>
           <div style={{display:"flex", gap:2, alignItems:"center"}}>
-            <button className="aw-icon-btn" title="Attach" data-tip="Attach"><I.Paperclip/></button>
-            <button className="aw-icon-btn" title="Pick element" data-tip="Pick element"><I.Mouse/></button>
-            <button className="aw-icon-btn" title="Attach screenshot" data-tip="Attach screenshot"><I.Camera/></button>
+            <button className="aw-icon-btn" title="Attach"><I.Paperclip/></button>
+            <button className="aw-icon-btn" title="Pick element"><I.Mouse/></button>
+            <button className="aw-icon-btn" title="Attach screenshot"><I.Camera/></button>
             <span style={{fontSize:10.5, color:"var(--tx-4)", marginLeft:6}}>complete-llm · gpt-class</span>
           </div>
-          <button className={"aw-btn primary aw-send " + (sending ? "sending " : "") + (sent ? "sent" : "")}
-                  style={{padding:"5px 10px",fontSize:11.5,height:24,minWidth:74,justifyContent:"center"}}
-                  onClick={onSend}
-                  disabled={sending}>
-            {sending ? (<><span className="aw-send-spin"/>Sending</>)
-             : sent ? (<><I.Check/>Sent</>)
-             : (<><I.Send/>Send<span className="aw-kbd">↵</span></>)}
+          <button className="aw-btn primary" style={{padding:"5px 10px",fontSize:11.5,height:24}}>
+            <I.Send/>Send<span className="aw-kbd">↵</span>
           </button>
         </div>
       </div>

@@ -5,14 +5,12 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "tab": "llm",
   "state": "locator",
   "dock": "right",
-  "panelWidth": 420,
+  "panelWidth": 480,
   "collapsed": false,
   "connection": "connected",
   "showWebsite": true,
   "highlight": "hero-cta",
-  "agentsOpen": false,
-  "theme": "light",
-  "mode": "llm"
+  "agentsOpen": false
 }/*EDITMODE-END*/;
 
 // Map "state" tweak → footer / header status / phase strings + current-task strip
@@ -63,11 +61,6 @@ function App() {
   const setCollapsed = (v) => setTweak("collapsed", v);
   const setAgentsOpen = (v) => setTweak("agentsOpen", v);
 
-  // Apply theme to the panel scope so the website behind stays light
-  useEffect(() => {
-    document.documentElement.dataset.theme = t.theme || "light";
-  }, [t.theme]);
-
   const meta = STATE_META[t.state] || STATE_META.idle;
   const statusKey = meta.conn === "offline" ? "offline"
                   : meta.conn === "error"   ? "error"
@@ -102,8 +95,8 @@ function App() {
 
   // tab body
   let body;
-  if (tab === "llm")        body = <LlmThread state={t.state} mode={t.mode}/>;
-  else if (tab === "steps") body = <StepsTab mode={t.mode} setMode={(v) => setTweak("mode", v)}/>;
+  if (tab === "llm")        body = <LlmThread state={t.state}/>;
+  else if (tab === "steps") body = <StepsTab/>;
   else if (tab === "rec")   body = <RecordedTab/>;
   else if (tab === "code")  body = <CodeTab/>;
   else if (tab === "trace") body = <TraceTab/>;
@@ -111,9 +104,7 @@ function App() {
   const showNow = tab === "llm" && t.state !== "idle";
 
   const panel = (
-    <aside className="aw-panel"
-           data-wide={(t.dock === "top" || t.panelWidth >= 620) ? "1" : "0"}
-           style={{width: t.dock === "top" ? "100%" : t.panelWidth}}>
+    <aside className="aw-panel" style={{width: t.dock === "top" ? "100%" : t.panelWidth}}>
       <div className="aw-resize"/>
       {!t.collapsed && (
         <>
@@ -126,8 +117,6 @@ function App() {
             agentsOpen={t.agentsOpen}
             setAgentsOpen={setAgentsOpen}
             agentsSummary={agentsSummary}
-            mode={t.mode}
-            setMode={(v) => setTweak("mode", v)}
           />
           <TabStrip tab={tab} setTab={setTab} counts={counts}/>
           {showNow && <NowStrip {...meta.now}/>}
@@ -182,16 +171,6 @@ function App() {
                      ]}
                      onChange={(v) => setTweak("state", v)}/>
 
-        <TweakSection label="Theme"/>
-        <TweakRadio label="Theme" value={t.theme}
-                    options={["light","dark"]}
-                    onChange={(v) => setTweak("theme", v)}/>
-
-        <TweakSection label="Interaction mode"/>
-        <TweakRadio label="Mode" value={t.mode}
-                    options={["llm","manual"]}
-                    onChange={(v) => setTweak("mode", v)}/>
-
         <TweakSection label="Overlays"/>
         <TweakToggle label="Agent Control Center" value={t.agentsOpen}
                      onChange={(v) => setTweak("agentsOpen", v)}/>
@@ -236,7 +215,4 @@ function CollapsedRail({ tab, setTab, setCollapsed }) {
   );
 }
 
-(function () {
-  var target = window.AW_ROOT || document.getElementById("root");
-  ReactDOM.createRoot(target).render(<App/>);
-})();
+ReactDOM.createRoot(document.getElementById("root")).render(<App/>);

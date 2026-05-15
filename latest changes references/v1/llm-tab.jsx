@@ -52,12 +52,11 @@ function Conf({ level }) {
 function CardClarification() {
   const [pick, setPick] = useStateLlm(null);
   return (
-    <div className="aw-card clarify needs-input">
+    <div className="aw-card clarify">
       <div className="aw-card-head">
         <span className="aw-card-icon"><I.Info/></span>
         <span className="aw-card-title">Clarification needed</span>
-        <span className="aw-card-state">Decision required</span>
-        <span className="aw-card-source llm"><span className="src-dot"/>LLM proposal</span>
+        <span className="aw-card-meta">type · multi-choice</span>
       </div>
       <div className="aw-card-body">
         <p>Should I recommend <b>smoke</b>, <b>sanity</b>, or <b>exhaustive regression</b> checks for this pricing page? Each option changes scope and runtime.</p>
@@ -110,12 +109,11 @@ function CardRecommendation() {
   ]);
   const toggle = (id) => setItems(items.map(i => i.id === id ? {...i, checked: !i.checked} : i));
   return (
-    <div className="aw-card plan needs-input">
+    <div className="aw-card plan">
       <div className="aw-card-head">
         <span className="aw-card-icon"><I.Layers/></span>
         <span className="aw-card-title">Recommended assertions</span>
-        <span className="aw-card-state">Review</span>
-        <span className="aw-card-source llm"><span className="src-dot"/>LLM proposal · not executable</span>
+        <span className="aw-card-meta">grouped by section · {items.filter(i=>i.checked).length}/{items.length} selected</span>
       </div>
       <div className="aw-card-body">
         <p style={{color:"var(--tx-2)", fontSize:12}}>
@@ -152,12 +150,11 @@ function CardRecommendation() {
 
 function CardPlanDiff() {
   return (
-    <div className="aw-card diff needs-input">
+    <div className="aw-card diff">
       <div className="aw-card-head">
         <span className="aw-card-icon"><I.Diff/></span>
         <span className="aw-card-title">Plan revision proposed</span>
-        <span className="aw-card-state">Review</span>
-        <span className="aw-card-source llm"><span className="src-dot"/>LLM proposal · v2 · 2 changes</span>
+        <span className="aw-card-meta">v2 · 2 changes</span>
       </div>
       <div className="aw-card-body">
         <p style={{color:"var(--tx-2)", fontSize:12}}>
@@ -187,12 +184,13 @@ function CardPlanDiff() {
 
 function CardPlanReady({ status = "ready" }) {
   return (
-    <div className="aw-card plan needs-input">
+    <div className="aw-card plan">
       <div className="aw-card-head">
         <span className="aw-card-icon"><I.Layers/></span>
         <span className="aw-card-title">Plan ready · sanity check on /pricing</span>
-        <span className="aw-card-state">Confirm to run</span>
-        <span className="aw-card-source backend"><span className="src-dot"/>Backend event · plan_ready</span>
+        <span className="aw-card-meta">
+          <span className="aw-badge-i acc"><span className="ldot"/>plan_ready</span>
+        </span>
       </div>
       <div className="aw-card-body" style={{paddingBottom:6}}>
         <div style={{display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:8}}>
@@ -284,12 +282,13 @@ function CardPlanReady({ status = "ready" }) {
 
 function CardPermission() {
   return (
-    <div className="aw-card perm needs-input">
+    <div className="aw-card perm">
       <div className="aw-card-head">
         <span className="aw-card-icon"><I.Shield/></span>
         <span className="aw-card-title">Permission required · medium-risk action</span>
-        <span className="aw-card-state" style={{background:"var(--ylw-soft)",color:"#7A5A0E",borderColor:"#ECD89A"}}>Decision required</span>
-        <span className="aw-card-source backend"><span className="src-dot"/>policy · balanced</span>
+        <span className="aw-card-meta">
+          <span className="aw-badge-i warn"><span className="ldot"/>policy: balanced</span>
+        </span>
       </div>
       <div className="aw-card-body">
         <div className="aw-fail-grid">
@@ -302,9 +301,8 @@ function CardPermission() {
       <div className="aw-card-foot" style={{flexWrap:"wrap"}}>
         <button className="aw-btn primary"><I.Check/>Allow once</button>
         <button className="aw-btn">Allow for this plan</button>
-        <span style={{flex:1}}/>
-        <button className="aw-btn subtle"><I.More/></button>
-        <button className="aw-btn danger"><I.Stop style={{width:11,height:11}}/>Deny</button>
+        <button className="aw-btn">Edit plan to skip click</button>
+        <button className="aw-btn danger"><I.Stop style={{width:11,height:11}}/>Deny &amp; stop</button>
       </div>
     </div>
   );
@@ -312,12 +310,13 @@ function CardPermission() {
 
 function CardExecution() {
   return (
-    <div className="aw-card exec running">
+    <div className="aw-card exec">
       <div className="aw-card-head">
         <span className="aw-card-icon"><I.Play/></span>
         <span className="aw-card-title">Executing plan v2</span>
-        <span className="aw-card-state">Step 3 of 6</span>
-        <span className="aw-card-source backend"><span className="src-dot"/>Step Runner · live</span>
+        <span className="aw-card-meta">
+          <span className="aw-badge-i info"><span className="ldot"/>step 3 of 6</span>
+        </span>
       </div>
       <div className="aw-card-body">
         <div className="aw-prog" style={{marginBottom:10}}/>
@@ -376,83 +375,55 @@ function CardExecution() {
 
 function CardLocatorAmbiguity() {
   const [pick, setPick] = useStateLlm("hero");
-  const [showDiag, setShowDiag] = useStateLlm(false);
   const cands = [
-    { id:"header", t:'Header CTA — "Get started"', scope:"nav.ws-topnav .cta",         conf:0.92, risk:"safe-read",
-      preview:'getByRole(\'link\', { name: \'Get started\' }).first()',
-      diag:'role=link · accessible name unique · stable across renders · no positional fallback',
-    },
-    { id:"hero",   t:'Hero CTA — "Get started"',   scope:".ws-hero a.btn.primary",     conf:0.71, risk:"medium",
-      preview:'page.locator(\'.ws-hero a.btn.primary\')',
-      diag:'class-based · 1 match in scope · navigates to /signup · permission required to actuate',
-    },
-    { id:"starter",t:'Starter plan CTA — "Get started"', scope:".ws-plan:nth(1) .ws-plan-cta", conf:0.34, risk:"medium",
-      preview:'page.getByText(\'Get started\').nth(2)',
-      diag:'positional nth() · breaks if a plan card is added or reordered',
-    },
+    { id:"header", t:'Header CTA — "Get started"', scope:"nav.ws-topnav .cta", conf:0.92, risk:"safe-read",  preview:'getByRole(\'link\', { name: \'Get started\' }).first()' },
+    { id:"hero",   t:'Hero CTA — "Get started"',   scope:".ws-hero .btn.primary", conf:0.71, risk:"medium",  preview:'page.locator(\'.ws-hero a.btn.primary\')' },
+    { id:"starter",t:'Starter plan CTA — "Get started"', scope:".ws-plan:nth(1) .ws-plan-cta", conf:0.34, risk:"medium", preview:'page.getByText(\'Get started\').nth(2)' },
   ];
-  const pickedIdx = cands.findIndex(c => c.id === pick);
-  const picked = cands[pickedIdx];
   return (
-    <div className="aw-card locator blocking">
+    <div className="aw-card locator">
       <div className="aw-card-head">
         <span className="aw-card-icon"><I.Target/></span>
-        <span className="aw-card-title">Choose the correct "Get started" button</span>
-        <span className="aw-card-state">Execution paused</span>
-        <span className="aw-card-source backend"><span className="src-dot"/>Step Runner · 3 matches</span>
+        <span className="aw-card-title">Locator ambiguity — choose a candidate</span>
+        <span className="aw-card-meta">
+          <span className="aw-badge-i vio"><span className="ldot"/>3 matches</span>
+        </span>
       </div>
-      <div className="aw-card-body" style={{padding:"14px 14px 12px"}}>
-        <p style={{margin:"0 0 12px", fontSize:12.5, color:"var(--tx-2)"}}>
-          Three visible matches were found while resolving <span style={{fontFamily:"var(--ff-mono)",color:"var(--tx)"}}>stp_d8e2</span>.
-          I won't pick on your behalf — choose one, ask me to refine the locator, or narrow the scope.
+      <div className="aw-card-body">
+        <p style={{color:"var(--tx-2)", fontSize:12, marginBottom:8}}>
+          I found <b>3 visible "Get started" links</b> on /pricing. Execution is paused until you pick one or I find a unique candidate.
         </p>
-        <div style={{display:"flex", flexDirection:"column", gap:8}}>
-          {cands.map((c,i) => (
-            <div key={c.id} className={"aw-cand " + (pick === c.id ? "selected" : "")} onClick={() => setPick(c.id)}>
-              <span className="aw-cand-num">{i+1}</span>
-              <div className="aw-cand-main">
-                <div style={{display:"flex", alignItems:"center", gap:8, justifyContent:"space-between"}}>
-                  <span className="aw-cand-title">{c.t}</span>
-                  <Conf level={c.conf}/>
-                </div>
-                <div className="aw-cand-meta">
-                  <span>scope: <span style={{fontFamily:"var(--ff-mono)", color:"var(--tx-2)"}}>{c.scope}</span></span>
-                  <span>·</span>
-                  <span>risk: <span className={"aw-badge-i " + (c.risk === "safe-read" ? "ok" : "warn")}><span className="ldot"/>{c.risk}</span></span>
-                </div>
-                <div className="aw-cand-loc">{c.preview}</div>
-                {showDiag && (
-                  <div style={{marginTop:6, fontSize:11, color:"var(--tx-3)", lineHeight:1.5}}>
-                    <span style={{color:"var(--tx-4)",fontWeight:600,letterSpacing:"0.04em",fontSize:9.5,textTransform:"uppercase"}}>Diagnostics</span><br/>
-                    {c.diag}
-                  </div>
-                )}
-                <div className="aw-cand-actions">
-                  <button className="aw-btn" onClick={(e) => { e.stopPropagation(); setPick(c.id); }}>
-                    <I.Check/> {pick === c.id ? "Selected" : "Select"}
-                  </button>
-                  <button className="aw-btn subtle" onClick={(e) => e.stopPropagation()}>
-                    <I.Eye/>Highlight
-                  </button>
-                </div>
+        {cands.map((c,i) => (
+          <div key={c.id} className={"aw-cand " + (pick === c.id ? "selected" : "")} onClick={() => setPick(c.id)}>
+            <span className="aw-cand-num">{i+1}</span>
+            <div className="aw-cand-main">
+              <div style={{display:"flex", alignItems:"center", gap:8, justifyContent:"space-between"}}>
+                <span className="aw-cand-title">{c.t}</span>
+                <Conf level={c.conf}/>
+              </div>
+              <div className="aw-cand-loc">{c.preview}</div>
+              <div className="aw-cand-meta">
+                <span>scope: <span style={{fontFamily:"var(--ff-mono)", color:"var(--tx-2)"}}>{c.scope}</span></span>
+                <span>·</span>
+                <span>risk: <span className={"aw-badge-i " + (c.risk === "safe-read" ? "ok" : "warn")}><span className="ldot"/>{c.risk}</span></span>
+              </div>
+              <div className="aw-cand-actions">
+                <button className="aw-btn" onClick={(e) => { e.stopPropagation(); setPick(c.id); }}>
+                  <I.Check/> Select
+                </button>
+                <button className="aw-btn subtle" onClick={(e) => e.stopPropagation()}>
+                  <I.Eye/>Highlight in page
+                </button>
               </div>
             </div>
-          ))}
-        </div>
-        <button className="aw-link" style={{marginTop:10, fontSize:11.5}}
-                onClick={() => setShowDiag(!showDiag)}>
-          {showDiag ? "Hide" : "Show"} per-candidate diagnostics
-        </button>
+          </div>
+        ))}
       </div>
       <div className="aw-card-foot" style={{flexWrap:"wrap"}}>
-        <span style={{fontSize:11.5, color:"var(--tx-3)"}}>
-          Selected: <b style={{color:"var(--tx)"}}>candidate {pickedIdx+1}</b> — {picked.t}
-        </span>
-        <span style={{flex:1}}/>
+        <button className="aw-btn primary"><I.Check/>Use candidate {cands.findIndex(c => c.id === pick)+1}</button>
         <button className="aw-btn"><I.Spark/>Ask LLM for better locator</button>
         <button className="aw-btn">Change scope</button>
-        <button className="aw-btn danger"><I.Stop style={{width:11,height:11}}/>Stop</button>
-        <button className="aw-btn primary"><I.Check/>Use candidate {pickedIdx+1}</button>
+        <button className="aw-btn subtle"><I.Stop style={{width:11,height:11}}/>Stop run</button>
       </div>
     </div>
   );
@@ -460,12 +431,13 @@ function CardLocatorAmbiguity() {
 
 function CardRecovery() {
   return (
-    <div className="aw-card recover blocking">
+    <div className="aw-card recover">
       <div className="aw-card-head">
         <span className="aw-card-icon"><I.Alert/></span>
         <span className="aw-card-title">Recovery needed · step 5</span>
-        <span className="aw-card-state">Run blocked</span>
-        <span className="aw-card-source backend"><span className="src-dot"/>Debug Agent · 1 attempt left</span>
+        <span className="aw-card-meta">
+          <span className="aw-badge-i err"><span className="ldot"/>assertion failed</span>
+        </span>
       </div>
       <div className="aw-card-body">
         <div className="aw-fail-grid">
@@ -492,8 +464,8 @@ function CardRecovery() {
         <button className="aw-btn primary"><I.Spark/>Apply LLM repair</button>
         <button className="aw-btn"><I.Retry style={{width:12,height:12}}/>Retry as-is</button>
         <button className="aw-btn">Choose another locator</button>
-        <span style={{flex:1}}/>
-        <button className="aw-btn subtle"><I.More/></button>
+        <button className="aw-btn">Provide instruction…</button>
+        <button className="aw-btn"><I.Skip style={{width:11,height:11}}/>Skip step</button>
         <button className="aw-btn danger"><I.Stop style={{width:11,height:11}}/>Stop run</button>
       </div>
     </div>
@@ -506,8 +478,9 @@ function CardCompleted() {
       <div className="aw-card-head">
         <span className="aw-card-icon"><I.Check/></span>
         <span className="aw-card-title">Run completed</span>
-        <span className="aw-card-state">6 / 6 recorded</span>
-        <span className="aw-card-source backend"><span className="src-dot"/>Backend event · run_completed</span>
+        <span className="aw-card-meta">
+          <span className="aw-badge-i ok"><span className="ldot"/>6 / 6 recorded</span>
+        </span>
       </div>
       <div className="aw-card-body">
         <div style={{display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:8, marginBottom:10}}>
@@ -538,12 +511,13 @@ function CardCompleted() {
 
 function CardOffline() {
   return (
-    <div className="aw-card recover blocking">
+    <div className="aw-card recover">
       <div className="aw-card-head">
         <span className="aw-card-icon"><I.Plug/></span>
         <span className="aw-card-title">Backend unavailable</span>
-        <span className="aw-card-state">Holding state</span>
-        <span className="aw-card-source backend"><span className="src-dot"/>ws disconnected · 14s</span>
+        <span className="aw-card-meta">
+          <span className="aw-badge-i err"><span className="ldot"/>ws disconnected</span>
+        </span>
       </div>
       <div className="aw-card-body">
         <p style={{margin:"0 0 6px"}}>The frontend lost its websocket to <span style={{fontFamily:"var(--ff-mono)"}}>autoworkbench-runner</span> 14s ago. <b>I will not infer success or failure of in-flight steps.</b></p>
@@ -564,12 +538,13 @@ function CardOffline() {
 
 function CardSchemaError() {
   return (
-    <div className="aw-card warn blocking">
+    <div className="aw-card warn">
       <div className="aw-card-head">
         <span className="aw-card-icon"><I.Alert/></span>
         <span className="aw-card-title">Schema validation failed</span>
-        <span className="aw-card-state">Nothing executed</span>
-        <span className="aw-card-source llm"><span className="src-dot"/>llm_response_invalid</span>
+        <span className="aw-card-meta">
+          <span className="aw-badge-i warn"><span className="ldot"/>llm_response_invalid</span>
+        </span>
       </div>
       <div className="aw-card-body">
         <p style={{margin:"0 0 6px", fontSize:12.5}}>The LLM returned a plan that does not match <span style={{fontFamily:"var(--ff-mono)"}}>plan.v3.schema.json</span>. Nothing was executed.</p>
@@ -583,118 +558,6 @@ function CardSchemaError() {
         <button className="aw-btn primary"><I.Sync/>Ask LLM to repair plan</button>
         <button className="aw-btn">Edit plan manually</button>
         <button className="aw-btn subtle">Open raw response</button>
-      </div>
-    </div>
-  );
-}
-
-// — Additional state cards: no browser, api key missing, OTP, paid E2E pending ——
-
-function CardNoBrowser() {
-  return (
-    <div className="aw-card recover blocking">
-      <div className="aw-card-head">
-        <span className="aw-card-icon"><I.Globe/></span>
-        <span className="aw-card-title">No browser session attached</span>
-        <span className="aw-card-state">Cannot start run</span>
-        <span className="aw-card-source backend"><span className="src-dot"/>Step Runner · idle</span>
-      </div>
-      <div className="aw-card-body">
-        <p style={{margin:"0 0 6px"}}>Backend is connected, but there is no Playwright browser context to drive. Plan was drafted but cannot be executed.</p>
-        <ul className="aw-dotlist">
-          <li className="no">no active context · <span style={{fontFamily:"var(--ff-mono)"}}>browserType: chromium</span> requested</li>
-          <li>page intelligence cache available · 14s old</li>
-          <li>safe actions: launch new context, attach existing, or keep plan as draft</li>
-        </ul>
-      </div>
-      <div className="aw-card-foot">
-        <button className="aw-btn primary"><I.Play/>Launch chromium</button>
-        <button className="aw-btn">Attach existing tab…</button>
-        <button className="aw-btn subtle">Keep plan as draft</button>
-      </div>
-    </div>
-  );
-}
-
-function CardApiKey() {
-  return (
-    <div className="aw-card warn blocking">
-      <div className="aw-card-head">
-        <span className="aw-card-icon"><I.Key/></span>
-        <span className="aw-card-title">LLM provider key missing</span>
-        <span className="aw-card-state">No model calls possible</span>
-        <span className="aw-card-source backend"><span className="src-dot"/>config · auth</span>
-      </div>
-      <div className="aw-card-body">
-        <p style={{margin:"0 0 6px"}}>The Main Orchestrator agent needs a model provider key to draft plans or repairs. Backend lifecycle continues to flow but no new LLM calls can be made.</p>
-        <div className="aw-fail-grid">
-          <div className="k">missing</div> <div className="v mono">ANTHROPIC_API_KEY <span style={{color:"var(--tx-3)"}}>or</span> OPENAI_API_KEY</div>
-          <div className="k">policy</div>  <div className="v">workspace · Acme QA · keys not in env</div>
-          <div className="k">impact</div>  <div className="v">planning, clarification, repair, codegen reviewer all paused</div>
-        </div>
-      </div>
-      <div className="aw-card-foot">
-        <button className="aw-btn primary"><I.Key/>Add key…</button>
-        <button className="aw-link" style={{marginLeft:4}}>Use shared workspace key</button>
-        <span style={{flex:1}}/>
-        <span className="aw-card-foot-hint"><I.Lock style={{width:11,height:11}}/>Keys are stored encrypted per workspace</span>
-      </div>
-    </div>
-  );
-}
-
-function CardOtp() {
-  return (
-    <div className="aw-card perm needs-input">
-      <div className="aw-card-head">
-        <span className="aw-card-icon"><I.Key/></span>
-        <span className="aw-card-title">Human input required · OTP / 2FA</span>
-        <span className="aw-card-state" style={{background:"var(--ylw-soft)",color:"#7A5A0E",borderColor:"#ECD89A"}}>Awaiting you</span>
-        <span className="aw-card-source backend"><span className="src-dot"/>Step Runner · human_input</span>
-      </div>
-      <div className="aw-card-body">
-        <p style={{margin:"0 0 8px"}}>Step 4 ran into a one-time code prompt at <span style={{fontFamily:"var(--ff-mono)"}}>acme.dev/auth/otp</span>. Backend will not type values it cannot derive from your test data. Provide the code or skip the step.</p>
-        <div style={{display:"flex",gap:8,alignItems:"center"}}>
-          <input type="text" placeholder="6-digit code"
-                 style={{flex:1,maxWidth:180,padding:"7px 10px",fontFamily:"var(--ff-mono)",fontSize:14,
-                         letterSpacing:"0.2em",border:"1px solid var(--br)",borderRadius:8,
-                         background:"var(--bg-card)",outline:"none"}}/>
-          <span style={{fontSize:11.5,color:"var(--tx-3)"}}>received via Authenticator app</span>
-        </div>
-        <div style={{marginTop:10,fontSize:11.5,color:"var(--tx-3)"}}>Backend redacts the value from screenshots and trace. <button className="aw-link">View redaction policy</button></div>
-      </div>
-      <div className="aw-card-foot">
-        <button className="aw-btn primary"><I.Send/>Submit code</button>
-        <button className="aw-btn"><I.Skip style={{width:11,height:11}}/>Skip this step</button>
-        <button className="aw-btn subtle">Pause run for manual login</button>
-      </div>
-    </div>
-  );
-}
-
-function CardE2EPending() {
-  return (
-    <div className="aw-card warn">
-      <div className="aw-card-head">
-        <span className="aw-card-icon"><I.Branch/></span>
-        <span className="aw-card-title">Paid E2E suite pending final acceptance</span>
-        <span className="aw-card-state" style={{background:"var(--blu-soft)",color:"var(--blu)",borderColor:"#D8E3F2"}}>Not run yet</span>
-        <span className="aw-card-source backend"><span className="src-dot"/>scheduled · nightly</span>
-      </div>
-      <div className="aw-card-body">
-        <p style={{margin:"0 0 6px"}}>
-          The local plan recorded cleanly, but the paid end-to-end suite (real card, real signup, real Stripe) has not been run for this commit.
-          <b> Frontend will not mark this work accepted</b> — that gate is owned by the backend after the nightly E2E run.
-        </p>
-        <ul className="aw-dotlist">
-          <li>scheduled <span style={{fontFamily:"var(--ff-mono)"}}>02:00 UTC</span> · ~3h 22m from now</li>
-          <li>cost cap <span style={{fontFamily:"var(--ff-mono)"}}>$4.20</span> per run · uses real Stripe test cards</li>
-          <li>completion will arrive as <span style={{fontFamily:"var(--ff-mono)"}}>e2e_pending → e2e_passed</span> events</li>
-        </ul>
-      </div>
-      <div className="aw-card-foot">
-        <button className="aw-btn"><I.Bolt/>Trigger E2E now ($4.20)</button>
-        <button className="aw-btn subtle">Notify me when E2E completes</button>
       </div>
     </div>
   );
@@ -721,52 +584,27 @@ function LlmEmpty({ onSeed }) {
 // — Composer (sticky at bottom of LLM tab) ————————————————————————————————————————
 
 function Composer() {
-  const [sending, setSending] = React.useState(false);
-  const [sent, setSent] = React.useState(false);
-  const inputRef = React.useRef(null);
-  const onSend = () => {
-    if (sending) return;
-    setSending(true);
-    setTimeout(() => {
-      setSending(false);
-      setSent(true);
-      if (inputRef.current) inputRef.current.value = "";
-      setTimeout(() => setSent(false), 1200);
-    }, 450);
-  };
-  const onKey = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); onSend(); }
-  };
   return (
     <div className="aw-composer">
       <div className="aw-composer-box">
-        <div className="aw-composer-actions">
+        <div className="aw-composer-actions" style={{marginBottom:2}}>
           <span className="aw-context-chip"><I.Globe/> /pricing</span>
-          <span className="aw-context-chip"><I.Target/> 2 selected</span>
+          <span className="aw-context-chip"><I.Target/> 2 selected elements</span>
           <span className="aw-context-chip"><I.Doc/> users.csv</span>
-          <button className="aw-btn subtle" style={{padding:"2px 5px",fontSize:10.5,height:18}}>
-            <I.Plus/>Add
+          <button className="aw-btn subtle" style={{padding:"3px 7px",fontSize:11}}>
+            <I.Plus/>Add context
           </button>
         </div>
-        <textarea ref={inputRef} className="aw-composer-input" rows={1}
+        <textarea className="aw-composer-input" rows={2}
                   placeholder="Reply, refine the plan, or paste a step…"
-                  defaultValue=""
-                  onKeyDown={onKey}></textarea>
-        <div className="aw-composer-actions" style={{justifyContent:"space-between"}}>
-          <div style={{display:"flex", gap:2, alignItems:"center"}}>
-            <button className="aw-icon-btn" title="Attach" data-tip="Attach"><I.Paperclip/></button>
-            <button className="aw-icon-btn" title="Pick element" data-tip="Pick element"><I.Mouse/></button>
-            <button className="aw-icon-btn" title="Attach screenshot" data-tip="Attach screenshot"><I.Camera/></button>
-            <span style={{fontSize:10.5, color:"var(--tx-4)", marginLeft:6}}>complete-llm · gpt-class</span>
-          </div>
-          <button className={"aw-btn primary aw-send " + (sending ? "sending " : "") + (sent ? "sent" : "")}
-                  style={{padding:"5px 10px",fontSize:11.5,height:24,minWidth:74,justifyContent:"center"}}
-                  onClick={onSend}
-                  disabled={sending}>
-            {sending ? (<><span className="aw-send-spin"/>Sending</>)
-             : sent ? (<><I.Check/>Sent</>)
-             : (<><I.Send/>Send<span className="aw-kbd">↵</span></>)}
-          </button>
+                  defaultValue=""></textarea>
+        <div className="aw-composer-actions">
+          <button className="aw-icon-btn" title="Attach"><I.Paperclip/></button>
+          <button className="aw-icon-btn" title="Pick element"><I.Mouse/></button>
+          <button className="aw-icon-btn" title="Attach screenshot"><I.Camera/></button>
+          <span className="aw-spacer" style={{flex:1}}/>
+          <span style={{fontSize:11, color:"var(--tx-4)"}}>complete-llm · gpt-class · plan-aware</span>
+          <button className="aw-btn primary"><I.Send/>Send<span className="aw-kbd">↵</span></button>
         </div>
       </div>
     </div>
@@ -886,34 +724,6 @@ function LlmThread({ state }) {
           <p>The model returned something I can't safely execute.</p>
         </Sys>
         <CardSchemaError/>
-      </>)}
-
-      {state === "nobrowser" && (<>
-        <Sys time="11:42">
-          <p>I have your plan ready, but I can't find a browser to run it against.</p>
-        </Sys>
-        <CardNoBrowser/>
-      </>)}
-
-      {state === "apikey" && (<>
-        <Sys time="11:42">
-          <p>I can't reach a model provider — the workspace has no key configured.</p>
-        </Sys>
-        <CardApiKey/>
-      </>)}
-
-      {state === "otp" && (<>
-        <Sys time="11:46">
-          <p>Step 4 navigated to a login flow that asks for a 2FA code.</p>
-        </Sys>
-        <CardOtp/>
-      </>)}
-
-      {state === "e2e" && (<>
-        <Bubble time="11:49">Apply the repair.</Bubble>
-        <Sys time="11:49"><p>Repair applied, step recorded, code updated. Local run finished — the paid E2E suite is still pending.</p></Sys>
-        <CardCompleted/>
-        <CardE2EPending/>
       </>)}
     </div>
   );
