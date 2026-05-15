@@ -79,8 +79,9 @@ from runtime.multi_agent_orchestrator import (
     MultiAgentOrchestrator,
     build_agent_status_event,
 )
-from runtime.debug_agent import build_debug_report, serialize_debug_report
-from runtime.codegen_reviewer import review_playwright_code
+from runtime.debug_agent import build_debug_report, serialize_debug_report, build_debug_report_with_llm
+from runtime.codegen_reviewer import review_playwright_code, review_playwright_code_with_llm
+from runtime.page_intelligence import summarize_page_with_llm
 import dataclasses
 from locator.replacement import propose_replacement
 from event.emitter import EventEmitter
@@ -281,6 +282,10 @@ class AgentLoop:
         self.autonomy_mode: str = "balanced"
         self._debug_report_emitted: set[tuple[str, str]] = set()
         self._code_review_emitted: set[tuple[str, str]] = set()
+        # ISSUE-005: track whether a plan_ready was emitted so confirmed-after-correction works
+        self._last_plan_ready_emitted: bool = False
+        # CardE2EPending: idempotent e2e_pending emit keyed on run_id
+        self._e2e_pending_emitted: set[str] = set()
 
     _MODULE_FACTORIES: dict[str, Any] = {}
 
@@ -360,6 +365,8 @@ class AgentLoop:
         self._run_started_emitted = False
         self._debug_report_emitted = set()
         self._code_review_emitted = set()
+        self._last_plan_ready_emitted = False
+        self._e2e_pending_emitted = set()
         self._clear_plan_review_context()
         telemetry_sink = getattr(self, "_plan_diff_editor_telemetry", None)
         if isinstance(telemetry_sink, list):
@@ -596,6 +603,30 @@ class AgentLoop:
                 if key != "type"
             },
         )
+        # CardE2EPending: emit e2e_pending for runs with >= 3 recorded steps.
+        # Idempotent per run_id via _e2e_pending_emitted set.
+        try:
+            _e2e_emitted = getattr(self, "_e2e_pending_emitted", None)
+            if not isinstance(_e2e_emitted, set):
+                _e2e_emitted = set()
+                self._e2e_pending_emitted = _e2e_emitted
+            _run_steps = recorded_count + skipped_count
+            _is_e2e_candidate = _run_steps >= 3 and failed_count == 0
+            if _is_e2e_candidate and run_id not in _e2e_emitted:
+                _e2e_emitted.add(run_id)
+                await self._send(
+                    "e2e_pending",
+                    run_id=run_id,
+                    payload={
+                        "run_id": run_id,
+                        "run_steps": _run_steps,
+                        "is_e2e_candidate": True,
+                        "reason": "run_completed_with_3plus_steps",
+                    },
+                )
+                print(f"[E2E_PENDING] emitted run_id={run_id} run_steps={_run_steps}")
+        except Exception as _e2e_exc:  # noqa: BLE001
+            print(f"[E2E_PENDING] emit error (non-fatal): {type(_e2e_exc).__name__}: {_e2e_exc}")
         # Emit token_report envelope immediately after run_completed.
         # Best-effort: failures must never propagate to the caller.
         try:
@@ -1926,6 +1957,28 @@ class AgentLoop:
                     await self._send("llm_result", success=False, message=failure_message)
                     self._pending_failure_followup = False
                     self._clear_active_plan_correction_state()
+                    # ISSUE-005: if a plan_ready was previously emitted, re-enter
+                    # awaiting_confirmation so a subsequent 'confirmed' event is accepted.
+                    if getattr(self, "_last_plan_ready_emitted", False):
+                        print("[AGENT] ISSUE-005: correction failed safely after plan_ready — re-entering awaiting_confirmation")
+                        self.phase_tracker.set_phase("awaiting_confirmation", reason="correction_failed_reenter")
+                        _reenter_confirmation = await self._wait_for_plan_confirmation()
+                        if _reenter_confirmation.get("confirmed"):
+                            self.plan_confirmed = True
+                            self.phase = "executing"
+                            self.phase_tracker.set_phase("executing", reason="confirmed_after_correction_failure")
+                            self._pending_failure_followup = False
+                            self._awaiting_step_record = False
+                            self._recording_wait_guard_armed = False
+                            self._store_confirmed_execution_plan(getattr(self, "last_plan_ready_payload", {}) or {})
+                            self._clear_active_plan_state()
+                            self._plan_correction_pending = False
+                            self._clear_plan_review_context()
+                            print("[AGENT] ISSUE-005: confirmed after correction-failure — entering execution phase")
+                            continue
+                        else:
+                            # User sent another correction or rejected; fall through to return
+                            pass
                     return
                 confirmed_cursor = self._current_confirmed_execution_cursor()
                 if current_phase == "executing" and self.plan_confirmed and isinstance(confirmed_cursor, dict):
@@ -1968,6 +2021,24 @@ class AgentLoop:
                             await self._send("llm_result", success=False, message=failure_message)
                             self._pending_failure_followup = False
                             self._clear_active_plan_correction_state()
+                            # ISSUE-005: re-enter awaiting_confirmation if plan_ready was previously emitted
+                            if getattr(self, "_last_plan_ready_emitted", False):
+                                print("[AGENT] ISSUE-005: structured correction failed safely — re-entering awaiting_confirmation")
+                                self.phase_tracker.set_phase("awaiting_confirmation", reason="correction_failed_reenter")
+                                _reenter_confirmation2 = await self._wait_for_plan_confirmation()
+                                if _reenter_confirmation2.get("confirmed"):
+                                    self.plan_confirmed = True
+                                    self.phase = "executing"
+                                    self.phase_tracker.set_phase("executing", reason="confirmed_after_correction_failure")
+                                    self._pending_failure_followup = False
+                                    self._awaiting_step_record = False
+                                    self._recording_wait_guard_armed = False
+                                    self._store_confirmed_execution_plan(getattr(self, "last_plan_ready_payload", {}) or {})
+                                    self._clear_active_plan_state()
+                                    self._plan_correction_pending = False
+                                    self._clear_plan_review_context()
+                                    print("[AGENT] ISSUE-005: confirmed after structured correction-failure — entering execution phase")
+                                    continue
                             return
 
                         correction_reason = str(correction_result.get("reason") or "").strip()
@@ -1986,6 +2057,24 @@ class AgentLoop:
                             )
                             self._pending_failure_followup = False
                             self._clear_active_plan_correction_state()
+                            # ISSUE-005: re-enter awaiting_confirmation if plan_ready was previously emitted
+                            if getattr(self, "_last_plan_ready_emitted", False):
+                                print("[AGENT] ISSUE-005: correction_diff_required closed — re-entering awaiting_confirmation")
+                                self.phase_tracker.set_phase("awaiting_confirmation", reason="correction_failed_reenter")
+                                _reenter_confirmation3 = await self._wait_for_plan_confirmation()
+                                if _reenter_confirmation3.get("confirmed"):
+                                    self.plan_confirmed = True
+                                    self.phase = "executing"
+                                    self.phase_tracker.set_phase("executing", reason="confirmed_after_correction_failure")
+                                    self._pending_failure_followup = False
+                                    self._awaiting_step_record = False
+                                    self._recording_wait_guard_armed = False
+                                    self._store_confirmed_execution_plan(getattr(self, "last_plan_ready_payload", {}) or {})
+                                    self._clear_active_plan_state()
+                                    self._plan_correction_pending = False
+                                    self._clear_plan_review_context()
+                                    print("[AGENT] ISSUE-005: confirmed after correction_diff_required — entering execution phase")
+                                    continue
                             return
 
                         if correction_reason == "invalid_corrected_plan":
@@ -2855,6 +2944,24 @@ class AgentLoop:
                     # headings/ctas/sections. Convert to recommendation options and emit.
                     # Idempotent per (run_id, step_id) via _recommendation_ready_emitted set.
                     if tool_name == "dom_extract" and isinstance(result, dict):
+                        # Wire: Page Intelligence LLM fallback — enrich sparse DOM results
+                        try:
+                            _pi_dom = result.get("html") or result.get("dom") or result
+                            _pi_controller = getattr(self, "_llm_runtime_controller", None)
+                            if _pi_controller is not None:
+                                import asyncio as _asyncio
+                                _pi_enriched = await summarize_page_with_llm(_pi_controller, _pi_dom)
+                                if isinstance(_pi_enriched, dict) and "llm_summary" not in _pi_enriched:
+                                    # Merge enriched summary into result's page_intelligence if present
+                                    _existing_pi = result.get("page_intelligence")
+                                    if isinstance(_existing_pi, dict):
+                                        _existing_pi.setdefault("_llm_enriched", False)
+                                    result["_page_intelligence_summary"] = _pi_enriched
+                                elif isinstance(_pi_enriched, dict) and "llm_summary" in _pi_enriched:
+                                    result["_page_intelligence_llm"] = _pi_enriched.get("llm_summary", "")
+                                print("[PAGE_INTEL] summarize_page_with_llm completed")
+                        except Exception as _pi_exc:  # noqa: BLE001
+                            print(f"[PAGE_INTEL] llm fallback error (non-fatal): {type(_pi_exc).__name__}: {_pi_exc}")
                         _pi = result.get("page_intelligence")
                         if isinstance(_pi, dict):
                             try:
@@ -4499,6 +4606,7 @@ class AgentLoop:
         except Exception:
             pass
         # Wire 4: DebugAgent — emit debug_report on recovery entry (idempotent per run_id+step_id)
+        # Routes through build_debug_report_with_llm (deterministic-first; LLM fallback when confidence < 0.5).
         try:
             _dbg_run_id = str(self._current_run_session_id() or "").strip()
             _dbg_idem_key = (_dbg_run_id, step_id)
@@ -4523,6 +4631,7 @@ class AgentLoop:
                 except Exception:  # noqa: BLE001
                     pass
                 _failure_label = str(context.get("failure_label") or context.get("last_error") or "")
+                # Deterministic fast path first; schedule LLM enrichment as background task
                 _dbg_report = build_debug_report(
                     failed_step=dict(context),
                     page_state=_page_state,
@@ -4536,6 +4645,37 @@ class AgentLoop:
                     step_id=step_id,
                 )
                 print(f"[DEBUG_AGENT] report emitted step_id={step_id} confidence={_dbg_report.confidence}")
+                # LLM enrichment: schedule via build_debug_report_with_llm if confidence is low
+                if _dbg_report.confidence < 0.5:
+                    _dbg_controller = getattr(self, "_llm_runtime_controller", None)
+                    if _dbg_controller is not None:
+                        import asyncio as _asyncio_dbg
+                        async def _dbg_llm_enrich(
+                            _ctrl=_dbg_controller,
+                            _fs=dict(context),
+                            _ps=_page_state,
+                            _re=list(_recent_events),
+                            _fl=_failure_label,
+                            _rid=_dbg_run_id,
+                            _sid=step_id,
+                        ) -> None:
+                            try:
+                                _enriched = await build_debug_report_with_llm(_ctrl, _fs, _ps, _re, _fl)
+                                if _enriched.confidence > _dbg_report.confidence:
+                                    self._emit_backend_event_now(
+                                        "debug_report",
+                                        payload=serialize_debug_report(_enriched),
+                                        run_id=_rid,
+                                        step_id=_sid,
+                                        source="llm_enriched",
+                                    )
+                                    print(f"[DEBUG_AGENT] llm-enriched report emitted step_id={_sid} confidence={_enriched.confidence}")
+                            except Exception as _e:  # noqa: BLE001
+                                print(f"[DEBUG_AGENT] llm enrichment error (non-fatal): {type(_e).__name__}: {_e}")
+                        try:
+                            _asyncio_dbg.ensure_future(_dbg_llm_enrich())
+                        except Exception:  # noqa: BLE001
+                            pass
         except Exception as _dbg_exc:  # noqa: BLE001
             print(f"[DEBUG_AGENT] emit error (non-fatal): {type(_dbg_exc).__name__}: {_dbg_exc}")
 
@@ -7936,6 +8076,7 @@ class AgentLoop:
                     print(f"[AGENT] code_update emit failed: {type(exc).__name__}: {exc}")
 
                 # Wire 5: CodegenReviewer — emit code_review after every code_update
+                # Routes through review_playwright_code_with_llm (heuristic-first; LLM when 0 issues + >100 lines).
                 # Idempotent per (run_id, step_id) via _code_review_emitted set.
                 try:
                     _cr_run_id = str(
@@ -7957,7 +8098,14 @@ class AgentLoop:
                         _cr_emitted.add(_cr_idem_key)
                         _generated_code = "\n".join(code_update_payload.get("lines") or [])
                         if _generated_code.strip():
-                            _cr_result = review_playwright_code(_generated_code)
+                            _cr_controller = getattr(self, "_llm_runtime_controller", None)
+                            try:
+                                if _cr_controller is not None:
+                                    _cr_result = await review_playwright_code_with_llm(_cr_controller, _generated_code)
+                                else:
+                                    _cr_result = review_playwright_code(_generated_code)
+                            except Exception:  # noqa: BLE001
+                                _cr_result = review_playwright_code(_generated_code)
                             await self._send(
                                 "code_review",
                                 run_id=_cr_run_id,
@@ -10410,6 +10558,8 @@ class AgentLoop:
             await self._send("plan_ready", **_plan_emit_kwargs)
         else:
             await self._send("plan_ready", **payload)
+        # ISSUE-005: mark that a plan_ready has been emitted so confirmed-after-correction works
+        self._last_plan_ready_emitted = True
         self._remember_plan_review_context(payload)
         plan_step_id = str(
             payload.get("target_step_id")

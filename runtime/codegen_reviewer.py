@@ -2,15 +2,14 @@
 codegen_reviewer.py — Deterministic Playwright code reviewer (PRD 07 §3 / DG1 G11).
 
 Pure heuristic ruleset; no I/O, stdlib only.
-LLM-backed variant routes through controller.call(purpose="codegen_reviewer")
-in a follow-up wire-in slice.
+LLM-backed variant routes through controller.call(purpose="codegen_reviewer").
 """
 
 from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from typing import Literal
+from typing import Any, Literal
 
 
 # ---------------------------------------------------------------------------
@@ -304,3 +303,77 @@ def review_playwright_code(code: str, *, ruleset: str = "default") -> CodegenRev
     summary = f"score={score}, {errors} errors, {warns} warns, {infos} infos"
 
     return CodegenReview(score=score, issues=deduped, summary=summary)
+
+
+# ---------------------------------------------------------------------------
+# LLM-fallback variant — heuristic-first, controller.call when heuristics
+# flag 0 issues but code is long (real review needed).
+# ---------------------------------------------------------------------------
+
+async def review_playwright_code_with_llm(
+    controller: Any,
+    code: str,
+    *,
+    ruleset: str = "default",
+) -> CodegenReview:
+    """Heuristic-first code reviewer with LLM fallback.
+
+    Fast path: ``review_playwright_code`` result is returned as-is when it
+    finds at least 1 issue, OR when the code is <= 100 lines (trivial scripts
+    unlikely to benefit from LLM review).
+
+    Slow path: ``controller.call(purpose='codegen_reviewer', ...)`` when
+    heuristics flag 0 issues AND the code exceeds 100 lines.
+
+    Always returns a valid ``CodegenReview`` — controller failures fall back to
+    the deterministic result.
+    """
+    det_review = review_playwright_code(code, ruleset=ruleset)
+    lines_count = len(code.splitlines())
+    if det_review.issues or lines_count <= 100:
+        return det_review
+
+    # 0 heuristic issues on long code — ask LLM for deeper review.
+    try:
+        llm_response = await controller.call(
+            purpose="codegen_reviewer",
+            system=(
+                "You are an expert Playwright test reviewer. "
+                "Review the following Python Playwright script for: "
+                "correctness, brittleness, missing assertions, and security issues. "
+                "List issues as: <severity>|<rule>|<line>|<message>. "
+                "One issue per line. If none, respond 'no_issues'."
+            ),
+            user=f"Code ({lines_count} lines):\n{code[:6000]}",
+            schema=None,
+        )
+        llm_text = str(llm_response or "").strip()
+        if llm_text and llm_text.lower() != "no_issues":
+            llm_issues: list[CodegenIssue] = []
+            for raw_line in llm_text.splitlines():
+                parts = raw_line.split("|", 3)
+                if len(parts) == 4:
+                    sev_raw, rule_raw, line_raw, msg_raw = parts
+                    sev_raw = sev_raw.strip().lower()
+                    sev: Any = sev_raw if sev_raw in ("info", "warn", "error") else "info"
+                    try:
+                        lineno = int(line_raw.strip())
+                    except ValueError:
+                        lineno = 0
+                    llm_issues.append(CodegenIssue(
+                        severity=sev,
+                        rule=rule_raw.strip() or "llm_review",
+                        line=lineno,
+                        message=msg_raw.strip(),
+                        suggestion=None,
+                    ))
+            if llm_issues:
+                penalty = sum(_RULE_WEIGHTS.get(i.rule, 3) for i in llm_issues)
+                score = max(0, 100 - penalty)
+                summary = f"score={score}, llm_review: {len(llm_issues)} issue(s)"
+                return CodegenReview(score=score, issues=llm_issues, summary=summary)
+    except Exception:  # noqa: BLE001
+        pass
+
+    # LLM failed — return deterministic result as-is.
+    return det_review

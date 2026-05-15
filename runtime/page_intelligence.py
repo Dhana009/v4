@@ -563,3 +563,69 @@ def summarize_page(
         "interactive_count": interactive_count,
         "warnings": warnings,
     }
+
+
+# ---------------------------------------------------------------------------
+# LLM-fallback variant — deterministic-first, controller.call on sparse DOM
+# ---------------------------------------------------------------------------
+
+async def summarize_page_with_llm(
+    controller: "Any",
+    dom_snapshot: "dict | str",
+    **ctx: "Any",
+) -> "dict | str":
+    """Deterministic-first page summariser with LLM fallback.
+
+    Fast path: ``summarize_page`` if headings + form_fields + primary_actions >= 3.
+    Slow path: ``controller.call(purpose='page_intelligence', ...)`` when the
+    deterministic result is too sparse to be useful.
+
+    Parameters
+    ----------
+    controller:
+        An ``LLMRuntimeController`` instance (or any object with a
+        ``call(purpose, system, user, schema)`` coroutine).
+    dom_snapshot:
+        Raw HTML string or parsed dict DOM tree.
+    **ctx:
+        Extra keyword arguments forwarded as metadata (ignored by this helper
+        but kept for forward-compat).
+
+    Returns
+    -------
+    dict
+        The deterministic summary dict when rich enough, otherwise a plain-text
+        string (wrapped in ``{"llm_summary": ...}`` to keep callers consistent).
+    """
+    det_result = summarize_page(dom_snapshot)
+    headings_count = len(det_result.get("headings") or [])
+    form_fields_count = len(det_result.get("form_fields") or [])
+    primary_actions_count = len(det_result.get("primary_actions") or [])
+    if headings_count + form_fields_count + primary_actions_count >= 3:
+        return det_result
+
+    # Sparse DOM — fall back to LLM.
+    try:
+        if isinstance(dom_snapshot, dict):
+            dom_text = str(dom_snapshot)[:4000]
+        else:
+            dom_text = str(dom_snapshot)[:4000]
+        llm_response = await controller.call(
+            purpose="page_intelligence",
+            system=(
+                "You are a page intelligence assistant. "
+                "Given a DOM snapshot, extract: page title, main headings, "
+                "primary actions (buttons/links), form fields, and any risk flags. "
+                "Be concise. Return plain text."
+            ),
+            user=f"DOM snapshot (truncated):\n{dom_text}",
+            schema=None,
+        )
+        llm_text = str(llm_response or "").strip()
+        if llm_text:
+            return {"llm_summary": llm_text, "source": "llm"}
+    except Exception:  # noqa: BLE001
+        pass
+
+    # LLM failed — return deterministic result regardless of sparsity.
+    return det_result

@@ -286,3 +286,64 @@ def serialize_debug_report(report: DebugReport) -> dict[str, Any]:
     # ensure evidence is a plain list (asdict already does this, but be explicit)
     d["evidence"] = list(d.get("evidence", []))
     return d
+
+
+# ---------------------------------------------------------------------------
+# LLM-fallback variant — heuristic-first, controller.call on low confidence
+# ---------------------------------------------------------------------------
+
+async def build_debug_report_with_llm(
+    controller: "Any",
+    failed_step: "dict[str, Any]",
+    page_state: "dict[str, Any]",
+    recent_events: "list[dict[str, Any]]",
+    failure_label: "str | None" = None,
+) -> DebugReport:
+    """Heuristic-first debug report with LLM fallback.
+
+    Fast path: ``build_debug_report`` when ``confidence >= 0.5``.
+    Slow path: ``controller.call(purpose='debug_agent', ...)`` when heuristics
+    produce confidence < 0.5 (insufficient evidence).
+
+    Always returns a valid ``DebugReport`` — controller failures fall back to
+    the deterministic result.
+    """
+    det_report = build_debug_report(failed_step, page_state, recent_events, failure_label)
+    if det_report.confidence >= 0.5:
+        return det_report
+
+    # Low-confidence — ask LLM.
+    try:
+        context_summary = (
+            f"failed_step: {failed_step}\n"
+            f"page_state: {page_state}\n"
+            f"failure_label: {failure_label!r}\n"
+            f"recent_event_types: {[str(e.get('type', '?')) for e in recent_events[-5:]]}"
+        )
+        llm_response = await controller.call(
+            purpose="debug_agent",
+            system=(
+                "You are a Playwright test debugger. "
+                "Given a failed step context, provide: "
+                "1) a short hypothesis (1 sentence), "
+                "2) key evidence items (bullet list), "
+                "3) a suggested repair strategy. "
+                "Be concise and precise."
+            ),
+            user=context_summary,
+            schema=None,
+        )
+        llm_text = str(llm_response or "").strip()
+        if llm_text:
+            return DebugReport(
+                hypothesis=f"[LLM] {llm_text[:300]}",
+                evidence=list(det_report.evidence) + ["source: llm_fallback"],
+                suggested_repair=det_report.suggested_repair or {"kind": "llm_suggested"},
+                confidence=0.6,
+                agent_invocation_id=det_report.agent_invocation_id,
+            )
+    except Exception:  # noqa: BLE001
+        pass
+
+    # LLM failed — return deterministic result as-is.
+    return det_report
