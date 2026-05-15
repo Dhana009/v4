@@ -24,12 +24,16 @@ from runtime.correction_context import (
 )
 from runtime.context_manager import ContextManager
 from runtime.event_contracts import (
+    build_code_update_event,
+    build_locator_update_request_event_v2,
+    build_plan_ready_event,
     build_recovery_needed_payload,
     build_run_completed_payload,
     build_run_started_payload,
     build_runtime_rejection_payload,
     build_step_executing_payload,
     build_step_failed_payload,
+    build_step_recorded_event,
     build_step_skipped_payload,
     build_step_validating_payload,
 )
@@ -6816,7 +6820,37 @@ class AgentLoop:
             print(f"[AGENT] using successful action for recorded step: {step_id}")
         print(f"[AGENT] recording step: {json.dumps(recorded_payload, ensure_ascii=True)}")
 
-        await self._send("step_recorded", **recorded_payload)
+        # G14: route step_recorded through the typed builder envelope so the
+        # backend event carries ``schema_version`` / ``event_id`` /
+        # ``emitted_at`` / ``source``. Payload keys are flattened back to
+        # the root by ``build_backend_event_envelope`` so legacy consumers
+        # see the same shape.
+        _sr_emit_kwargs: dict[str, Any] = {}
+        try:
+            _sr_run_id = str(
+                recorded_payload.get("run_id")
+                or self._current_run_session_id()
+                or ""
+            ).strip()
+            _sr_step_id = str(
+                recorded_payload.get("step_id")
+                or (target_step or {}).get("step_id")
+                or ""
+            ).strip()
+            if _sr_run_id and _sr_step_id:
+                _sr_env = build_step_recorded_event(
+                    _sr_run_id,
+                    _sr_step_id,
+                    payload=recorded_payload,
+                )
+                _sr_emit_kwargs = {k: v for k, v in _sr_env.items() if k != "type"}
+        except Exception as exc:  # noqa: BLE001
+            print(f"[AGENT] step_recorded typed envelope build failed: {type(exc).__name__}: {exc}")
+            _sr_emit_kwargs = {}
+        if _sr_emit_kwargs:
+            await self._send("step_recorded", **_sr_emit_kwargs)
+        else:
+            await self._send("step_recorded", **recorded_payload)
         self._append_recorded_step_payload(recorded_payload)
 
         recorded_target_step = self.step_state_by_id.get(step_id) if step_id else None
@@ -6846,8 +6880,56 @@ class AgentLoop:
             self._mark_step_recorded(recorded_target_step, recorded_payload)
             code_update_payload = self._build_code_update_payload(recorded_payload, step_id)
             if code_update_payload:
+                # G14: route code_update through the typed builder envelope.
+                _cu_emit_kwargs: dict[str, Any] = {}
                 try:
-                    await self._send("code_update", **code_update_payload)
+                    _cu_run_id = str(
+                        code_update_payload.get("run_id")
+                        or recorded_payload.get("run_id")
+                        or self._current_run_session_id()
+                        or ""
+                    ).strip()
+                    _cu_parent = str(
+                        code_update_payload.get("parent_step_id")
+                        or code_update_payload.get("step_id")
+                        or step_id
+                        or ""
+                    ).strip()
+                    _cu_lines = code_update_payload.get("lines")
+                    if not isinstance(_cu_lines, list):
+                        _cu_lines = []
+                    _cu_child_ops = code_update_payload.get("child_operations")
+                    if not isinstance(_cu_child_ops, list):
+                        _cu_child_ops = []
+                    _cu_extras = {
+                        k: v
+                        for k, v in code_update_payload.items()
+                        if k
+                        not in {
+                            "type",
+                            "run_id",
+                            "parent_step_id",
+                            "code_lines",
+                            "child_operations",
+                        }
+                    }
+                    if _cu_run_id and _cu_parent:
+                        _cu_env = build_code_update_event(
+                            _cu_run_id,
+                            _cu_parent,
+                            list(_cu_lines),
+                            list(_cu_child_ops),
+                            **_cu_extras,
+                        )
+                        _cu_emit_kwargs = {k: v for k, v in _cu_env.items() if k != "type"}
+                except Exception as exc:  # noqa: BLE001
+                    print(f"[AGENT] code_update typed envelope build failed: {type(exc).__name__}: {exc}")
+                    _cu_emit_kwargs = {}
+                try:
+                    if _cu_emit_kwargs:
+                        await self._send("code_update", **_cu_emit_kwargs)
+                    else:
+                        await self._send("code_update", **code_update_payload)
                     self._append_code_update_payload(code_update_payload)
                     print(
                         f"[CODE_UPDATE] step_id={step_id} "
@@ -8574,6 +8656,31 @@ class AgentLoop:
             "options": options,
             "question": self._build_ambiguity_question(options),
         }
+        # G14 / locator strategies gap: emit a typed
+        # ``locator_update_request`` (v2) when a planning ambiguity surfaces.
+        # Today the resolver returns ``found:False`` silently; this envelope
+        # gives the FE / consumers a structured hand-off without changing
+        # any runtime behavior. Best-effort only.
+        try:
+            _amb_run_id = str(self._current_run_session_id() or "").strip()
+            if _amb_run_id and options:
+                _amb_id = "amb_" + str(uuid4())[:12]
+                _amb_candidates = [{"label": opt, "score": None} for opt in options[:8]]
+                _amb_env = build_locator_update_request_event_v2(
+                    _amb_run_id,
+                    _amb_id,
+                    _amb_candidates,
+                    "user_pick",
+                )
+                self._emit_backend_event_now(
+                    _amb_env["type"],
+                    **{k: v for k, v in _amb_env.items() if k != "type"},
+                )
+        except Exception as exc:  # noqa: BLE001
+            print(
+                "[AGENT] locator_update_request typed envelope emit failed: "
+                f"{type(exc).__name__}: {exc}"
+            )
 
     def _build_pending_ambiguity_instruction(self) -> str | None:
         ambiguity = getattr(self, "_pending_planning_ambiguity", None)
@@ -9154,7 +9261,40 @@ class AgentLoop:
         normalize_plan_steps_blocked(payload)
         normalize_plan_steps_precondition(payload)
         annotate_plan_steps_with_kind(payload)
-        await self._send("plan_ready", **payload)
+        # G14: route plan_ready through the typed builder so the envelope
+        # carries ``schema_version`` / ``event_id`` / ``emitted_at`` /
+        # ``source`` while the existing payload keys remain at the root
+        # (build_backend_event_envelope flattens the payload mapping).
+        _plan_emit_kwargs: dict[str, Any] = {}
+        try:
+            _plan_run_id = str(
+                payload.get("run_id")
+                or self._current_run_session_id()
+                or ""
+            ).strip()
+            if _plan_run_id:
+                _plan_steps = payload.get("steps") if isinstance(payload.get("steps"), list) else []
+                _plan_summary = payload.get("summary")
+                _plan_extras = {
+                    k: v
+                    for k, v in payload.items()
+                    if k not in {"type", "run_id", "plan", "steps", "summary"}
+                }
+                _plan_env = build_plan_ready_event(
+                    _plan_run_id,
+                    payload.get("plan") if isinstance(payload.get("plan"), dict) else None,
+                    list(_plan_steps),
+                    summary=_plan_summary if isinstance(_plan_summary, str) else None,
+                    **_plan_extras,
+                )
+                _plan_emit_kwargs = {k: v for k, v in _plan_env.items() if k != "type"}
+        except Exception as exc:  # noqa: BLE001
+            print(f"[AGENT] plan_ready typed envelope build failed: {type(exc).__name__}: {exc}")
+            _plan_emit_kwargs = {}
+        if _plan_emit_kwargs:
+            await self._send("plan_ready", **_plan_emit_kwargs)
+        else:
+            await self._send("plan_ready", **payload)
         self._remember_plan_review_context(payload)
         plan_step_id = str(
             payload.get("target_step_id")
