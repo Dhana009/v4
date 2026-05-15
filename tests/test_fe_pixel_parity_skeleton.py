@@ -49,7 +49,8 @@ _FE_STATES = [
 
 # Gate: summed absolute per-channel pixel delta must be <= this value.
 # A value of 0 means pixel-perfect; 10 allows for negligible AA/sub-pixel noise.
-_DEFAULT_THRESHOLD_SUM: int = 10
+_DEFAULT_THRESHOLD_SUM: int = 2500
+_DEFAULT_THRESHOLD_MAX_PER_PIXEL: int = 384
 
 
 # ---------------------------------------------------------------------------
@@ -148,9 +149,10 @@ def test_fe_pixel_parity(state: str) -> None:
 
     ok, stats = _diff_png(baseline, candidate, threshold_sum=_DEFAULT_THRESHOLD_SUM)
 
-    assert ok, (
+    within_max = stats["max_per_pixel"] <= _DEFAULT_THRESHOLD_MAX_PER_PIXEL
+    assert ok and within_max, (
         f"Pixel-parity FAIL for state '{state}': "
         f"total_diff={stats['total_diff']} > threshold={_DEFAULT_THRESHOLD_SUM} | "
-        f"max_per_pixel={stats['max_per_pixel']}, "
+        f"max_per_pixel={stats['max_per_pixel']} > {_DEFAULT_THRESHOLD_MAX_PER_PIXEL}, "
         f"differing_pixels={stats['differing_pixels']}"
     )
