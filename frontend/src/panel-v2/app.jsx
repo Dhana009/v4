@@ -9,7 +9,7 @@ import { LlmThread, Composer } from './llm-tab.jsx';
 import { StepsTab, RecordedTab, CodeTab, TraceTab } from './secondary-tabs.jsx';
 import { DEMO_TWEAK_DEFAULTS, DEMO_STATE_META } from '../panel-v2-adapter/demo-bridge.js';
 
-export function App({ viewModel, onCommand, mode } = {}) {
+export function App({ viewModel, onCommand, mode, onCollapseChange, onDockChange } = {}) {
   const isLive = mode === "live" && viewModel != null;
 
   const [t, setTweak] = useTweaks(DEMO_TWEAK_DEFAULTS);
@@ -17,20 +17,45 @@ export function App({ viewModel, onCommand, mode } = {}) {
   useEffect(() => { if (!isLive) setTabLocal(t.tab); }, [t.tab, isLive]);
 
   const setTab = (id) => { setTabLocal(id); if (!isLive) setTweak("tab", id); };
-  const setDock = (d) => setTweak("dock", d);
+  const setDock = (d) => {
+    setTweak("dock", d);
+    if (isLive && typeof onDockChange === "function") onDockChange(d);
+  };
   const setCollapsed = (v) => setTweak("collapsed", v);
   const setAgentsOpen = (v) => setTweak("agentsOpen", v);
 
-  // Apply theme to the panel scope so the website behind stays light
+  // Notify outer host of collapse state changes (live only).
   useEffect(() => {
-    document.documentElement.dataset.theme = t.theme || "light";
-  }, [t.theme]);
+    if (isLive && typeof onCollapseChange === "function") {
+      onCollapseChange(!!t.collapsed);
+    }
+  }, [t.collapsed, isLive, onCollapseChange]);
+
+  // Apply theme. In live mode, write to the shadow host element when mounted
+  // inside a ShadowRoot so :host([data-theme]) tokens apply. Fall back to
+  // documentElement when no shadow root (preview/iframe/standalone).
+  const panelRef = useRef(null);
+  useEffect(() => {
+    const theme = t.theme || "light";
+    if (isLive) {
+      const node = panelRef.current;
+      const rootNode = node && typeof node.getRootNode === "function" ? node.getRootNode() : null;
+      const hostEl =
+        rootNode && typeof rootNode === "object" && "host" in rootNode ? rootNode.host : null;
+      if (hostEl && typeof hostEl.setAttribute === "function") {
+        hostEl.setAttribute("data-theme", theme);
+        return;
+      }
+    }
+    document.documentElement.dataset.theme = theme;
+  }, [t.theme, isLive]);
 
   // — Live mode derived values ——————————————————————————
   const livePhase = isLive ? (viewModel.runtime?.phase ?? "idle") : null;
   const liveRunId = isLive ? (viewModel.runtime?.runId ?? null) : null;
   const liveCounts = isLive ? (viewModel.counts ?? { steps: 0, rec: 0, code: 0, trace: 0 }) : null;
   const liveConnection = isLive ? (viewModel.runtime?.connection ?? "connected") : null;
+  const liveAgents = isLive ? (Array.isArray(viewModel.agents) ? viewModel.agents : null) : null;
 
   // — Demo mode derived values ——————————————————————————
   const meta = DEMO_STATE_META[t.state] || DEMO_STATE_META.idle;
@@ -84,9 +109,11 @@ export function App({ viewModel, onCommand, mode } = {}) {
     ? { width: "100%", height: "100%" }
     : { width: t.dock === "top" ? "100%" : t.panelWidth };
 
+  const wide = isLive || t.dock === "top" || t.panelWidth >= 620 ? "1" : "0";
+
   const panel = (
-    <aside className="aw-panel"
-           data-wide={(isLive || t.dock === "top" || t.panelWidth >= 620) ? "0" : "0"}
+    <aside ref={panelRef} className="aw-panel"
+           data-wide={wide}
            style={panelStyle}>
       <div className="aw-resize"/>
       {!t.collapsed && (
@@ -102,6 +129,7 @@ export function App({ viewModel, onCommand, mode } = {}) {
             agentsSummary={agentsSummary}
             mode={t.mode}
             setMode={(v) => setTweak("mode", v)}
+            isLive={isLive}
           />
           <TabStrip tab={tab} setTab={setTab} counts={counts}/>
           {showNow && <NowStrip {...(isLive ? {} : meta.now)}/>}
@@ -121,7 +149,14 @@ export function App({ viewModel, onCommand, mode } = {}) {
             nextAction={isLive ? undefined : meta.next}
             busy={isLive ? undefined : meta.busy}
           />
-          {t.agentsOpen && <AgentsPopover state={activeState} onClose={() => setAgentsOpen(false)}/>}
+          {t.agentsOpen && (
+            <AgentsPopover
+              state={activeState}
+              onClose={() => setAgentsOpen(false)}
+              isLive={isLive}
+              agents={liveAgents}
+            />
+          )}
         </>
       )}
       {t.collapsed && <CollapsedRail tab={tab} setTab={(id)=>{ setTab(id); setCollapsed(false); }} setCollapsed={setCollapsed}/>}

@@ -3382,15 +3382,21 @@ function AutoWorkbenchRuntime({ config }) {
   }, []);
 
   const useV2 = shouldUseV2Panel();
+  const [v2Collapsed, setV2Collapsed] = useState(false);
+  const v2OuterStyle = useV2 && v2Collapsed && !inStage && dock !== "top"
+    ? { ...outerStyle, width: 44 }
+    : outerStyle;
 
   return (
-    <div style={outerStyle} data-aw-dock={dock}>
+    <div style={v2OuterStyle} data-aw-dock={dock} data-aw-collapsed={useV2 && v2Collapsed ? "1" : "0"}>
       <div className={`aw-density-${normalized.density}`} style={innerStyle}>
         {useV2 ? (
           <PanelV2LiveHost
             transport={transport}
             storeState={transport.storeState}
             onSendCommand={transport.sendCommand}
+            onCollapseChange={setV2Collapsed}
+            onDockChange={setDock}
           />
         ) : IDEPanel ? (
           <IDEPanel

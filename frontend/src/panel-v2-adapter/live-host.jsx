@@ -3,7 +3,7 @@ import { App } from "../panel-v2/app.jsx";
 import { mapTransportToViewModel } from "./state-bridge.js";
 import { buildPanelV2Command } from "./command-bridge.js";
 
-export function PanelV2LiveHost({ transport, storeState, onSendCommand }) {
+export function PanelV2LiveHost({ transport, storeState, onSendCommand, onCollapseChange, onDockChange }) {
   const vm = useMemo(
     () => mapTransportToViewModel(transport ?? {}, storeState ?? null),
     [transport, storeState]
@@ -20,5 +20,13 @@ export function PanelV2LiveHost({ transport, storeState, onSendCommand }) {
     };
   }, [onSendCommand, vm]);
 
-  return <App viewModel={vm} mode="live" onCommand={onCommand} />;
+  return (
+    <App
+      viewModel={vm}
+      mode="live"
+      onCommand={onCommand}
+      onCollapseChange={onCollapseChange}
+      onDockChange={onDockChange}
+    />
+  );
 }

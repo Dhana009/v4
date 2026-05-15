@@ -25,7 +25,7 @@ export function PortalMenu({ triggerRef, open, onClose, width = 220, children })
 
 export function Header({ status, dock, setDock, collapsed, setCollapsed, tokenInfo, runState,
   agentsOpen, setAgentsOpen, agentsSummary, pageUrl = "acme.dev/pricing",
-  mode = "llm", setMode = () => {} }) {
+  mode = "llm", setMode = () => {}, isLive = false }) {
   const [dockMenu, setDockMenu] = useState(false);
   const dockTriggerRef = useRef(null);
   const dockIconFor = (kind) => kind === "left" ? I.DockL : kind === "top" ? I.DockTop : kind === "float" ? I.Float : I.Dock;
@@ -51,12 +51,16 @@ export function Header({ status, dock, setDock, collapsed, setCollapsed, tokenIn
         <span className={"aw-status-pill " + s.cls} title={"Backend " + s.label + " · Complete LLM Mode"}>
           <span className="aw-dot" />{s.label}
         </span>
-        <span className="aw-mode-switch" role="tablist" data-tip="Interaction mode" data-tip-pos="bottom-right">
+        <span className="aw-mode-switch" role="tablist"
+              data-tip={isLive ? "Interaction mode switching not yet wired to backend" : "Interaction mode"}
+              data-tip-pos="bottom-right">
           <button role="tab" aria-selected={mode === "llm"}
                   className={"aw-mode-opt " + (mode === "llm" ? "active" : "")}
+                  disabled={isLive}
                   onClick={() => setMode("llm")}>LLM</button>
           <button role="tab" aria-selected={mode === "manual"}
                   className={"aw-mode-opt " + (mode === "manual" ? "active" : "")}
+                  disabled={isLive}
                   onClick={() => setMode("manual")}>Manual</button>
         </span>
         <button className={"aw-agents-btn " + (agentsOpen ? "open" : "")}
@@ -115,12 +119,14 @@ export function Header({ status, dock, setDock, collapsed, setCollapsed, tokenIn
           </PortalMenu>
         </div>
         <button className="aw-icon-btn" onClick={() => setCollapsed(!collapsed)} title="Collapse" data-tip="Collapse"><I.Min /></button>
-        <button className="aw-icon-btn"
-                onClick={() => {
-                  window.postMessage({ type: "__activate_edit_mode" }, "*");
-                  try { window.parent.postMessage({ type: "__activate_edit_mode" }, "*"); } catch (e) {}
-                }}
-                title="Settings & Tweaks" data-tip="Settings & Tweaks"><I.Settings /></button>
+        {!isLive && (
+          <button className="aw-icon-btn"
+                  onClick={() => {
+                    window.postMessage({ type: "__activate_edit_mode" }, "*");
+                    try { window.parent.postMessage({ type: "__activate_edit_mode" }, "*"); } catch (e) {}
+                  }}
+                  title="Settings & Tweaks" data-tip="Settings & Tweaks"><I.Settings /></button>
+        )}
       </div>
     </header>);
 
@@ -198,7 +204,75 @@ export function Footer({ phase, event, blocker, nextAction, busy }) {
 
 }
 
-export function AgentsPopover({ onClose, state }) {
+export function AgentsPopover({ onClose, state, isLive = false, agents = null }) {
+  if (isLive) {
+    const list = Array.isArray(agents) ? agents : [];
+    const hasPayload = list.length > 0;
+    return (
+      <div className="aw-agents-pop" role="dialog" aria-label="Agent Control Center">
+        <div className="aw-agents-head">
+          <span className="aw-card-icon" style={{ width: 22, height: 22, borderRadius: 6, background: "var(--acc-tint)", color: "var(--acc-2)" }}>
+            <I.Layers style={{ width: 12, height: 12 }} />
+          </span>
+          <div>
+            <div className="t">Agent Control Center</div>
+          </div>
+          <span className="sub">Read-only</span>
+          <span className="x" onClick={onClose}><I.X style={{ width: 13, height: 13 }} /></span>
+        </div>
+        {!hasPayload ? (
+          <div className="aw-agents-empty" data-testid="aw-agents-empty" role="status" style={{ padding: "14px 16px", fontSize: 12, color: "var(--tx-3)", display: "flex", gap: 8, alignItems: "flex-start" }}>
+            <I.Info style={{ width: 11, height: 11, flex: "0 0 11px", marginTop: 2 }} />
+            <span>No agent registry payload yet. Backend will emit <code>agent_settings</code> on the next WS connect.</span>
+          </div>
+        ) : (
+          list.map((a) => {
+            const status = a.status || "standby";
+            const cls =
+              status === "running" ? "running" :
+              status === "active" ? "active" :
+              status === "disabled" ? "disabled" : "standby";
+            return (
+              <div key={a.key} className={"aw-agent-row " + cls} data-testid={`aw-agent-row-${a.key}`}>
+                <span className="aw-agent-av">{a.initials}</span>
+                <div>
+                  <div className="aw-agent-name">
+                    {a.name}
+                    {a.required ? <span className="aw-pin-required">Required</span> : null}
+                  </div>
+                  <div className="aw-agent-model">{a.model}</div>
+                  <div className="aw-agent-last">
+                    <span className="em">last:</span> {a.last ?? "—"}
+                  </div>
+                </div>
+                <div className="aw-agent-ctrl">
+                  <span className={"aw-agent-status " + cls}>
+                    <span className="ldot" />
+                    {status === "queued" ? "queued" : status}
+                  </span>
+                  {a.required ? (
+                    <button type="button" className="aw-toggle on locked" aria-label="locked on" title="Required — always on" disabled />
+                  ) : (
+                    <button type="button"
+                            className={"aw-toggle " + (status === "disabled" ? "" : "on")}
+                            data-testid={`aw-agent-toggle-${a.key}`}
+                            title="Read-only — per-agent toggles ship in a later batch"
+                            disabled />
+                  )}
+                </div>
+              </div>
+            );
+          })
+        )}
+        <div className="aw-agents-foot">
+          <I.Info style={{ width: 11, height: 11 }} />
+          <span>Agent registry is live (read-only). Per-agent enable/disable ships next.</span>
+          <span style={{ flex: 1 }} />
+        </div>
+      </div>
+    );
+  }
+
   const isRunning = ["exec", "locator", "recover"].includes(state);
   const isDone = state === "done";
   const orchestratorStatus = state === "idle" ? "standby" :
@@ -209,7 +283,7 @@ export function AgentsPopover({ onClose, state }) {
   const debugStatus = state === "recover" ? "active" : "standby";
   const codegenStatus = isRunning || isDone ? "queued" : "standby";
 
-  const agents = [
+  const agentsDemo = [
   {
     key: "orch", name: "Main Orchestrator", initials: "MO",
     model: "gpt-4-class · 200k ctx", status: orchestratorStatus,
@@ -272,7 +346,7 @@ export function AgentsPopover({ onClose, state }) {
         <span className="sub">5 active · 1 off</span>
         <span className="x" onClick={onClose}><I.X style={{ width: 13, height: 13 }} /></span>
       </div>
-      {agents.map((a) => {
+      {agentsDemo.map((a) => {
         const cls = a.status === "running" ? "running" :
         a.status === "active" ? "active" :
         a.status === "disabled" ? "disabled" :
