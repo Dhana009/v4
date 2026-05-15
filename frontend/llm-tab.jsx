@@ -51,22 +51,49 @@ function Conf({ level }) {
 
 function CardClarification() {
   const [pick, setPick] = useStateLlm(null);
+  // Live binding: subscribe to clarification_needed events from transport.
+  // Falls back to the mock content (smoke/sanity/regress) when there is no
+  // real event, so the standalone harness keeps working.
+  const [live, setLive] = React.useState(null);
+  React.useEffect(() => {
+    const AW = (typeof window !== 'undefined' && window.AW) || null;
+    if (!AW || typeof AW.on !== 'function') return;
+    // Read the last event if it already arrived before this card mounted.
+    if (AW.lastEvent && AW.lastEvent.type === 'clarification_needed') {
+      const p = AW.lastEvent.payload || AW.lastEvent;
+      setLive({ question: p.question, options: Array.isArray(p.options) ? p.options : [] });
+    }
+    return AW.on('clarification_needed', (env) => {
+      const p = (env && (env.payload || env)) || {};
+      setLive({ question: p.question, options: Array.isArray(p.options) ? p.options : [] });
+      setPick(null);
+    });
+  }, []);
+  const mockOptions = [
+    { id: "smoke",   t: "Smoke",                  d: "5–7 assertions · ~30s · catches obvious breakage" },
+    { id: "sanity",  t: "Sanity",                 d: "10–15 assertions · ~2min · core flows + visible content" },
+    { id: "regress", t: "Exhaustive regression",  d: "40+ assertions · ~10min · every section, every plan" },
+  ];
+  const liveQuestion = live && live.question;
+  const liveOptions = (live && live.options || []).filter(Boolean).map((o, i) => ({
+    id: String(o), t: String(o), d: ""
+  }));
+  const question = liveQuestion || "Should I recommend smoke, sanity, or exhaustive regression checks for this pricing page? Each option changes scope and runtime.";
+  const options = liveOptions.length > 0 ? liveOptions : mockOptions;
   return (
     <div className="aw-card clarify needs-input">
       <div className="aw-card-head">
         <span className="aw-card-icon"><I.Info/></span>
         <span className="aw-card-title">Clarification needed</span>
         <span className="aw-card-state">Decision required</span>
-        <span className="aw-card-source llm"><span className="src-dot"/>LLM proposal</span>
+        <span className="aw-card-source llm"><span className="src-dot"/>{live ? 'LLM live' : 'LLM proposal'}</span>
       </div>
       <div className="aw-card-body">
-        <p>Should I recommend <b>smoke</b>, <b>sanity</b>, or <b>exhaustive regression</b> checks for this pricing page? Each option changes scope and runtime.</p>
+        {liveQuestion
+          ? <p>{liveQuestion}</p>
+          : <p>Should I recommend <b>smoke</b>, <b>sanity</b>, or <b>exhaustive regression</b> checks for this pricing page? Each option changes scope and runtime.</p>}
         <div style={{display:"flex",flexDirection:"column",gap:6,marginTop:8}}>
-          {[
-            { id: "smoke", t: "Smoke", d: "5–7 assertions · ~30s · catches obvious breakage" },
-            { id: "sanity", t: "Sanity", d: "10–15 assertions · ~2min · core flows + visible content" },
-            { id: "regress", t: "Exhaustive regression", d: "40+ assertions · ~10min · every section, every plan" },
-          ].map(o => (
+          {options.map(o => (
             <label key={o.id}
               onClick={() => setPick(o.id)}
               style={{
@@ -83,7 +110,7 @@ function CardClarification() {
               }}/>
               <span>
                 <span style={{fontSize:12.5,fontWeight:500}}>{o.t}</span>
-                <span style={{display:"block",fontSize:11.5,color:"var(--tx-3)",marginTop:1}}>{o.d}</span>
+                {o.d ? <span style={{display:"block",fontSize:11.5,color:"var(--tx-3)",marginTop:1}}>{o.d}</span> : null}
               </span>
             </label>
           ))}
