@@ -1,0 +1,3 @@
+node_modules/
+.build-cache/
+# dist/ is intentionally committed — overlay injection reads the pre-built bundle

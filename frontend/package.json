@@ -1,0 +1,11 @@
+{
+  "name": "autoworkbench-frontend",
+  "version": "1.0.0",
+  "description": "AutoWorkbench overlay bundle for browser extension injection",
+  "scripts": {
+    "build": "node build.mjs"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
