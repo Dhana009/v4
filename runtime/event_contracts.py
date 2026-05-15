@@ -37,6 +37,9 @@ SUPPORTED_FRONTEND_COMMAND_TYPES = {
     # T-4 — pause / resume the active run from the frontend.
     "pause",
     "resume",
+    # T-5 — request a workspace-local trace bundle. Acked only for now;
+    # actual bundling is a follow-up task.
+    "download_trace",
 }
 
 

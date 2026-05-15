@@ -575,10 +575,48 @@ function CardCompleted() {
         </p>
       </div>
       <div className="aw-card-foot">
-        <button className="aw-btn primary"><I.Repeat/>Replay all</button>
-        <button className="aw-btn"><I.Branch/>Save as suite</button>
-        <button className="aw-btn"><I.Code/>Open code</button>
-        <button className="aw-btn subtle"><I.Download/>Download trace</button>
+        <button className="aw-btn primary"
+                onClick={() => {
+                  // T-5: Replay all → typed replay_all command. Backend
+                  // server.py:547 already handles this and streams
+                  // per-step replay_result events.
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  if (AW && typeof AW.send === 'function') AW.send({ type: 'replay_all' });
+                }}>
+          <I.Repeat/>Replay all
+        </button>
+        <button className="aw-btn"
+                onClick={() => {
+                  // T-5: Save as suite → prompt for a name, then typed
+                  // save_session. Backend writes the spec under the
+                  // workspace and emits save_result.
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  if (!AW || typeof AW.send !== 'function') return;
+                  const name = (typeof window !== 'undefined' && typeof window.prompt === 'function')
+                    ? window.prompt('Save suite as:', 'autoworkbench-session')
+                    : 'autoworkbench-session';
+                  if (name == null) return;
+                  AW.send({ type: 'save_session', name: String(name).trim() || 'autoworkbench-session' });
+                }}>
+          <I.Branch/>Save as suite
+        </button>
+        <button className="aw-btn"
+                onClick={() => {
+                  // T-5: Open code → switch the active tab to "code".
+                  // Dispatched through aw:set so useTweaks picks it up.
+                  window.dispatchEvent(new CustomEvent('aw:set', { detail: { tab: 'code' } }));
+                }}>
+          <I.Code/>Open code
+        </button>
+        <button className="aw-btn subtle"
+                onClick={() => {
+                  // T-5: Download trace → typed download_trace command.
+                  // Backend acks only for now; bundler is a follow-up.
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  if (AW && typeof AW.send === 'function') AW.send({ type: 'download_trace' });
+                }}>
+          <I.Download/>Download trace
+        </button>
       </div>
     </div>
   );

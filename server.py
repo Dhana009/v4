@@ -651,6 +651,27 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 await ws.send_json(_stop_event)
                 continue
 
+            # T-5: download_trace command handler. Acks the request without
+            # actually bundling — the trace pipeline is wired in a later
+            # task. The contract lands now so the FE has a typed surface
+            # to integrate against.
+            if msg_type == "download_trace":
+                current_state = _current_command_state(session)
+                command, rejection = normalize_frontend_command(msg, current_state=current_state)
+                if rejection is not None:
+                    await ws.send_json(rejection)
+                    continue
+                _run_id = current_state.get("run_id") or str(msg.get("run_id") or "").strip() or ""
+                await ws.send_json(
+                    build_backend_event_envelope(
+                        "download_trace_acknowledged",
+                        {"run_id": _run_id, "status": "queued", "applied": False},
+                        source="server",
+                        run_id=_run_id or None,
+                    )
+                )
+                continue
+
             # T-4: pause / resume command handlers.
             # Minimal surface for the FE buttons; the agent loop will start
             # honouring `paused` flag in a follow-up task. For now we ack on
