@@ -24,9 +24,11 @@ from runtime.correction_context import (
 )
 from runtime.context_manager import ContextManager
 from runtime.event_contracts import (
+    build_capability_gap_recorded_event,
     build_code_update_event,
     build_locator_update_request_event_v2,
     build_plan_ready_event,
+    build_precondition_failed_event,
     build_recovery_needed_payload,
     build_run_completed_payload,
     build_run_started_payload,
@@ -37,6 +39,16 @@ from runtime.event_contracts import (
     build_step_skipped_payload,
     build_step_validating_payload,
 )
+from runtime.gap_logger import GapLogger
+from runtime.page_state_model import (
+    PageStateObservation,
+    PageStateRequirement,
+    classify_precondition_mismatch,
+    evaluate_precondition,
+)
+import runtime.plan_edit_classifier as plan_edit_classifier
+import runtime.locator_issue_classifier as locator_issue_classifier
+import runtime.capability_classifier as capability_classifier
 from runtime.llm_policy_gateway import LLMPolicyGateway
 from runtime.llm_runtime_controller import LLMRuntimeController, PURPOSE_REGISTRY
 from runtime.model_router import ModelRouter
@@ -620,7 +632,139 @@ class AgentLoop:
             log_line += f" details={json.dumps(safe_details, ensure_ascii=True, separators=(',', ':'))}"
         print(log_line)
 
+        # --- GAP LOGGER WIRE-IN (PRD 06 test 8) ---
+        # Build the §13-schema gap dict and persist via GapLogger, then emit event.
+        try:
+            gap_logger = self._get_gap_logger()
+            if gap_logger is not None:
+                current_url = self._current_browser_url() or "unknown"
+                user_intent = str(
+                    getattr(self, "_last_user_message", None)
+                    or getattr(self, "last_user_message", None)
+                    or ""
+                ).strip() or category_text
+                operation_id = str(
+                    safe_details.get("operation_id")
+                    or safe_details.get("tool_name")
+                    or category_text
+                ).strip() or None
+                needed_cap = str(
+                    safe_details.get("needed_capability")
+                    or safe_details.get("capability")
+                    or safe_details.get("tool_name")
+                    or message_text
+                ).strip() or message_text
+                available_tools_raw = getattr(self, "EXECUTION_TOOLS", None)
+                available_tools: list[str] = sorted(available_tools_raw) if available_tools_raw else []
+                gap_schema: dict[str, Any] = {
+                    "url": current_url,
+                    "user_intent": user_intent or "unknown",
+                    "operation_id": operation_id,
+                    "needed_capability": needed_cap,
+                    "available_tools": available_tools,
+                    "severity": severity_text,
+                    "source": source_text if source_text in {"agent", "classifier", "executor", "user"} else "executor",
+                    "phase": phase_text or "unknown",
+                }
+                if step_id:
+                    gap_schema["step_id"] = step_id
+                if message_text:
+                    gap_schema["message"] = message_text
+
+                # Idempotency: key on (run_id, ordinal).
+                _run_id_for_gap = self._current_run_session_id()
+                _gap_idem_key = (_run_id_for_gap, record["ordinal"])
+                _gap_emitted = getattr(self, "_gap_logger_emitted_keys", None)
+                if not isinstance(_gap_emitted, set):
+                    _gap_emitted = set()
+                    self._gap_logger_emitted_keys = _gap_emitted
+
+                if _gap_idem_key not in _gap_emitted:
+                    _gap_emitted.add(_gap_idem_key)
+                    persisted = gap_logger.record(gap_schema)
+                    try:
+                        cg_env = build_capability_gap_recorded_event(
+                            run_id=_run_id_for_gap,
+                            gap_record=persisted,
+                        )
+                        self._emit_backend_event_now(
+                            cg_env["type"],
+                            **{k: v for k, v in cg_env.items() if k != "type"},
+                        )
+                    except Exception as exc:  # noqa: BLE001
+                        print(
+                            f"[GAP_LOGGER] capability_gap_recorded emit error: {type(exc).__name__}: {exc}"
+                        )
+        except Exception as exc:  # noqa: BLE001
+            print(f"[GAP_LOGGER] record error (best-effort): {type(exc).__name__}: {exc}")
+
         return record
+
+    def _get_gap_logger(self) -> "GapLogger | None":
+        """Return (or lazily create) the per-run GapLogger instance."""
+        gap_logger = getattr(self, "_gap_logger", None)
+        if gap_logger is not None:
+            return gap_logger
+        try:
+            workspace_root = str(
+                getattr(self, "workspace_root", None)
+                or os.environ.get("AUTOWORKBENCH_WORKSPACE")
+                or Path(".").resolve()
+            )
+            gap_logger = GapLogger(workspace_root=workspace_root)
+            self._gap_logger = gap_logger
+            return gap_logger
+        except Exception as exc:  # noqa: BLE001
+            print(f"[GAP_LOGGER] init error (best-effort): {type(exc).__name__}: {exc}")
+            return None
+
+    # ------------------------------------------------------------------
+    # HEURISTIC CLASSIFIER SHIMS (Wave 5 wire-in)
+    # Each shim follows: heuristic-first (confidence >= 0.5) → controller
+    # fallback with TODO logged when purpose is not yet registered.
+    # ------------------------------------------------------------------
+
+    def _classify_plan_edit(self, text: str, ctx: dict | None = None) -> dict:
+        """Heuristic-first plan-edit classifier.  Falls back to controller."""
+        result = plan_edit_classifier.classify(text, ctx)
+        if result.get("confidence", 0.0) >= 0.5:
+            return result
+        # TODO(follow-up): register "plan_edit_classifier" purpose in
+        # llm_policy_registry / PURPOSE_REGISTRY and call controller here.
+        print(
+            "[CLASSIFIER_SHIM] plan_edit_classifier confidence < 0.5; "
+            "controller fallback not yet registered — using heuristic label anyway: "
+            f"label={result.get('label')} confidence={result.get('confidence')}"
+        )
+        return result
+
+    def _classify_locator_issue(self, text: str, ctx: dict | None = None) -> dict:
+        """Heuristic-first locator-issue classifier.  Falls back to controller."""
+        result = locator_issue_classifier.classify(text, ctx)
+        if result.get("confidence", 0.0) >= 0.5:
+            return result
+        # TODO(follow-up): register "locator_specialist" purpose in
+        # llm_policy_registry / PURPOSE_REGISTRY and call controller here.
+        print(
+            "[CLASSIFIER_SHIM] locator_issue_classifier confidence < 0.5; "
+            "controller fallback not yet registered — using heuristic label anyway: "
+            f"label={result.get('label')} confidence={result.get('confidence')}"
+        )
+        return result
+
+    def _classify_capability(self, text: str, ctx: dict | None = None) -> dict:
+        """Heuristic-first capability/risk classifier.  Falls back to controller."""
+        result = capability_classifier.classify(text, ctx)
+        if result.get("confidence", 0.0) >= 0.5:
+            return result
+        # TODO(follow-up): register "capability_handler" purpose in
+        # llm_policy_registry / PURPOSE_REGISTRY and call controller here.
+        print(
+            "[CLASSIFIER_SHIM] capability_classifier confidence < 0.5; "
+            "controller fallback not yet registered — using heuristic label anyway: "
+            f"label={result.get('label')} confidence={result.get('confidence')}"
+        )
+        return result
 
     def _append_recorded_step_payload(self, payload: dict[str, Any]) -> None:
         recorded_step_payloads = getattr(self, "recorded_step_payloads", None)
@@ -2294,6 +2438,27 @@ class AgentLoop:
                                 self._append_skipped_tool_responses(tool_calls, index + 1, contract_stop_reason)
                                 break
 
+                    # --- FORWARD-PATH PRECONDITION GATE (PRD 06 test 5) ---
+                    # Check page-state precondition before dispatching any EXECUTION_TOOLS step.
+                    # We only run this when the step has precondition fields; missing fields = skip.
+                    if tool_name in self.EXECUTION_TOOLS:
+                        _pre_step_ctx = step_context  # already resolved above
+                        _pre_req = self._build_step_precondition_requirement(_pre_step_ctx)
+                        if _pre_req is not None:
+                            _pre_blocked = await self._check_forward_precondition(
+                                _pre_req, _pre_step_ctx, tool_name, args
+                            )
+                            if _pre_blocked:
+                                blocked_result = {
+                                    "success": False,
+                                    "blocked": True,
+                                    "reason": "precondition_failed",
+                                    "message": "Step precondition not satisfied; entering recovery.",
+                                }
+                                print(f"[TOOL RESULT] {self._summarize(blocked_result, limit=100)}")
+                                self._append_tool_response(tool_call.id, blocked_result)
+                                continue
+
                     browser_state_before = None
                     if tool_name in self.EXECUTION_TOOLS:
                         browser_state_before = await self._capture_browser_state()
@@ -2321,6 +2486,19 @@ class AgentLoop:
                             step_id=failed_step_id,
                             result=result,
                         )
+                        # LOCATOR-ISSUE CLASSIFIER SHIM: classify failure description.
+                        _err_text = str(result.get("error") or result.get("message") or tool_name)
+                        _loc_cls_result = self._classify_locator_issue(
+                            _err_text,
+                            ctx={"tool_name": tool_name, "step_id": failed_step_id},
+                        )
+                        if _loc_cls_result.get("confidence", 0.0) >= 0.5:
+                            print(
+                                f"[CLASSIFIER_SHIM] locator_issue_classifier: "
+                                f"label={_loc_cls_result['label']} "
+                                f"confidence={_loc_cls_result['confidence']} "
+                                f"step_id={failed_step_id}"
+                            )
                         if isinstance(confirmed_execution_check, dict) and confirmed_execution_check.get("allowed", False):
                             expected_confirmed_child = confirmed_execution_check.get("expected_child")
                             if isinstance(expected_confirmed_child, dict):
@@ -3717,6 +3895,139 @@ class AgentLoop:
             pass
         print(f"[AGENT] step executing: {step_id}")
         return context
+
+    # ------------------------------------------------------------------
+    # FORWARD-PATH PRECONDITION HELPERS (PRD 06 test 5)
+    # ------------------------------------------------------------------
+
+    def _build_step_precondition_requirement(
+        self, step_context: dict[str, Any] | None
+    ) -> "PageStateRequirement | None":
+        """Build a PageStateRequirement from a step context dict.
+
+        Returns None if the step has no precondition fields (no-op path).
+        Looks up the original step in current_steps by step_id to find
+        required_page_state / precondition fields.
+        """
+        if not isinstance(step_context, dict):
+            return None
+        step_id = str(step_context.get("step_id") or "").strip()
+        if not step_id:
+            return None
+
+        # Look for the original step spec with precondition info.
+        original_step: dict[str, Any] | None = None
+        for s in getattr(self, "current_steps", []):
+            if not isinstance(s, dict):
+                continue
+            sid = str(s.get("id") or s.get("step_id") or "").strip()
+            if sid == step_id:
+                original_step = s
+                break
+
+        # Extract PageStateRequirement from required_page_state or precondition.
+        if original_step is None:
+            return None
+
+        rps = original_step.get("required_page_state")
+        if isinstance(rps, dict):
+            url_glob = rps.get("url_glob") or None
+            path_regex = rps.get("path_regex") or None
+            title_regex = rps.get("title_regex") or None
+            must_contain = list(rps.get("must_contain_elements") or [])
+            forbidden = list(rps.get("forbidden_elements") or [])
+            if any([url_glob, path_regex, title_regex, must_contain, forbidden]):
+                return PageStateRequirement(
+                    url_glob=url_glob,
+                    path_regex=path_regex,
+                    title_regex=title_regex,
+                    must_contain_elements=must_contain,
+                    forbidden_elements=forbidden,
+                )
+
+        pre = original_step.get("precondition")
+        if isinstance(pre, dict):
+            expected_url = str(pre.get("expected_url") or "").strip()
+            if expected_url:
+                return PageStateRequirement(url_glob=expected_url)
+
+        return None
+
+    async def _check_forward_precondition(
+        self,
+        req: "PageStateRequirement",
+        step_context: dict[str, Any] | None,
+        tool_name: str,
+        args: dict[str, Any],
+    ) -> bool:
+        """Evaluate precondition and emit precondition_failed if it doesn't pass.
+
+        Returns True if the step is BLOCKED (precondition failed), False if OK.
+        Idempotent per (run_id, step_id): only emits once per run+step pair.
+        """
+        step_id = str((step_context or {}).get("step_id") or "").strip() or "unknown"
+        run_id = self._current_run_session_id()
+
+        # Idempotency: track emitted (run_id, step_id) pairs per run.
+        _emitted_key = (run_id, step_id)
+        _emitted_set = getattr(self, "_precondition_failed_emitted", None)
+        if not isinstance(_emitted_set, set):
+            _emitted_set = set()
+            self._precondition_failed_emitted = _emitted_set
+        if _emitted_key in _emitted_set:
+            # Already emitted for this step; block again without re-emitting.
+            return True
+
+        try:
+            browser_state = await self._capture_browser_state()
+        except Exception:  # noqa: BLE001
+            browser_state = None
+
+        obs = PageStateObservation(
+            url=str((browser_state or {}).get("url") or self._current_browser_url() or ""),
+            title=str((browser_state or {}).get("title") or ""),
+        )
+
+        passed, reasons = evaluate_precondition(req, obs)
+        if passed:
+            return False
+
+        # Precondition FAILED — emit event and enter recovery.
+        _emitted_set.add(_emitted_key)
+        precondition_type = classify_precondition_mismatch(reasons)
+        expected_desc = str(req.url_glob or req.path_regex or req.title_regex or "required page state")
+        actual_desc = obs.url or "unknown"
+
+        try:
+            pf_env = build_precondition_failed_event(
+                run_id=run_id,
+                step_id=step_id,
+                precondition_type=precondition_type,
+                expected=expected_desc,
+                actual=actual_desc,
+            )
+            self._emit_backend_event_now(
+                pf_env["type"],
+                **{k: v for k, v in pf_env.items() if k != "type"},
+            )
+        except Exception as exc:  # noqa: BLE001
+            print(
+                f"[PRECONDITION_GATE] precondition_failed emit error: {type(exc).__name__}: {exc}"
+            )
+
+        # Enter recovery using existing mechanism.
+        try:
+            if isinstance(step_context, dict):
+                self._mark_step_failed(
+                    step_context,
+                    f"precondition_failed ({precondition_type}): {'; '.join(reasons[:3])}",
+                )
+        except Exception as exc:  # noqa: BLE001
+            print(
+                f"[PRECONDITION_GATE] mark_step_failed error: {type(exc).__name__}: {exc}"
+            )
+
+        return True
 
     def _mark_step_failed(self, step: dict[str, Any] | str | None, error: Any) -> dict[str, Any] | None:
         context = self._get_step_context(step) if not isinstance(step, dict) else step
@@ -9105,6 +9416,14 @@ class AgentLoop:
             "ask_user": self._tool_ask_user,
         }
         if tool_name not in handlers:
+            # CAPABILITY CLASSIFIER SHIM: classify the unsupported tool request.
+            _cap_cls = self._classify_capability(tool_name)
+            if _cap_cls.get("confidence", 0.0) >= 0.5:
+                print(
+                    f"[CLASSIFIER_SHIM] capability_classifier dispatch: "
+                    f"label={_cap_cls['label']} confidence={_cap_cls['confidence']} "
+                    f"tool={tool_name}"
+                )
             self._record_capability_gap(
                 "unknown_tool",
                 "_dispatch_tool",
@@ -9119,7 +9438,48 @@ class AgentLoop:
         return await tool_dom_extract(self, args, get_page=get_page)
 
     async def _tool_locator_find(self, args: dict[str, Any]) -> dict[str, Any]:
-        return await tool_locator_find(self, args, get_page=get_page)
+        result = await tool_locator_find(self, args, get_page=get_page)
+        # --- LOCATOR ESCALATOR WIRE-IN ---
+        # When all 8 deterministic strategies fail (found=False), build escalation
+        # candidates and emit build_locator_update_request_event_v2. Best-effort.
+        if not result.get("found", False):
+            try:
+                element_data = args.get("element_data") or {}
+                target_text = str(
+                    element_data.get("text") or element_data.get("name") or ""
+                ).strip() or None
+                candidates, escalation_payload = _locator_resolver.build_locator_candidates_with_escalation(
+                    element_data,
+                    target_text=target_text,
+                )
+                _esc_run_id = self._current_run_session_id()
+                if _esc_run_id and candidates is not None:
+                    _amb_id = "esc_" + str(uuid4())[:12]
+
+                    # Idempotency: key on (run_id, ambiguity_id) — always unique via uuid4.
+                    _esc_candidates = [
+                        {"strategy": c.get("strategy", ""), "locator": c.get("locator", "")}
+                        for c in candidates
+                    ]
+                    _step_id_for_esc = str(
+                        getattr(self, "active_step_id", "") or ""
+                    ).strip() or None
+                    esc_env = build_locator_update_request_event_v2(
+                        _esc_run_id,
+                        _amb_id,
+                        _esc_candidates,
+                        "update_locator",
+                        step_id=_step_id_for_esc,
+                    )
+                    self._emit_backend_event_now(
+                        esc_env["type"],
+                        **{k: v for k, v in esc_env.items() if k != "type"},
+                    )
+            except Exception as exc:  # noqa: BLE001
+                print(
+                    f"[LOCATOR_ESCALATOR] escalation emit error: {type(exc).__name__}: {exc}"
+                )
+        return result
 
     async def _tool_locator_validate(self, args: dict[str, Any]) -> dict[str, Any]:
         return await tool_locator_validate(self, args, get_page=get_page)
@@ -9221,6 +9581,14 @@ class AgentLoop:
             elif assertion == "checked":
                 await expect(locator).to_be_checked(timeout=timeout)
             else:
+                # LOCATOR-ISSUE CLASSIFIER SHIM: classify the assertion error description.
+                _loc_cls = self._classify_locator_issue(f"unsupported assertion: {assertion}")
+                if _loc_cls.get("confidence", 0.0) >= 0.5:
+                    print(
+                        f"[CLASSIFIER_SHIM] locator_issue_classifier assertion: "
+                        f"label={_loc_cls['label']} confidence={_loc_cls['confidence']} "
+                        f"assertion={assertion}"
+                    )
                 self._record_capability_gap(
                     "unsupported_assertion",
                     "_tool_action_assert",
