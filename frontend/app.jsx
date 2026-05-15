@@ -172,6 +172,23 @@ function App() {
     return () => off && off();
   }, []);
 
+  // run_rejected toast — shown for 3 s when server rejects a new llm_run while one is active
+  const [runRejectedMsg, setRunRejectedMsg] = React.useState(null);
+  const runRejectedTimer = React.useRef(null);
+  React.useEffect(() => {
+    const AW = (typeof window !== 'undefined' && window.AW) || null;
+    if (!AW || typeof AW.on !== 'function') return;
+    const off = AW.on('run_rejected', (env) => {
+      const p = (env && (env.payload || env)) || {};
+      const text = p.message || "A run is already in progress.";
+      console.warn('[run_rejected]', p);
+      setRunRejectedMsg(text);
+      clearTimeout(runRejectedTimer.current);
+      runRejectedTimer.current = setTimeout(() => setRunRejectedMsg(null), 3000);
+    });
+    return () => { off && off(); clearTimeout(runRejectedTimer.current); };
+  }, []);
+
   const agentsSummary = liveAgents || (() => {
     const isRun = ["exec","locator","recover"].includes(t.state);
     const isPlanning = ["planning","clarify","recommend","plan","diff"].includes(t.state);
@@ -228,6 +245,12 @@ function App() {
                 debug: {liveDebugReport.hypothesis}
               </span>
               <button className="aw-btn" style={{ padding: "2px 8px", fontSize: 11, flexShrink: 0 }} onClick={() => setTab("trace")}>Trace</button>
+            </div>
+          )}
+          {runRejectedMsg && (
+            <div className="aw-toast" style={{ display: "flex", alignItems: "center", gap: 6, padding: "5px 12px", background: "var(--red-tint, #FDECEA)", borderBottom: "1px solid #F5C6C2", fontSize: 11, color: "#8B1A14", flexShrink: 0 }}>
+              <span style={{ flex: 1, minWidth: 0 }}>{runRejectedMsg}</span>
+              <button style={{ background: "none", border: "none", cursor: "pointer", fontSize: 13, lineHeight: 1, color: "#8B1A14", padding: "0 2px", flexShrink: 0 }} onClick={() => setRunRejectedMsg(null)} aria-label="Dismiss">&times;</button>
             </div>
           )}
           <div style={{ position: "relative" }}>

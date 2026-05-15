@@ -426,7 +426,17 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 steps = msg.get("steps") or []
                 print(f"[RUN_STEPS] n={len(steps)}", flush=True)
                 if session.run_task and not session.run_task.done():
-                    await ws.send_json({"type": "status", "message": "Run already in progress."})
+                    # Contract: when a new llm_run arrives while a run_task is already live,
+                    # emit a typed run_rejected envelope so the frontend can surface a toast.
+                    # Fields: reason (machine key), active_run_id (nullable), message (human text).
+                    await ws.send_json({
+                        "type": "run_rejected",
+                        "payload": {
+                            "reason": "run_already_in_progress",
+                            "active_run_id": getattr(session.agent, "current_run_id", None),
+                            "message": "Resolve the current clarification or cancel before starting a new run.",
+                        },
+                    })
                     continue
                 print("[AGENT_RUN] starting agent.run task", flush=True)
                 run_task = asyncio.create_task(session.agent.run(steps))
