@@ -4,6 +4,8 @@ import json
 import re
 from typing import Any
 
+from runtime.dom_locator_contract import build_locator_escalation_request
+
 
 class LocatorResolver:
     """Pure-function helpers for building and resolving Playwright locators.
@@ -148,6 +150,8 @@ class LocatorResolver:
             return "combobox"
         if tag == "textarea":
             return "textbox"
+        if tag in {"h1", "h2", "h3", "h4", "h5", "h6"}:
+            return "heading"
         if tag == "input":
             if input_type in {"button", "submit", "reset"}:
                 return "button"
@@ -225,32 +229,67 @@ class LocatorResolver:
         return page.locator(locator_string)
 
     def build_locator_candidates(self, element_data: dict[str, Any]) -> list[dict[str, str]]:
-        element_data = self._loop._resolve_selected_element_info(element_data)
-        text = self._loop._selected_element_text(element_data)
-        tag = re.sub(r"[^a-zA-Z0-9:_-]", "", str(element_data.get("tag") or "").strip())
-        attributes = element_data.get("attributes") if isinstance(element_data.get("attributes"), dict) else {}
-        role = (
-            str(element_data.get("role") or attributes.get("role") or "").strip()
-            or self._loop._infer_role(element_data)
+        """Build deterministic locator candidates in scenarios §3.10 order.
+
+        Order: role+name → testid → label-for → placeholder → text/has_text →
+               title → alt → css-stable.
+        XPath is intentionally excluded from the programmatic layer; it is
+        emitted only if the LLM proposes it (LLM-only path).
+        """
+        # ------------------------------------------------------------------
+        # Resolve raw element fields
+        # ------------------------------------------------------------------
+        text_raw = str(element_data.get("text") or element_data.get("innerText") or "").strip()
+        text = self.normalize_space(text_raw)
+        tag = re.sub(r"[^a-zA-Z0-9:_-]", "", str(element_data.get("tag") or "").strip()).lower()
+        attributes: dict[str, Any] = (
+            element_data.get("attributes")
+            if isinstance(element_data.get("attributes"), dict)
+            else {}
         )
-        class_name = str(element_data.get("class") or element_data.get("className") or attributes.get("class") or "").strip()
-        classes = [
-            re.sub(r"[^a-zA-Z0-9_-]", "", item)
-            for item in class_name.split()
-            if re.sub(r"[^a-zA-Z0-9_-]", "", item)
-        ]
-        partial_text = text[:50].strip()
+        role = (
+            self.normalize_space(
+                str(element_data.get("role") or attributes.get("role") or "")
+            )
+            or self.infer_role(element_data)
+        )
+
+        class_name = str(
+            element_data.get("class")
+            or element_data.get("className")
+            or attributes.get("class")
+            or ""
+        ).strip()
+
+        partial_text = text[:80].strip()
         candidates: list[dict[str, str]] = []
 
-        locator_hint = str(element_data.get("locator_hint") or element_data.get("locatorHint") or "").strip()
+        # ------------------------------------------------------------------
+        # 0. Locator hint (pass-through; highest priority)
+        # ------------------------------------------------------------------
+        locator_hint = str(
+            element_data.get("locator_hint") or element_data.get("locatorHint") or ""
+        ).strip()
         if locator_hint:
+            candidates.append({"strategy": "locator_hint", "locator": locator_hint})
+
+        # ------------------------------------------------------------------
+        # §3.10 Priority 1 — role + accessible name
+        # ------------------------------------------------------------------
+        if role and partial_text:
             candidates.append(
                 {
-                    "strategy": "locator_hint",
-                    "locator": locator_hint,
+                    "strategy": "role+name",
+                    "locator": (
+                        f'get_by_role("{self.tool_string_escape(role)}", '
+                        f'name="{self.tool_string_escape(partial_text)}")'
+                    ),
                 }
             )
 
+        # ------------------------------------------------------------------
+        # §3.10 Priority 2 — test-id attributes (data-testid family)
+        # ------------------------------------------------------------------
         data_testid = str(
             element_data.get("data_testid")
             or element_data.get("dataTestid")
@@ -259,86 +298,177 @@ class LocatorResolver:
             or attributes.get("data-test")
             or attributes.get("data-qa")
             or attributes.get("data-cy")
+            or attributes.get("data-automation-id")
             or ""
         ).strip()
         if data_testid:
             candidates.append(
                 {
                     "strategy": "data-testid",
-                    "locator": f'get_by_test_id("{self._loop._tool_string_escape(data_testid)}")',
+                    "locator": f'get_by_test_id("{self.tool_string_escape(data_testid)}")',
                 }
             )
 
-        aria_label = self._loop._normalize_space(
-            str(element_data.get("aria_label") or element_data.get("ariaLabel") or attributes.get("aria-label") or "")
+        # ------------------------------------------------------------------
+        # §3.10 Priority 3 — label association
+        #   (a) aria-label → get_by_label (ARIA association)
+        #   (b) label_for_text → get_by_label (true <label for="id"> association)
+        #   (c) name attribute → [name="…"] CSS candidate for form inputs
+        # ------------------------------------------------------------------
+        aria_label = self.normalize_space(
+            str(
+                element_data.get("aria_label")
+                or element_data.get("ariaLabel")
+                or attributes.get("aria-label")
+                or ""
+            )
         )
         if aria_label:
             candidates.append(
                 {
                     "strategy": "aria-label",
-                    "locator": f'get_by_label("{self._loop._tool_string_escape(aria_label)}")',
+                    "locator": f'get_by_label("{self.tool_string_escape(aria_label)}")',
                 }
             )
 
-        element_id = str(element_data.get("id") or attributes.get("id") or "").strip()
-        if element_id:
-            candidates.append({"strategy": "id", "locator": f"#{self._loop._css_escape(element_id)}"})
+        # True <label for="id">text</label> association derived by page intelligence
+        label_for_text = self.normalize_space(
+            str(
+                element_data.get("label_for_text")
+                or element_data.get("labelForText")
+                or element_data.get("label_text")
+                or ""
+            )
+        )
+        if label_for_text and label_for_text != aria_label:
+            candidates.append(
+                {
+                    "strategy": "label-for",
+                    "locator": f'get_by_label("{self.tool_string_escape(label_for_text)}")',
+                }
+            )
 
-        placeholder = self._loop._normalize_space(str(element_data.get("placeholder") or attributes.get("placeholder") or ""))
+        # name attribute — form inputs (text strategy augmentation per PRD §3.10)
+        name_attr = str(attributes.get("name") or element_data.get("name_attr") or "").strip()
+        if name_attr and tag in {"input", "select", "textarea", "button"}:
+            candidates.append(
+                {
+                    "strategy": "name-attr",
+                    "locator": f'[name="{self.css_escape(name_attr)}"]',
+                }
+            )
+
+        # ------------------------------------------------------------------
+        # §3.10 Priority 4 — placeholder
+        # ------------------------------------------------------------------
+        placeholder = self.normalize_space(
+            str(element_data.get("placeholder") or attributes.get("placeholder") or "")
+        )
         if placeholder:
             candidates.append(
                 {
                     "strategy": "placeholder",
-                    "locator": f'get_by_placeholder("{self._loop._tool_string_escape(placeholder)}")',
+                    "locator": f'get_by_placeholder("{self.tool_string_escape(placeholder)}")',
                 }
             )
 
+        # ------------------------------------------------------------------
+        # §3.10 Priority 5 — text / has_text
+        # ------------------------------------------------------------------
         if text:
             candidates.append(
                 {
                     "strategy": "exact_text",
-                    "locator": f'get_by_text("{self._loop._tool_string_escape(text)}", exact=True)',
+                    "locator": f'get_by_text("{self.tool_string_escape(text)}", exact=True)',
                 }
             )
 
-        if partial_text:
+        if partial_text and partial_text != text:
             candidates.append(
                 {
                     "strategy": "partial_text",
-                    "locator": f'get_by_text("{self._loop._tool_string_escape(partial_text)}", exact=False)',
+                    "locator": f'get_by_text("{self.tool_string_escape(partial_text)}", exact=False)',
                 }
             )
 
-        if role and partial_text:
+        # ------------------------------------------------------------------
+        # §3.10 Priority 6 — title attribute
+        # ------------------------------------------------------------------
+        title_attr = self.normalize_space(
+            str(element_data.get("title") or attributes.get("title") or "")
+        )
+        if title_attr:
             candidates.append(
                 {
-                    "strategy": "role+name",
-                    "locator": (
-                        f'get_by_role("{self._loop._tool_string_escape(role)}", '
-                        f'name="{self._loop._tool_string_escape(partial_text)}")'
-                    ),
+                    "strategy": "title",
+                    "locator": f'[title="{self.css_escape(title_attr)}"]',
                 }
             )
 
-        css_locator = self._loop._build_locator_from_strategy("css", element_data)
+        # ------------------------------------------------------------------
+        # §3.10 Priority 7 — alt text (images)
+        # ------------------------------------------------------------------
+        alt_text = self.normalize_space(
+            str(element_data.get("alt") or attributes.get("alt") or "")
+        )
+        if alt_text and tag in {"img", "area", "input"}:
+            candidates.append(
+                {
+                    "strategy": "alt-text",
+                    "locator": f'get_by_alt_text("{self.tool_string_escape(alt_text)}")',
+                }
+            )
+
+        # ------------------------------------------------------------------
+        # §3.10 Priority 8 — stable CSS (id → class combo)
+        # ------------------------------------------------------------------
+        element_id = str(element_data.get("id") or attributes.get("id") or "").strip()
+        if element_id:
+            candidates.append(
+                {"strategy": "id", "locator": f"#{self.css_escape(element_id)}"}
+            )
+
+        css_locator = self.build_locator_from_strategy("css", element_data)
         if css_locator:
             candidates.append({"strategy": "css", "locator": css_locator})
 
-        if tag and partial_text:
-            candidates.append(
-                {
-                    "strategy": "relative_xpath",
-                    "locator": f"//{tag}[contains(normalize-space(.), {self._loop._xpath_literal(partial_text)})]",
-                }
-            )
-
-        if tag:
-            if element_id:
-                absolute_xpath = f"//{tag}[@id={self._loop._xpath_literal(element_id)}]"
-            elif classes:
-                absolute_xpath = f"//{tag}[contains(@class, {self._loop._xpath_literal(classes[0])})]"
-            else:
-                absolute_xpath = f"//{tag}"
-            candidates.append({"strategy": "absolute_xpath", "locator": absolute_xpath})
+        # NOTE: XPath is intentionally NOT emitted here (PRD lines 681–686:
+        # "Never proactively generated"). XPath is only attached after LLM
+        # proposes it via the escalation path.
 
         return candidates
+
+    def build_locator_candidates_with_escalation(
+        self,
+        element_data: dict[str, Any],
+        *,
+        target_text: str | None = None,
+        page_context: dict[str, Any] | None = None,
+    ) -> tuple[list[dict[str, str]], dict[str, Any] | None]:
+        """Return (candidates, escalation_payload).
+
+        escalation_payload is non-None only if the caller has exhausted all
+        candidates and needs LLM-specialist help.  The caller is responsible
+        for emitting the ``locator_update_request`` event; this method only
+        *builds* the payload — it does not emit anything.
+
+        Typical usage::
+
+            candidates, escalation = resolver.build_locator_candidates_with_escalation(
+                element_data, target_text=text, page_context=page_ctx
+            )
+            # … iterate candidates; if none found:
+            if escalation:
+                emit("locator_update_request", escalation)
+        """
+        candidates = self.build_locator_candidates(element_data)
+        escalation = build_locator_escalation_request(
+            target_text=target_text or str(element_data.get("text") or "").strip() or None,
+            candidates=[
+                {"candidate_id": c["strategy"], "locator": c["locator"]}
+                for c in candidates
+            ],
+            page_context=page_context,
+            advisory_only=True,
+        )
+        return candidates, escalation
