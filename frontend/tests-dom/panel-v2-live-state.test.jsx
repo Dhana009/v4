@@ -57,12 +57,12 @@ describe("S1 App props interface", () => {
   it("App renders with live viewModel", () => {
     const vm = mapTransportToViewModel(makeTransport(), null);
     const { container } = render(<App viewModel={vm} mode="live" />);
-    expect(container.querySelector(".aw-stage")).not.toBeNull();
+    expect(container.querySelector(".aw-panel")).not.toBeNull();
   });
 
   it("App without viewModel renders demo preview (default demo mode)", () => {
     const { container } = render(<App />);
-    expect(container.querySelector(".aw-stage")).not.toBeNull();
+    expect(container.querySelector(".aw-panel")).not.toBeNull();
   });
 
   it("App in live mode does not render demo idle text 'Tell me what to automate'", () => {
@@ -71,10 +71,10 @@ describe("S1 App props interface", () => {
     expect(container.textContent).not.toMatch(/Tell me what to automate/);
   });
 
-  it("App in live mode renders .aw-stage", () => {
+  it("App in live mode renders .aw-panel", () => {
     const vm = mapTransportToViewModel(makeTransport(), null);
     const { container } = render(<App viewModel={vm} mode="live" />);
-    expect(container.querySelector(".aw-stage")).not.toBeNull();
+    expect(container.querySelector(".aw-panel")).not.toBeNull();
   });
 
   it("App in live mode has 5 tabs", () => {
@@ -177,7 +177,7 @@ describe("S3 state-bridge reads storeState", () => {
 describe("S2 PanelV2LiveHost passes VM into App", () => {
   it("renders App with live mode", () => {
     const { container } = render(<PanelV2LiveHost transport={makeTransport()} />);
-    expect(container.querySelector(".aw-stage")).not.toBeNull();
+    expect(container.querySelector(".aw-panel")).not.toBeNull();
   });
 
   it("renders 5 tabs in live mode", () => {

@@ -76,7 +76,7 @@ describe("S4 App accepts onCommand prop", () => {
     const onCommand = vi.fn();
     const vm = makeVm("idle");
     const { container } = render(<App viewModel={vm} mode="live" onCommand={onCommand} />);
-    expect(container.querySelector(".aw-stage")).not.toBeNull();
+    expect(container.querySelector(".aw-panel")).not.toBeNull();
   });
 
   it("onCommand is not called on initial render", () => {

@@ -1,4 +1,5 @@
 // app.jsx — top-level glue: stage + panel chrome + tabs + tweaks + agents + now-strip
+import './styles.css';
 import { useState, useEffect, useRef } from 'react';
 import { I } from './icons.jsx';
 import { useTweaks, TweaksPanel, TweakSection, TweakRadio, TweakSlider, TweakToggle, TweakSelect } from './tweaks-panel.jsx';
@@ -79,10 +80,14 @@ export function App({ viewModel, onCommand, mode } = {}) {
 
   const showNow = tab === "llm" && activeState !== "idle";
 
+  const panelStyle = isLive
+    ? { width: "100%", height: "100%" }
+    : { width: t.dock === "top" ? "100%" : t.panelWidth };
+
   const panel = (
     <aside className="aw-panel"
-           data-wide={(t.dock === "top" || t.panelWidth >= 620) ? "1" : "0"}
-           style={{width: t.dock === "top" ? "100%" : t.panelWidth}}>
+           data-wide={(isLive || t.dock === "top" || t.panelWidth >= 620) ? "0" : "0"}
+           style={panelStyle}>
       <div className="aw-resize"/>
       {!t.collapsed && (
         <>
@@ -124,11 +129,7 @@ export function App({ viewModel, onCommand, mode } = {}) {
   );
 
   if (isLive) {
-    return (
-      <div className={stageCls}>
-        {panel}
-      </div>
-    );
+    return panel;
   }
 
   return (

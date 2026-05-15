@@ -35,9 +35,9 @@ describe("004C PanelV2LiveHost: renders", () => {
     expect(container.firstChild).not.toBeNull();
   });
 
-  it("renders .aw-stage", () => {
+  it("renders .aw-panel", () => {
     const { container } = render(<PanelV2LiveHost transport={makeTransport()} />);
-    expect(container.querySelector(".aw-stage")).not.toBeNull();
+    expect(container.querySelector(".aw-panel")).not.toBeNull();
   });
 
   it("renders 5 tabs", () => {
