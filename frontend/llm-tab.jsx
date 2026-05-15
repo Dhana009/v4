@@ -561,7 +561,15 @@ function CardLocatorAmbiguity() {
                   <button className="aw-btn" onClick={(e) => { e.stopPropagation(); setPick(c.id); }}>
                     <I.Check/> {pick === c.id ? "Selected" : "Select"}
                   </button>
-                  <button className="aw-btn subtle" onClick={(e) => e.stopPropagation()}>
+                  <button className="aw-btn subtle" onClick={(e) => {
+                    // T-10: per-candidate Highlight → typed highlight_locator.
+                    // Backend routes onto agent control_queue (T-10a).
+                    e.stopPropagation();
+                    const AW = (typeof window !== 'undefined' && window.AW) || null;
+                    if (AW && typeof AW.send === 'function') {
+                      AW.send({ type: 'highlight_locator', candidate_id: c.id, duration_ms: 1500 });
+                    }
+                  }}>
                     <I.Eye/>Highlight
                   </button>
                 </div>
@@ -579,10 +587,51 @@ function CardLocatorAmbiguity() {
           Selected: <b style={{color:"var(--tx)"}}>candidate {pickedIdx+1}</b> — {picked.t}
         </span>
         <span style={{flex:1}}/>
-        <button className="aw-btn"><I.Spark/>Ask LLM for better locator</button>
-        <button className="aw-btn">Change scope</button>
-        <button className="aw-btn danger"><I.Stop style={{width:11,height:11}}/>Stop</button>
-        <button className="aw-btn primary"><I.Check/>Use candidate {pickedIdx+1}</button>
+        <button className="aw-btn"
+                onClick={() => {
+                  // T-10: Ask LLM for better locator → typed improve_locator.
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  if (AW && typeof AW.send === 'function') {
+                    AW.send({ type: 'improve_locator', step_id: 'stp_d8e2' });
+                  }
+                }}>
+          <I.Spark/>Ask LLM for better locator
+        </button>
+        <button className="aw-btn"
+                onClick={() => {
+                  // T-10: Change scope → prompt for scope hint then send
+                  // typed change_locator_scope. Accepted shapes per
+                  // server.py:1046 are "broader" / "narrower" / free text.
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  if (!AW || typeof AW.send !== 'function') return;
+                  const scope = (typeof window !== 'undefined' && typeof window.prompt === 'function')
+                    ? window.prompt('Change locator scope (broader / narrower / or free text):', 'narrower')
+                    : 'narrower';
+                  if (scope == null) return;
+                  AW.send({ type: 'change_locator_scope', step_id: 'stp_d8e2', scope: String(scope) });
+                }}>
+          Change scope
+        </button>
+        <button className="aw-btn danger"
+                onClick={() => {
+                  // T-10: Stop the locator step → typed stop_run.
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  if (AW && typeof AW.send === 'function') AW.send({ type: 'stop_run' });
+                }}>
+          <I.Stop style={{width:11,height:11}}/>Stop
+        </button>
+        <button className="aw-btn primary"
+                onClick={() => {
+                  // T-10: Use candidate N → typed option_selected with the
+                  // picked candidate id. Backend control_queue routes it
+                  // into the locator resolution path.
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  if (AW && typeof AW.send === 'function') {
+                    AW.send({ type: 'option_selected', value: pick, answer: pick, step_id: 'stp_d8e2' });
+                  }
+                }}>
+          <I.Check/>Use candidate {pickedIdx+1}
+        </button>
       </div>
     </div>
   );

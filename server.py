@@ -1034,9 +1034,18 @@ async def ws_endpoint(ws: WebSocket) -> None:
                         )
                     )
                     continue
+                # T-10: route the typed intent onto the agent control_queue
+                # so a follow-up can wire a real locator re-search. The ack
+                # carries status="accepted" since the request has been
+                # delivered into the agent loop (was "queued" before).
+                await session.control_queue.put({
+                    "type": msg_type,
+                    "step_id": _step_id,
+                    "run_id": _cmd_run_id or _active_run_id or "",
+                })
                 _ack = build_backend_event_envelope(
                     "improve_locator_acknowledged",
-                    {"step_id": _step_id, "status": "queued"},
+                    {"step_id": _step_id, "status": "accepted"},
                     source="server",
                 )
                 await ws.send_json(_ack)
@@ -1085,9 +1094,17 @@ async def ws_endpoint(ws: WebSocket) -> None:
                         )
                     )
                     continue
+                # T-10: route onto control_queue so a follow-up can teach
+                # the agent loop to widen / narrow the locator scope.
+                await session.control_queue.put({
+                    "type": "change_locator_scope",
+                    "step_id": _step_id,
+                    "scope": _scope,
+                    "run_id": _cmd_run_id or _active_run_id or "",
+                })
                 _ack = build_backend_event_envelope(
                     "change_locator_scope_acknowledged",
-                    {"step_id": _step_id, "scope": _scope, "status": "queued"},
+                    {"step_id": _step_id, "scope": _scope, "status": "accepted"},
                     source="server",
                 )
                 await ws.send_json(_ack)
@@ -1119,6 +1136,14 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 except (TypeError, ValueError):
                     _duration_ms = 1500
                 _duration_ms = max(0, min(_duration_ms, 5000))
+                # T-10: route through control_queue so a follow-up can hook
+                # into the live browser overlay. Status flips to "accepted"
+                # to reflect that the agent has the intent now.
+                await session.control_queue.put({
+                    "type": "highlight_locator",
+                    "candidate_id": _candidate_id,
+                    "duration_ms": _duration_ms,
+                })
                 await ws.send_json(
                     build_backend_event_envelope(
                         "locator_highlight_acknowledged",
@@ -1126,7 +1151,7 @@ async def ws_endpoint(ws: WebSocket) -> None:
                             "candidate_id": _candidate_id,
                             "duration_ms": _duration_ms,
                             "applied": False,
-                            "status": "queued",
+                            "status": "accepted",
                         },
                         source="server",
                     )
