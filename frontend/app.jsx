@@ -76,19 +76,71 @@ function App() {
                   : "connected";
 
   const runId = t.state === "idle" ? "—" : "run_a91b";
-  const tokenInfo = { tok: "8.4k", cost: "0.12" };
-  const counts = { llm: null, steps: 5, rec: 4, code: 1, trace: 25 };
 
-  // Agents summary dots (5 visible)
-  const agentsSummary = (() => {
+  const [liveCounts, setLiveCounts] = React.useState(null);
+  React.useEffect(() => {
+    const AW = (typeof window !== 'undefined' && window.AW) || null;
+    if (!AW || typeof AW.on !== 'function') return;
+    if (AW.lastEvent && AW.lastEvent.type === 'session_state') {
+      const p = AW.lastEvent.payload || AW.lastEvent;
+      setLiveCounts({ llm: null, steps: (p.steps || []).length, rec: (p.recorded_steps || []).length, code: p.code_preview ? 1 : 0, trace: 0 });
+    }
+    return AW.on('session_state', (env) => {
+      const p = (env && (env.payload || env)) || {};
+      setLiveCounts({ llm: null, steps: (p.steps || []).length, rec: (p.recorded_steps || []).length, code: p.code_preview ? 1 : 0, trace: 0 });
+    });
+  }, []);
+  const counts = liveCounts || { llm: null, steps: 5, rec: 4, code: 1, trace: 25 };
+
+  const [liveTokenInfo, setLiveTokenInfo] = React.useState(null);
+  React.useEffect(() => {
+    const AW = (typeof window !== 'undefined' && window.AW) || null;
+    if (!AW || typeof AW.on !== 'function') return;
+    if (AW.lastEvent && AW.lastEvent.type === 'token_report') {
+      const p = AW.lastEvent.payload || AW.lastEvent;
+      setLiveTokenInfo({ tok: ((((p.input_tokens || 0) + (p.output_tokens || 0)) / 1000).toFixed(1)) + "k", cost: (p.estimated_cost || 0).toFixed(2) });
+    }
+    return AW.on('token_report', (env) => {
+      const p = (env && (env.payload || env)) || {};
+      setLiveTokenInfo({ tok: ((((p.input_tokens || 0) + (p.output_tokens || 0)) / 1000).toFixed(1)) + "k", cost: (p.estimated_cost || 0).toFixed(2) });
+    });
+  }, []);
+  const tokenInfo = liveTokenInfo || { tok: "8.4k", cost: "0.12" };
+
+  const [liveAgents, setLiveAgents] = React.useState(null);
+  React.useEffect(() => {
+    const AW = (typeof window !== 'undefined' && window.AW) || null;
+    if (!AW || typeof AW.on !== 'function') return;
+    const applyAgent = (p) => {
+      const name = (p && (p.agent_name || p.agent_id || p.purpose || "")) + "";
+      const status = (p && (p.status || p.state || "")) + "";
+      const isRun = status === "running";
+      setLiveAgents((prev) => {
+        const base = prev || ["on","on","on","off","off"];
+        const next = [...base];
+        if (/orchestrat/i.test(name)) next[0] = isRun ? "run" : "on";
+        else if (/page.intel\|locator/i.test(name)) next[1] = isRun ? "run" : "on";
+        else if (/step.run\|executor/i.test(name)) next[2] = isRun ? "run" : "on";
+        else if (/debug/i.test(name)) next[3] = isRun ? "on" : "off";
+        else if (/risk/i.test(name)) next[4] = isRun ? "on" : "off";
+        return next;
+      });
+    };
+    const off1 = AW.on('agent_status', (env) => applyAgent((env && (env.payload || env)) || {}));
+    const off2 = AW.on('agent_running', (env) => applyAgent((env && (env.payload || env)) || {}));
+    const off3 = AW.on('agent_complete', (env) => applyAgent((env && (env.payload || env)) || {}));
+    return () => { off1 && off1(); off2 && off2(); off3 && off3(); };
+  }, []);
+
+  const agentsSummary = liveAgents || (() => {
     const isRun = ["exec","locator","recover"].includes(t.state);
     const isPlanning = ["planning","clarify","recommend","plan","diff"].includes(t.state);
     return [
-      isRun || isPlanning ? "on" : "on",       // Main Orchestrator (always at least on)
-      t.state === "planning" ? "run" : "on",   // Page Intelligence
-      isRun ? "run" : "on",                    // Step Runner
-      t.state === "recover" ? "on" : "off",    // Debug Agent
-      "off",                                    // Risk Judge
+      isRun || isPlanning ? "on" : "on",
+      t.state === "planning" ? "run" : "on",
+      isRun ? "run" : "on",
+      t.state === "recover" ? "on" : "off",
+      "off",
     ];
   })();
 
