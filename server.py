@@ -1355,6 +1355,29 @@ async def ws_endpoint(ws: WebSocket) -> None:
                 )
                 continue
 
+            # Wire 1: apply_plan_edit — P0 item 4
+            # Routes FE plan-edit ops onto the control_queue so agent.py's
+            # _wait_for_plan_confirmation loop can handle them.
+            if msg_type == "apply_plan_edit":
+                current_state = _current_command_state(session)
+                _cmd_run_id = str(msg.get("run_id") or "").strip()
+                _active_run_id = current_state.get("run_id") or ""
+                await session.control_queue.put({
+                    "type": "apply_plan_edit",
+                    "run_id": _cmd_run_id or _active_run_id or "",
+                    "edit_op": msg.get("edit_op"),
+                    "payload": msg,
+                })
+                await ws.send_json(
+                    build_backend_event_envelope(
+                        "apply_plan_edit_acknowledged",
+                        {"run_id": _cmd_run_id or _active_run_id or "", "status": "accepted"},
+                        source="server",
+                        run_id=_cmd_run_id or _active_run_id or None,
+                    )
+                )
+                continue
+
             current_state = _current_command_state(session)
             if not msg_type:
                 await ws.send_json(

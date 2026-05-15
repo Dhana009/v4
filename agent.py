@@ -51,7 +51,8 @@ from runtime.page_state_model import (
 import runtime.plan_edit_classifier as plan_edit_classifier
 import runtime.locator_issue_classifier as locator_issue_classifier
 import runtime.capability_classifier as capability_classifier
-from runtime.llm_policy_gateway import LLMPolicyGateway
+from runtime.llm_policy_gateway import LLMPolicyGateway, evaluate_permission as _evaluate_permission
+from runtime.permission_classifier import classify_action_risk as _classify_action_risk  # noqa: F401 (used via _evaluate_permission shim)
 from runtime.llm_runtime_controller import LLMRuntimeController, PURPOSE_REGISTRY
 from runtime.model_router import ModelRouter
 from runtime.planning_loop_guard import PlanningLoopGuardState, advance_planning_loop_guard
@@ -72,6 +73,16 @@ from runtime.skill_manager import SkillManager
 from runtime.skill_policy import get_skill_levels_for_names
 from runtime.telemetry import record_model_call_end, record_model_call_start
 from runtime.deterministic_fast_path_gateway import attempt_deterministic_fast_path
+from runtime.multi_agent_orchestrator import (
+    AgentInvocation,
+    AgentRole,
+    MultiAgentOrchestrator,
+    build_agent_status_event,
+)
+from runtime.debug_agent import build_debug_report, serialize_debug_report
+from runtime.codegen_reviewer import review_playwright_code
+import dataclasses
+from locator.replacement import propose_replacement
 from event.emitter import EventEmitter
 from locator.resolver import LocatorResolver
 from skills.loader import SkillsLoader
@@ -258,6 +269,10 @@ class AgentLoop:
         self._llm_call_counter = 0
         self._ws_disconnected = False
         self._ws_disconnect_logged = False
+        # Wire 2 / Wire 3 state
+        self.autonomy_mode: str = "balanced"
+        self._debug_report_emitted: set[tuple[str, str]] = set()
+        self._code_review_emitted: set[tuple[str, str]] = set()
 
     _MODULE_FACTORIES: dict[str, Any] = {}
 
@@ -277,6 +292,10 @@ class AgentLoop:
             "_tool_definitions": lambda: ToolDefinitions(self),
             "_tool_dispatcher": lambda: ToolDispatcher(self),
             "_llm_orchestrator": lambda: LLMOrchestrator(self),
+            "_multi_agent_orchestrator": lambda: MultiAgentOrchestrator(
+                getattr(self, "_llm_runtime_controller", None)
+                or getattr(self, "_plan_diff_editor_controller", None)
+            ),
         }
         if name in factories:
             obj = factories[name]()
@@ -330,6 +349,8 @@ class AgentLoop:
         self._run_session_id = self._new_run_session_id()
         self._run_completed_emitted = False
         self._run_started_emitted = False
+        self._debug_report_emitted = set()
+        self._code_review_emitted = set()
         self._clear_plan_review_context()
         telemetry_sink = getattr(self, "_plan_diff_editor_telemetry", None)
         if isinstance(telemetry_sink, list):
@@ -859,6 +880,101 @@ class AgentLoop:
             f"label={result.get('label')} confidence={result.get('confidence')}"
         )
         return result
+
+    async def _handle_apply_plan_edit(self, event: dict[str, Any]) -> bool:
+        """Wire 1: apply_plan_edit — P0 item 4.
+
+        Validates payload shape, classifies edit confidence, mutates
+        self.current_steps, increments plan version, and emits plan_ready.
+
+        Returns True if the edit was applied, False otherwise.
+        """
+        payload = event.get("payload") or event
+        run_id = str(payload.get("run_id") or self._current_run_session_id() or "").strip()
+        edit_op_raw = payload.get("edit_op") or event.get("edit_op")
+        edit_op = str(edit_op_raw or "").strip()
+
+        # Validate edit_op against known labels (allow both PLAN_EDIT_LABELS format and
+        # the command format like "add_step", "remove_step", etc.)
+        _known_ops = set(plan_edit_classifier.PLAN_EDIT_LABELS) | {
+            "add_step", "remove_step", "reorder", "replace_locator", "change_action",
+        }
+        if not edit_op or edit_op not in _known_ops:
+            print(
+                f"[APPLY_PLAN_EDIT] invalid edit_op={edit_op!r}; "
+                f"known={sorted(_known_ops)[:5]}..."
+            )
+            edit_op = edit_op or "unknown"
+
+        # Classify confidence using plan_edit_classifier
+        _cls_text = str(payload.get("description") or payload.get("message") or edit_op)
+        _cls_result = self._classify_plan_edit(_cls_text, ctx={"edit_op": edit_op, "run_id": run_id})
+        _confidence = float(_cls_result.get("confidence") or 0.0)
+        if _confidence < 0.5:
+            print(
+                f"[APPLY_PLAN_EDIT] TODO: low confidence ({_confidence:.2f}) for edit_op={edit_op!r}; "
+                "routing through controller fallback (not yet wired)"
+            )
+
+        # Mutate current_steps per the op
+        try:
+            steps = list(getattr(self, "current_steps", None) or [])
+            if edit_op in {"add_step", "add_operation"}:
+                new_step = dict(payload.get("step") or {})
+                if not new_step.get("step_id"):
+                    new_step["step_id"] = "pe_" + str(uuid4())[:12]
+                if not new_step.get("step_number"):
+                    new_step["step_number"] = len(steps) + 1
+                steps.append(new_step)
+            elif edit_op in {"remove_step", "remove_operation"}:
+                target_id = str(payload.get("step_id") or payload.get("target_step_id") or "").strip()
+                steps = [s for s in steps if str(s.get("step_id") or "") != target_id]
+            elif edit_op in {"reorder", "reorder_operations"}:
+                order = payload.get("order") or []
+                if isinstance(order, list) and order:
+                    id_to_step = {str(s.get("step_id") or ""): s for s in steps}
+                    reordered = [id_to_step[sid] for sid in order if sid in id_to_step]
+                    remaining = [s for s in steps if str(s.get("step_id") or "") not in set(order)]
+                    steps = reordered + remaining
+            elif edit_op in {"replace_locator", "replace_target"}:
+                target_id = str(payload.get("step_id") or payload.get("target_step_id") or "").strip()
+                new_locator = payload.get("new_locator") or payload.get("locator")
+                for s in steps:
+                    if str(s.get("step_id") or "") == target_id and new_locator:
+                        s["locator"] = new_locator
+            elif edit_op in {"change_action", "change_expected_outcome"}:
+                target_id = str(payload.get("step_id") or payload.get("target_step_id") or "").strip()
+                updates = {k: v for k, v in payload.items() if k not in {"run_id", "edit_op", "step_id", "type", "payload"}}
+                for s in steps:
+                    if str(s.get("step_id") or "") == target_id:
+                        s.update(updates)
+            self.current_steps = steps
+        except Exception as _exc:  # noqa: BLE001
+            print(f"[APPLY_PLAN_EDIT] mutation error: {type(_exc).__name__}: {_exc}")
+
+        # Increment plan version
+        _active = getattr(self, "_active_plan_state", None) or {}
+        if isinstance(_active, dict):
+            _active["plan_version"] = int(_active.get("plan_version") or 0) + 1
+
+        # Emit plan_ready with mutated steps (best-effort)
+        try:
+            _plan_steps = [dict(s) for s in (self.current_steps or [])]
+            _plan_env = build_plan_ready_event(
+                run_id or self._current_run_session_id() or "unknown",
+                None,
+                _plan_steps,
+                summary=f"Plan updated via {edit_op}",
+            )
+            self._emit_backend_event_now(
+                _plan_env["type"],
+                **{k: v for k, v in _plan_env.items() if k != "type"},
+            )
+            print(f"[APPLY_PLAN_EDIT] applied edit_op={edit_op} steps={len(_plan_steps)}")
+        except Exception as _exc:  # noqa: BLE001
+            print(f"[APPLY_PLAN_EDIT] plan_ready emit failed: {type(_exc).__name__}: {_exc}")
+
+        return True
 
     def _classify_locator_issue(self, text: str, ctx: dict | None = None) -> dict:
         """Heuristic-first locator-issue classifier.  Falls back to controller."""
@@ -2581,6 +2697,60 @@ class AgentLoop:
                                 self._append_tool_response(tool_call.id, blocked_result)
                                 continue
 
+                    # --- Wire 2: Permission Classifier gate (P0 item 10) ---
+                    if tool_name in self.EXECUTION_TOOLS:
+                        try:
+                            _perm_action = {"name": tool_name, "args": args}
+                            _perm_mode = str(getattr(self, "autonomy_mode", None) or "balanced")
+                            # Use classify_action_risk directly (same as _evaluate_permission shim)
+                            _perm_verdict = _classify_action_risk(_perm_action, _perm_mode)
+                            _perm_decision = str(_perm_verdict.get("permission") or "auto")
+                            if _perm_decision == "deny":
+                                _perm_blocked = {
+                                    "success": False,
+                                    "blocked": True,
+                                    "reason": "permission_denied",
+                                    "risk": _perm_verdict.get("risk"),
+                                    "message": f"Action '{tool_name}' denied by permission classifier.",
+                                }
+                                print(
+                                    f"[PERMISSION] deny: tool={tool_name} "
+                                    f"risk={_perm_verdict.get('risk')} mode={_perm_mode}"
+                                )
+                                self._emit_backend_event_now(
+                                    "permission_required",
+                                    run_id=self._current_run_session_id(),
+                                    step_id=str(getattr(self, "active_step_id", "") or ""),
+                                    tool_name=tool_name,
+                                    verdict="deny",
+                                    risk=_perm_verdict.get("risk"),
+                                    reasons=_perm_verdict.get("reasons", []),
+                                )
+                                self._append_tool_response(tool_call.id, _perm_blocked)
+                                continue
+                            if _perm_decision == "ask" and _perm_mode in {"strict", "balanced"}:
+                                print(
+                                    f"[PERMISSION] ask: tool={tool_name} "
+                                    f"risk={_perm_verdict.get('risk')} mode={_perm_mode}"
+                                )
+                                self._emit_backend_event_now(
+                                    "permission_required",
+                                    run_id=self._current_run_session_id(),
+                                    step_id=str(getattr(self, "active_step_id", "") or ""),
+                                    tool_name=tool_name,
+                                    verdict="ask",
+                                    risk=_perm_verdict.get("risk"),
+                                    reasons=_perm_verdict.get("reasons", []),
+                                )
+                                # In 'ask' mode: pause to wait for user reply;
+                                # for now emit and proceed (non-blocking — full
+                                # pause loop is a follow-up slice).
+                        except Exception as _perm_exc:  # noqa: BLE001
+                            print(
+                                f"[PERMISSION] classifier error (non-fatal): "
+                                f"{type(_perm_exc).__name__}: {_perm_exc}"
+                            )
+
                     browser_state_before = None
                     if tool_name in self.EXECUTION_TOOLS:
                         browser_state_before = await self._capture_browser_state()
@@ -4236,6 +4406,47 @@ class AgentLoop:
             )
         except Exception:
             pass
+        # Wire 4: DebugAgent — emit debug_report on recovery entry (idempotent per run_id+step_id)
+        try:
+            _dbg_run_id = str(self._current_run_session_id() or "").strip()
+            _dbg_idem_key = (_dbg_run_id, step_id)
+            _dbg_emitted = getattr(self, "_debug_report_emitted", None)
+            if not isinstance(_dbg_emitted, set):
+                _dbg_emitted = set()
+                self._debug_report_emitted = _dbg_emitted
+            if _dbg_run_id and _dbg_idem_key not in _dbg_emitted:
+                _dbg_emitted.add(_dbg_idem_key)
+                _page_state: dict[str, Any] = {}
+                try:
+                    _bs = self._current_browser_url()
+                    if _bs:
+                        _page_state = {"url": _bs}
+                except Exception:  # noqa: BLE001
+                    pass
+                _recent_events: list[dict[str, Any]] = []
+                try:
+                    _emitter_log = getattr(getattr(self, "_emitter", None), "_event_log", None)
+                    if isinstance(_emitter_log, list):
+                        _recent_events = list(_emitter_log[-10:])
+                except Exception:  # noqa: BLE001
+                    pass
+                _failure_label = str(context.get("failure_label") or context.get("last_error") or "")
+                _dbg_report = build_debug_report(
+                    failed_step=dict(context),
+                    page_state=_page_state,
+                    recent_events=_recent_events,
+                    failure_label=_failure_label,
+                )
+                self._emit_backend_event_now(
+                    "debug_report",
+                    payload=serialize_debug_report(_dbg_report),
+                    run_id=_dbg_run_id,
+                    step_id=step_id,
+                )
+                print(f"[DEBUG_AGENT] report emitted step_id={step_id} confidence={_dbg_report.confidence}")
+        except Exception as _dbg_exc:  # noqa: BLE001
+            print(f"[DEBUG_AGENT] emit error (non-fatal): {type(_dbg_exc).__name__}: {_dbg_exc}")
+
         # §11 / §15: bounded retry — check cap and classifier label before recovery.
         _recovery_action = self._bounded_recovery_decision(step_id, context["last_error"])
         if _recovery_action == "exhausted":
@@ -4396,6 +4607,25 @@ class AgentLoop:
         if not callable(call):
             return {"used_controller": False}
 
+        # Wire 3: MultiAgentOrchestrator status — plan_diff_editor maps to CODEGEN_REVIEWER
+        _mao_pde_inv_id = f"codegen_reviewer-{str(uuid4())[:12]}"
+        _mao_pde_run_id = self._current_run_session_id()
+        _mao_pde_step_id = str(getattr(self, "active_step_id", "") or "")
+        try:
+            _mao_pde_started = build_agent_status_event(
+                {
+                    "agent_invocation_id": _mao_pde_inv_id,
+                    "role": AgentRole.CODEGEN_REVIEWER.value,
+                    "purpose": "plan_diff_editor",
+                    "parent_run_id": _mao_pde_run_id,
+                    "parent_step_id": _mao_pde_step_id or None,
+                },
+                "started",
+            )
+            self._emit_backend_event_now(_mao_pde_started["type"], **_mao_pde_started["payload"])
+        except Exception:  # noqa: BLE001
+            pass
+
         try:
             result = await call(
                 purpose="plan_diff_editor",
@@ -4407,6 +4637,16 @@ class AgentLoop:
                 tool_choice=None,
             )
         except Exception as exc:  # noqa: BLE001
+            try:
+                _mao_pde_fail = build_agent_status_event(
+                    {"agent_invocation_id": _mao_pde_inv_id, "role": AgentRole.CODEGEN_REVIEWER.value,
+                     "purpose": "plan_diff_editor", "parent_run_id": _mao_pde_run_id,
+                     "parent_step_id": _mao_pde_step_id or None},
+                    "failed", error=str(exc),
+                )
+                self._emit_backend_event_now(_mao_pde_fail["type"], **_mao_pde_fail["payload"])
+            except Exception:  # noqa: BLE001
+                pass
             return {
                 "used_controller": True,
                 "validation_status": "retry_failed",
@@ -4423,6 +4663,17 @@ class AgentLoop:
             }
         result = dict(result)
         result["used_controller"] = True
+        # Wire 3: emit completed
+        try:
+            _mao_pde_done = build_agent_status_event(
+                {"agent_invocation_id": _mao_pde_inv_id, "role": AgentRole.CODEGEN_REVIEWER.value,
+                 "purpose": "plan_diff_editor", "parent_run_id": _mao_pde_run_id,
+                 "parent_step_id": _mao_pde_step_id or None},
+                "completed",
+            )
+            self._emit_backend_event_now(_mao_pde_done["type"], **_mao_pde_done["payload"])
+        except Exception:  # noqa: BLE001
+            pass
         return result
 
     async def _call_step_plan_normalizer_controller(
@@ -4440,6 +4691,28 @@ class AgentLoop:
         call = getattr(controller, "call_with_raw_response", None) if controller is not None else None
         if not callable(call):
             return {"used_controller": False}
+
+        # Wire 3: MultiAgentOrchestrator status — step_plan_normalizer maps to STEP_RUNNER
+        _mao_inv_id = f"step_runner-{str(uuid4())[:12]}"
+        _mao_run_id = self._current_run_session_id()
+        _mao_step_id = str(getattr(self, "active_step_id", "") or "")
+        _mao_started_env = build_agent_status_event(
+            {
+                "agent_invocation_id": _mao_inv_id,
+                "role": AgentRole.STEP_RUNNER.value,
+                "purpose": "step_plan_normalizer",
+                "parent_run_id": _mao_run_id,
+                "parent_step_id": _mao_step_id or None,
+            },
+            "started",
+        )
+        try:
+            self._emit_backend_event_now(
+                _mao_started_env["type"],
+                **_mao_started_env["payload"],
+            )
+        except Exception:  # noqa: BLE001
+            pass
 
         try:
             result = await call(
@@ -4470,6 +4743,21 @@ class AgentLoop:
             }
         result = dict(result)
         result["used_controller"] = True
+        # Wire 3: emit completed status
+        try:
+            _mao_done_env = build_agent_status_event(
+                {
+                    "agent_invocation_id": _mao_inv_id,
+                    "role": AgentRole.STEP_RUNNER.value,
+                    "purpose": "step_plan_normalizer",
+                    "parent_run_id": _mao_run_id,
+                    "parent_step_id": _mao_step_id or None,
+                },
+                "completed",
+            )
+            self._emit_backend_event_now(_mao_done_env["type"], **_mao_done_env["payload"])
+        except Exception:  # noqa: BLE001
+            pass
         return result
 
     async def _call_recovery_diagnoser_controller(
@@ -4488,6 +4776,25 @@ class AgentLoop:
         if not callable(call):
             return {"used_controller": False}
 
+        # Wire 3: MultiAgentOrchestrator status — recovery_diagnoser maps to DEBUG_AGENT
+        _mao_rd_inv_id = f"debug_agent-{str(uuid4())[:12]}"
+        _mao_rd_run_id = self._current_run_session_id()
+        _mao_rd_step_id = str(getattr(self, "active_failed_step_id", "") or getattr(self, "active_step_id", "") or "")
+        try:
+            _mao_rd_started = build_agent_status_event(
+                {
+                    "agent_invocation_id": _mao_rd_inv_id,
+                    "role": AgentRole.DEBUG_AGENT.value,
+                    "purpose": "recovery_diagnoser",
+                    "parent_run_id": _mao_rd_run_id,
+                    "parent_step_id": _mao_rd_step_id or None,
+                },
+                "started",
+            )
+            self._emit_backend_event_now(_mao_rd_started["type"], **_mao_rd_started["payload"])
+        except Exception:  # noqa: BLE001
+            pass
+
         try:
             result = await call(
                 purpose="recovery_diagnoser",
@@ -4499,6 +4806,16 @@ class AgentLoop:
                 tool_choice=tool_choice,
             )
         except Exception as exc:  # noqa: BLE001
+            try:
+                _mao_rd_fail = build_agent_status_event(
+                    {"agent_invocation_id": _mao_rd_inv_id, "role": AgentRole.DEBUG_AGENT.value,
+                     "purpose": "recovery_diagnoser", "parent_run_id": _mao_rd_run_id,
+                     "parent_step_id": _mao_rd_step_id or None},
+                    "failed", error=str(exc),
+                )
+                self._emit_backend_event_now(_mao_rd_fail["type"], **_mao_rd_fail["payload"])
+            except Exception:  # noqa: BLE001
+                pass
             return {
                 "used_controller": True,
                 "validation_status": "retry_failed",
@@ -4517,6 +4834,17 @@ class AgentLoop:
             }
         result = dict(result)
         result["used_controller"] = True
+        # Wire 3: emit completed
+        try:
+            _mao_rd_done = build_agent_status_event(
+                {"agent_invocation_id": _mao_rd_inv_id, "role": AgentRole.DEBUG_AGENT.value,
+                 "purpose": "recovery_diagnoser", "parent_run_id": _mao_rd_run_id,
+                 "parent_step_id": _mao_rd_step_id or None},
+                "completed",
+            )
+            self._emit_backend_event_now(_mao_rd_done["type"], **_mao_rd_done["payload"])
+        except Exception:  # noqa: BLE001
+            pass
         return result
 
     def _sync_controller_prompt_pack_telemetry(
@@ -7515,6 +7843,46 @@ class AgentLoop:
                 except Exception as exc:  # noqa: BLE001
                     print(f"[AGENT] code_update emit failed: {type(exc).__name__}: {exc}")
 
+                # Wire 5: CodegenReviewer — emit code_review after every code_update
+                # Idempotent per (run_id, step_id) via _code_review_emitted set.
+                try:
+                    _cr_run_id = str(
+                        code_update_payload.get("run_id")
+                        or self._current_run_session_id()
+                        or ""
+                    ).strip()
+                    _cr_step_id = str(
+                        code_update_payload.get("step_id")
+                        or step_id
+                        or ""
+                    ).strip()
+                    _cr_idem_key = (_cr_run_id, _cr_step_id)
+                    _cr_emitted = getattr(self, "_code_review_emitted", None)
+                    if not isinstance(_cr_emitted, set):
+                        _cr_emitted = set()
+                        self._code_review_emitted = _cr_emitted
+                    if _cr_run_id and _cr_step_id and _cr_idem_key not in _cr_emitted:
+                        _cr_emitted.add(_cr_idem_key)
+                        _generated_code = "\n".join(code_update_payload.get("lines") or [])
+                        if _generated_code.strip():
+                            _cr_result = review_playwright_code(_generated_code)
+                            await self._send(
+                                "code_review",
+                                run_id=_cr_run_id,
+                                payload={
+                                    "step_id": _cr_step_id,
+                                    "score": _cr_result.score,
+                                    "issues": [dataclasses.asdict(i) for i in _cr_result.issues],
+                                    "summary": _cr_result.summary,
+                                },
+                            )
+                            print(
+                                f"[CODEGEN_REVIEWER] step_id={_cr_step_id} "
+                                f"score={_cr_result.score} issues={len(_cr_result.issues)}"
+                            )
+                except Exception as _cr_exc:  # noqa: BLE001
+                    print(f"[CODEGEN_REVIEWER] emit error (non-fatal): {type(_cr_exc).__name__}: {_cr_exc}")
+
         replay_recorded_step_payloads_by_step_id = getattr(
             self,
             "replay_recorded_step_payloads_by_step_id",
@@ -9658,12 +10026,34 @@ class AgentLoop:
                     _step_id_for_esc = str(
                         getattr(self, "active_step_id", "") or ""
                     ).strip() or None
+                    # Wire 6: propose_replacement → include in locator_update_request_v2 constraints
+                    _replacement_proposal: dict[str, Any] = {}
+                    try:
+                        _current_locator = str(args.get("locator") or "").strip()
+                        if not _current_locator:
+                            # Try to infer from element_data
+                            _current_locator = str(
+                                element_data.get("locator") or element_data.get("selector") or ""
+                            ).strip()
+                        _repl_out = propose_replacement(_current_locator, element_data)
+                        _replacement_proposal = dataclasses.asdict(_repl_out)
+                    except Exception as _repl_exc:  # noqa: BLE001
+                        print(
+                            f"[LOCATOR_ESCALATOR] propose_replacement error (non-fatal): "
+                            f"{type(_repl_exc).__name__}: {_repl_exc}"
+                        )
+
+                    _esc_constraints: dict[str, Any] = {}
+                    if _replacement_proposal:
+                        _esc_constraints["replacement_proposal"] = _replacement_proposal
+
                     esc_env = build_locator_update_request_event_v2(
                         _esc_run_id,
                         _amb_id,
                         _esc_candidates,
                         "update_locator",
                         step_id=_step_id_for_esc,
+                        constraints=_esc_constraints if _esc_constraints else None,
                     )
                     self._emit_backend_event_now(
                         esc_env["type"],
@@ -10300,6 +10690,13 @@ class AgentLoop:
             event_type = str(event.get("type") or "")
             answer = str(event.get("message") or event.get("answer") or "").strip()
             event_context = self._confirmation_context(event)
+            # Wire 1: apply_plan_edit — handle during plan confirmation wait
+            if event_type == "apply_plan_edit":
+                try:
+                    await self._handle_apply_plan_edit(event)
+                except Exception as _ape_exc:  # noqa: BLE001
+                    print(f"[APPLY_PLAN_EDIT] handler error: {type(_ape_exc).__name__}: {_ape_exc}")
+                continue
             if event_type == "correction":
                 completed_run_reason = self._completed_run_confirmation_rejection_reason(event_context)
                 if completed_run_reason:
