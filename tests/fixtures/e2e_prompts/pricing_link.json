@@ -1,0 +1,14 @@
+{
+  "description": "Minimal prompt used by the E2E WS envelope-chain smoke test.",
+  "steps": [
+    {
+      "intent": "click the Pricing link",
+      "expected_outcome": {
+        "type": "navigation",
+        "description": "navigates to the pricing page",
+        "source": "user",
+        "required": true
+      }
+    }
+  ]
+}
