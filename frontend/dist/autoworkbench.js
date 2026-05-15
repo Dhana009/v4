@@ -37914,7 +37914,7 @@ test('pricing page \xB7 sanity', async ({ page }) => {
     root.id = "aw-preview-root";
     container.appendChild(root);
     const r = (0, import_client.createRoot)(root);
-    r.render(/* @__PURE__ */ (0, import_jsx_runtime17.jsx)(PreviewShell, { container }));
+    r.render(/* @__PURE__ */ (0, import_jsx_runtime17.jsx)(App, {}));
     return root;
   }
   window.AutoWorkbench = {

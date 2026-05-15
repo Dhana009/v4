@@ -11,6 +11,7 @@ import "../aw-ide-panel.jsx";
 // Panel-v2 adapter — feature flag + live host (behind shouldUseV2Panel() gate)
 import { shouldUseV2Panel } from "./panel-v2-adapter/feature-flag.js";
 import { PanelV2LiveHost } from "./panel-v2-adapter/live-host.jsx";
+import { App as PanelV2App } from "./panel-v2/app.jsx";
 
 // Cluster 4 layout modules — thin wiring
 import { createHost, unmountHost, SHADOW_HOST_ID, SHADOW_MOUNT_ID } from "./host/host.jsx";
@@ -3669,7 +3670,7 @@ function mountDemo(container = document.body) {
   root.id = "aw-preview-root";
   container.appendChild(root);
   const r = createRoot(root);
-  r.render(<PreviewShell container={container} />);
+  r.render(<PanelV2App />);
   return root;
 }
 
