@@ -26,6 +26,11 @@ PURPOSE_PLANNING_TOOL_NAMES: dict[str, tuple[str, ...]] = {
     "replay_repair_specialist": RECOVERY_ONLY_TOOL_NAMES,
     "user_response_writer": ("ask_user",),
     "trace_summarizer": (),
+    # classifier routing purposes — deterministic, no tools needed
+    "journey_classifier": (),
+    "failure_classifier": (),
+    # agent_fallback — general purpose tool surface for unspecialised agent paths
+    "agent_fallback": STEP_PLAN_TOOL_NAMES,
 }
 
 

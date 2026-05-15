@@ -36,6 +36,11 @@ PURPOSE_MAX_CONTEXT_LEVEL: dict[str, str] = {
     "replay_repair_specialist": "L4",
     "user_response_writer": "L0",
     "trace_summarizer": "L2",
+    # classifier routing purposes — deterministic, no context escalation needed
+    "journey_classifier": "L0",
+    "failure_classifier": "L0",
+    # agent_fallback — general purpose, allow up to L2
+    "agent_fallback": "L2",
 }
 
 # Scopes that are considered "broad" / unscoped (not allowed)

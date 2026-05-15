@@ -39,6 +39,11 @@ PURPOSE_CONTEXT_DEFAULTS: dict[str, str] = {
     "replay_repair_specialist": "L4",
     "user_response_writer": "L0",
     "trace_summarizer": "L2",
+    # classifier routing purposes — deterministic, minimal context needed
+    "journey_classifier": "L0",
+    "failure_classifier": "L0",
+    # agent_fallback — general-purpose, use compact context
+    "agent_fallback": "L1",
 }
 
 

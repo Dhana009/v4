@@ -42,9 +42,11 @@ def test_controller_has_purpose_registry():
 
 
 def test_controller_purpose_registry_has_all_14():
+    # Updated to 17: added journey_classifier, failure_classifier, agent_fallback
+    # per feat(runtime/agent): close LLM Runtime Controller bypass + route classifiers.
     registry = LLMRuntimeController.PURPOSE_REGISTRY
     purposes = set(registry.list_purposes())
-    assert len(purposes) == 14
+    assert len(purposes) == 17
 
 
 def test_controller_raises_for_unknown_purpose():
