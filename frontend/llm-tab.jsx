@@ -158,6 +158,30 @@ function CardRecommendation() {
     { id: "rec_5", t: "FAQ accordion expands when first row clicked",            checked: false, scope: "section.faq .row[0]" },
     { id: "rec_6", t: "Footer status link navigates to status.acme.dev",         checked: true, scope: "footer a[href*=\"status\"]" },
   ]);
+  const [live, setLive] = React.useState(null);
+  React.useEffect(() => {
+    const AW = (typeof window !== 'undefined' && window.AW) || null;
+    if (!AW || typeof AW.on !== 'function') return;
+    const apply = (p) => {
+      const opts = Array.isArray(p.options) ? p.options : [];
+      setLive({ options: opts, rationale: p.rationale });
+      if (opts.length > 0) {
+        setItems(opts.map((o, i) => {
+          const id = (o && (o.id || o.key)) || ('rec_' + (i+1));
+          const t = (o && (o.title || o.t || o.text || o.name)) || String(o);
+          const scope = (o && (o.scope || o.locator)) || '';
+          return { id: String(id), t: String(t), checked: true, scope: String(scope) };
+        }));
+      }
+    };
+    if (AW.lastEvent && AW.lastEvent.type === 'recommendation_ready') {
+      apply(AW.lastEvent.payload || AW.lastEvent);
+    }
+    return AW.on('recommendation_ready', (env) => {
+      const p = (env && (env.payload || env)) || {};
+      apply(p);
+    });
+  }, []);
   const toggle = (id) => setItems(items.map(i => i.id === id ? {...i, checked: !i.checked} : i));
   return (
     <div className="aw-card plan needs-input">
@@ -165,13 +189,15 @@ function CardRecommendation() {
         <span className="aw-card-icon"><I.Layers/></span>
         <span className="aw-card-title">Recommended assertions</span>
         <span className="aw-card-state">Review</span>
-        <span className="aw-card-source llm"><span className="src-dot"/>LLM proposal · not executable</span>
+        <span className="aw-card-source llm"><span className="src-dot"/>{live ? 'LLM live' : 'LLM proposal · not executable'}</span>
       </div>
       <div className="aw-card-body">
-        <p style={{color:"var(--tx-2)", fontSize:12}}>
+        {live && live.rationale
+          ? <p style={{color:"var(--tx-2)", fontSize:12}}>{String(live.rationale)}</p>
+          : <p style={{color:"var(--tx-2)", fontSize:12}}>
           Based on DOM analysis I found a hero, a 3-card pricing grid, a 4-row FAQ, and a footer.
           Pick the ones to assert — you can also ask for a specific Pro plan price below.
-        </p>
+        </p>}
         <div style={{display:"flex",flexDirection:"column",gap:2,marginTop:8}}>
           {items.map((it, idx) => (
             <label key={it.id} style={{
@@ -264,6 +290,81 @@ function CardPlanDiff() {
 }
 
 function CardPlanReady({ status = "ready" }) {
+  const [live, setLive] = React.useState(null);
+  React.useEffect(() => {
+    const AW = (typeof window !== 'undefined' && window.AW) || null;
+    if (!AW || typeof AW.on !== 'function') return;
+    if (AW.lastEvent && AW.lastEvent.type === 'plan_ready') {
+      const p = AW.lastEvent.payload || AW.lastEvent;
+      setLive({ run_id: p.run_id, plan: p.plan, steps: Array.isArray(p.steps) ? p.steps : (p.plan && Array.isArray(p.plan.steps) ? p.plan.steps : []), summary: p.summary });
+    }
+    return AW.on('plan_ready', (env) => {
+      const p = (env && (env.payload || env)) || {};
+      setLive({ run_id: p.run_id, plan: p.plan, steps: Array.isArray(p.steps) ? p.steps : (p.plan && Array.isArray(p.plan.steps) ? p.plan.steps : []), summary: p.summary });
+    });
+  }, []);
+  if (live && Array.isArray(live.steps) && live.steps.length > 0) {
+    return (
+      <div className="aw-card plan needs-input">
+        <div className="aw-card-head">
+          <span className="aw-card-icon"><I.Layers/></span>
+          <span className="aw-card-title">Plan ready{live.summary ? ' · ' + live.summary : ''}</span>
+          <span className="aw-card-state">Confirm to run</span>
+          <span className="aw-card-source backend"><span className="src-dot"/>Backend event · plan_ready</span>
+        </div>
+        <div className="aw-card-body" style={{paddingBottom:6}}>
+          <div style={{display:"grid", gridTemplateColumns:"1fr 1fr 1fr", gap:8, marginBottom:8}}>
+            <div className="aw-status-pill" style={{justifySelf:"start"}}><span className="aw-dot" style={{background:"var(--blu)"}}/><span className="k">steps</span><span className="v">{live.steps.length}</span></div>
+            <div className="aw-status-pill" style={{justifySelf:"start"}}><span className="aw-dot" style={{background:"var(--vio)"}}/><span className="k">run</span><span className="v">{live.run_id || '—'}</span></div>
+            <div className="aw-status-pill" style={{justifySelf:"start"}}><span className="aw-dot" style={{background:"var(--grn)"}}/><span className="k">live</span><span className="v">yes</span></div>
+          </div>
+          {live.steps.map((s, i) => {
+            const title = (s && (s.title || s.name || s.description || s.action)) || ('Step ' + (i+1));
+            const sid = (s && (s.step_id || s.id)) || '';
+            const scope = (s && (s.scope || s.locator)) || '';
+            return (
+              <div key={i} className="aw-step pending">
+                <span className="aw-step-idx">{i+1}</span>
+                <div className="aw-step-main">
+                  <div className="aw-step-title">{String(title)} {sid ? <span className="id">{String(sid)}</span> : null}</div>
+                  {scope ? <div className="aw-step-meta"><span>scope: <span className="mono">{String(scope)}</span></span></div> : null}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+        <div className="aw-card-foot">
+          <button className="aw-btn primary"
+                  onClick={() => {
+                    const AW = (typeof window !== 'undefined' && window.AW) || null;
+                    if (AW && typeof AW.send === 'function') {
+                      AW.send({ type: 'confirmed' });
+                    }
+                  }}>
+            <I.Play/>Confirm &amp; run<span className="aw-kbd">⌘↵</span>
+          </button>
+          <button className="aw-btn"
+                  onClick={() => {
+                    const ta = document.querySelector('textarea.aw-composer-input');
+                    if (ta) { ta.focus(); ta.value = 'Revise plan: '; ta.setSelectionRange(ta.value.length, ta.value.length); }
+                  }}>
+            <I.Diff/>Edit plan
+          </button>
+          <button className="aw-btn subtle"
+                  onClick={() => {
+                    const AW = (typeof window !== 'undefined' && window.AW) || null;
+                    if (AW && typeof AW.send === 'function') {
+                      AW.send({ type: 'correction', message: 'Run only the first 3 steps.' });
+                    }
+                  }}>
+            Run first 3 only
+          </button>
+          <span style={{flex:1}}/>
+          <span style={{fontSize:11,color:"var(--tx-4)"}}>Backend will validate locators before execution</span>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="aw-card plan needs-input">
       <div className="aw-card-head">
@@ -392,21 +493,41 @@ function CardPlanReady({ status = "ready" }) {
 }
 
 function CardPermission() {
+  const [live, setLive] = React.useState(null);
+  React.useEffect(() => {
+    const AW = (typeof window !== 'undefined' && window.AW) || null;
+    if (!AW || typeof AW.on !== 'function') return;
+    if (AW.lastEvent && AW.lastEvent.type === 'permission_required') {
+      const p = AW.lastEvent.payload || AW.lastEvent;
+      setLive({ action: p.action, risk: p.risk, scope: p.scope, rationale: p.rationale });
+    }
+    return AW.on('permission_required', (env) => {
+      const p = (env && (env.payload || env)) || {};
+      setLive({ action: p.action, risk: p.risk, scope: p.scope, rationale: p.rationale });
+    });
+  }, []);
   return (
     <div className="aw-card perm needs-input">
       <div className="aw-card-head">
         <span className="aw-card-icon"><I.Shield/></span>
-        <span className="aw-card-title">Permission required · medium-risk action</span>
+        <span className="aw-card-title">Permission required{live && live.risk ? ' · ' + String(live.risk) + ' action' : ' · medium-risk action'}</span>
         <span className="aw-card-state" style={{background:"var(--ylw-soft)",color:"#7A5A0E",borderColor:"#ECD89A"}}>Decision required</span>
-        <span className="aw-card-source backend"><span className="src-dot"/>policy · balanced</span>
+        <span className="aw-card-source backend"><span className="src-dot"/>{live ? 'policy · live' : 'policy · balanced'}</span>
       </div>
       <div className="aw-card-body">
-        <div className="aw-fail-grid">
+        {live
+          ? <div className="aw-fail-grid">
+              <div className="k">operation</div><div className="v mono">{live.action ? String(live.action) : '—'}</div>
+              <div className="k">scope</div><div className="v">{live.scope ? String(live.scope) : '—'}</div>
+              <div className="k">risk</div><div className="v">{live.risk ? <span className="aw-badge-i warn"><span className="ldot"/>{String(live.risk)}</span> : '—'}</div>
+              <div className="k">why</div><div className="v">{live.rationale ? String(live.rationale) : '—'}</div>
+            </div>
+          : <div className="aw-fail-grid">
           <div className="k">operation</div><div className="v mono">page.click("a.btn.primary[Get started]")</div>
           <div className="k">on step</div><div className="v">stp_d8e2 · CTA buttons enabled</div>
           <div className="k">risk</div><div className="v"><span className="aw-badge-i warn"><span className="ldot"/>navigation</span> · may leave /pricing</div>
           <div className="k">why</div><div className="v">Verifying enabled state requires actuating the button. The CTA may navigate to /signup.</div>
-        </div>
+        </div>}
       </div>
       <div className="aw-card-foot" style={{flexWrap:"wrap"}}>
         <button className="aw-btn primary"
@@ -451,6 +572,61 @@ function CardPermission() {
 }
 
 function CardExecution() {
+  const [live, setLive] = React.useState(null);
+  React.useEffect(() => {
+    const AW = (typeof window !== 'undefined' && window.AW) || null;
+    if (!AW || typeof AW.on !== 'function') return;
+    if (AW.lastEvent && AW.lastEvent.type === 'step_executing') {
+      const p = AW.lastEvent.payload || AW.lastEvent;
+      setLive({ step_id: p.step_id, action: p.action, locator: p.locator, current_index: p.current_index, total: p.total });
+    }
+    return AW.on('step_executing', (env) => {
+      const p = (env && (env.payload || env)) || {};
+      setLive({ step_id: p.step_id, action: p.action, locator: p.locator, current_index: p.current_index, total: p.total });
+    });
+  }, []);
+  if (live) {
+    const idx = live.current_index != null ? live.current_index : '?';
+    const tot = live.total != null ? live.total : '?';
+    return (
+      <div className="aw-card exec running">
+        <div className="aw-card-head">
+          <span className="aw-card-icon"><I.Play/></span>
+          <span className="aw-card-title">Executing plan</span>
+          <span className="aw-card-state">Step {String(idx)} of {String(tot)}</span>
+          <span className="aw-card-source backend"><span className="src-dot"/>Step Runner · live</span>
+        </div>
+        <div className="aw-card-body">
+          <div className="aw-prog" style={{marginBottom:10}}/>
+          <div className="aw-step run">
+            <span className="aw-step-idx">{String(idx)}</span>
+            <div className="aw-step-main">
+              <div className="aw-step-title">{live.action ? String(live.action) : 'Executing step'} {live.step_id ? <span className="id">{String(live.step_id)}</span> : null}</div>
+              {live.locator ? <div className="aw-step-meta"><span>locator <span className="mono">{String(live.locator)}</span></span></div> : null}
+            </div>
+          </div>
+        </div>
+        <div className="aw-card-foot">
+          <button className="aw-btn"
+                  onClick={() => {
+                    const AW = (typeof window !== 'undefined' && window.AW) || null;
+                    if (AW && typeof AW.send === 'function') AW.send({ type: 'pause' });
+                  }}>
+            <I.Pause style={{width:11,height:11}}/>Pause
+          </button>
+          <button className="aw-btn danger"
+                  onClick={() => {
+                    const AW = (typeof window !== 'undefined' && window.AW) || null;
+                    if (AW && typeof AW.send === 'function') AW.send({ type: 'stop_run' });
+                  }}>
+            <I.Stop style={{width:11,height:11}}/>Stop run
+          </button>
+          <span style={{flex:1}}/>
+          <span style={{fontSize:11,color:"var(--tx-3)"}}>Tail traces in <button className="aw-link">Trace</button> · evidence in <button className="aw-link">Recorded</button></span>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="aw-card exec running">
       <div className="aw-card-head">
@@ -534,7 +710,35 @@ function CardExecution() {
 function CardLocatorAmbiguity() {
   const [pick, setPick] = useStateLlm("hero");
   const [showDiag, setShowDiag] = useStateLlm(false);
-  const cands = [
+  const [live, setLive] = React.useState(null);
+  React.useEffect(() => {
+    const AW = (typeof window !== 'undefined' && window.AW) || null;
+    if (!AW || typeof AW.on !== 'function') return;
+    const apply = (p) => {
+      setLive({
+        candidates: Array.isArray(p.candidates) ? p.candidates : [],
+        ambiguity_id: p.ambiguity_id,
+        current_locator: p.current_locator,
+      });
+    };
+    if (AW.lastEvent && (AW.lastEvent.type === 'locator_update_request' || AW.lastEvent.type === 'locator_candidates_ready')) {
+      apply(AW.lastEvent.payload || AW.lastEvent);
+    }
+    const off1 = AW.on('locator_update_request', (env) => apply((env && (env.payload || env)) || {}));
+    const off2 = AW.on('locator_candidates_ready', (env) => apply((env && (env.payload || env)) || {}));
+    return () => { if (typeof off1 === 'function') off1(); if (typeof off2 === 'function') off2(); };
+  }, []);
+  const cands = (live && live.candidates && live.candidates.length > 0)
+    ? live.candidates.map((c, i) => ({
+        id: String((c && (c.id || c.candidate_id)) || ('cand_' + i)),
+        t: String((c && (c.title || c.t || c.name || c.label)) || ('Candidate ' + (i+1))),
+        scope: String((c && (c.scope || c.locator || c.selector)) || ''),
+        conf: typeof (c && c.confidence) === 'number' ? c.confidence : (typeof (c && c.conf) === 'number' ? c.conf : 0.5),
+        risk: String((c && c.risk) || 'medium'),
+        preview: String((c && (c.preview || c.code || c.locator)) || ''),
+        diag: String((c && (c.diag || c.diagnostics || c.rationale)) || ''),
+      }))
+    : [
     { id:"header", t:'Header CTA — "Get started"', scope:"nav.ws-topnav .cta",         conf:0.92, risk:"safe-read",
       preview:'getByRole(\'link\', { name: \'Get started\' }).first()',
       diag:'role=link · accessible name unique · stable across renders · no positional fallback',
@@ -548,8 +752,9 @@ function CardLocatorAmbiguity() {
       diag:'positional nth() · breaks if a plan card is added or reordered',
     },
   ];
-  const pickedIdx = cands.findIndex(c => c.id === pick);
-  const picked = cands[pickedIdx];
+  const pickedIdxRaw = cands.findIndex(c => c.id === pick);
+  const pickedIdx = pickedIdxRaw >= 0 ? pickedIdxRaw : 0;
+  const picked = cands[pickedIdx] || { id:'', t:'', scope:'', conf:0, risk:'', preview:'', diag:'' };
   return (
     <div className="aw-card locator blocking">
       <div className="aw-card-head">
@@ -665,16 +870,34 @@ function CardLocatorAmbiguity() {
 }
 
 function CardRecovery() {
+  const [live, setLive] = React.useState(null);
+  React.useEffect(() => {
+    const AW = (typeof window !== 'undefined' && window.AW) || null;
+    if (!AW || typeof AW.on !== 'function') return;
+    const apply = (p) => setLive({ failure_class: p.failure_class, suggestion: p.suggestion, failed_step: p.failed_step });
+    if (AW.lastEvent && (AW.lastEvent.type === 'recovery_needed' || AW.lastEvent.type === 'recovery_needed_structured')) {
+      apply(AW.lastEvent.payload || AW.lastEvent);
+    }
+    const off1 = AW.on('recovery_needed', (env) => apply((env && (env.payload || env)) || {}));
+    const off2 = AW.on('recovery_needed_structured', (env) => apply((env && (env.payload || env)) || {}));
+    return () => { if (typeof off1 === 'function') off1(); if (typeof off2 === 'function') off2(); };
+  }, []);
   return (
     <div className="aw-card recover blocking">
       <div className="aw-card-head">
         <span className="aw-card-icon"><I.Alert/></span>
-        <span className="aw-card-title">Recovery needed · step 5</span>
+        <span className="aw-card-title">Recovery needed{live && live.failed_step ? ' · ' + String((live.failed_step && (live.failed_step.id || live.failed_step.step_id)) || live.failed_step) : ' · step 5'}</span>
         <span className="aw-card-state">Run blocked</span>
-        <span className="aw-card-source backend"><span className="src-dot"/>Debug Agent · 1 attempt left</span>
+        <span className="aw-card-source backend"><span className="src-dot"/>{live ? 'Debug Agent · live' : 'Debug Agent · 1 attempt left'}</span>
       </div>
       <div className="aw-card-body">
-        <div className="aw-fail-grid">
+        {live
+          ? <div className="aw-fail-grid">
+              <div className="k">step</div><div className="v">{live.failed_step ? String((live.failed_step && (live.failed_step.title || live.failed_step.id || live.failed_step.step_id)) || JSON.stringify(live.failed_step)) : '—'}</div>
+              <div className="k">failure</div><div className="v mono">{live.failure_class ? String(live.failure_class) : '—'}</div>
+              <div className="k">suggestion</div><div className="v">{live.suggestion ? String(live.suggestion) : '—'}</div>
+            </div>
+          : <div className="aw-fail-grid">
           <div className="k">step</div><div className="v">stp_e1f4 · Pro price equals "$49 / mo"</div>
           <div className="k">operation</div><div className="v mono">expect(locator).toHaveText('$49 / mo')</div>
           <div className="k">expected</div><div className="v mono" style={{color:"#2F6B3D"}}>"$49 / mo"</div>
@@ -685,14 +908,14 @@ function CardRecovery() {
             <button className="aw-link"><I.Doc style={{width:11,height:11,display:"inline",marginRight:3,verticalAlign:"-1px"}}/>trace.zip</button>
             <button className="aw-link"><I.Trace style={{width:11,height:11,display:"inline",marginRight:3,verticalAlign:"-1px"}}/>open trace</button>
           </div>
-        </div>
+        </div>}
 
-        <div className="aw-card-section-title">Recovery attempts</div>
+        {!live ? <React.Fragment><div className="aw-card-section-title">Recovery attempts</div>
         <ul className="aw-dotlist">
           <li className="no">deterministic retry × 2 — same text returned</li>
           <li className="no">whitespace normalization — heuristic disabled by policy</li>
           <li className="ok">LLM repair available: relax to <span style={{fontFamily:"var(--ff-mono)",color:"var(--tx)"}}>toContainText("$49")</span></li>
-        </ul>
+        </ul></React.Fragment> : null}
       </div>
       <div className="aw-card-foot" style={{flexWrap:"wrap"}}>
         <button className="aw-btn primary"
@@ -742,21 +965,41 @@ function CardRecovery() {
 }
 
 function CardCompleted() {
+  const [live, setLive] = React.useState(null);
+  React.useEffect(() => {
+    const AW = (typeof window !== 'undefined' && window.AW) || null;
+    if (!AW || typeof AW.on !== 'function') return;
+    if (AW.lastEvent && AW.lastEvent.type === 'run_completed') {
+      const p = AW.lastEvent.payload || AW.lastEvent;
+      setLive({ run_id: p.run_id, steps_completed: p.steps_completed, duration: p.duration, status: p.status });
+    }
+    return AW.on('run_completed', (env) => {
+      const p = (env && (env.payload || env)) || {};
+      setLive({ run_id: p.run_id, steps_completed: p.steps_completed, duration: p.duration, status: p.status });
+    });
+  }, []);
   return (
     <div className="aw-card done">
       <div className="aw-card-head">
         <span className="aw-card-icon"><I.Check/></span>
-        <span className="aw-card-title">Run completed</span>
-        <span className="aw-card-state">6 / 6 recorded</span>
+        <span className="aw-card-title">Run completed{live && live.run_id ? ' · ' + String(live.run_id) : ''}</span>
+        <span className="aw-card-state">{live && live.steps_completed != null ? String(live.steps_completed) + ' recorded' : '6 / 6 recorded'}</span>
         <span className="aw-card-source backend"><span className="src-dot"/>Backend event · run_completed</span>
       </div>
       <div className="aw-card-body">
-        <div style={{display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:8, marginBottom:10}}>
+        {live
+          ? <div style={{display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:8, marginBottom:10}}>
+              <div className="aw-status-pill" style={{justifySelf:"start"}}><span className="aw-dot" style={{background:"var(--grn)"}}/><span className="k">status</span><span className="v">{live.status ? String(live.status) : '—'}</span></div>
+              <div className="aw-status-pill" style={{justifySelf:"start"}}><span className="aw-dot" style={{background:"var(--blu)"}}/><span className="k">steps</span><span className="v">{live.steps_completed != null ? String(live.steps_completed) : '—'}</span></div>
+              <div className="aw-status-pill" style={{justifySelf:"start"}}><span className="aw-dot" style={{background:"var(--vio)"}}/><span className="k">run</span><span className="v">{live.run_id ? String(live.run_id) : '—'}</span></div>
+              <div className="aw-status-pill" style={{justifySelf:"start"}}><span className="aw-dot" style={{background:"var(--ylw)"}}/><span className="k">elapsed</span><span className="v">{live.duration != null ? String(live.duration) : '—'}</span></div>
+            </div>
+          : <div style={{display:"grid", gridTemplateColumns:"repeat(4, 1fr)", gap:8, marginBottom:10}}>
           <div className="aw-status-pill" style={{justifySelf:"start"}}><span className="aw-dot" style={{background:"var(--grn)"}}/><span className="k">passed</span><span className="v">5</span></div>
           <div className="aw-status-pill" style={{justifySelf:"start"}}><span className="aw-dot" style={{background:"var(--ylw)"}}/><span className="k">repaired</span><span className="v">1</span></div>
           <div className="aw-status-pill" style={{justifySelf:"start"}}><span className="aw-dot" style={{background:"var(--red)"}}/><span className="k">failed</span><span className="v">0</span></div>
           <div className="aw-status-pill" style={{justifySelf:"start"}}><span className="aw-dot" style={{background:"var(--blu)"}}/><span className="k">elapsed</span><span className="v">31.2s</span></div>
-        </div>
+        </div>}
         <ul className="aw-dotlist">
           <li className="ok"><span className="sec">Recorded</span>6 parent steps · 11 child operations</li>
           <li className="ok"><span className="sec">Code</span>updated <span style={{fontFamily:"var(--ff-mono)"}}>tests/pricing.spec.ts</span> · +47 lines</li>
@@ -816,13 +1059,33 @@ function CardCompleted() {
 }
 
 function CardOffline() {
+  const [live, setLive] = React.useState(null);
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const AW = window.AW || null;
+    const read = () => {
+      const cur = window.AW || null;
+      setLive({ connection: cur && cur.connection, lastEventType: cur && cur.lastEvent && cur.lastEvent.type });
+    };
+    if (AW) read();
+    const handler = () => read();
+    window.addEventListener('aw:set', handler);
+    let off = null;
+    if (AW && typeof AW.on === 'function') {
+      off = AW.on('*', handler);
+    }
+    return () => {
+      window.removeEventListener('aw:set', handler);
+      if (typeof off === 'function') off();
+    };
+  }, []);
   return (
     <div className="aw-card recover blocking">
       <div className="aw-card-head">
         <span className="aw-card-icon"><I.Plug/></span>
         <span className="aw-card-title">Backend unavailable</span>
-        <span className="aw-card-state">Holding state</span>
-        <span className="aw-card-source backend"><span className="src-dot"/>ws disconnected · 14s</span>
+        <span className="aw-card-state">{live && live.connection ? 'Connection: ' + String(live.connection) : 'Holding state'}</span>
+        <span className="aw-card-source backend"><span className="src-dot"/>{live && live.connection ? 'transport · ' + String(live.connection) : 'ws disconnected · 14s'}</span>
       </div>
       <div className="aw-card-body">
         <p style={{margin:"0 0 6px"}}>The frontend lost its websocket to <span style={{fontFamily:"var(--ff-mono)"}}>autoworkbench-runner</span> 14s ago. <b>I will not infer success or failure of in-flight steps.</b></p>
@@ -877,21 +1140,45 @@ function CardOffline() {
 }
 
 function CardSchemaError() {
+  const [live, setLive] = React.useState(null);
+  React.useEffect(() => {
+    const AW = (typeof window !== 'undefined' && window.AW) || null;
+    if (!AW || typeof AW.on !== 'function') return;
+    const apply = (p, type) => setLive({ purpose: p.purpose, error: p.error, raw: p.raw, kind: type });
+    if (AW.lastEvent && (AW.lastEvent.type === 'schema_error' || AW.lastEvent.type === 'provider_error' || AW.lastEvent.type === 'malformed_output_error')) {
+      apply(AW.lastEvent.payload || AW.lastEvent, AW.lastEvent.type);
+    }
+    const off1 = AW.on('schema_error', (env) => apply((env && (env.payload || env)) || {}, 'schema_error'));
+    const off2 = AW.on('provider_error', (env) => apply((env && (env.payload || env)) || {}, 'provider_error'));
+    const off3 = AW.on('malformed_output_error', (env) => apply((env && (env.payload || env)) || {}, 'malformed_output_error'));
+    return () => { if (typeof off1 === 'function') off1(); if (typeof off2 === 'function') off2(); if (typeof off3 === 'function') off3(); };
+  }, []);
   return (
     <div className="aw-card warn blocking">
       <div className="aw-card-head">
         <span className="aw-card-icon"><I.Alert/></span>
-        <span className="aw-card-title">Schema validation failed</span>
+        <span className="aw-card-title">{live && live.kind === 'provider_error' ? 'Provider error' : (live && live.kind === 'malformed_output_error' ? 'Malformed output' : 'Schema validation failed')}</span>
         <span className="aw-card-state">Nothing executed</span>
-        <span className="aw-card-source llm"><span className="src-dot"/>llm_response_invalid</span>
+        <span className="aw-card-source llm"><span className="src-dot"/>{live ? String(live.kind || 'llm_response_invalid') : 'llm_response_invalid'}</span>
       </div>
       <div className="aw-card-body">
+        {live
+          ? <React.Fragment>
+              <p style={{margin:"0 0 6px", fontSize:12.5}}>{live.purpose ? 'During ' : ''}{live.purpose ? <span style={{fontFamily:"var(--ff-mono)"}}>{String(live.purpose)}</span> : null} the backend reported an error. Nothing was executed.</p>
+              <div className="aw-fail-grid">
+                <div className="k">purpose</div> <div className="v mono">{live.purpose ? String(live.purpose) : '—'}</div>
+                <div className="k">error</div>   <div className="v mono">{live.error ? String(live.error) : '—'}</div>
+                <div className="k">raw</div>     <div className="v mono" style={{whiteSpace:"pre-wrap",maxHeight:160,overflow:"auto"}}>{live.raw ? (typeof live.raw === 'string' ? live.raw : JSON.stringify(live.raw, null, 2)) : '—'}</div>
+              </div>
+            </React.Fragment>
+          : <React.Fragment>
         <p style={{margin:"0 0 6px", fontSize:12.5}}>The LLM returned a plan that does not match <span style={{fontFamily:"var(--ff-mono)"}}>plan.v3.schema.json</span>. Nothing was executed.</p>
         <div className="aw-fail-grid">
           <div className="k">at</div>          <div className="v mono">$.steps[2].operations[0].kind</div>
           <div className="k">expected</div>    <div className="v mono">one of: assert | click | fill | navigate | wait</div>
           <div className="k">received</div>    <div className="v mono">"check-presence"  <span style={{color:"var(--tx-3)"}}>(unknown)</span></div>
         </div>
+          </React.Fragment>}
       </div>
       <div className="aw-card-foot">
         <button className="aw-btn primary"
@@ -936,16 +1223,31 @@ function CardSchemaError() {
 // — Additional state cards: no browser, api key missing, OTP, paid E2E pending ——
 
 function CardNoBrowser() {
+  const [live, setLive] = React.useState(null);
+  React.useEffect(() => {
+    const AW = (typeof window !== 'undefined' && window.AW) || null;
+    if (!AW || typeof AW.on !== 'function') return;
+    if (AW.lastEvent && AW.lastEvent.type === 'no_browser') {
+      const p = AW.lastEvent.payload || AW.lastEvent;
+      setLive({ reason: p.reason });
+    }
+    return AW.on('no_browser', (env) => {
+      const p = (env && (env.payload || env)) || {};
+      setLive({ reason: p.reason });
+    });
+  }, []);
   return (
     <div className="aw-card recover blocking">
       <div className="aw-card-head">
         <span className="aw-card-icon"><I.Globe/></span>
         <span className="aw-card-title">No browser session attached</span>
         <span className="aw-card-state">Cannot start run</span>
-        <span className="aw-card-source backend"><span className="src-dot"/>Step Runner · idle</span>
+        <span className="aw-card-source backend"><span className="src-dot"/>{live ? 'Step Runner · live' : 'Step Runner · idle'}</span>
       </div>
       <div className="aw-card-body">
-        <p style={{margin:"0 0 6px"}}>Backend is connected, but there is no Playwright browser context to drive. Plan was drafted but cannot be executed.</p>
+        {live && live.reason
+          ? <p style={{margin:"0 0 6px"}}>{String(live.reason)}</p>
+          : <p style={{margin:"0 0 6px"}}>Backend is connected, but there is no Playwright browser context to drive. Plan was drafted but cannot be executed.</p>}
         <ul className="aw-dotlist">
           <li className="no">no active context · <span style={{fontFamily:"var(--ff-mono)"}}>browserType: chromium</span> requested</li>
           <li>page intelligence cache available · 14s old</li>
@@ -991,21 +1293,44 @@ function CardNoBrowser() {
 }
 
 function CardApiKey() {
+  const [live, setLive] = React.useState(null);
+  React.useEffect(() => {
+    const AW = (typeof window !== 'undefined' && window.AW) || null;
+    if (!AW || typeof AW.on !== 'function') return;
+    if (AW.lastEvent && AW.lastEvent.type === 'api_key_required') {
+      const p = AW.lastEvent.payload || AW.lastEvent;
+      setLive({ provider: p.provider, message: p.message });
+    }
+    return AW.on('api_key_required', (env) => {
+      const p = (env && (env.payload || env)) || {};
+      setLive({ provider: p.provider, message: p.message });
+    });
+  }, []);
   return (
     <div className="aw-card warn blocking">
       <div className="aw-card-head">
         <span className="aw-card-icon"><I.Key/></span>
-        <span className="aw-card-title">LLM provider key missing</span>
+        <span className="aw-card-title">LLM provider key missing{live && live.provider ? ' · ' + String(live.provider) : ''}</span>
         <span className="aw-card-state">No model calls possible</span>
-        <span className="aw-card-source backend"><span className="src-dot"/>config · auth</span>
+        <span className="aw-card-source backend"><span className="src-dot"/>{live ? 'config · live' : 'config · auth'}</span>
       </div>
       <div className="aw-card-body">
+        {live
+          ? <React.Fragment>
+              <p style={{margin:"0 0 6px"}}>{live.message ? String(live.message) : 'A model provider key is required.'}</p>
+              <div className="aw-fail-grid">
+                <div className="k">provider</div> <div className="v mono">{live.provider ? String(live.provider) : '—'}</div>
+                <div className="k">impact</div>   <div className="v">planning, clarification, repair, codegen reviewer all paused</div>
+              </div>
+            </React.Fragment>
+          : <React.Fragment>
         <p style={{margin:"0 0 6px"}}>The Main Orchestrator agent needs a model provider key to draft plans or repairs. Backend lifecycle continues to flow but no new LLM calls can be made.</p>
         <div className="aw-fail-grid">
           <div className="k">missing</div> <div className="v mono">ANTHROPIC_API_KEY <span style={{color:"var(--tx-3)"}}>or</span> OPENAI_API_KEY</div>
           <div className="k">policy</div>  <div className="v">workspace · Acme QA · keys not in env</div>
           <div className="k">impact</div>  <div className="v">planning, clarification, repair, codegen reviewer all paused</div>
         </div>
+          </React.Fragment>}
       </div>
       <div className="aw-card-foot">
         <button className="aw-btn primary"
