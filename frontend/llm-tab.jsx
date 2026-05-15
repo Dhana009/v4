@@ -382,11 +382,42 @@ function CardPermission() {
         </div>
       </div>
       <div className="aw-card-foot" style={{flexWrap:"wrap"}}>
-        <button className="aw-btn primary"><I.Check/>Allow once</button>
-        <button className="aw-btn">Allow for this plan</button>
+        <button className="aw-btn primary"
+                onClick={() => {
+                  // T-9: Allow once → typed permission_decision with
+                  // scope=once. Backend server.py:767 routes through
+                  // normalize_frontend_command + control_queue.
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  if (AW && typeof AW.send === 'function') {
+                    AW.send({ type: 'permission_decision', answer: 'allow', value: 'allow', scope: 'once' });
+                  }
+                }}>
+          <I.Check/>Allow once
+        </button>
+        <button className="aw-btn"
+                onClick={() => {
+                  // T-9: Allow for this plan → typed permission_decision
+                  // with scope=run (entire current run).
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  if (AW && typeof AW.send === 'function') {
+                    AW.send({ type: 'permission_decision', answer: 'allow', value: 'allow', scope: 'run' });
+                  }
+                }}>
+          Allow for this plan
+        </button>
         <span style={{flex:1}}/>
         <button className="aw-btn subtle"><I.More/></button>
-        <button className="aw-btn danger"><I.Stop style={{width:11,height:11}}/>Deny</button>
+        <button className="aw-btn danger"
+                onClick={() => {
+                  // T-9: Deny → typed permission_decision with scope=deny.
+                  // Backend pauses the run pending user action.
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  if (AW && typeof AW.send === 'function') {
+                    AW.send({ type: 'permission_decision', answer: 'deny', value: 'deny', scope: 'deny' });
+                  }
+                }}>
+          <I.Stop style={{width:11,height:11}}/>Deny
+        </button>
       </div>
     </div>
   );
