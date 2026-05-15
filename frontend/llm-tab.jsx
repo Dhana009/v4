@@ -272,9 +272,40 @@ function CardPlanReady({ status = "ready" }) {
         </div>
       </div>
       <div className="aw-card-foot">
-        <button className="aw-btn primary"><I.Play/>Confirm &amp; run<span className="aw-kbd">⌘↵</span></button>
-        <button className="aw-btn"><I.Diff/>Edit plan</button>
-        <button className="aw-btn subtle">Run first 3 only</button>
+        <button className="aw-btn primary"
+                onClick={() => {
+                  // T-3: Confirm & run → typed `confirmed` command. Backend
+                  // routes through control_queue and resumes the run.
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  if (AW && typeof AW.send === 'function') {
+                    AW.send({ type: 'confirmed' });
+                  }
+                }}>
+          <I.Play/>Confirm &amp; run<span className="aw-kbd">⌘↵</span>
+        </button>
+        <button className="aw-btn"
+                onClick={() => {
+                  // T-3: Edit plan → focus composer so the user can type a
+                  // correction. A future task may swap to a dedicated edit
+                  // modal once the spec ambiguity is resolved.
+                  const ta = document.querySelector('textarea.aw-composer-input');
+                  if (ta) { ta.focus(); ta.value = 'Revise plan: '; ta.setSelectionRange(ta.value.length, ta.value.length); }
+                }}>
+          <I.Diff/>Edit plan
+        </button>
+        <button className="aw-btn subtle"
+                onClick={() => {
+                  // T-3: Run first 3 → send as a free-text correction. A
+                  // typed slice payload is deferred per integration map §10
+                  // (open spec ambiguity #8); this keeps the backend in
+                  // charge of interpreting the partial-run intent.
+                  const AW = (typeof window !== 'undefined' && window.AW) || null;
+                  if (AW && typeof AW.send === 'function') {
+                    AW.send({ type: 'correction', message: 'Run only the first 3 steps.' });
+                  }
+                }}>
+          Run first 3 only
+        </button>
         <span style={{flex:1}}/>
         <span style={{fontSize:11,color:"var(--tx-4)"}}>Backend will validate locators before execution</span>
       </div>
